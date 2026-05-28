@@ -111,14 +111,40 @@ export function PendingMembershipsQueue({ business }: { business: Business }) {
   }
 
   return (
-    <div className="rounded-2xl border bg-white">
-      <div className="px-4 py-3 border-b flex items-center justify-between">
+    <div
+      className="rounded-2xl overflow-hidden shadow-md"
+      style={{
+        // CP-35: heavy gold-plated container — distinct from the white
+        // standard cards so a pending membership feels VIP at a glance.
+        background: "linear-gradient(180deg, #fffbeb 0%, #ffffff 35%, #ffffff 100%)",
+        border: "1px solid #fde68a",
+        boxShadow: "0 4px 14px -4px rgba(217, 119, 6, 0.25)",
+      }}
+    >
+      <div
+        className="px-4 py-3 border-b flex items-center justify-between"
+        style={{
+          // Gold-plated header with subtle metallic gradient
+          background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fbbf24 100%)",
+          borderBottomColor: "#f59e0b40",
+        }}
+      >
         <div className="flex items-center gap-2">
-          <Crown className="h-4 w-4 text-amber-500 fill-amber-300" />
-          <h3 className="font-semibold text-sm">Pending memberships</h3>
+          <div
+            className="h-7 w-7 rounded-full flex items-center justify-center shadow-inner"
+            style={{
+              background: "linear-gradient(135deg, #fff 0%, #fbbf24 60%, #b45309 100%)",
+            }}
+          >
+            <Crown className="h-3.5 w-3.5 text-amber-900 fill-amber-200" />
+          </div>
+          <h3 className="font-extrabold text-sm text-amber-900 tracking-tight">Pending memberships</h3>
         </div>
         {pending.length > 0 && (
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+          <span
+            className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full text-white shadow"
+            style={{ background: "linear-gradient(135deg, #d97706, #92400e)" }}
+          >
             {pending.length}
           </span>
         )}
@@ -137,12 +163,19 @@ export function PendingMembershipsQueue({ business }: { business: Business }) {
         </div>
       )}
 
-      <div className="divide-y">
+      <div className="divide-y divide-amber-100">
         {pending.map(r => (
-          <div key={r.membership_id} className="p-4">
+          <div key={r.membership_id} className="p-4 relative">
+            {/* Decorative gold corner accent */}
+            <div
+              className="absolute top-0 left-0 h-1 w-full"
+              style={{ background: "linear-gradient(90deg, #fbbf24, #f59e0b, transparent)" }}
+            />
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold shrink-0"
-                style={{ background: business.brand_colors.primary }}>
+              <div
+                className="h-10 w-10 rounded-full flex items-center justify-center text-amber-900 font-extrabold shrink-0 shadow-md ring-2 ring-amber-200"
+                style={{ background: "linear-gradient(135deg, #fef3c7, #fbbf24)" }}
+              >
                 {(r.full_name ?? r.email ?? "?")[0]?.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -172,8 +205,12 @@ export function PendingMembershipsQueue({ business }: { business: Business }) {
                 size="sm"
                 onClick={() => activate(r.membership_id)}
                 disabled={busyId === r.membership_id}
-                className="text-white"
-                style={{ background: business.brand_colors.primary }}
+                className="text-amber-950 font-extrabold shadow-md hover:shadow-lg"
+                style={{
+                  // Gold "Activate" button to keep the VIP feel through to action
+                  background: "linear-gradient(135deg, #fde047 0%, #fbbf24 50%, #f59e0b 100%)",
+                  border: "1px solid #d97706",
+                }}
               >
                 <Check className="h-4 w-4 mr-1" />
                 {busyId === r.membership_id ? "Activating…" : "Activate"}

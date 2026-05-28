@@ -12,6 +12,7 @@ import { AwardPointsPanel } from "@/components/manager/award-points-panel";
 import { RedemptionFulfillPanel, type RedemptionLookup } from "@/components/manager/redemption-fulfill-panel";
 import { ReviewQueue } from "@/components/manager/review-queue";
 import { PendingMembershipsQueue } from "@/components/manager/pending-memberships-queue";
+import { ManagerOffersPreview } from "@/components/manager/manager-offers-preview";
 import { ScannerListener } from "@/components/manager/scanner-listener";
 import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
@@ -367,36 +368,44 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         {tab === "insights" && <InsightsDashboard business={business} />}
 
         {tab === "offers" && (
-          <>
-            {/* Sub-tabs: One-Time / Automated */}
-            <div className="flex rounded-xl bg-zinc-100 p-1 gap-1">
-              <button
-                onClick={() => setOffersSubTab("one-time")}
-                className={cn(
-                  "flex-1 rounded-lg py-2 text-xs font-semibold transition-colors",
-                  offersSubTab === "one-time"
-                    ? "bg-white text-zinc-900 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                One-Time offers
-              </button>
-              <button
-                onClick={() => setOffersSubTab("automated")}
-                className={cn(
-                  "flex-1 rounded-lg py-2 text-xs font-semibold transition-colors",
-                  offersSubTab === "automated"
-                    ? "bg-white text-zinc-900 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                ✨ Automated
-              </button>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
+            <div className="space-y-4 min-w-0">
+              {/* Sub-tabs: One-Time / Automated */}
+              <div className="flex rounded-xl bg-zinc-100 p-1 gap-1">
+                <button
+                  onClick={() => setOffersSubTab("one-time")}
+                  className={cn(
+                    "flex-1 rounded-lg py-2 text-xs font-semibold transition-colors",
+                    offersSubTab === "one-time"
+                      ? "bg-white text-zinc-900 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  One-Time offers
+                </button>
+                <button
+                  onClick={() => setOffersSubTab("automated")}
+                  className={cn(
+                    "flex-1 rounded-lg py-2 text-xs font-semibold transition-colors",
+                    offersSubTab === "automated"
+                      ? "bg-white text-zinc-900 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  ✨ Automated
+                </button>
+              </div>
+
+              {offersSubTab === "one-time"  && <OffersManager           business={business} />}
+              {offersSubTab === "automated" && <AutomatedOffersManager  business={business} />}
             </div>
 
-            {offersSubTab === "one-time"  && <OffersManager           business={business} />}
-            {offersSubTab === "automated" && <AutomatedOffersManager  business={business} />}
-          </>
+            {/* CP-35: live phone-frame preview, scoped to offers only.
+                Hidden on small screens (front-desk tablets); visible on
+                lg+ so the manager can see customer banner + featured
+                offer change in real time as they edit. */}
+            <ManagerOffersPreview business={business} />
+          </div>
         )}
 
         {tab === "news"       && <NewsManager             business={business} />}

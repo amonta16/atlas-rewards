@@ -41,6 +41,27 @@ export function RewardsClient({
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [spinOpen, setSpinOpen] = useState(false);
 
+  // CP-35: if the customer arrived from the bottom-nav "!" badge,
+  // scroll the review row into view + flash a brief ring. Triggered
+  // by ?focus=review on the URL OR a #review-row hash. We do both —
+  // hash is what Next.js's Link puts in window.location, query is
+  // what programmatic navigation uses.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const wantsReview = sp.get("focus") === "review" || window.location.hash === "#review-row";
+    if (!wantsReview) return;
+    // Wait one tick for the DOM to settle then scroll.
+    const t = setTimeout(() => {
+      const el = document.getElementById("review-row");
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("animate-pulse", "ring-4", "ring-rose-300");
+      setTimeout(() => el.classList.remove("animate-pulse", "ring-4", "ring-rose-300"), 2200);
+    }, 250);
+    return () => clearTimeout(t);
+  }, []);
+
   // Check if member checked in today (to unlock the Daily Spin)
   useEffect(() => {
     if (!membership?.id) return;
@@ -341,17 +362,26 @@ export function RewardsClient({
               secondary={business.brand_colors.secondary} />
           )}
           {business.widget_config.reviews && (
-            <EarnRow icon={<Star className="h-4 w-4" />} title="Review on Google"
+            <EarnRow
+              /* CP-35: anchor target for the Rewards-tab "!" badge nudge.
+                 Combined with the useEffect at the top of this file that
+                 detects ?focus=review (or #review-row hash), this scrolls
+                 the row into view + flashes a brief ring. */
+              anchorId="review-row"
+              icon={<Star className="h-4 w-4" />} title="Review on Google"
               subtitle={
                 reviewStatus === "pending"  ? "Pending verification…" :
-                reviewStatus === "verified" ? "Verified — points awarded" :
+                reviewStatus === "verified" ? "✓ Done — thanks for your review!" :
                 reviewStatus === "rejected" ? "Try again — last submission rejected" :
                 "Open Google, leave a review, submit for verification"
               }
               points={earnRules.review}
               primary={business.brand_colors.primary}
               secondary={business.brand_colors.secondary}
-              actionable onClick={() => setReviewOpen(true)}
+              /* CP-35: verified = one-and-done. Row is not actionable
+                 anymore so tapping it doesn't reopen the submit modal. */
+              actionable={reviewStatus !== "verified"}
+              onClick={reviewStatus === "verified" ? undefined : () => setReviewOpen(true)}
               badge={reviewStatus === "pending" ? "Pending" : reviewStatus === "verified" ? "Verified" : null}
               alert={
                 /* CP-32: red "!" when no review yet, orange "!" while
@@ -405,9 +435,11 @@ export function RewardsClient({
 }
 
 function EarnRow({
-  icon, title, subtitle, points, primary, secondary, actionable, onClick, external, badge, alert,
+  icon, title, subtitle, points, primary, secondary, actionable, onClick, external, badge, alert, anchorId,
 }: {
   icon: React.ReactNode; title: string; subtitle?: string; points: number;
+  /** CP-35: optional DOM id so the row can be scrolled to via #review-row */
+  anchorId?: string;
   /** Brand primary — used for the icon tile, the pill button gradient start,
    *  and the soft tinted card background. */
   primary: string;
@@ -480,8 +512,8 @@ function EarnRow({
 
   if (external) {
     return (
-      <a href={external} target="_blank" rel="noopener noreferrer"
-         className={`${baseClass} hover:shadow-md hover:-translate-y-0.5 active:translate-y-0`}
+      <a id={anchorId} href={external} target="_blank" rel="noopener noreferrer"
+         className={`${baseClass} hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 scroll-mt-24`}
          style={cardStyle}>
         {content}
       </a>
@@ -489,14 +521,14 @@ function EarnRow({
   }
   if (actionable) {
     return (
-      <button onClick={onClick}
-              className={`w-full text-left ${baseClass} hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]`}
+      <button id={anchorId} onClick={onClick}
+              className={`w-full text-left ${baseClass} hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] scroll-mt-24`}
               style={cardStyle}>
         {content}
       </button>
     );
   }
   return (
-    <div className={baseClass} style={cardStyle}>{content}</div>
+    <div id={anchorId} className={`${baseClass} scroll-mt-24`} style={cardStyle}>{content}</div>
   );
 }

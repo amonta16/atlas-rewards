@@ -66,10 +66,15 @@ export function NotificationCenter({
     return () => { cancelled = true; };
   }, []);
 
+  // CP-35: constrain the sheet to the customer-app phone-frame width
+  // (max-w-md) so it doesn't span the whole desktop viewport. The dark
+  // scrim still covers everything, but the white panel sits centered
+  // and rises from the bottom inside the phone frame.
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
       <div
-        className="w-full max-h-[88vh] bg-white rounded-t-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-md max-h-[88vh] bg-white rounded-t-3xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

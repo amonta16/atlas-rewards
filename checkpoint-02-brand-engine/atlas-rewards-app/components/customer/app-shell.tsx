@@ -67,13 +67,15 @@ export function CustomerAppShell({
       <main className="flex-1 pb-20">{children}</main>
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-zinc-200 px-1 py-1.5 flex items-center justify-around z-40">
         {tabs.map(t => {
-          const href = `${basePath}${t.href}`;
-          const active = pathname === href || (t.href === "" && pathname === basePath);
-          const Icon = t.icon;
           // CP-32: red/orange "!" badge on the Rewards tab — itches the
           // user into submitting (or finishing) a Google review.
+          // CP-35: when the badge is active, the link includes ?focus=review
+          // so the rewards page scrolls directly to the review row.
           const isRewards = t.label === "Rewards";
           const showBadge = isRewards && reviewTone !== false;
+          const href = `${basePath}${t.href}` + (showBadge ? "?focus=review" : "");
+          const active = pathname === `${basePath}${t.href}` || (t.href === "" && pathname === basePath);
+          const Icon = t.icon;
           return (
             <Link key={t.label} href={href} className="flex flex-col items-center gap-0.5 py-1 px-2 flex-1 active:scale-95 transition-transform relative">
               <div className="relative">
