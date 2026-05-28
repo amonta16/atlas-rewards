@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas Rewards App — Official Build Roadmap</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --surface: #141823;
+    --surface-2: #1c2130;
+    --border: #2a2f3e;
+    --text: #f3f4f6;
+    --text-muted: #9ca3af;
+    --text-dim: #6b7280;
+    --foundation: #6366f1;
+    --brand: #06b6d4;
+    --earn: #10b981;
+    --power: #f59e0b;
+    --launch: #ec4899;
+    --future: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 32px 24px 80px;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  header { margin-bottom: 32px; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+  .sub { color: var(--text-muted); font-size: 14px; margin-top: 6px; }
+  .meta {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;
+  }
+  .meta span {
+    font-size: 12px; padding: 4px 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; color: var(--text-muted);
+  }
+  .meta span strong { color: var(--text); font-weight: 600; }
+
+  .phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .phase::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 4px; background: var(--phase-color, var(--foundation));
+  }
+  .phase-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .phase-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--phase-color);
+  }
+  .phase-title { font-size: 16px; font-weight: 600; margin-top: 2px; }
+  .phase-meta { font-size: 12px; color: var(--text-dim); }
+
+  .checkpoints {
+    display: grid; gap: 10px;
+  }
+  .cp-row-2 { grid-template-columns: 1fr 1fr; }
+  .cp-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 720px) {
+    .cp-row-2, .cp-row-3 { grid-template-columns: 1fr; }
+  }
+
+  .cp {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--phase-color);
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: transform 0.12s, border-color 0.12s;
+  }
+  .cp:hover { transform: translateY(-1px); border-color: var(--phase-color); }
+  .cp-num {
+    font-size: 11px; font-weight: 700; color: var(--phase-color);
+    letter-spacing: 0.08em; margin-bottom: 4px;
+  }
+  .cp-title { font-size: 14px; font-weight: 600; }
+  .cp-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.45; }
+  .cp-details {
+    display: none; margin-top: 10px; padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 12px; color: var(--text-muted);
+  }
+  .cp.open .cp-details { display: block; }
+  .cp-details ul { list-style: none; padding: 0; }
+  .cp-details li { padding: 3px 0; padding-left: 14px; position: relative; }
+  .cp-details li::before {
+    content: "→"; position: absolute; left: 0; color: var(--phase-color);
+  }
+  .cp-deps {
+    margin-top: 8px; font-size: 11px;
+    color: var(--text-dim);
+  }
+  .cp-deps strong { color: var(--text-muted); }
+
+  .gate {
+    margin: 14px 0 22px; padding: 12px 16px;
+    background: rgba(99, 102, 241, 0.06);
+    border-left: 3px solid var(--text-dim);
+    border-radius: 6px;
+    font-size: 12px; color: var(--text-muted);
+  }
+  .gate strong { color: var(--text); }
+
+  .legend {
+    margin-top: 24px; padding: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex; flex-wrap: wrap; gap: 16px;
+    font-size: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  .role-key {
+    margin-top: 24px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px;
+  }
+  .role-key h3 { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  .roles { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .roles { grid-template-columns: 1fr; } }
+  .role { padding: 12px; background: var(--surface-2); border-radius: 8px; }
+  .role-name { font-size: 13px; font-weight: 700; }
+  .role-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Atlas Rewards App — Official Build Roadmap</h1>
+  <p class="sub">White-label client retention &amp; rewards SaaS · cookie-cutter clonable across industries</p>
+  <div class="meta">
+    <span>Platform: <strong>PWA (now)</strong> → <strong>Atlas Engine native shell (later)</strong></span>
+    <span>Backend: <strong>Supabase</strong></span>
+    <span>Tenancy: <strong>Single app, sub-account routing</strong></span>
+    <span>Checkpoints: <strong>12</strong></span>
+  </div>
+</header>
+
+<!-- PHASE A -->
+<div class="phase" style="--phase-color: var(--foundation);">
+  <div class="phase-head">
+    <div>
+      <div class="phase-label">Phase A</div>
+      <div class="phase-title">Foundation</div>
+    </div>
+    <div class="phase-meta">1 checkpoint · everything else depends on this</div>
+  </div>
+  <div class="checkpoints">
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 1</div>
+      <div class="cp-title">Supabase schema + multi-tenant routing</div>
+      <div class="cp-sub">Database, auth, role separation, and the routing that makes every URL resolve to the right business.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Tables: <code>businesses</code>, <code>users</code>, <code>memberships</code>, <code>members</code>, <code>points_ledger</code>, <code>rewards</code>, <code>redemptions</code>, <code>referrals</code>, <code>events</code></li>
+          <li>Roles: <code>agency_admin</code>, <code>business_manager</code>, <code>customer</code></li>
+          <li>Row-Level Security policies per role</li>
+          <li>Subdomain or path routing → resolves <code>business_id</code></li>
+          <li>Auth flows: magic link, password, social</li>
+        </ul>
+        <div class="cp-deps"><strong>Blocks:</strong> every other checkpoint</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gate"><strong>Gate A → B:</strong> You sign off on the schema and see a working multi-tenant routing demo before Phase B starts.</div>
+
+<!-- PHASE B -->
+<div class="phase" style="--phase-color: var(--brand);">
+  <div class="phase-head">
+    <div>
+      <div class="phase-label">Phase B</div>
+      <div class="phase-title">Brand layer</div>
+    </div>
+    <div class="phase-meta">2 checkpoints · makes the app feel "owned" by each business</div>
+  </div>
+  <div class="checkpoints cp-row-2">
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 2</div>
+      <div class="cp-title">Brand customization engine</div>
+      <div class="cp-sub">Logo, colors, business name, welcome message, industry preset, services catalog.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Brand config stored on <code>businesses</code> row</li>
+          <li>Industry presets: medspa, gym, restaurant, arcade, salon, dental, home service</li>
+          <li>Theme system reads brand at runtime</li>
+          <li>Service / product catalog per business</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 1</div>
+      </div>
+    </div>
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 3</div>
+      <div class="cp-title">Customer dashboard (Client view)</div>
+      <div class="cp-sub">Mobile-first PWA dashboard with the big points card, tier, progress, and CTAs.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Main points card: name, logo, balance, tier, progress bar</li>
+          <li>"Earn More Points" and "Redeem Reward" CTAs</li>
+          <li>Member signup &amp; login (magic link)</li>
+          <li>PWA install prompt + offline shell</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 1, CP 2</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gate"><strong>Gate B → C:</strong> You see a fully branded customer dashboard for at least one test business before the points engine is built.</div>
+
+<!-- PHASE C -->
+<div class="phase" style="--phase-color: var(--earn);">
+  <div class="phase-head">
+    <div>
+      <div class="phase-label">Phase C</div>
+      <div class="phase-title">Earn &amp; redeem engine</div>
+    </div>
+    <div class="phase-meta">5 checkpoints · CP 5–8 can run in parallel once CP 4 ships</div>
+  </div>
+  <div class="checkpoints cp-row-2">
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 4 · CORE</div>
+      <div class="cp-title">Points rules engine</div>
+      <div class="cp-sub">Configurable rules per business, atomic ledger, idempotent transactions.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Rule types: review, referral, birthday, visit, purchase, social, profile</li>
+          <li>Per-business rule definitions (JSON config)</li>
+          <li>Atomic <code>points_ledger</code> with idempotency keys</li>
+          <li>Tier engine: thresholds, perks, progression</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 1 · <strong>Blocks:</strong> CP 5, 6, 7, 8, 11</div>
+      </div>
+    </div>
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 5</div>
+      <div class="cp-title">Rewards store + redemption</div>
+      <div class="cp-sub">Per-business rewards catalog, redemption with verification.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Reward types: discount, free service/item, VIP perk, upgrade, custom</li>
+          <li>Redemption flow: deduct points → issue code/QR</li>
+          <li>Manager-side verify &amp; mark fulfilled</li>
+          <li>Audit trail in ledger</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 4</div>
+      </div>
+    </div>
+  </div>
+  <div class="checkpoints cp-row-3" style="margin-top: 10px;">
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 6</div>
+      <div class="cp-title">Referral tracking</div>
+      <div class="cp-sub">Unique link per member, attribution, anti-fraud.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Unique referral code/link per member</li>
+          <li>Attribution at signup or first qualifying action</li>
+          <li>Guards: self-referral, duplicate device, velocity</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 4</div>
+      </div>
+    </div>
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 7</div>
+      <div class="cp-title">Review reward flow</div>
+      <div class="cp-sub">Post-visit prompt → Google review → verify → award.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Per-business Google review link</li>
+          <li>Verification: screenshot upload OR link confirm</li>
+          <li>Reward awarded once verified, idempotent</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 4</div>
+      </div>
+    </div>
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 8</div>
+      <div class="cp-title">Milestone + reactivation</div>
+      <div class="cp-sub">Birthday, anniversary, Nth visit, 30/60/90 day dormancy.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Scheduled jobs (Supabase cron / edge functions)</li>
+          <li>Triggers: birthday, anniversary, first/5th/10th visit</li>
+          <li>Dormancy bands: 30, 60, 90 days inactive</li>
+          <li>Fires comeback offer through CP 12 channels</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 4</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gate"><strong>Gate C → D:</strong> A customer can earn points multiple ways, see them on the dashboard, and redeem a reward end-to-end before the agency UI is built.</div>
+
+<!-- PHASE D -->
+<div class="phase" style="--phase-color: var(--power);">
+  <div class="phase-head">
+    <div>
+      <div class="phase-label">Phase D</div>
+      <div class="phase-title">Agency power tools</div>
+    </div>
+    <div class="phase-meta">2 checkpoints · cookie-cutter builder + analytics</div>
+  </div>
+  <div class="checkpoints cp-row-2">
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 9</div>
+      <div class="cp-title">Widget toggle builder (Agency view)</div>
+      <div class="cp-sub">Per-business panel to enable/disable any client-app widget. Live preview.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Toggle: points card, rewards store, referrals, reviews, birthdays, visit tracker, booking CTA, offers, leaderboard, push, SMS</li>
+          <li>Live preview pane mirrors the actual client app</li>
+          <li>One-click clone from a template business</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 2, CP 5</div>
+      </div>
+    </div>
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 10</div>
+      <div class="cp-title">Analytics dashboard</div>
+      <div class="cp-sub">Agency rollups across all sub-accounts; Manager view for their business only.</div>
+      <div class="cp-details">
+        <ul>
+          <li>Repeat visits, referrals, reviews, points issued/redeemed</li>
+          <li>Revenue attributed to offers</li>
+          <li>Dormant customers recovered</li>
+          <li>Customer lifetime value estimate</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 5, 6, 7</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gate"><strong>Gate D → E:</strong> Agency can spin up a brand-new sub-account, configure it visually, and see live analytics before integrations are wired.</div>
+
+<!-- PHASE E -->
+<div class="phase" style="--phase-color: var(--launch);">
+  <div class="phase-head">
+    <div>
+      <div class="phase-label">Phase E</div>
+      <div class="phase-title">Integrations &amp; launch</div>
+    </div>
+    <div class="phase-meta">2 checkpoints · GHL, webhooks, messaging, white-label deploy</div>
+  </div>
+  <div class="checkpoints cp-row-2">
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 11</div>
+      <div class="cp-title">GoHighLevel + webhooks</div>
+      <div class="cp-sub">Two-way GHL contact sync, inbound &amp; outbound event webhooks.</div>
+      <div class="cp-details">
+        <ul>
+          <li>GHL contact sync per sub-account</li>
+          <li>Inbound webhooks: purchases, bookings, reviews, referrals</li>
+          <li>Outbound webhooks: points awarded, redeemed, tier-up</li>
+          <li>Per-business webhook secrets &amp; replay protection</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 4</div>
+      </div>
+    </div>
+    <div class="cp" onclick="this.classList.toggle('open')">
+      <div class="cp-num">CHECKPOINT 12</div>
+      <div class="cp-title">Push / SMS / email + launch polish</div>
+      <div class="cp-sub">Web push, Twilio (or GHL relay), email, automation rules, then white-label launch.</div>
+      <div class="cp-details">
+        <ul>
+          <li>PWA web push (VAPID)</li>
+          <li>SMS via Twilio or GHL relay</li>
+          <li>Email provider integration</li>
+          <li>Automation rule engine: "when X happens, send Y"</li>
+          <li>White-label deployment process &amp; agency onboarding docs</li>
+        </ul>
+        <div class="cp-deps"><strong>Depends on:</strong> CP 8, CP 11</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="gate" style="background: rgba(148, 163, 184, 0.06); border-left-color: var(--future);">
+  <strong>Future · Atlas Engine native shell:</strong> Once the PWA is live, build a thin iOS + Android container app called <em>Atlas Engine</em>. Customer opens it → QR-scans or looks up a business → the branded PWA loads inside and becomes their permanent view. App-store distribution without rebuilding the rewards logic.
+</div>
+
+<div class="role-key">
+  <h3>Three views, one app</h3>
+  <div class="roles">
+    <div class="role">
+      <div class="role-name" style="color: var(--foundation);">Agency view</div>
+      <div class="role-desc">Cookie-cutter builder. Spin up sub-accounts, customize brand, toggle widgets, view rollup analytics, manage all clients.</div>
+    </div>
+    <div class="role">
+      <div class="role-name" style="color: var(--brand);">Manager view</div>
+      <div class="role-desc">Per-business owner. Sees their own customers, redeems rewards in person, views their analytics, manages services.</div>
+    </div>
+    <div class="role">
+      <div class="role-name" style="color: var(--earn);">Client view</div>
+      <div class="role-desc">The branded PWA each customer uses. Points card, rewards store, referrals, reviews — all themed to the business.</div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot" style="background: var(--foundation);"></div>Foundation</div>
+  <div class="legend-item"><div class="dot" style="background: var(--brand);"></div>Brand layer</div>
+  <div class="legend-item"><div class="dot" style="background: var(--earn);"></div>Earn &amp; redeem</div>
+  <div class="legend-item"><div class="dot" style="background: var(--power);"></div>Agency power</div>
+  <div class="legend-item"><div class="dot" style="background: var(--launch);"></div>Launch</div>
+  <div class="legend-item"><div class="dot" style="background: var(--future);"></div>Future</div>
+  <div class="legend-item" style="color: var(--text-muted); margin-left: auto;">Click any checkpoint to expand details</div>
+</div>
+
+</div>
+</body>
+</html>

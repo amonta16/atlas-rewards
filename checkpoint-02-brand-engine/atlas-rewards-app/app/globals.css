@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 14% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 14% 10%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 224 14% 10%;
+    --radius: 0.75rem;
+
+    /* Default brand colors — overridden per-business at runtime */
+    --brand-primary:   239 84% 67%;   /* indigo */
+    --brand-secondary: 189 94% 43%;   /* cyan */
+    --brand-accent:    160 84% 39%;   /* emerald */
+  }
+
+  .dark {
+    --background: 224 14% 8%;
+    --foreground: 0 0% 98%;
+    --card: 224 14% 12%;
+    --card-foreground: 0 0% 98%;
+    --muted: 224 14% 15%;
+    --muted-foreground: 220 9% 60%;
+    --border: 224 14% 18%;
+    --input: 224 14% 18%;
+    --ring: 0 0% 98%;
+  }
+
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
+}

@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Atlas Engine",
+    "slug": "atlas-engine",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "atlasengine",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0d12"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.atlasengine.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Atlas Engine uses the camera to scan business QR codes so you can add them to your rewards library."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0b0d12"
+      },
+      "package": "com.atlasengine.app",
+      "permissions": ["android.permission.CAMERA"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      ["expo-camera", { "cameraPermission": "Allow Atlas Engine to access your camera to scan business QR codes." }]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}
