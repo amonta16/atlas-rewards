@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ConfettiCelebration } from "./confetti-celebration";
 
@@ -14,14 +14,16 @@ export function CelebrateWatcher({
   businessName, primary, membershipId,
 }: { businessName: string; primary: string; membershipId: string | null }) {
   const router = useRouter();
-  const sp = useSearchParams();
   const [amount, setAmount] = useState<number | null>(null);
 
   // (a) URL param trigger
+  // CP-32 go-live: read from window.location instead of useSearchParams()
+  // — that hook bails out of static prerender and breaks our prod build.
   useEffect(() => {
-    const raw = sp.get("celebrate");
+    if (typeof window === "undefined") return;
+    const raw = new URLSearchParams(window.location.search).get("celebrate");
     if (raw && parseInt(raw, 10) > 0) setAmount(parseInt(raw, 10));
-  }, [sp]);
+  }, []);
 
   // (b) Realtime ledger insert trigger
   useEffect(() => {

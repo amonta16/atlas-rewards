@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git remote *)",
+      "Bash(gh repo *)",
+      "Bash(git ls-remote *)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(git push *)",
+      "Bash(npm run *)",
+      "Bash(cd \"/c/Users/andre/OneDrive/Documents/Claude/Projects/Atlas Engine APP/checkpoint-02-brand-engine/atlas-rewards-app\" && find app -path '*login*' -name '*.tsx')"
+    ]
+  }
+}

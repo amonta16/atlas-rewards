@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 function LoginForm() {
   const router = useRouter();
-  const search = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -22,9 +21,14 @@ function LoginForm() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setErr(error.message); setLoading(false); return; }
-    // CP-31: respect ?next=… so accept-invitation flows route back to the
-    // landing page after sign-in.
-    const next = search.get("next");
+    // CP-31 / CP-32: respect ?next=… so accept-invitation flows route
+    // back to the landing page after sign-in. Read directly from
+    // window.location.search instead of useSearchParams() — the hook
+    // bails out of static rendering and broke our production build.
+    let next: string | null = null;
+    if (typeof window !== "undefined") {
+      next = new URLSearchParams(window.location.search).get("next");
+    }
     router.push(next && next.startsWith("/") ? next : "/agency");
     router.refresh();
   }

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,8 +11,14 @@ import { Label } from "@/components/ui/label";
 export default function CustomerSignup() {
   const router = useRouter();
   const params = useParams<{ business: string }>();
-  const search = useSearchParams();
-  const refCode = (search.get("ref") ?? "").toUpperCase();
+  // CP-32 go-live: read ?ref=… from window.location instead of
+  // useSearchParams() — the hook bails out of static rendering and
+  // breaks our production build at prerender time.
+  const [refCode, setRefCode] = useState<string>("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setRefCode((new URLSearchParams(window.location.search).get("ref") ?? "").toUpperCase());
+  }, []);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
