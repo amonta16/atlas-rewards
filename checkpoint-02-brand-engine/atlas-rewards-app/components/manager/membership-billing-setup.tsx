@@ -1,28 +1,28 @@
 "use client";
 /**
- * MembershipBillingSetup — manager-side panel for wiring customer memberships
- * to Stripe so customers can subscribe and pay.
+ * MembershipBillingSetup — manager-side panel for wiring customer memberships.
  *
- * Security model:
- *  • The Stripe secret key is stored in business_membership_billing (staff-only
- *    RLS). It is never sent to the browser — the checkout API route reads it
- *    server-side via the service role key.
- *  • Only the is_enabled, price, and name fields are readable by customers
- *    (via membership_billing_public() which strips the key).
+ * CP-34: now supports THREE payment modes so local business owners aren't
+ * forced into Stripe.
  *
- * How to connect:
- *  1. Get your Stripe secret key from dashboard.stripe.com → Developers → API keys.
- *  2. Paste it here and set a monthly price.
- *  3. Customers will see a "Subscribe" button on the app; tapping creates a
- *     Stripe Checkout session and redirects them to pay.
- *  4. After payment, the webhook endpoint (set in Stripe dashboard) upgrades
- *     their membership tier automatically.
+ *   1. stripe         — built-in Stripe Checkout (the existing CP-23 flow)
+ *   2. external_link  — paste any payment URL (Square invoice, PayPal
+ *                       subscribe button, Shopify checkout, anything).
+ *                       Customer pays there. Front desk activates manually.
+ *   3. in_person      — no online payment. Customer joins → front desk
+ *                       collects cash/card on POS → staff taps Activate.
+ *
+ * Security model (unchanged for stripe mode):
+ *  • Stripe secret key stored in business_membership_billing (staff-only RLS).
+ *    Never sent to the browser — checkout API reads server-side.
+ *  • membership_billing_public() strips secrets but exposes payment_mode +
+ *    external_payment_url so the customer app knows which flow to run.
  */
 
 import { useEffect, useState } from "react";
 import {
   CreditCard, Eye, EyeOff, Check, AlertCircle, Loader2,
-  ExternalLink, ShieldCheck, Plus, Trash2,
+  ExternalLink, ShieldCheck, Plus, Trash2, Link2, Store, Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import type { Business } from "@/lib/types/database";
+
+type PaymentMode = "stripe" | "external_link" | "in_person";
 
 type BillingConfig = {
   is_enabled: boolean;
@@ -39,6 +41,15 @@ type BillingConfig = {
   stripe_secret_key: string | null;
   stripe_webhook_secret: string | null;
   connected_at: string | null;
+  // CP-34
+  payment_mode: PaymentMode;
+  external_payment_url: string | null;
+  payment_instructions: string | null;
+  // CP-22 carry-overs needed by the v2 RPC
+  monthly_cash_balance_cents?: number;
+  points_multiplier?: number | null;
+  has_priority_booking?: boolean | null;
+  image_url?: string | null;
 };
 
 export function MembershipBillingSetup({ business }: { business: Business }) {
@@ -50,6 +61,10 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
     stripe_secret_key: null,
     stripe_webhook_secret: null,
     connected_at: null,
+    // CP-34: default to in-person (lowest-friction for local businesses)
+    payment_mode: "in_person",
+    external_payment_url: null,
+    payment_instructions: null,
   });
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -74,22 +89,45 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
   async function save() {
     setSaving(true); setErr(null);
     const supabase = createClient();
-    const payload = {
-      business_id: business.id,
-      is_enabled: cfg.is_enabled,
-      membership_name: cfg.membership_name,
-      price_cents: cfg.price_cents,
-      perks: cfg.perks,
-      stripe_secret_key: cfg.stripe_secret_key || null,
-      stripe_webhook_secret: cfg.stripe_webhook_secret || null,
-      connected_at: cfg.stripe_secret_key ? (cfg.connected_at ?? new Date().toISOString()) : null,
-      updated_at: new Date().toISOString(),
-    };
-    const { error } = await supabase
-      .from("business_membership_billing")
-      .upsert(payload, { onConflict: "business_id" });
+
+    // CP-34: write Stripe key + webhook directly (those fields aren't on the
+    // v2 RPC since they're secrets), then call upsert_membership_billing_v2
+    // for everything else including the new payment_mode fields.
+    if (cfg.payment_mode === "stripe") {
+      const { error: stripeErr } = await supabase
+        .from("business_membership_billing")
+        .upsert({
+          business_id:           business.id,
+          stripe_secret_key:     cfg.stripe_secret_key || null,
+          stripe_webhook_secret: cfg.stripe_webhook_secret || null,
+          connected_at:          cfg.stripe_secret_key ? (cfg.connected_at ?? new Date().toISOString()) : null,
+        }, { onConflict: "business_id" });
+      if (stripeErr) { setSaving(false); setErr(stripeErr.message); return; }
+    }
+
+    const { error } = await supabase.rpc("upsert_membership_billing_v2", {
+      p_business_id:                business.id,
+      p_is_enabled:                 cfg.is_enabled,
+      p_membership_name:            cfg.membership_name,
+      p_price_cents:                cfg.price_cents,
+      p_perks:                      cfg.perks,
+      p_monthly_cash_balance_cents: cfg.monthly_cash_balance_cents ?? 0,
+      p_points_multiplier:          cfg.points_multiplier ?? 1.0,
+      p_has_priority_booking:       cfg.has_priority_booking ?? false,
+      p_image_url:                  cfg.image_url ?? null,
+      p_payment_mode:               cfg.payment_mode,
+      p_external_payment_url:       cfg.external_payment_url || null,
+      p_payment_instructions:       cfg.payment_instructions || null,
+    });
     setSaving(false);
-    if (error) { setErr(error.message); return; }
+    if (error) {
+      setErr(
+        error.message.includes("upsert_membership_billing_v2")
+          ? "RPC not found — apply the CP-34 SQL migration in Supabase first."
+          : error.message,
+      );
+      return;
+    }
     setSaved(true); setTimeout(() => setSaved(false), 2000);
   }
 
@@ -105,6 +143,11 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
     : `https://yourdomain.com/api/${business.slug}/membership/webhook`;
 
   const isConnected = !!cfg.stripe_secret_key;
+  // CP-34: each mode has its own "ready to enable customers" rule
+  const modeReady =
+    cfg.payment_mode === "stripe"        ? isConnected :
+    cfg.payment_mode === "external_link" ? !!cfg.external_payment_url :
+    /* in_person */                         true;
 
   if (!loaded) return <div className="p-8 text-center text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div>;
 
@@ -124,23 +167,100 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
           </div>
           <div className="flex items-center gap-3">
             <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
-              isConnected ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-500"
+              modeReady ? "bg-emerald-100 text-emerald-700" : "bg-zinc-100 text-zinc-500"
             }`}>
-              {isConnected ? <Check className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-              {isConnected ? "Stripe connected" : "Not connected"}
+              {modeReady ? <Check className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+              {cfg.payment_mode === "stripe"
+                ? (isConnected ? "Stripe connected" : "Stripe not connected")
+                : cfg.payment_mode === "external_link"
+                  ? (cfg.external_payment_url ? "Payment link set" : "Payment link missing")
+                  : "In-person ready"}
             </span>
             <Switch
               checked={cfg.is_enabled}
-              disabled={!isConnected}
+              disabled={!modeReady}
               onCheckedChange={v => setCfg(c => ({ ...c, is_enabled: v }))}
             />
           </div>
         </div>
-        {!isConnected && (
+        {!modeReady && (
           <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-900 flex items-start gap-2">
             <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            Connect your Stripe account below to enable customer subscriptions. Customers won't see the
-            "Subscribe" button until billing is active.
+            {cfg.payment_mode === "stripe"
+              ? "Paste your Stripe secret key below to enable subscriptions."
+              : "Add your payment link below to enable subscriptions."}
+          </div>
+        )}
+      </div>
+
+      {/* ── CP-34: payment mode picker ── */}
+      <div className="rounded-2xl border bg-white p-5 space-y-3">
+        <div>
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-muted-foreground" /> How do members pay you?
+          </h3>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Pick whichever fits your existing setup. You can change this anytime.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <ModeCard
+            active={cfg.payment_mode === "in_person"}
+            onClick={() => setCfg(c => ({ ...c, payment_mode: "in_person" }))}
+            icon={<Store className="h-4 w-4" />}
+            title="At the front desk"
+            blurb="Customer signs up in the app, then pays at your counter however they normally do (cash, POS card, anything). Staff taps Activate."
+            primary={business.brand_colors.primary}
+          />
+          <ModeCard
+            active={cfg.payment_mode === "external_link"}
+            onClick={() => setCfg(c => ({ ...c, payment_mode: "external_link" }))}
+            icon={<Link2 className="h-4 w-4" />}
+            title="External payment link"
+            blurb="Paste your Square invoice / PayPal subscribe / Shopify checkout / any payment URL. Customer pays there, staff activates."
+            primary={business.brand_colors.primary}
+          />
+          <ModeCard
+            active={cfg.payment_mode === "stripe"}
+            onClick={() => setCfg(c => ({ ...c, payment_mode: "stripe" }))}
+            icon={<Zap className="h-4 w-4" />}
+            title="Stripe (auto)"
+            blurb="Built-in Stripe Checkout — customer subscribes, webhook activates them automatically. Needs your Stripe secret key."
+            primary={business.brand_colors.primary}
+          />
+        </div>
+
+        {/* Mode-specific extra fields */}
+        {cfg.payment_mode === "external_link" && (
+          <div className="space-y-1.5 pt-2">
+            <Label className="text-xs text-muted-foreground">Payment link (URL)</Label>
+            <Input
+              type="url"
+              value={cfg.external_payment_url ?? ""}
+              onChange={e => setCfg(c => ({ ...c, external_payment_url: e.target.value || null }))}
+              placeholder="https://square.link/u/... or https://paypal.me/... or any payment URL"
+            />
+            <p className="text-[10px] text-zinc-500">
+              When a customer taps "Join Membership", this is the URL we open. Use any payment processor you already trust.
+            </p>
+          </div>
+        )}
+
+        {(cfg.payment_mode === "external_link" || cfg.payment_mode === "in_person") && (
+          <div className="space-y-1.5 pt-2">
+            <Label className="text-xs text-muted-foreground">
+              Instructions for the customer (optional)
+            </Label>
+            <Input
+              value={cfg.payment_instructions ?? ""}
+              onChange={e => setCfg(c => ({ ...c, payment_instructions: e.target.value || null }))}
+              placeholder={
+                cfg.payment_mode === "in_person"
+                  ? "e.g. Pay $10 at the front desk on your next visit."
+                  : "e.g. Use code FRIENDS at checkout for $5 off."
+              }
+              maxLength={140}
+            />
           </div>
         )}
       </div>
@@ -205,7 +325,8 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
         </div>
       </div>
 
-      {/* ── Stripe connection ── */}
+      {/* ── Stripe connection (only when mode = stripe) ── */}
+      {cfg.payment_mode === "stripe" && (
       <div className="rounded-2xl border bg-white p-5 space-y-4">
         <h3 className="font-semibold text-sm flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-muted-foreground" /> Stripe connection
@@ -266,6 +387,7 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
           />
         </div>
       </div>
+      )}
 
       {/* ── Save ── */}
       {err && (
@@ -278,5 +400,47 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
         {saving ? "Saving…" : saved ? "Saved!" : "Save membership settings"}
       </Button>
     </div>
+  );
+}
+
+/* ─────────────────────────── sub-components ─────────────────────────── */
+
+function ModeCard({
+  active, onClick, icon, title, blurb, primary,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  blurb: string;
+  primary: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "text-left rounded-2xl border p-3 transition " +
+        (active ? "bg-white ring-2" : "bg-zinc-50 hover:bg-white hover:shadow-sm")
+      }
+      style={{
+        borderColor: active ? primary : undefined,
+        ['--tw-ring-color' as any]: active ? primary : undefined,
+      } as React.CSSProperties}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{
+            background: active ? primary : `${primary}15`,
+            color: active ? "white" : primary,
+          }}
+        >
+          {icon}
+        </div>
+        <div className="text-sm font-bold">{title}</div>
+      </div>
+      <p className="text-[11px] text-zinc-600 mt-2 leading-snug">{blurb}</p>
+    </button>
   );
 }

@@ -23,6 +23,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Business, Membership } from "@/lib/types/database";
 
+type PaymentMode = "stripe" | "external_link" | "in_person";
+
 type BillingPublic = {
   is_enabled: boolean;
   price_cents: number;
@@ -33,6 +35,12 @@ type BillingPublic = {
   // CP-28: monthly_cash_balance_cents removed — points-only product.
   points_multiplier?: number | null;
   has_priority_booking?: boolean | null;
+  // CP-34: payment mode + payment-link fields. Older DBs (before CP-34
+  // migration) return undefined for these; we fall back to 'stripe'
+  // to preserve the existing flow.
+  payment_mode?: PaymentMode;
+  external_payment_url?: string | null;
+  payment_instructions?: string | null;
 };
 
 export function MembershipJoinModal({
@@ -50,6 +58,9 @@ export function MembershipJoinModal({
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // CP-34: after a non-Stripe request_membership call, show a "pending"
+  // success screen instead of redirecting.
+  const [requested, setRequested] = useState(false);
 
   const primary = business.brand_colors.primary;
 
@@ -71,26 +82,54 @@ export function MembershipJoinModal({
     })();
   }, [business.id]);
 
+  // CP-34: handleSubscribe now branches on payment_mode. Defaults to
+  // 'stripe' if the field is missing (older DB without CP-34 migration).
   async function handleSubscribe() {
     if (!billing) return;
     setSubscribing(true);
     setErr(null);
+    const mode: PaymentMode = billing.payment_mode ?? "stripe";
+
+    if (mode === "stripe") {
+      try {
+        const res = await fetch(`/api/${business.slug}/membership/checkout`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            membershipId: membership?.id ?? null,
+            returnUrl: window.location.href,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Could not start checkout.");
+        window.location.href = json.url;
+      } catch (e: any) {
+        setErr(e?.message ?? "Something went wrong. Please try again.");
+        setSubscribing(false);
+      }
+      return;
+    }
+
+    // external_link OR in_person — call request_membership which marks
+    // the customer as pending, then either open the external URL or
+    // show the "pay at front desk" success state.
     try {
-      const res = await fetch(`/api/${business.slug}/membership/checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          membershipId: membership?.id ?? null,
-          returnUrl: window.location.href,
-        }),
+      const supabase = createClient();
+      const { error } = await supabase.rpc("request_membership", {
+        p_business_id: business.id,
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Could not start checkout.");
-      // Redirect to Stripe Checkout
-      window.location.href = json.url;
+      if (error) throw new Error(error.message);
+
+      if (mode === "external_link" && billing.external_payment_url) {
+        // Open the payment URL in a new tab so the customer can pay AND
+        // still see the "pending" confirmation when they switch back.
+        window.open(billing.external_payment_url, "_blank", "noopener,noreferrer");
+      }
+      setRequested(true);
+      setSubscribing(false);
     } catch (e: any) {
-      setErr(e?.message ?? "Something went wrong. Please try again.");
+      setErr(e?.message ?? "Could not request membership. Please try again.");
       setSubscribing(false);
     }
   }
@@ -220,8 +259,57 @@ export function MembershipJoinModal({
             </div>
           )}
 
+          {/* ── CP-34: pending state after non-Stripe request ── */}
+          {!loading && !isPaid && requested && (
+            <div className="text-center py-2">
+              <div
+                className="mx-auto h-20 w-20 rounded-full flex items-center justify-center mb-4"
+                style={{
+                  background: `radial-gradient(circle at 40% 40%, ${primary}44 0%, ${primary}11 100%)`,
+                  border: `1.5px solid ${primary}55`,
+                }}
+              >
+                <Sparkles className="h-8 w-8 text-amber-300" />
+              </div>
+              <div
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full mb-3"
+                style={{ background: `${primary}22`, color: primary }}
+              >
+                <Sparkles className="h-3 w-3" /> PENDING ACTIVATION
+              </div>
+              <h2 className="text-xl font-bold text-white">
+                {(billing?.payment_mode ?? "stripe") === "external_link"
+                  ? "Almost there!"
+                  : "See you soon!"}
+              </h2>
+              <p className="text-zinc-400 text-sm mt-3 px-4 leading-relaxed">
+                {(billing?.payment_mode ?? "stripe") === "external_link" ? (
+                  <>
+                    Finish your payment in the tab that just opened. Once {business.name} confirms it, your membership activates.
+                  </>
+                ) : (
+                  <>
+                    Stop by {business.name} to complete payment. Staff will activate your membership at the front desk.
+                  </>
+                )}
+              </p>
+              {billing?.payment_instructions && (
+                <div className="mt-4 mx-4 rounded-xl bg-white/5 border border-white/10 px-3 py-2.5 text-[12px] text-zinc-300">
+                  {billing.payment_instructions}
+                </div>
+              )}
+              <button
+                onClick={onClose}
+                className="mt-6 w-full py-3.5 rounded-2xl text-sm font-bold text-white transition active:scale-95"
+                style={{ background: primary }}
+              >
+                Got it
+              </button>
+            </div>
+          )}
+
           {/* ── main: ready to subscribe ── */}
-          {!loading && !isPaid && billing?.is_enabled && (
+          {!loading && !isPaid && !requested && billing?.is_enabled && (
             <>
               {/* Crown + badge */}
               <div className="flex flex-col items-center mb-6">
@@ -315,15 +403,19 @@ export function MembershipJoinModal({
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    Subscribe — ${(billing.price_cents / 100).toFixed(2)}/mo
+                    {(billing.payment_mode ?? "stripe") === "stripe"      && `Subscribe — $${(billing.price_cents / 100).toFixed(2)}/mo`}
+                    {(billing.payment_mode ?? "stripe") === "external_link" && `Pay $${(billing.price_cents / 100).toFixed(2)} now`}
+                    {(billing.payment_mode ?? "stripe") === "in_person"     && `Join — $${(billing.price_cents / 100).toFixed(2)}/mo`}
                     <ChevronRight className="h-4 w-4" />
                   </>
                 )}
               </button>
 
-              {/* Fine print */}
+              {/* Fine print — different copy per mode */}
               <p className="text-center text-[10px] text-zinc-600 mt-3">
-                Secure checkout via Stripe · Cancel anytime
+                {(billing.payment_mode ?? "stripe") === "stripe"        && "Secure checkout via Stripe · Cancel anytime"}
+                {(billing.payment_mode ?? "stripe") === "external_link" && `Opens ${business.name}'s payment page · Cancel anytime`}
+                {(billing.payment_mode ?? "stripe") === "in_person"     && "Pay at the front desk · Staff activates instantly"}
               </p>
             </>
           )}

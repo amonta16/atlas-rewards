@@ -11,6 +11,7 @@ import { QrScanner } from "@/components/manager/qr-scanner";
 import { AwardPointsPanel } from "@/components/manager/award-points-panel";
 import { RedemptionFulfillPanel, type RedemptionLookup } from "@/components/manager/redemption-fulfill-panel";
 import { ReviewQueue } from "@/components/manager/review-queue";
+import { PendingMembershipsQueue } from "@/components/manager/pending-memberships-queue";
 import { ScannerListener } from "@/components/manager/scanner-listener";
 import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
@@ -333,6 +334,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             )}
 
             <ReviewQueue business={business} />
+
+            {/* CP-34: pending memberships awaiting in-person / external-link
+                payment confirmation. Self-hides when empty. */}
+            <PendingMembershipsQueue business={business} />
 
             {/* Recent activity */}
             <div className="rounded-2xl border bg-white">
