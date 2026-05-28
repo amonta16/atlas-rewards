@@ -11,7 +11,10 @@ type NavItem = { href: string; label: string; icon: React.ReactNode };
 
 const NAV: NavItem[] = [
   { href: "/agency",              label: "My Apps",     icon: <LayoutGrid className="h-4 w-4" /> },
-  { href: "/agency/white-label",  label: "White Label", icon: <Palette className="h-4 w-4" /> },
+  // CP-33: White Label tab hidden from sidebar — placeholder until we
+  // actually build out the master Atlas brand splash. The route file
+  // (/agency/white-label/page.tsx) is still there if we re-enable it.
+  // { href: "/agency/white-label",  label: "White Label", icon: <Palette className="h-4 w-4" /> },
   // CP-31: Team management for assistant agency admins.
   { href: "/agency/team",         label: "Team",        icon: <Shield className="h-4 w-4" /> },
   { href: "/agency/settings",     label: "Settings",    icon: <Settings className="h-4 w-4" /> },

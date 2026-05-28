@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StatCard } from "@/components/ui/stat-card";
+import { ManualBillingButton } from "./manual-billing-form";
 
 type Summary = {
   mrr_cents: number;
@@ -38,6 +39,9 @@ export function AgencyBillingPanel() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stripeConfigured, setStripeConfigured] = useState<boolean | null>(null);
+  // CP-33: small reload-trigger so the manual-billing modal can refresh the
+  // dashboard numbers after a save without needing a full page reload.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -57,26 +61,33 @@ export function AgencyBillingPanel() {
       setStripeConfigured(!!settings?.stripe_account_id);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [reloadKey]);
 
   const dollars = (cents: number | null | undefined) =>
     `$${((cents ?? 0) / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
   return (
     <div className="px-8 mt-6">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-3 gap-3 flex-wrap">
         <h2 className="text-lg font-bold">Agency revenue</h2>
-        <Link href="/agency/settings" className="text-xs font-semibold text-brand-primary hover:underline">
-          Manage billing settings →
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* CP-33: manual MRR / pipeline / setup-fee entry — for the
+              in-person-onboarding phase before Stripe self-serve is live. */}
+          <ManualBillingButton onSaved={() => setReloadKey(k => k + 1)} />
+          <Link href="/agency/settings" className="text-xs font-semibold text-brand-primary hover:underline">
+            Manage billing settings →
+          </Link>
+        </div>
       </div>
 
       {stripeConfigured === false && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mb-4 flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 text-amber-700 mt-0.5 shrink-0" />
-          <div className="text-xs text-amber-900">
-            Stripe isn't connected yet. Payments won't sync until you finish setup —
-            head to <Link href="/agency/settings" className="font-semibold underline">Settings</Link> to add your Stripe account ID and webhook secret.
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 mb-4 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-sky-700 mt-0.5 shrink-0" />
+          <div className="text-xs text-sky-900">
+            <strong>Manual-tracking mode.</strong> Stripe isn't connected (which is fine for in-person onboarding). Use{" "}
+            <strong>Log MRR / setup fee</strong> above to log each deal you close — numbers below update instantly.
+            When you're ready to go self-serve, add your Stripe keys in{" "}
+            <Link href="/agency/settings" className="font-semibold underline">Settings</Link>.
           </div>
         </div>
       )}
