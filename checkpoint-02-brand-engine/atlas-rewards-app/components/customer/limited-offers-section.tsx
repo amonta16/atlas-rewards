@@ -19,7 +19,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Clock, Gift, Mic, Play } from "lucide-react";
+import { Clock, Gift, Mic, Play, Sparkles, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
 
@@ -69,6 +69,38 @@ export function LimitedOffersSection({
       .subscribe();
     return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [businessId]);
+
+  /** CP-39: track which offers are already saved so we can show
+   *  "Saved ✓" instead of the Claim button + jump to active rewards. */
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [claiming, setClaiming] = useState<string | null>(null);
+
+  // Load already-saved set so the button states are correct on first paint.
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    supabase.rpc("my_saved_offers", { p_business_id: businessId }).then(({ data }) => {
+      if (cancelled) return;
+      const ids = (data ?? []).map((r: any) => r.offer_id);
+      setSavedIds(new Set(ids));
+    });
+    return () => { cancelled = true; };
+  }, [businessId]);
+
+  /** CP-39: one-tap "Claim this gift" → save_offer RPC → scroll up to
+   *  the Saved Gifts section so the user sees their new QR code. */
+  async function claim(offer: ActiveOffer) {
+    setClaiming(offer.id);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("save_offer", { p_offer_id: offer.id });
+    setClaiming(null);
+    if (error) return; // realistic edge case: already saved; UI auto-updates
+    setSavedIds(prev => new Set([...prev, offer.id]));
+    // Scroll up to the Saved Gifts section so the user sees the QR appear
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
 
   /** Replay = remove from seen-set then show the popup in place. */
   function replay(offer: ActiveOffer) {
@@ -172,15 +204,41 @@ export function LimitedOffersSection({
                     )}
                   </div>
 
-                  {/* Replay link */}
-                  <button
-                    type="button"
-                    onClick={() => replay(o)}
-                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold hover:underline"
-                    style={{ color: primary }}
-                  >
-                    <Play className="h-2.5 w-2.5 fill-current" /> Replay reveal
-                  </button>
+                  {/* CP-39: primary action is now "Claim this gift" which
+                      saves the offer and lands it in Saved Gifts above
+                      with a QR code. Replay reveal is demoted to a small
+                      secondary link. */}
+                  <div className="mt-2 flex items-center gap-3">
+                    {savedIds.has(o.id) ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-1 rounded-full text-white"
+                        style={{ background: "linear-gradient(135deg, #10b981, #059669)" }}
+                      >
+                        <Check className="h-3 w-3" /> Saved to your gifts
+                      </span>
+                    ) : expired ? (
+                      <span className="text-[11px] font-bold text-zinc-400">Expired</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => claim(o)}
+                        disabled={claiming === o.id}
+                        className="inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1.5 rounded-full text-white shadow-sm hover:shadow-md disabled:opacity-70 active:scale-[0.97] transition"
+                        style={{ background: `linear-gradient(135deg, ${primary}, ${sec})` }}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {claiming === o.id ? "Claiming…" : "Claim this gift"}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => replay(o)}
+                      className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-700 inline-flex items-center gap-0.5"
+                    >
+                      <Play className="h-2.5 w-2.5 fill-current" /> Replay
+                    </button>
+                  </div>
                 </div>
               </div>
             );

@@ -41,8 +41,10 @@ type StreakStatus = {
   claimed_milestones: number[];
 };
 
-// 3 columns × 4 rows = 12 cells per "page".
-const CELLS_PER_PAGE = 12;
+// 3 columns × 3 rows = 9 cells per "page" (CP-39: was 4 rows; shrunk
+// so the whole widget fits without scrolling on phone-sized viewports,
+// which prevented the iOS in-app browser chrome from popping up).
+const CELLS_PER_PAGE = 9;
 
 export function StreakWidget({
   business,
@@ -154,7 +156,10 @@ export function StreakWidget({
         onClick={onClose}
       />
       <div
-        className="relative w-full max-w-md mt-12 mx-3 rounded-3xl pointer-events-auto overflow-hidden shadow-2xl"
+        /* CP-39: smaller top margin + max-h cap so the whole widget fits
+           inside the iOS PWA viewport without forcing the user to scroll
+           (which is what was triggering the Safari in-app browser bar). */
+        className="relative w-full max-w-md mt-4 mx-3 rounded-3xl pointer-events-auto overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
         style={{
           background: `linear-gradient(160deg, ${FIRE_FROM} 0%, ${FIRE_TO} 100%)`,
         }}
@@ -163,8 +168,8 @@ export function StreakWidget({
         <Flame className="absolute -top-4 -right-4 h-28 w-28 text-white opacity-10 pointer-events-none" />
         <Flame className="absolute -bottom-6 -left-6 h-20 w-20 text-white opacity-10 pointer-events-none" />
 
-        {/* Header */}
-        <div className="relative px-5 pt-5 pb-4 text-white">
+        {/* Header — CP-39: tighter padding to save vertical room */}
+        <div className="relative px-5 pt-4 pb-3 text-white">
           <button
             onClick={onClose}
             className="absolute top-5 right-5 h-9 w-9 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center hover:bg-white/25"
@@ -215,10 +220,11 @@ export function StreakWidget({
           )}
         </div>
 
-        {/* Tray — 3x4 grid */}
-        <div className="px-4 pb-4">
+        {/* Tray — CP-39: now 3x3 (9 cells) instead of 3x4. Smaller
+            tray + tighter padding so the whole widget fits without scrolling. */}
+        <div className="px-4 pb-3">
           <div
-            className="rounded-2xl p-4 backdrop-blur-md ring-1 ring-white/20"
+            className="rounded-2xl p-3 backdrop-blur-md ring-1 ring-white/20"
             style={{ background: "rgba(255,255,255,0.10)" }}
           >
             <div className="flex items-center justify-between mb-3">
@@ -345,16 +351,17 @@ export function StreakWidget({
             </div>
           </div>
 
-          {/* Milestone legend (compact) */}
+          {/* Milestone legend (compact). CP-39: capped at 28vh so it can
+              scroll independently rather than forcing the whole sheet to. */}
           {milestones.length > 0 && (
             <div
-              className="mt-3 rounded-2xl p-3 backdrop-blur-md ring-1 ring-white/20"
+              className="mt-2 rounded-2xl p-2.5 backdrop-blur-md ring-1 ring-white/20"
               style={{ background: "rgba(255,255,255,0.10)" }}
             >
-              <div className="text-[10px] uppercase tracking-[0.2em] font-extrabold text-white/85 mb-2">
+              <div className="text-[10px] uppercase tracking-[0.2em] font-extrabold text-white/85 mb-1.5">
                 Rewards along the way
               </div>
-              <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+              <div className="space-y-1 max-h-[26vh] overflow-y-auto pr-1">
                 {milestones.map(m => {
                   const claimed = (s.claimed_milestones ?? []).includes(m.count);
                   const reached = s.current_streak >= m.count;

@@ -411,12 +411,37 @@ export function MembershipJoinModal({
                 )}
               </button>
 
-              {/* Fine print — different copy per mode */}
-              <p className="text-center text-[10px] text-zinc-600 mt-3">
-                {(billing.payment_mode ?? "stripe") === "stripe"        && "Secure checkout via Stripe · Cancel anytime"}
-                {(billing.payment_mode ?? "stripe") === "external_link" && `Opens ${business.name}'s payment page · Cancel anytime`}
-                {(billing.payment_mode ?? "stripe") === "in_person"     && "Pay at the front desk · Staff activates instantly"}
-              </p>
+              {/* Fine print — different copy per mode.
+                  CP-39: in_person mode gets a BIG callout because it's the
+                  critical "what happens next" info — easy to miss as fine
+                  print. The other modes stay small. */}
+              {(billing.payment_mode ?? "stripe") === "stripe" && (
+                <p className="text-center text-[10px] text-zinc-600 mt-3">
+                  Secure checkout via Stripe · Cancel anytime
+                </p>
+              )}
+              {(billing.payment_mode ?? "stripe") === "external_link" && (
+                <p className="text-center text-[10px] text-zinc-600 mt-3">
+                  Opens {business.name}'s payment page · Cancel anytime
+                </p>
+              )}
+              {(billing.payment_mode ?? "stripe") === "in_person" && (
+                <div
+                  className="mt-4 rounded-2xl px-4 py-3 text-center"
+                  style={{
+                    background: `${primary}22`,
+                    border: `1.5px solid ${primary}66`,
+                  }}
+                >
+                  <div className="text-[10px] uppercase tracking-[0.2em] font-extrabold mb-1" style={{ color: primary }}>
+                    How it works
+                  </div>
+                  <p className="text-sm font-extrabold text-white leading-tight">
+                    Pay at the front desk.<br/>
+                    <span style={{ color: primary }}>Staff activates instantly.</span>
+                  </p>
+                </div>
+              )}
             </>
           )}
         </div>

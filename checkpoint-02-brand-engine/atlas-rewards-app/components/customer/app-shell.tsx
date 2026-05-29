@@ -11,7 +11,10 @@ type TabDef = { href: string; label: string; icon: React.ComponentType<{ classNa
 const HOME:    TabDef = { href: "",         label: "Home",    icon: Home };
 const SHOP:    TabDef = { href: "/shop",    label: "Shop",    icon: ShoppingBag };
 const BOOK:    TabDef = { href: "/book",    label: "Book",    icon: CalendarClock };
-const SCAN:    TabDef = { href: "/scan",    label: "Scan",    icon: ScanLine };
+// CP-39: renamed "Scan" → "Check in" so the bottom nav matches the
+// language we use everywhere else (front-desk scans a QR, customer
+// "checks in"). Same /scan route under the hood.
+const SCAN:    TabDef = { href: "/scan",    label: "Check in", icon: ScanLine };
 const REWARDS: TabDef = { href: "/rewards", label: "Rewards", icon: Gift };
 const PROFILE: TabDef = { href: "/profile", label: "Profile", icon: User };
 

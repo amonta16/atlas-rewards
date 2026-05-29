@@ -272,31 +272,7 @@ export function HeaderActions({
           );
         })()}
 
-        {/* ── ⭐ Membership ────────────────────────────────────────────── */}
-        {/* CP-26: replaces the old profile/user icon. The Profile tab lives
-            in the bottom tab bar — this slot is dedicated to the membership
-            CTA, so the icon is a Star and the label says "Member". */}
-        <button
-          onClick={handleMemberClick}
-          className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
-          style={{
-            background: isPaid
-              ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-              : `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`,
-          }}
-          aria-label={isPaid ? "VIP member" : "Become a member"}
-        >
-          {isPaid ? (
-            <Crown className="h-[13px] w-[13px] text-white fill-white shrink-0" />
-          ) : (
-            <Star className="h-[13px] w-[13px] text-white fill-white shrink-0" />
-          )}
-          <span className="text-[10px] font-extrabold leading-none whitespace-nowrap text-white">
-            {isPaid ? "VIP" : "Member"}
-          </span>
-        </button>
-
-        {/* ── 🔥 Streak ────────────────────────────────────────────────── */}
+        {/* ── 🔥 Streak (CP-39: moved to middle position) ─────────────── */}
         {streakEnabled && (
           <button
             onClick={handleStreakClick}
@@ -331,6 +307,27 @@ export function HeaderActions({
             )}
           </button>
         )}
+
+        {/* ── 👑 VIP / Membership (CP-39: label always says "VIP") ─────── */}
+        <button
+          onClick={handleMemberClick}
+          className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
+          style={{
+            background: isPaid
+              ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+              : `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`,
+          }}
+          aria-label={isPaid ? "VIP member" : "Become a VIP"}
+        >
+          {isPaid ? (
+            <Crown className="h-[13px] w-[13px] text-white fill-white shrink-0" />
+          ) : (
+            <Star className="h-[13px] w-[13px] text-white fill-white shrink-0" />
+          )}
+          <span className="text-[10px] font-extrabold leading-none whitespace-nowrap text-white">
+            VIP
+          </span>
+        </button>
       </div>
 
       {/* Mystery modal */}
