@@ -21,13 +21,19 @@ export default async function manifest({ params }: { params: { business: string 
     description: `Earn points and unlock rewards at ${name}.`,
     start_url: "/app",
     scope: "/",
+    // CP-37: display_override gives iOS a stronger signal that this is
+    // a fully standalone app (no browser chrome). Falls back to
+    // "standalone" on browsers that don't support display_override.
     display: "standalone",
+    display_override: ["standalone", "minimal-ui"],
     orientation: "portrait",
     background_color: "#ffffff",
     theme_color: themeColor,
+    // CP-37: "any maskable" lets Android crop the icon to its preferred
+    // shape (circle on Pixel, squircle on Samsung) without distortion.
     icons: [
-      { src: data?.logo_url ?? "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: data?.logo_url ?? "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: data?.logo_url ?? "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: data?.logo_url ?? "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
     ],
   };
 }

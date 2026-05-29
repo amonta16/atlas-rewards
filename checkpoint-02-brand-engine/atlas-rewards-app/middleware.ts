@@ -31,8 +31,15 @@ export async function middleware(request: NextRequest) {
     subdomain = hostNoPort.replace(`.${rootDomain}`, "");
   }
 
-  // Reserved subdomains route to agency view
-  const RESERVED = new Set(["www", "agency", "admin", "api"]);
+  // Reserved subdomains route to agency view. CP-36: added "app",
+  // "mail", "blog", "marketing" as defensive entries — common subdomain
+  // names a business owner might accidentally pick that should never
+  // be treated as a sub-account slug.
+  const RESERVED = new Set([
+    "www", "agency", "admin", "api",
+    "app", "mail", "blog", "marketing", "support", "help",
+    "docs", "status", "dev", "staging", "test",
+  ]);
 
   if (subdomain && !RESERVED.has(subdomain)) {
     // /agency is reserved for the agency dashboard (only reachable from the root domain).
