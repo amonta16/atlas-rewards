@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ScanClient } from "@/components/customer/scan-client";
 import { HeaderActions } from "@/components/customer/header-actions";
+import { CheckinCountdownChip } from "@/components/customer/checkin-countdown-chip";
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,14 @@ export default async function ScanTab({ params }: { params: { business: string }
           membership={mem}
         />
       </div>
+      {/* CP-39: subtle countdown chip above the QR — small enough to
+          stay deferential to the QR (which is the hero), informative
+          enough to answer "can I scan now?" at a glance. */}
+      <CheckinCountdownChip
+        businessId={business.id}
+        membershipId={mem?.id ?? null}
+        primary={business.brand_colors.primary}
+      />
       <ScanClient business={business} membership={mem} fullName={profile?.full_name ?? user!.email ?? "Member"} />
     </>
   );
