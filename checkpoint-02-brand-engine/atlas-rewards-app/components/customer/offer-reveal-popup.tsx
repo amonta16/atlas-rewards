@@ -44,6 +44,7 @@ export function OfferRevealPopup({
   secondary,
   businessName,
   onDismiss,
+  onSave,
   /** When true, the unwrap animation skips and the card opens revealed —
    *  used by the agency-side preview to demo the post-unwrap state. */
   startRevealed = false,
@@ -55,6 +56,11 @@ export function OfferRevealPopup({
   secondary?: string;
   businessName: string;
   onDismiss: () => void;
+  /** CP-36: fired when the customer taps "Save to my rewards" after the
+   *  unwrap. The watcher uses this to call save_offer() so the gift
+   *  actually appears on the Rewards tab — previously the button just
+   *  dismissed the popup and the user thought nothing happened. */
+  onSave?: () => void;
   startRevealed?: boolean;
   autoDismiss?: boolean;
 }) {
@@ -86,6 +92,17 @@ export function OfferRevealPopup({
     setClosing(true);
     // Allow the slide-down animation to play before unmounting.
     setTimeout(() => onDismiss(), 250);
+  }
+
+  // CP-36: the bottom CTA does two different things depending on state.
+  // When revealed = "Save to my rewards" → calls onSave then dismisses.
+  // When wrapped  = "Open later — save it" → just dismisses (the gift
+  // still flows into Limited offers via auto-fan-out).
+  function handlePrimaryCta() {
+    if (revealed && onSave) {
+      onSave();
+    }
+    handleClose();
   }
 
   function handleUnwrap() {
@@ -287,7 +304,7 @@ export function OfferRevealPopup({
         <div className="px-5 pt-4 pb-5">
           <button
             type="button"
-            onClick={handleClose}
+            onClick={handlePrimaryCta}
             className="w-full rounded-2xl py-3 text-sm font-extrabold text-white transition active:scale-95 shadow-lg ring-1 ring-white/40"
             style={{
               background: `linear-gradient(135deg, ${primary}, ${sec})`,

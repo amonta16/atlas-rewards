@@ -22,6 +22,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
+import { useToast } from "@/components/ui/toast";
 
 const MAX_SEEN = 50;
 
@@ -63,6 +64,7 @@ export function OfferRevealWatcher({
   const [active, setActive] = useState<RevealOffer | null>(null);
   // Ref-mirror of seen so the realtime callback isn't stale-closed.
   const seenRef = useRef<string[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     seenRef.current = loadSeen(businessId);
@@ -129,6 +131,24 @@ export function OfferRevealWatcher({
     setActive(null);
   }
 
+  // CP-36: actually persist the save. save_offer() is idempotent and
+  // returns the row id — we don't need it. Fire-and-forget; the new
+  // SavedGiftsSection on the Rewards tab subscribes to
+  // customer_saved_offers so the row appears live without a refresh.
+  async function handleSave() {
+    if (!active?.id) return;
+    const supabase = createClient();
+    const { error } = await supabase.rpc("save_offer", { p_offer_id: active.id });
+    if (error) {
+      // RPC not installed yet (cp36 SQL not applied) — fail soft.
+      // The user already saw "Added to your rewards automatically" so
+      // we don't want to contradict that with a red toast; just log.
+      console.warn("[save_offer] skipped:", error.message);
+      return;
+    }
+    toast.success("Saved to your rewards ✨");
+  }
+
   if (!active) return null;
   return (
     <OfferRevealPopup
@@ -137,6 +157,7 @@ export function OfferRevealWatcher({
       secondary={secondary ?? primary}
       businessName={businessName}
       onDismiss={handleDismiss}
+      onSave={handleSave}
     />
   );
 }

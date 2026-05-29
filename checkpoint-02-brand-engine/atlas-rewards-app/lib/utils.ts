@@ -5,6 +5,25 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Build a public-facing URL for a business sub-account.
+ *
+ * Handles both local dev (lvh.me:3000, http) and production (https, no
+ * port). Pass the root domain (from NEXT_PUBLIC_ROOT_DOMAIN) and optional
+ * slug + path. CP-36: extracted because :3000 was hardcoded all over.
+ */
+export function businessUrl(
+  rootDomain: string,
+  opts: { slug?: string; path?: string } = {},
+): string {
+  const isLocal = rootDomain.includes("lvh.me") || rootDomain.includes("localhost");
+  const proto = isLocal ? "http" : "https";
+  const port = isLocal ? ":3000" : "";
+  const host = opts.slug ? `${opts.slug}.${rootDomain}` : rootDomain;
+  const path = opts.path ?? "";
+  return `${proto}://${host}${port}${path}`;
+}
+
 /** Convert a hex color (#rrggbb) to an "H S% L%" string Tailwind/CSS vars want. */
 export function hexToHsl(hex: string): string {
   const h = hex.replace("#", "");

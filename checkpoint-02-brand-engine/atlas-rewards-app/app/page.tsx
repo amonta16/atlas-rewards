@@ -40,7 +40,7 @@ export default function LandingPage() {
                 Open agency dashboard <ArrowRight className="h-4 w-4 ml-2"/>
               </Button>
             </Link>
-            <a href={`http://demo.${rootDomain}:3000`}>
+            <a href={`${rootDomain.includes("lvh.me") ? "http" : "https"}://demo.${rootDomain}${rootDomain.includes("lvh.me") ? ":3000" : ""}`}>
               <Button size="lg" variant="outline" className="border-white/30 text-white bg-transparent hover:bg-white/10 hover:text-white">
                 See the demo customer app
               </Button>
@@ -50,7 +50,7 @@ export default function LandingPage() {
         <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-8">
           <div className="text-xs uppercase tracking-widest text-zinc-400 mb-3">Try the demo</div>
           <code className="block text-sm bg-black/40 px-4 py-3 rounded-lg border border-white/10 text-cyan-200">
-            demo.{rootDomain}:3000
+            demo.{rootDomain}{rootDomain.includes("lvh.me") ? ":3000" : ""}
           </code>
           <p className="text-sm text-zinc-300 mt-4 leading-relaxed">
             That subdomain resolves to the demo business you seeded in Checkpoint 1. Change the brand colors in the agency editor and refresh — the customer app re-themes instantly.

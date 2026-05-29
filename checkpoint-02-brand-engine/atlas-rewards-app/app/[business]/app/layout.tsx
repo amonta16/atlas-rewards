@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CustomerAppShell } from "@/components/customer/app-shell";
 import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
@@ -18,6 +18,7 @@ export default async function CustomerAppLayout({
 
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
+  if (!biz) notFound(); // CP-36: invalid slug → 404 instead of crash
   const business = biz as Business;
 
   // Auto-enroll if not already a member

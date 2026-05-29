@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Atlas — Owner Manual</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+@page { size: letter; margin: 0; }
+@media print {
+  body { background: white !important; }
+  .page { box-shadow: none !important; margin: 0 !important; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+}
+:root {
+  --ocean-1: #0a3d62; --ocean-2: #1d6fa5; --ocean-3: #2a8cc4;
+  --gold: #f59e0b; --gold-2: #fbbf24;
+  --red: #ef4444; --orange: #fb923c;
+  --green: #10b981;
+  --ink: #0f172a; --muted: #475569;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f1f5f9;
+  color: var(--ink);
+}
+.page {
+  width: 8.5in; min-height: 11in;
+  margin: 0 auto 32px; padding: 0.6in 0.7in;
+  background: white;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+h1 { font-size: 48px; font-weight: 900; letter-spacing: -1.2px; line-height: 1; margin: 0; }
+h2 { font-size: 30px; font-weight: 900; letter-spacing: -0.4px; line-height: 1.05; margin: 0 0 12px;
+     padding-bottom: 10px; border-bottom: 3px solid var(--ink); }
+h3 { font-size: 19px; font-weight: 800; margin: 18px 0 6px; }
+h4 { font-size: 14px; font-weight: 800; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ocean-1); }
+p { font-size: 14px; line-height: 1.55; margin: 0 0 8px; color: var(--ink); }
+ul, ol { font-size: 14px; line-height: 1.6; padding-left: 22px; }
+ol li { margin-bottom: 6px; }
+code, kbd { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12.5px; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; }
+strong { color: var(--ink); }
+
+.eyebrow { font-size: 11px; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ocean-2); }
+.logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 900; font-size: 22px; letter-spacing: -0.5px; }
+.logo-mark { width: 36px; height: 36px; border-radius: 9px; background: linear-gradient(135deg, var(--ocean-1), var(--ocean-3)); position: relative; }
+.logo-mark::before { content: ""; position: absolute; inset: 6px; border: 2.5px solid white; border-radius: 50%; }
+.logo-mark::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; background: white; border-radius: 50%; }
+
+.splat { position: absolute; pointer-events: none; }
+
+.card {
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: white;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.card-blue { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-color: var(--ocean-2); box-shadow: 3px 3px 0 var(--ocean-2); }
+.card-gold { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: var(--gold); box-shadow: 3px 3px 0 var(--gold); }
+.card-fire { background: linear-gradient(135deg, #fff7ed, #fee2e2); border-color: var(--red); box-shadow: 3px 3px 0 var(--red); }
+.card-green { background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-color: var(--green); box-shadow: 3px 3px 0 var(--green); }
+
+.tip {
+  background: #fffbeb; border-left: 4px solid var(--gold);
+  padding: 12px 14px; border-radius: 0 8px 8px 0; margin: 12px 0;
+}
+.tip strong { color: #92400e; }
+.warn {
+  background: #fef2f2; border-left: 4px solid var(--red);
+  padding: 12px 14px; border-radius: 0 8px 8px 0; margin: 12px 0;
+}
+.warn strong { color: #991b1b; }
+
+.tag {
+  display: inline-block; font-size: 10px; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px; background: var(--ocean-1); color: white;
+}
+.tag-gold { background: var(--gold); color: var(--ink); }
+.tag-red { background: var(--red); }
+.tag-green { background: var(--green); }
+
+.step-row { display:flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-bottom: 1px dashed #e5e7eb; }
+.step-row:last-child { border-bottom: none; }
+.step-num {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--ocean-1); color: white;
+  font-weight: 900; display: flex; align-items: center; justify-content: center;
+  font-size: 15px;
+}
+.step-content { flex: 1; }
+.step-content h4 { margin: 0 0 2px; color: var(--ink); text-transform: none; letter-spacing: 0; font-size: 15px; }
+.step-content p { font-size: 13px; margin: 0; color: var(--muted); }
+
+.toc-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px dotted #cbd5e1; }
+.toc-row a { color: var(--ink); text-decoration: none; font-weight: 600; }
+.toc-row .pg { color: var(--muted); font-weight: 800; }
+
+/* TOC chapter tag boxes */
+.chapter-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px;
+  background: var(--gold); color: var(--ink);
+  font-size: 18px; font-weight: 900;
+  border: 2px solid var(--ink); border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--ink);
+  margin-right: 12px;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ COVER ═══════════════════════ -->
+<div class="page" style="padding:0; display:flex; flex-direction:column; justify-content:space-between;">
+  <svg class="splat" style="top:-30px; left:-40px;" width="280" height="280" viewBox="0 0 200 200">
+    <path fill="#0a3d62" d="M100 10 C 140 20, 180 55, 180 105 C 180 155, 135 185, 90 185 C 45 185, 20 140, 20 95 C 20 50, 55 5, 100 10 Z"/>
+  </svg>
+  <svg class="splat" style="top:50px; right:-50px;" width="180" height="180" viewBox="0 0 200 200">
+    <path fill="#fbbf24" d="M100 15 C 140 25, 175 60, 175 110 C 175 155, 135 180, 90 175 C 50 170, 25 130, 30 85 C 35 45, 60 5, 100 15 Z" opacity="0.8"/>
+  </svg>
+  <svg class="splat" style="bottom:-60px; left:30%;" width="280" height="280" viewBox="0 0 200 200">
+    <path fill="#1d6fa5" d="M100 5 C 155 15, 195 60, 190 115 C 185 170, 135 200, 75 190 C 15 180, -5 130, 5 75 C 15 25, 60 0, 100 5 Z" opacity="0.15"/>
+  </svg>
+
+  <!-- Mario-block decoration -->
+  <svg style="position:absolute; top:180px; right:140px;" width="50" height="50" viewBox="0 0 48 48">
+    <rect x="2" y="2" width="44" height="44" rx="6" fill="#f59e0b" stroke="#0f172a" stroke-width="3"/>
+    <text x="24" y="33" text-anchor="middle" font-size="28" font-weight="900" fill="#0f172a">?</text>
+  </svg>
+
+  <div style="padding: 0.7in 0.7in 0; position:relative; z-index:5;">
+    <div class="logo" style="color:white; mix-blend-mode:difference;">
+      <span class="logo-mark"></span>
+      ATLAS ENGINE
+    </div>
+  </div>
+
+  <div style="padding: 0 0.7in; position:relative; z-index:5;">
+    <div class="eyebrow" style="margin-bottom:18px;">Business Owner's Manual</div>
+    <h1 style="font-size:80px; line-height:0.92;">
+      You're in.<br/>
+      <span style="background:linear-gradient(135deg,var(--ocean-1),var(--ocean-3)); -webkit-background-clip:text; background-clip:text; color:transparent;">Let's build</span> your<br/>
+      <span style="color:var(--gold);">loyalty machine.</span>
+    </h1>
+    <p style="font-size:20px; line-height:1.45; color:var(--muted); max-width:520px; margin-top:24px;">
+      Everything you need to set up Atlas, run your day-to-day, and turn your
+      first 100 customers into repeat regulars.
+    </p>
+  </div>
+
+  <div style="padding: 0 0.7in 0.7in; position:relative; z-index:5;">
+    <div class="card card-gold" style="display:inline-block;">
+      <strong style="font-size:16px; display:block;">First-time setup target:</strong>
+      <span style="color:var(--muted); font-size:14px;">30 minutes from this page to live customers.</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ TOC ═══════════════════════ -->
+<div class="page">
+  <h2>Table of Contents</h2>
+  <div style="margin-top:18px;">
+    <div class="toc-row"><span><span class="chapter-num">1</span>How Atlas works (the 3-tier model)</span><span class="pg">p. 3</span></div>
+    <div class="toc-row"><span><span class="chapter-num">2</span>First 30 minutes: setting up your business</span><span class="pg">p. 4</span></div>
+    <div class="toc-row"><span><span class="chapter-num">3</span>Rewards catalog</span><span class="pg">p. 6</span></div>
+    <div class="toc-row"><span><span class="chapter-num">4</span>Offers — one-time + automated + voice memos</span><span class="pg">p. 7</span></div>
+    <div class="toc-row"><span><span class="chapter-num">5</span>Streaks &amp; milestone rewards</span><span class="pg">p. 9</span></div>
+    <div class="toc-row"><span><span class="chapter-num">6</span>Memberships — three payment modes</span><span class="pg">p. 10</span></div>
+    <div class="toc-row"><span><span class="chapter-num">7</span>Front-desk operations</span><span class="pg">p. 11</span></div>
+    <div class="toc-row"><span><span class="chapter-num">8</span>Google reviews — approve &amp; award</span><span class="pg">p. 12</span></div>
+    <div class="toc-row"><span><span class="chapter-num">9</span>Team — invite managers &amp; front-desk</span><span class="pg">p. 13</span></div>
+    <div class="toc-row"><span><span class="chapter-num">10</span>In-app notifications + broadcasts</span><span class="pg">p. 14</span></div>
+    <div class="toc-row"><span><span class="chapter-num">11</span>Atlas Impact analytics</span><span class="pg">p. 15</span></div>
+    <div class="toc-row"><span><span class="chapter-num">12</span>Billing &amp; manual MRR tracking</span><span class="pg">p. 16</span></div>
+    <div class="toc-row"><span><span class="chapter-num">13</span>Troubleshooting</span><span class="pg">p. 17</span></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ 1 — HOW ATLAS WORKS ═══════════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 1</div>
+  <h2>How Atlas works</h2>
+
+  <p>
+    Atlas is a three-tier system. Knowing where you sit in it makes everything
+    else easier to navigate.
+  </p>
+
+  <div style="margin-top:20px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;">
+    <div class="card">
+      <span class="tag" style="background:var(--ink);">TIER 1</span>
+      <h3 style="margin:8px 0 4px;">The Agency</h3>
+      <p style="font-size:13px; color:var(--muted);">Atlas itself. Andrew's team runs this. You don't see it.</p>
+    </div>
+    <div class="card card-blue">
+      <span class="tag">TIER 2 · YOU</span>
+      <h3 style="margin:8px 0 4px;">Your Business</h3>
+      <p style="font-size:13px; color:var(--muted);">Where you live. Set up offers, rewards, streaks, memberships. Run the front desk.</p>
+    </div>
+    <div class="card card-gold">
+      <span class="tag tag-gold">TIER 3</span>
+      <h3 style="margin:8px 0 4px;">Your Customers</h3>
+      <p style="font-size:13px; color:var(--muted);">Members. They install your branded app. Scan QR codes. Earn points. Redeem rewards.</p>
+    </div>
+  </div>
+
+  <h3>Your two roles</h3>
+  <p>
+    Atlas gives every business two surfaces, and you'll move between them:
+  </p>
+  <ul>
+    <li><strong>Manager dashboard</strong> — the deep settings (rewards, offers, streaks, membership setup, billing, team, analytics). The "behind-the-scenes" cockpit.</li>
+    <li><strong>Front desk app</strong> — the live transactional surface (scan QR, award points, fulfill redemptions, activate memberships, approve reviews). What you use during business hours.</li>
+  </ul>
+  <p>
+    Both live at the same URL — <code>yourbusiness.atlas-engine.org/manage</code>. The tabs
+    along the top switch between them.
+  </p>
+
+  <div class="tip">
+    <strong>Mental model:</strong> Manager dashboard is the recipe book.
+    Front desk is the kitchen.
+  </div>
+
+  <h3>What your customers see</h3>
+  <p>
+    Your customers visit <code>yourbusiness.atlas-engine.org</code> on their phone, sign up,
+    and install the app to their home screen (one tap on Android; tap Share → Add to
+    Home Screen on iPhone). From that moment on:
+  </p>
+  <ul>
+    <li>Your logo lives in their dock</li>
+    <li>They scan your QR code at the front desk to earn points</li>
+    <li>They get push notifications when you broadcast or their streak is about to break</li>
+    <li>They redeem rewards in-app</li>
+  </ul>
+</div>
+
+
+<!-- ══════════ 2 — FIRST 30 MIN (PART 1) ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 2</div>
+  <h2>First 30 minutes: setting up your business</h2>
+
+  <p>Follow these in order. If a step takes more than 5 minutes, skip and come back.</p>
+
+  <div style="margin-top:18px;">
+    <div class="step-row">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Log in to your dashboard.</h4>
+        <p>Your invite email has a link. Click it and set your password. Land on the dashboard.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Upload your logo + hero image.</h4>
+        <p>Top of the business editor. Square PNG, at least 512×512 for the logo (this becomes the app icon on customer phones). The hero is a landscape photo of your space (about 1600×900).</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>Set your brand colors.</h4>
+        <p>Pick a primary + secondary. The customer app's gradients, buttons, and accents all derive from these. Test by tapping the phone-preview panel on the right — updates instantly.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h4>Write a welcome message.</h4>
+        <p>One line, friendly. Default is "Welcome back, &lt;first name&gt;!" — fine to keep, or customize ("Hey there, hope your coffee was great ☕").</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h4>Set point rules.</h4>
+        <p>How many points per visit, per dollar spent, per review submitted, per referral, per birthday. Defaults work — only revisit if you want to change the value of a redemption.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <h4>Add your first 3 rewards.</h4>
+        <p>Click <strong>Rewards</strong> → <strong>Add reward</strong>. Suggested starter trio: a low-cost daily (e.g. "Free upgrade — 50 pts"), a mid-range (e.g. "Free drink — 200 pts"), and an aspirational (e.g. "VIP day pass — 1000 pts").</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">7</div>
+      <div class="step-content">
+        <h4>Print your QR code.</h4>
+        <p>Click <strong>QR Code</strong> on the business header. Download the PNG. Print on cardstock and put it where customers can see + reach. Recommended size: at least 3×3 inches at eye level.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <strong>Pro tip:</strong> Tape an A5 mini-flyer next to the QR with two lines —
+    "Scan to earn points. Today's bonus: +50 points for joining." That's your
+    first-week sign-up engine.
+  </div>
+</div>
+
+
+<!-- ══════════ 2 — FIRST 30 MIN (PART 2) ══════════ -->
+<div class="page">
+  <h3>Optional but recommended (next 30 minutes)</h3>
+
+  <div style="margin-top:14px;">
+    <div class="step-row">
+      <div class="step-num">8</div>
+      <div class="step-content">
+        <h4>Turn on streaks.</h4>
+        <p>Membership → Streaks → Enable. Set the cadence (daily, weekly, monthly) and add 2-3 milestone rewards. Default config works for most businesses.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">9</div>
+      <div class="step-content">
+        <h4>Set up your Google review link.</h4>
+        <p>Settings → Business Settings → Google Review URL. Grab the link from Google Business Profile → "Get more reviews." Paste it. Customers will now tap "Review on Google" in the app and land directly at the review form.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">10</div>
+      <div class="step-content">
+        <h4>Configure your membership (optional).</h4>
+        <p>Membership tab → set a name, price, perks. Pick your payment mode: front-desk, external link, or Stripe. See Chapter 6 for details.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">11</div>
+      <div class="step-content">
+        <h4>Create your first featured offer.</h4>
+        <p>Offers tab → Add offer → mark it as Featured. Shows in the customer app's sticky banner at the top of every tab.</p>
+      </div>
+    </div>
+
+    <div class="step-row">
+      <div class="step-num">12</div>
+      <div class="step-content">
+        <h4>Invite your team.</h4>
+        <p>Team tab → Invite. Add manager-level for people who handle billing + insights, front-desk-level for people who just scan + award. They get a magic link email.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>How to know you're ready to flip the sign</h3>
+  <p>
+    You're set up when these are all true:
+  </p>
+  <ul>
+    <li>Logo + colors look right in the phone preview</li>
+    <li>At least 3 rewards in the catalog</li>
+    <li>QR code printed and placed</li>
+    <li>You can sign in as a customer (use a personal email on a different device) and see your branded app</li>
+  </ul>
+  <p>That's it. Tell your first customer.</p>
+</div>
+
+
+<!-- ══════════ 3 — REWARDS ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 3</div>
+  <h2>Rewards catalog</h2>
+
+  <p>Rewards are what customers spend their points on. The whole loyalty loop hinges on having
+    a catalog that feels worth the grind.</p>
+
+  <h3>How to set up a reward</h3>
+  <ol>
+    <li>Rewards tab → <strong>Add reward</strong></li>
+    <li>Name it (short — "Free coffee", "10% off any service")</li>
+    <li>Set the <strong>point cost</strong> (more on this below)</li>
+    <li>Upload an image (square, ~500×500 PNG/JPG — appears on the reward card)</li>
+    <li>Optionally set an expiration window on the redemption (e.g. "use within 14 days")</li>
+    <li>Save</li>
+  </ol>
+
+  <h3>The point-cost math</h3>
+  <p>Two ways to think about pricing your rewards:</p>
+  <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:10px;">
+    <div class="card card-blue">
+      <h4 style="margin-top:0;">By visit count</h4>
+      <p style="font-size:13px;">If you give 10 points per visit, a reward worth a free $5 item should cost ~50-100 points (5-10 visits).</p>
+    </div>
+    <div class="card card-gold">
+      <h4 style="margin-top:0;">By dollar value</h4>
+      <p style="font-size:13px;">1 point ≈ $0.01 of value. So a $10 reward costs ~1000 points. Adjust to your margin.</p>
+    </div>
+  </div>
+
+  <h3>Reward ladder strategy</h3>
+  <p>A healthy catalog has <strong>three rungs</strong>:</p>
+  <ul>
+    <li><strong>Quick win (50-100 pts)</strong> — gets new members to redeem within their first 2 weeks. Small free upgrade, drink size up, etc.</li>
+    <li><strong>Habit reward (200-500 pts)</strong> — the bread-and-butter. The thing they're saving for.</li>
+    <li><strong>Aspirational (1000+ pts)</strong> — the trophy. Brings out the competitive types.</li>
+  </ul>
+
+  <div class="warn">
+    <strong>Don't make all rewards the same point value.</strong> A catalog where everything costs 200 points
+    feels boring. Variety creates anticipation.
+  </div>
+</div>
+
+
+<!-- ══════════ 4 — OFFERS (PART 1) ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 4</div>
+  <h2>Offers — one-time + automated + voice memos</h2>
+
+  <p>Offers are limited-time deals you push to your customers. They're different from rewards
+    (which are always available for points). Atlas has two types.</p>
+
+  <h3>One-Time offers</h3>
+  <p>You create them. You expire them. Used for promotions, slow days, holidays.</p>
+  <ol>
+    <li>Offers tab → One-Time → <strong>Add offer</strong></li>
+    <li>Title (short — "Free side with any entree")</li>
+    <li>Description, image, expiration date</li>
+    <li>Mark as <strong>Featured</strong> to show in the sticky banner on every customer-app tab</li>
+    <li>Save → live immediately</li>
+  </ol>
+
+  <div class="tip">
+    <strong>Featured offer = your slow-day weapon.</strong> Change it weekly. Customers who get push
+    notifications will check the banner first.
+  </div>
+
+  <h3>Automated offers</h3>
+  <p>Atlas drops these automatically based on events:</p>
+  <ul>
+    <li><strong>Birthday</strong> — auto-issued on the customer's birthday</li>
+    <li><strong>Inactivity / Reactivation</strong> — auto-triggered if a customer hasn't visited in N days</li>
+    <li><strong>Milestone celebrations</strong> — first visit, 10th visit, etc.</li>
+    <li><strong>Holiday templates</strong> — pre-built for major dates (Mother's Day, St. Patrick's, etc.)</li>
+  </ul>
+
+  <p>How to set one up:</p>
+  <ol>
+    <li>Offers → Automated → <strong>Add automated offer</strong></li>
+    <li>Pick the trigger (birthday, inactivity, milestone, etc.)</li>
+    <li>Choose discount type: <strong>%</strong> or <strong>$</strong></li>
+    <li>Upload an image (this is what the customer sees in the "OfferReveal" popup)</li>
+    <li>Save → Atlas takes over the trigger</li>
+  </ol>
+
+  <h3>Voice memo offers</h3>
+  <p>The killer feature. Record a 15-second audio message that plays in the customer's app
+    when they receive the offer.</p>
+  <ol>
+    <li>When editing an automated offer, click the <strong>microphone</strong> icon</li>
+    <li>Record (your voice, the owner's voice — feels personal)</li>
+    <li>Preview, re-record if needed</li>
+    <li>Save</li>
+  </ol>
+
+  <div class="tip">
+    <strong>What to say:</strong> "Hey Sarah, it's Joe from Joe's Cafe — noticed you haven't been
+    in for a couple weeks. Coffee's on me next time. See you soon!" — that's it.
+  </div>
+</div>
+
+
+<!-- ══════════ 4 — OFFERS (PART 2) ══════════ -->
+<div class="page">
+  <h3>The OfferReveal popup</h3>
+  <p>When a customer receives an automated offer, Atlas shows them a celebratory "unwrap"
+    popup the next time they open the app. Confetti, slide-up reveal, voice memo plays if you
+    recorded one. Builds anticipation.</p>
+
+  <h3>Featured offer banner</h3>
+  <p>The sticky orange banner that appears at the top of every customer-app tab. Always shows
+    your current featured offer. To set:</p>
+  <ol>
+    <li>Edit any one-time offer</li>
+    <li>Toggle <strong>Featured</strong> on (only one can be featured at a time)</li>
+    <li>Save</li>
+  </ol>
+  <p>Now appears across all tabs (Home, Scan, Rewards, Profile) until you remove it or it expires.</p>
+
+  <h3>Customer offers broadcast</h3>
+  <p>Sometimes you want to push a message <em>right now</em> to all members. Holiday hours, last-minute drop, surprise.</p>
+  <ol>
+    <li>Notifications tab → fill in title + body</li>
+    <li>Pick where the notification opens to (Home / Rewards / Scan)</li>
+    <li>Send → in-app notification + push notification to everyone who has push enabled</li>
+  </ol>
+  <div class="warn">
+    <strong>Don't abuse this.</strong> Once or twice a week max. People mute apps that spam.
+  </div>
+
+  <h3>Offer best practices</h3>
+  <ul>
+    <li>Use real images of your actual product, not stock photos</li>
+    <li>Keep titles to 4 words or fewer</li>
+    <li>Always set an expiration date — scarcity drives action</li>
+    <li>Test holiday templates a week in advance, not the day-of</li>
+  </ul>
+</div>
+
+
+<!-- ══════════ 5 — STREAKS ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 5</div>
+  <h2>Streaks &amp; milestone rewards</h2>
+
+  <p>Streaks are how Atlas turns one-time visitors into habits. Members see their visit
+    streak as a row of glowing fire cubes. Some cubes are milestone rewards — gold-plated,
+    with a "★ REWARD" tag — and they're the thing customers come back for.</p>
+
+  <h3>Configuring streaks</h3>
+  <ol>
+    <li>Streaks tab in the manager dashboard</li>
+    <li>Toggle <strong>Enable streaks</strong> on</li>
+    <li>Choose <strong>cadence</strong>: daily (good for cafes, daily check-ins), weekly (most retail/service), or monthly (membership-style)</li>
+    <li>Set <strong>check-ins required per period</strong> (default: 1)</li>
+    <li>Add milestone rewards (see below)</li>
+    <li>Save</li>
+  </ol>
+
+  <h3>Milestone rewards</h3>
+  <p>The magic of streaks. Click <strong>Add milestone</strong> in the streak editor and set:</p>
+  <ul>
+    <li>The <strong>visit count</strong> for the milestone (e.g. week 4, week 8, week 12)</li>
+    <li>The reward — bonus points, a free item, or a mystery reward (Atlas picks a random surprise)</li>
+    <li>The label customers see ("Week 4 reward 🎉")</li>
+  </ul>
+
+  <h3>The 4-8-12 framework</h3>
+  <p>Tested milestone cadence that works for most local businesses:</p>
+  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-top:14px;">
+    <div class="card card-gold">
+      <h4 style="margin-top:0;">Week 4</h4>
+      <p style="font-size:13px;">Small bonus (+50 pts). Builds the habit.</p>
+    </div>
+    <div class="card card-gold">
+      <h4 style="margin-top:0;">Week 8</h4>
+      <p style="font-size:13px;">Mid reward (free drink/item). Habit's locked in.</p>
+    </div>
+    <div class="card card-gold">
+      <h4 style="margin-top:0;">Week 12</h4>
+      <p style="font-size:13px;">Aspirational (VIP treatment, big % off). The "trophy."</p>
+    </div>
+  </div>
+
+  <h3>How customers experience it</h3>
+  <p>On the Rewards tab they tap the fire pill at the top and see a grid of cells. Filled
+    cells (orange-red gradient) are completed weeks; milestone cells (gold gradient + ★ REWARD
+    tag) stand out so they know "next week I get a reward." The current week's cell pulses.</p>
+</div>
+
+
+<!-- ══════════ 6 — MEMBERSHIPS ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 6</div>
+  <h2>Memberships — three payment modes</h2>
+
+  <p>You can sell a paid premium tier on top of your standard loyalty program — VIP membership,
+    Inner Circle, whatever you call it. Members get perks like 2× point multiplier or priority
+    booking. Atlas gives you three ways to collect the recurring payment.</p>
+
+  <h3>How to set up</h3>
+  <ol>
+    <li>Manager dashboard → <strong>Membership</strong> tab</li>
+    <li>Membership name, monthly price, perks list (one perk per line)</li>
+    <li>Choose your payment mode (see below)</li>
+    <li>Toggle <strong>Enable</strong></li>
+    <li>Save</li>
+  </ol>
+
+  <h3>The three payment modes</h3>
+
+  <div class="card card-green" style="margin-top:14px;">
+    <span class="tag tag-green">Mode 1 · Default · Lowest friction</span>
+    <h4 style="margin:8px 0 4px;">At the front desk</h4>
+    <p style="font-size:13px; margin:0;">
+      Customer signs up in the app → membership status flips to "pending" → they pay at your
+      counter using <em>any method you accept</em> (cash, POS card, Venmo, Cash App) → staff
+      taps Activate in the front-desk app. <strong>Zero processor setup required.</strong>
+    </p>
+  </div>
+
+  <div class="card card-blue" style="margin-top:14px;">
+    <span class="tag">Mode 2 · Online payment</span>
+    <h4 style="margin:8px 0 4px;">External payment link</h4>
+    <p style="font-size:13px; margin:0;">
+      Paste any payment URL (Square invoice, PayPal subscribe, Shopify checkout, anything).
+      When a customer taps "Join Membership," that URL opens in a new tab. They pay there. Staff
+      confirms the deposit then taps Activate in the front-desk app. Works with <strong>any payment processor</strong>.
+    </p>
+  </div>
+
+  <div class="card card-gold" style="margin-top:14px;">
+    <span class="tag tag-gold">Mode 3 · Full auto</span>
+    <h4 style="margin:8px 0 4px;">Stripe (auto-activate)</h4>
+    <p style="font-size:13px; margin:0;">
+      Paste your Stripe secret key + webhook secret. Customer signs up in the app → redirected
+      to Stripe Checkout → pays → webhook auto-activates them. Zero staff action needed.
+      <strong>Best for high volume.</strong>
+    </p>
+  </div>
+
+  <h3>Activating a pending membership (Modes 1 + 2)</h3>
+  <p>When a customer requests membership in modes 1 or 2, you'll see them in the
+    <strong>Pending memberships</strong> queue on the Front-desk tab (gold-plated card —
+    you can't miss it). Confirm their payment, then tap <strong>Activate</strong>. The customer
+    gets a push notification: "You're a member! 🎉"</p>
+
+  <div class="tip">
+    <strong>Most local businesses pick Mode 1.</strong> You already collect payment somehow.
+    Atlas doesn't need to touch the money to track who's a member.
+  </div>
+</div>
+
+
+<!-- ══════════ 7 — FRONT DESK OPS ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 7</div>
+  <h2>Front-desk operations</h2>
+
+  <p>The day-to-day surface. Your front-desk staff lives here. Switch to the Front-desk tab
+    in the manager dashboard.</p>
+
+  <h3>Scanning a customer's QR code</h3>
+  <p>Two ways:</p>
+  <ul>
+    <li><strong>Camera scan</strong> — tap "Scan code" on the front-desk hero, point your tablet camera at the customer's QR. Atlas auto-detects the code.</li>
+    <li><strong>USB scanner</strong> — plug in any cheap USB QR scanner (~$30 on Amazon). Atlas auto-listens for HID input. Best for fast-paced front desks.</li>
+  </ul>
+
+  <h3>Awarding points</h3>
+  <p>Once a customer is scanned in:</p>
+  <ol>
+    <li>The Award Points panel opens automatically</li>
+    <li>Pick a reason (visit, purchase, manual adjustment)</li>
+    <li>Enter the amount</li>
+    <li>Tap <strong>Award</strong> → instant balance update on the customer's phone</li>
+  </ol>
+
+  <div class="warn">
+    <strong>Made a mistake?</strong> Tap the <strong>Undo</strong> button on the same panel within
+    30 seconds. Reverses the award cleanly. After 30 seconds, you can still manually adjust their balance.
+  </div>
+
+  <h3>Manual code entry</h3>
+  <p>If the camera or USB scanner isn't cooperating, tap <strong>Type code</strong> and enter the
+    6-character code from the customer's member card. Same result.</p>
+
+  <h3>Fulfilling redemptions</h3>
+  <p>When a customer redeems a reward, they get a 7-character code. Same scan flow — Atlas
+    auto-detects whether you scanned a member or a redemption.</p>
+
+  <h3>Customer search</h3>
+  <p>Top of the Front-desk tab — type a customer name, phone, or email. Auto-suggests matches
+    from your member list. Click to open their profile.</p>
+
+  <h3>Daily recap card</h3>
+  <p>The card at the top shows today's stats live: new members, points awarded, redemptions.
+    Refresh-free — updates as the day happens.</p>
+</div>
+
+
+<!-- ══════════ 8 — REVIEWS ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 8</div>
+  <h2>Google reviews — approve &amp; award</h2>
+
+  <p>Atlas turns happy customers into 5-star Google reviews on autopilot. Three steps for the
+    customer; one tap for you.</p>
+
+  <h3>The customer flow</h3>
+  <ol>
+    <li>Customer sees a red "!" badge on the Rewards tab in the bottom nav</li>
+    <li>Tap the tab → page scrolls directly to the review row, brief ring flash</li>
+    <li>Tap <strong>Review on Google</strong> → opens the Google review form for your business</li>
+    <li>Customer writes the review → comes back to the app → taps "I left my review"</li>
+    <li>Optionally pastes the link to their review</li>
+    <li>Status flips to <strong>pending</strong> (orange "!") → waiting for you to verify</li>
+  </ol>
+
+  <h3>Approving the review (your job)</h3>
+  <ol>
+    <li>On the Front-desk tab, the <strong>Pending Google reviews</strong> queue appears (4-color Google-branded card — can't miss it)</li>
+    <li>Click "View their review" to confirm it's real</li>
+    <li>Tap <strong>Approve &amp; award</strong> → points credited, customer gets a push: "Your review was verified 🎉"</li>
+    <li>OR tap <strong>Reject</strong> if it's not legit (rare)</li>
+  </ol>
+
+  <h3>One-and-done</h3>
+  <p>Once approved, that customer <em>cannot</em> submit another Google review for your business.
+    The red badge disappears from their app. Prevents abuse and keeps your review velocity natural.</p>
+
+  <h3>Setting your Google review URL</h3>
+  <ol>
+    <li>Google Business Profile → <strong>Get more reviews</strong></li>
+    <li>Copy the link Google gives you</li>
+    <li>Atlas → Settings → Business Settings → <strong>Google Review URL</strong> → paste</li>
+    <li>Save</li>
+  </ol>
+  <p>That's the link customers land on when they tap "Review on Google." Without it, the button shows a "not set up yet" state.</p>
+</div>
+
+
+<!-- ══════════ 9 — TEAM ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 9</div>
+  <h2>Team — invite managers &amp; front-desk</h2>
+
+  <p>Atlas has two staff roles, and you'll use both.</p>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px;">
+    <div class="card card-blue">
+      <h4 style="margin-top:0;">Manager</h4>
+      <p style="font-size:13px;">Full access. Sees Insights, Billing, Team management, all settings. For owners + ops managers.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0;">Front desk</h4>
+      <p style="font-size:13px;">Limited access. Only sees scan, award points, fulfill redemptions, activate memberships, approve reviews. <strong>Cannot see billing or business-level analytics.</strong></p>
+    </div>
+  </div>
+
+  <h3>Sending an invite</h3>
+  <ol>
+    <li>Manager dashboard → <strong>Team</strong> tab</li>
+    <li>Tap <strong>Invite</strong></li>
+    <li>Enter their email</li>
+    <li>Pick a role (manager OR front-desk)</li>
+    <li>Send → they get a magic-link email</li>
+    <li>They click the link → set their password → land in the right dashboard</li>
+  </ol>
+
+  <h3>Removing a team member</h3>
+  <ol>
+    <li>Team tab → find them in the list</li>
+    <li>Click the ⋮ menu → <strong>Remove from team</strong></li>
+    <li>Confirm</li>
+  </ol>
+  <p>They lose access immediately. Their previous actions stay logged.</p>
+
+  <div class="tip">
+    <strong>Best practice:</strong> Use front-desk role for everyone unless they genuinely need
+    billing/analytics access. Lower-privilege accounts = fewer accidents.
+  </div>
+</div>
+
+
+<!-- ══════════ 10 — NOTIFICATIONS ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 10</div>
+  <h2>In-app notifications + broadcasts</h2>
+
+  <p>Atlas has two kinds of notifications: automatic (Atlas sends them for you) and manual (you broadcast them).</p>
+
+  <h3>Automatic notifications</h3>
+  <p>These fire on their own, no setup needed:</p>
+  <ul>
+    <li><strong>Streak</strong> — milestone reached, streak about to break</li>
+    <li><strong>Daily check-in</strong> — confirmation when a customer checks in</li>
+    <li><strong>Google review</strong> — "Your review was verified 🎉"</li>
+    <li><strong>Automated offer</strong> — "A new offer just dropped"</li>
+    <li><strong>Reward expiration</strong> — "Your reward expires in 48 hours"</li>
+    <li><strong>Membership activation</strong> — "You're a member!"</li>
+  </ul>
+
+  <h3>Manual broadcasts</h3>
+  <p>One-tap message to every enrolled member of your business. Holiday hours, surprise drops, anything.</p>
+  <ol>
+    <li>Manager dashboard → <strong>Notifications</strong> tab</li>
+    <li>Title (max 80 chars — short + punchy)</li>
+    <li>Body (max 240 chars — the details)</li>
+    <li>Pick where the notification opens to (Home / Rewards / Scan / Profile)</li>
+    <li>Tap <strong>Send to everyone</strong></li>
+  </ol>
+  <p>Every enrolled member gets both:</p>
+  <ul>
+    <li>An in-app notification (bell badge updates immediately)</li>
+    <li>A push notification (if they've granted permission)</li>
+  </ul>
+
+  <h3>Push notification permissions</h3>
+  <p>Customers grant push permission the first time they tap the notification bell after installing the app.
+    Android works automatically. iOS only works if they installed via Safari (Add to Home Screen) — Chrome on iOS can't do push.</p>
+
+  <div class="warn">
+    <strong>Send sparingly.</strong> Push fatigue is real. Once or twice a week max for broadcasts. Atlas's automatic notifications already create a steady cadence.
+  </div>
+</div>
+
+
+<!-- ══════════ 11 — ANALYTICS ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 11</div>
+  <h2>Atlas Impact analytics</h2>
+
+  <p>The Insights tab is where you see Atlas's real impact on your business. Built specifically
+    to answer "is this thing worth it?" — usually with a big number.</p>
+
+  <h3>Atlas Impact hero</h3>
+  <p>The giant headline at the top: <strong>"Atlas drove $X for {your business} this month."</strong>
+    Combines four sources:</p>
+  <ul>
+    <li>Repeat visits Atlas-attributable (vs. baseline without loyalty)</li>
+    <li>Estimated value of Google reviews generated</li>
+    <li>Recovered revenue from win-back nudges</li>
+    <li>Average lifetime value per Atlas member</li>
+  </ul>
+
+  <h3>With Atlas / Without Atlas comparison</h3>
+  <p>Side-by-side: actual revenue vs. an estimated baseline if you ran the same business with no
+    loyalty + no review automation. The "without" side is struck through in red — visceral.</p>
+
+  <h3>Google review funnel</h3>
+  <p>Three-cell funnel: Asks → Submitted → Verified. Plus a 6-month bar chart of reviews per
+    month. Plus a before/after star-average panel (if you've been on Atlas for 60+ days).</p>
+
+  <h3>Operations dashboard</h3>
+  <p>Underneath the Atlas Impact stack:</p>
+  <ul>
+    <li><strong>Members + repeat rate</strong> — total members + % returning in 30d</li>
+    <li><strong>Redemption rate</strong> — % of issued points that get redeemed</li>
+    <li><strong>Inactive (60d+)</strong> — eligible for win-back</li>
+    <li><strong>Busiest hours</strong> — staffing intel</li>
+    <li><strong>Top loyal members</strong> — your VIPs</li>
+    <li><strong>Come-Back AI predictions</strong> — who's slipping + one-tap win-back</li>
+  </ul>
+
+  <div class="tip">
+    <strong>Use this when discussing renewal.</strong> The "Atlas drove $X" number is your renewal
+    pitch in one screenshot.
+  </div>
+</div>
+
+
+<!-- ══════════ 12 — BILLING ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 12</div>
+  <h2>Billing &amp; manual MRR tracking</h2>
+
+  <p>The Billing tab handles two things: your subscription to Atlas (paid to Andrew's agency)
+    AND tracking your own customers' membership revenue.</p>
+
+  <h3>Your subscription to Atlas</h3>
+  <p>You pay Atlas's agency a fixed monthly + one-time setup. The exact amount lives in your
+    contract with the agency. You don't manage this through the dashboard — Atlas's team handles
+    invoicing.</p>
+
+  <h3>Tracking customer membership revenue</h3>
+  <p>When you're using <strong>front-desk</strong> or <strong>external link</strong> payment modes,
+    Atlas doesn't see the money — you do. The Billing tab lets you log MRR + setup fees manually
+    so your dashboard still reflects real numbers.</p>
+  <ol>
+    <li>Billing tab → click <strong>+ Log MRR / setup fee</strong></li>
+    <li>Pick the customer's business membership</li>
+    <li>Enter monthly amount in dollars</li>
+    <li>Optionally enter setup fee</li>
+    <li>Set status: <strong>Active</strong> (counts toward MRR), <strong>Pipeline / Trial</strong> (counts toward pipeline), or <strong>Canceled</strong></li>
+    <li>Save</li>
+  </ol>
+  <p>The MRR + pipeline numbers on your Insights tab update immediately.</p>
+
+  <h3>When to switch to Stripe automation</h3>
+  <p>If your membership volume exceeds ~20-30 active customers and manually logging gets
+    tedious, switch your membership payment mode to <strong>Stripe</strong> (Mode 3). Then:</p>
+  <ul>
+    <li>Get your Stripe secret key from Stripe Dashboard → Developers → API keys</li>
+    <li>Paste into Membership tab → Stripe section</li>
+    <li>Set up a Stripe webhook pointing to your business's webhook URL (Atlas shows you the URL)</li>
+    <li>From now on: customer subscribes in-app → Stripe handles payment → webhook auto-activates them → MRR auto-tracks</li>
+  </ul>
+
+  <div class="tip">
+    <strong>You can mix modes per customer.</strong> Some customers prefer cash at the desk;
+    others want Stripe auto-pay. Atlas doesn't care — just use whichever mode each customer set up under.
+  </div>
+</div>
+
+
+<!-- ══════════ 13 — TROUBLESHOOTING ══════════ -->
+<div class="page">
+  <div class="eyebrow">Chapter 13</div>
+  <h2>Troubleshooting</h2>
+
+  <h3>"A customer can't sign up"</h3>
+  <ul>
+    <li>Check they're on your branded subdomain (not the root atlas-engine.org)</li>
+    <li>If iPhone: they must use <strong>Safari</strong>, not Chrome, to install the PWA</li>
+    <li>Have them clear cookies for your subdomain and try again</li>
+  </ul>
+
+  <h3>"Push notifications aren't working"</h3>
+  <ul>
+    <li>iPhone customers MUST install the app to home screen (Safari → Share → Add to Home Screen) BEFORE granting push permission. Pre-install permission requests fail silently.</li>
+    <li>Android works through Chrome directly</li>
+    <li>If push permission was denied, the customer has to reset it in browser site settings</li>
+  </ul>
+
+  <h3>"The QR scanner isn't picking up codes"</h3>
+  <ul>
+    <li>Make sure the printed QR is at least 3×3 inches and well-lit</li>
+    <li>Try the USB scanner mode — auto-detects most cheap HID scanners</li>
+    <li>As a fallback: tap <strong>Type code</strong> and enter the 6-character code from the customer's member card</li>
+  </ul>
+
+  <h3>"I can't approve a Google review"</h3>
+  <ul>
+    <li>Your role might be front-desk only — check with the owner</li>
+    <li>If the error says "permission denied," the SQL migration may not be applied — contact Atlas support</li>
+    <li>If you're getting "no permission" repeatedly, try signing out and back in</li>
+  </ul>
+
+  <h3>"Customer says they paid but their membership isn't active"</h3>
+  <ul>
+    <li>If you use front-desk or external link mode — go to the Pending memberships queue and tap Activate</li>
+    <li>If you use Stripe mode — check Stripe Dashboard for the customer's payment status; if paid, the webhook may have failed</li>
+  </ul>
+
+  <h3>"The app looks slow / things won't load"</h3>
+  <ul>
+    <li>Refresh the page (Ctrl/Cmd+R)</li>
+    <li>Check your internet connection</li>
+    <li>If a specific RPC is failing repeatedly, contact Atlas support — could be a database issue</li>
+  </ul>
+
+  <h3>Getting help</h3>
+  <p>Atlas support: email support@atlas-engine.org or text the agency. Most issues are resolved
+    same-day during business hours.</p>
+
+  <div class="tip" style="margin-top:30px;">
+    <strong>One last thing:</strong> Atlas works best when you use it. Don't set it up and forget it.
+    Pick one feature each week and lean in — change the featured offer Monday, broadcast a Thursday
+    special, check Insights every Friday. Compound interest applies.
+  </div>
+
+  <div style="margin-top:40px; padding-top:20px; border-top:2px solid var(--ink); text-align:center;">
+    <div class="logo" style="justify-content:center; margin-bottom:8px;">
+      <span class="logo-mark"></span>
+      ATLAS ENGINE
+    </div>
+    <p style="font-size:12px; color:var(--muted);">atlas-engine.org · v1.0 · 2026</p>
+  </div>
+</div>
+
+</body>
+</html>

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { SignOutButton } from "./sign-out-button";
+import { NotificationPreferences } from "./notification-preferences";
 import type { Business } from "@/lib/types/database";
 
 type ProfileData = {
@@ -171,6 +172,14 @@ export function EditableProfile({
           <SignOutButton />
         </div>
       </div>
+
+      {/* CP-36b: per-customer notification preferences. Self-hides if the
+          cp36 SQL hasn't been applied yet (the RPC call will fail and the
+          section just doesn't render). */}
+      <NotificationPreferences
+        businessId={business.id}
+        primary={business.brand_colors.primary}
+      />
     </div>
   );
 }

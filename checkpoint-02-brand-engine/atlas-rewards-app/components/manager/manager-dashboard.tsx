@@ -17,7 +17,7 @@ import { ScannerListener } from "@/components/manager/scanner-listener";
 import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
 import { TeamMembers } from "@/components/team/team-members";
-import { NotificationBroadcast } from "@/components/notifications/notification-broadcast";
+// CP-36b: NotificationBroadcast removed — moved to agency settings.
 import { OffersManager } from "@/components/agency/offers-manager";
 import { AutomatedOffersManager } from "@/components/agency/automated-offers-manager";
 import { NewsManager } from "@/components/agency/news-manager";
@@ -26,11 +26,15 @@ import { NewsManager } from "@/components/agency/news-manager";
 import { ManagerBilling } from "@/components/manager/manager-billing";
 import { InsightsDashboard } from "@/components/manager/insights-dashboard";
 import { MembershipBillingSetup } from "@/components/manager/membership-billing-setup";
-import { CreditCard, BarChart3, Crown, Bell } from "lucide-react";
+import { CreditCard, BarChart3, Crown } from "lucide-react";
 import type { Business } from "@/lib/types/database";
 
 // Booking tab removed — Atlas is loyalty-only.
-type ManagerTab = "desk" | "offers" | "news" | "insights" | "billing" | "membership" | "team" | "notifications";
+// CP-36b: Notifications tab removed from manager view. Manual broadcast
+// + per-business notification toggles now live in the agency admin's
+// business settings (NotificationSettings panel) so the entire
+// notification surface is owned by the agency, not the front desk.
+type ManagerTab = "desk" | "offers" | "news" | "insights" | "billing" | "membership" | "team";
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -53,8 +57,8 @@ function managerTabsFor(_business: Business, role: AppRole): { id: ManagerTab; l
     tabs.push({ id: "membership", label: "Membership", icon: <Crown className="h-4 w-4" /> });
     // CP-31: managers can invite front-desk staff for their own business.
     tabs.push({ id: "team",       label: "Team",       icon: <Shield className="h-4 w-4" /> });
-    // CP-32: in-app + push notifications composer
-    tabs.push({ id: "notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> });
+    // CP-36b: Notifications tab removed — moved to agency admin's
+    // per-business settings (toggles + composer live there now).
   }
   return tabs;
 }
@@ -141,7 +145,25 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
       return;
     }
 
-    setErr(`No member or redemption found with code "${c}".`);
+    // 3. CP-36b: try as a saved-gift code (7 alphanumeric too). When the
+    //    cp36 SQL is applied, customers can present a saved-offer QR and
+    //    the front desk fulfills it via fulfill_saved_offer.
+    const { data: giftData } = await supabase.rpc("resolve_saved_offer_by_code",
+      { p_code: c, p_business_id: business.id });
+    if (giftData && giftData.length > 0) {
+      const g = giftData[0] as { saved_id: string; title: string; fulfilled_at: string | null };
+      if (g.fulfilled_at) {
+        setErr(`Gift "${g.title}" was already redeemed.`);
+      } else if (confirm(`Fulfill gift: "${g.title}"?`)) {
+        const { error: fulfillErr } = await supabase.rpc("fulfill_saved_offer", { p_saved_id: g.saved_id });
+        if (fulfillErr) setErr(`Couldn't fulfill — ${fulfillErr.message}`);
+        else { setMode("idle"); router.refresh(); return; }
+      }
+      setMode("idle");
+      return;
+    }
+
+    setErr(`No member, redemption, or gift found with code "${c}".`);
   }
 
   async function signOut() {
@@ -418,13 +440,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             primary={business.brand_colors.primary}
           />
         )}
-        {/* CP-32: notification composer + (future) automation toggles */}
-        {tab === "notifications" && (role === "business_manager" || role === "agency_admin") && (
-          <NotificationBroadcast
-            businessId={business.id}
-            primary={business.brand_colors.primary}
-          />
-        )}
+        {/* CP-36b: notifications surface (composer + toggles) moved to the
+            agency admin's per-business settings. The manager dashboard no
+            longer carries this tab — keeps the front-desk surface focused
+            on day-to-day ops. */}
       </main>
     </div>
   );

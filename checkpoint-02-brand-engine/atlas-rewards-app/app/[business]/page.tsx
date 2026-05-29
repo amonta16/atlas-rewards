@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { Gift, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,18 @@ import type { Business } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
+// CP-36: skip the dynamic route for static-asset paths Next.js can't
+// pre-empt (favicons hit before middleware reroutes can save us).
+const STATIC_ASSET_RE = /^(favicon\.(ico|png|svg)|robots\.txt|sitemap\.xml|manifest\.json|sw\.js|sw-push\.js)$/;
+
 export default async function BusinessRootPage({ params }: { params: { business: string } }) {
+  // CP-36: if the "business" segment is actually a static asset
+  // (favicon.ico, robots.txt, etc.) bail with a 404 immediately — no
+  // DB query, no crash.
+  if (STATIC_ASSET_RE.test(params.business)) {
+    notFound();
+  }
+
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -16,6 +27,11 @@ export default async function BusinessRootPage({ params }: { params: { business:
 
   const { data } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
+
+  // CP-36: business not found = 404, not a crash. This used to throw
+  // "Cannot read properties of null (reading 'brand_colors')" when the
+  // slug didn't exist (e.g. typo'd subdomain).
+  if (!data) notFound();
   const business = data as Business;
 
   return (

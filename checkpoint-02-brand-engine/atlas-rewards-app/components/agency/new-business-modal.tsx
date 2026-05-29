@@ -74,7 +74,7 @@ export function NewBusinessModal({ onClose }: { onClose: () => void }) {
                 <Label className="text-xs text-muted-foreground">URL slug</Label>
                 <Input value={slug} onChange={e => setSlug(autoSlug(e.target.value))} placeholder="joes-gym" />
                 <p className="text-[11px] text-muted-foreground">
-                  Customers will visit <code className="bg-muted px-1 rounded">{slug || "joes-gym"}.{rootDomain}:3000</code>
+                  Customers will visit <code className="bg-muted px-1 rounded">{slug || "joes-gym"}.{rootDomain}{rootDomain.includes("lvh.me") ? ":3000" : ""}</code>
                 </p>
               </div>
             </div>

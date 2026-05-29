@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import { Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ export default async function ManagerLayout({
 
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
+  if (!biz) notFound(); // CP-36
   const business = biz as Business;
 
   // Auth gate: must be agency_admin OR business_manager for THIS business

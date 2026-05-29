@@ -37,7 +37,7 @@ export function WebhookSettings({ business: initial }: { business: Business }) {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
   const inboundUrl = typeof window !== "undefined"
     ? `${window.location.origin}/api/webhooks/${business.slug}`
-    : `http://${rootDomain}:3000/api/webhooks/${business.slug}`;
+    : `${rootDomain.includes("lvh.me") ? "http" : "https"}://${rootDomain}${rootDomain.includes("lvh.me") ? ":3000" : ""}/api/webhooks/${business.slug}`;
 
   async function load() {
     const supabase = createClient();

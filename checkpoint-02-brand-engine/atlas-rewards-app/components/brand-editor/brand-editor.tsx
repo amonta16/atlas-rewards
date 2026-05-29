@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { cn, hexToHsl } from "@/lib/utils";
+import { cn, hexToHsl, businessUrl } from "@/lib/utils";
 import { INDUSTRY_PRESETS, type Business } from "@/lib/types/database";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
@@ -28,6 +28,7 @@ import { TemplateApplyPanel } from "@/components/agency/template-apply-panel";
 import { WidgetToggleGroups } from "@/components/agency/widget-toggle-groups";
 import { BookingTagsManager } from "@/components/agency/booking-tags-manager";
 import { BusinessSettingsPanel } from "@/components/agency/business-settings-panel";
+import { NotificationSettingsPanel } from "@/components/agency/notification-settings-panel";
 import { CalendarClock } from "lucide-react";
 import type { IndustryTemplate } from "@/lib/industry-templates";
 import type { PreviewBookingTag } from "@/components/customer-preview/customer-preview";
@@ -203,10 +204,10 @@ export function BrandEditor({ initial }: { initial: Business }) {
               <Check className="h-3 w-3"/> Saved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
-          <a href={`http://${b.slug}.${rootDomain}:3000`} target="_blank">
+          <a href={businessUrl(rootDomain, { slug: b.slug })} target="_blank">
             <Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1"/>Customer app</Button>
           </a>
-          <a href={`http://${b.slug}.${rootDomain}:3000/manage`} target="_blank">
+          <a href={businessUrl(rootDomain, { slug: b.slug, path: "/manage" })} target="_blank">
             <Button variant="outline" size="sm" className="border-sky-300 text-sky-700 hover:bg-sky-50">
               <User className="h-4 w-4 mr-1"/>Front desk
             </Button>
@@ -407,6 +408,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           {tab === "settings"   && (
             <div className="space-y-6">
               <BusinessSettingsPanel business={b} onUpdate={patch} />
+              {/* CP-36b: per-business notification toggles + manual
+                  broadcast composer (moved here from the manager view). */}
+              <NotificationSettingsPanel business={b} />
               <WebhookSettings business={b} />
               <AutomationRulesEditor business={b} />
             </div>

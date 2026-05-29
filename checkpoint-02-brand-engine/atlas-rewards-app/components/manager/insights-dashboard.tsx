@@ -1,41 +1,35 @@
 "use client";
 /**
- * InsightsDashboard — REBUILT in CP-32 as the "Atlas Impact" dashboard.
+ * InsightsDashboard — CP-32 → CP-36 cleanup
  *
- * Andrew's brief: this is the screen a business owner stares at before
- * deciding whether to keep paying us. So it has to be obvious — at a
- * glance — that Atlas is making them money. Not a stats list. A
- * narrative.
+ * CP-36 removed two surfaces Andrew said weren't pulling weight:
+ *   • Busiest hours (no operator was actually staffing off it)
+ *   • Come-Back AI predictions (overlap with the simpler Inactive list)
  *
- * Structure (top to bottom):
- *   1. ATLAS IMPACT HERO — "$X driven for your business in the last 30
- *      days" with a giant number and the dollar-driving sources beneath.
- *   2. WITH / WITHOUT ATLAS — side-by-side comparison: revenue, repeat
- *      visits, review velocity. Each row shows the % lift Atlas delivers
- *      against an estimated counterfactual (no loyalty + no review
- *      automation).
- *   3. GOOGLE REVIEW PERFORMANCE — review volume per month before/after
- *      Atlas, conversion funnel (asks → submitted → verified), star
- *      delta.
- *   4. ATLAS DASHBOARD (the existing rollup cards + Come-Back AI list)
- *      kept beneath because operators do use them.
+ * The Inactive list is now the single win-back surface and was upgraded:
+ *   • Cutoff bumped to 60 days (was 30) — matches Andrew's "if I haven't
+ *     seen them in two months, that's when I want a nudge".
+ *   • "We miss you" composer: choose how many bonus credits to drop +
+ *     send to one row, or fire-and-forget to the whole list with one tap.
  *
- * Backed by new RPCs in cp32_migration.sql:
- *   - atlas_impact_rollup(p_business_id)
- *   - atlas_impact_monthly(p_business_id)
- *   - atlas_review_funnel(p_business_id)
- *
- * Falls back gracefully if the RPCs aren't installed (CP-32 SQL not
- * applied yet) — renders the legacy stats only.
+ * Top loyal members is unchanged structurally but now sits with a clearer
+ * "real tracking" caption (the existing top_loyal_members RPC already
+ * sums lifetime_points_earned + visit_count, so the data was always real
+ * — Andrew just wanted the framing to read like the system is actively
+ * watching, not a one-off snapshot).
  */
 import { useEffect, useState } from "react";
 import {
-  Sparkles, TrendingUp, Users, Repeat, Gift, Clock, AlertTriangle, Mail, Send,
-  Trophy, Brain, Zap, Star, ArrowRight, ShieldCheck, DollarSign, BarChart3,
+  Sparkles, TrendingUp, Users, Repeat, Gift, Mail, Send,
+  Trophy, Brain, Star, ArrowRight, ShieldCheck, DollarSign, BarChart3,
+  AlertTriangle, X, MessageSquareHeart, Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StatCard } from "@/components/ui/stat-card";
+import { useToast } from "@/components/ui/toast";
 import type { Business } from "@/lib/types/database";
 
 type Rollup = {
@@ -76,45 +70,41 @@ type TopMember = {
   lifetime_points: number; points_balance: number; visit_count: number;
   last_visit_at: string | null;
 };
-type BusyHour = { hour_of_day: number; visit_count: number };
 type Inactive = {
   membership_id: string; full_name: string | null; email: string | null; phone: string | null;
   last_visit_at: string | null; days_since_last: number | null; visit_count: number;
 };
-type ComeBackPred = {
-  membership_id: string; full_name: string | null; email: string | null;
-  visits: number; avg_gap_days: number | null;
-  last_visit_at: string | null; days_since_last: number | null; overdue_factor: number | null;
-};
+
+// CP-36: minimum days since last visit before we consider a member inactive.
+// Andrew explicitly asked for two months.
+const INACTIVE_DAYS = 60;
 
 export function InsightsDashboard({ business }: { business: Business }) {
+  const { toast } = useToast();
   const [rollup, setRollup]       = useState<Rollup | null>(null);
   const [impact, setImpact]       = useState<Impact | null>(null);
   const [monthly, setMonthly]     = useState<MonthlyPoint[]>([]);
   const [funnel, setFunnel]       = useState<ReviewFunnel | null>(null);
   const [top, setTop]             = useState<TopMember[]>([]);
-  const [busy, setBusy]           = useState<BusyHour[]>([]);
   const [inactive, setInactive]   = useState<Inactive[]>([]);
-  const [predictions, setPredictions] = useState<ComeBackPred[]>([]);
-  const [sending, setSending]     = useState<string | null>(null);
+  const [sending, setSending]     = useState<string | "all" | null>(null);
+  // CP-36: we-miss-you composer — opens with either a single membership
+  // selected, or null (= send-to-all-inactive).
+  const [composer, setComposer] = useState<{ target: Inactive | "all" } | null>(null);
 
   async function loadAll() {
     const supabase = createClient();
     const [
       { data: r },
       { data: t },
-      { data: b },
       { data: i },
-      { data: p },
       impactRes,
       monthlyRes,
       funnelRes,
     ] = await Promise.all([
       supabase.rpc("business_analytics_rollup", { p_business_id: business.id }),
       supabase.rpc("top_loyal_members",         { p_business_id: business.id, p_limit: 5 }),
-      supabase.rpc("busiest_hours",             { p_business_id: business.id }),
-      supabase.rpc("inactive_members",          { p_business_id: business.id, p_min_days: 30, p_limit: 8 }),
-      supabase.rpc("come_back_predictions",     { p_business_id: business.id }),
+      supabase.rpc("inactive_members",          { p_business_id: business.id, p_min_days: INACTIVE_DAYS, p_limit: 50 }),
       supabase.rpc("atlas_impact_rollup",       { p_business_id: business.id }),
       supabase.rpc("atlas_impact_monthly",      { p_business_id: business.id }),
       supabase.rpc("atlas_review_funnel",       { p_business_id: business.id }),
@@ -123,14 +113,7 @@ export function InsightsDashboard({ business }: { business: Business }) {
     const row = Array.isArray(r) ? r[0] : r;
     setRollup((row ?? null) as Rollup | null);
     setTop((t ?? []) as TopMember[]);
-    setBusy((b ?? []) as BusyHour[]);
     setInactive((i ?? []) as Inactive[]);
-    const preds = (p ?? []) as ComeBackPred[];
-    const overdue = preds
-      .filter(x => (x.overdue_factor ?? 0) >= 1.3 && (x.days_since_last ?? 0) >= 5)
-      .sort((a, z) => (z.overdue_factor ?? 0) - (a.overdue_factor ?? 0))
-      .slice(0, 8);
-    setPredictions(overdue);
 
     // CP-32 RPCs — silently no-op if the migration hasn't been applied.
     const im = Array.isArray(impactRes.data) ? impactRes.data[0] : impactRes.data;
@@ -142,18 +125,40 @@ export function InsightsDashboard({ business }: { business: Business }) {
 
   useEffect(() => { loadAll(); }, [business.id]);
 
-  async function sendWinback(membershipId: string) {
-    setSending(membershipId);
+  // CP-36: send a we-miss-you notification (+ optional bonus points) to
+  // a single inactive member OR to the entire inactive list. Targets the
+  // existing send_winback RPC per row.
+  async function sendWeMissYou(target: Inactive | "all", bonusPoints: number, message: string) {
+    const targets: Inactive[] = target === "all" ? inactive : [target];
+    if (targets.length === 0) {
+      toast.error("Nobody inactive right now");
+      return;
+    }
+    setSending(target === "all" ? "all" : target.membership_id);
     const supabase = createClient();
-    await supabase.rpc("send_winback", {
-      p_business_id: business.id,
-      p_membership_id: membershipId,
-      p_title: "We miss you ✨",
-      p_body: "Here's a little bonus to welcome you back.",
-      p_bonus_points: 50,
-    });
-    setSending(null);
-    loadAll();
+    try {
+      // Fire them in parallel — each call is an independent insert.
+      await Promise.all(
+        targets.map(t => supabase.rpc("send_winback", {
+          p_business_id: business.id,
+          p_membership_id: t.membership_id,
+          p_title: "We miss you ✨",
+          p_body: message,
+          p_bonus_points: bonusPoints > 0 ? bonusPoints : null,
+        }))
+      );
+      toast.success(
+        target === "all"
+          ? `Sent to ${targets.length} member${targets.length === 1 ? "" : "s"}`
+          : `Sent to ${target.full_name ?? target.email ?? "member"}`
+      );
+      setComposer(null);
+      loadAll();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Couldn't send");
+    } finally {
+      setSending(null);
+    }
   }
 
   const dollars = (c: number) => `$${(c / 100).toFixed(0)}`;
@@ -162,10 +167,6 @@ export function InsightsDashboard({ business }: { business: Business }) {
     if (n >= 10000) return `$${(n / 1000).toFixed(1)}k`;
     return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
   };
-  const peakHour = busy.length > 0
-    ? busy.reduce((a, b) => (a.visit_count > b.visit_count ? a : b)).hour_of_day
-    : null;
-  const maxHourCount = busy.length > 0 ? Math.max(...busy.map(b => Number(b.visit_count))) : 0;
 
   const brand = business.brand_colors.primary;
   const brand2 = business.brand_colors.secondary;
@@ -405,52 +406,17 @@ export function InsightsDashboard({ business }: { business: Business }) {
         </div>
       </div>
 
-      {/* ===================== BUSIEST HOURS ===================== */}
-      <div className="rounded-2xl border bg-white p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold flex items-center gap-2">
-            <Clock className="h-4 w-4 text-violet-500" /> Busiest hours
-          </h3>
-          {peakHour != null && (
-            <span className="text-[11px] text-muted-foreground">
-              Peak: {fmtHour(peakHour)}
-            </span>
-          )}
-        </div>
-        {busy.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">No visits in the last 30 days yet.</div>
-        ) : (
-          <div className="flex items-end gap-1 h-32">
-            {Array.from({ length: 24 }, (_, h) => {
-              const slot = busy.find(b => Number(b.hour_of_day) === h);
-              const count = slot ? Number(slot.visit_count) : 0;
-              const pct = maxHourCount > 0 ? (count / maxHourCount) * 100 : 0;
-              const isPeak = peakHour === h && count > 0;
-              return (
-                <div key={h} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-t-sm transition-all"
-                    style={{
-                      height: `${Math.max(2, pct)}%`,
-                      background: isPeak ? brand : `${brand}40`,
-                    }}
-                    title={`${fmtHour(h)} — ${count} visits`}
-                  />
-                  {(h % 4 === 0) && (
-                    <div className="text-[9px] text-muted-foreground">{fmtHour(h)}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {/* ===================== TOP LOYAL MEMBERS ===================== */}
       <div className="rounded-2xl border bg-white overflow-hidden">
         <div className="px-5 py-3 border-b flex items-center gap-2">
           <Trophy className="h-4 w-4 text-amber-500" />
-          <h3 className="font-semibold">Top loyal members</h3>
+          <div>
+            <h3 className="font-semibold">Top loyal members</h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Live leaderboard — ranked by lifetime points earned + visits.
+              Updates the moment someone scans in.
+            </p>
+          </div>
         </div>
         {top.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">No member activity yet.</div>
@@ -477,69 +443,34 @@ export function InsightsDashboard({ business }: { business: Business }) {
         )}
       </div>
 
-      {/* ===================== COME-BACK AI ===================== */}
+      {/* ===================== INACTIVE LIST (CP-36) ===================== */}
       <div className="rounded-2xl border bg-white overflow-hidden">
-        <div className="px-5 py-3 border-b flex items-center gap-2">
-          <Brain className="h-4 w-4 text-fuchsia-500" />
-          <div className="flex-1">
-            <h3 className="font-semibold">Come-Back AI predictions</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Members overdue based on their personal visit cadence. Tap "Send win-back" to drop
-              bonus points + a "we miss you" message.
-            </p>
+        <div className="px-5 py-3 border-b flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Mail className="h-4 w-4 text-zinc-500 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="font-semibold">Inactive members (60d+)</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Haven't checked in for two months. Send a "we miss you" with
+                a bonus to pull them back.
+              </p>
+            </div>
           </div>
-        </div>
-        {predictions.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            🎉 Nobody's slipping right now. Everyone's on schedule.
-          </div>
-        ) : (
-          <div className="divide-y">
-            {predictions.map(p => (
-              <div key={p.membership_id} className="flex items-center gap-3 px-5 py-3">
-                <div className="h-10 w-10 rounded-lg bg-fuchsia-50 text-fuchsia-700 flex items-center justify-center shrink-0">
-                  <Zap className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate">{p.full_name ?? p.email ?? "Member"}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5 flex flex-wrap gap-x-3">
-                    <span>{p.visits} visits</span>
-                    {p.avg_gap_days && <span>avg {p.avg_gap_days}d between</span>}
-                    {p.days_since_last && (
-                      <span className="text-rose-600 font-semibold">
-                        {Math.round(Number(p.days_since_last))}d since last
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-[10px] text-muted-foreground mb-1">
-                    {p.overdue_factor ? `${p.overdue_factor.toFixed(1)}x overdue` : ""}
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => sendWinback(p.membership_id)}
-                    disabled={sending === p.membership_id}
-                    style={{ background: brand }}
-                    className="text-white text-xs"
-                  >
-                    {sending === p.membership_id ? "Sending…" : <><Send className="h-3 w-3 mr-1" /> Send win-back</>}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ===================== INACTIVE LIST ===================== */}
-      <div className="rounded-2xl border bg-white overflow-hidden">
-        <div className="px-5 py-3 border-b flex items-center gap-2">
-          <Mail className="h-4 w-4 text-zinc-500" />
-          <h3 className="font-semibold">Inactive members (30d+)</h3>
+          {inactive.length > 0 && (
+            <Button
+              size="sm"
+              onClick={() => setComposer({ target: "all" })}
+              disabled={sending === "all"}
+              style={{ background: brand }}
+              className="text-white text-xs shrink-0"
+            >
+              <MessageSquareHeart className="h-3 w-3 mr-1" />
+              {sending === "all" ? "Sending…" : `Send to all ${inactive.length}`}
+            </Button>
+          )}
         </div>
         {inactive.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">No one's inactive.</div>
+          <div className="p-8 text-center text-sm text-muted-foreground">No one's inactive — nice retention 👏</div>
         ) : (
           <div className="divide-y">
             {inactive.map(m => (
@@ -553,14 +484,138 @@ export function InsightsDashboard({ business }: { business: Business }) {
                     {m.email && <> · {m.email}</>}
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => sendWinback(m.membership_id)} disabled={sending === m.membership_id}>
-                  <Send className="h-3 w-3 mr-1" />
-                  {sending === m.membership_id ? "Sending…" : "Win-back"}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setComposer({ target: m })}
+                  disabled={sending === m.membership_id}
+                >
+                  {sending === m.membership_id ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Sending…</>
+                  ) : (
+                    <><MessageSquareHeart className="h-3 w-3 mr-1" /> We miss you</>
+                  )}
                 </Button>
               </div>
             ))}
           </div>
         )}
+      </div>
+
+      {composer && (
+        <WeMissYouComposer
+          target={composer.target}
+          totalIfAll={inactive.length}
+          brand={brand}
+          busy={
+            composer.target === "all"
+              ? sending === "all"
+              : sending === composer.target.membership_id
+          }
+          onCancel={() => setComposer(null)}
+          onSend={(bonus, msg) => sendWeMissYou(composer.target, bonus, msg)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── We-miss-you composer ───────────────────────── */
+/**
+ * CP-36: lightweight modal for sending a win-back notification. The manager
+ * picks how many bonus points to drop (default 50, 0 disables the bonus)
+ * and optionally tweaks the body copy. Used both for a single inactive
+ * member and for the send-to-all path — same UI, different recipient set.
+ */
+function WeMissYouComposer({
+  target, totalIfAll, brand, busy, onCancel, onSend,
+}: {
+  target: Inactive | "all";
+  totalIfAll: number;
+  brand: string;
+  busy: boolean;
+  onCancel: () => void;
+  onSend: (bonusPoints: number, message: string) => void;
+}) {
+  const [bonus, setBonus] = useState<number>(50);
+  const [message, setMessage] = useState<string>(
+    "Here's a little bonus to welcome you back — come see us soon."
+  );
+  const recipientLabel =
+    target === "all"
+      ? `${totalIfAll} inactive member${totalIfAll === 1 ? "" : "s"}`
+      : (target.full_name ?? target.email ?? "this member");
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden">
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b">
+          <h2 className="font-bold text-lg flex items-center gap-2">
+            <MessageSquareHeart className="h-4 w-4 text-rose-500" />
+            We miss you
+          </h2>
+          <button
+            onClick={onCancel}
+            className="h-9 w-9 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="rounded-xl bg-zinc-50 border p-3 text-sm">
+            Sending to <b>{recipientLabel}</b>.
+          </div>
+
+          <div>
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+              Bonus credits (0 = just a message)
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={5000}
+              value={bonus}
+              onChange={e => setBonus(Math.max(0, Math.min(5000, Number(e.target.value) || 0)))}
+              className="mt-1"
+            />
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Awarded the moment they tap the notification. Use 0 if you
+              just want to send a nudge with no points.
+            </p>
+          </div>
+
+          <div>
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+              Message
+            </Label>
+            <textarea
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              maxLength={240}
+              rows={3}
+              className="mt-1 w-full rounded-md border bg-white p-3 text-sm"
+            />
+            <div className="text-[10px] text-zinc-400 mt-1 text-right">{message.length}/240</div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t flex items-center justify-between gap-3">
+          <button onClick={onCancel} className="text-sm font-semibold text-zinc-600 hover:text-zinc-900 px-3 py-2">
+            Cancel
+          </button>
+          <Button
+            onClick={() => onSend(bonus, message)}
+            disabled={busy || !message.trim()}
+            className="rounded-full px-5 text-white"
+            style={{ background: brand }}
+          >
+            {busy
+              ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Sending…</>
+              : <><Send className="h-4 w-4 mr-1.5" /> Send</>}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -629,8 +684,3 @@ function FunnelCell({
   );
 }
 
-function fmtHour(h: number): string {
-  const am = h < 12;
-  const display = ((h + 11) % 12) + 1;
-  return `${display}${am ? "a" : "p"}`;
-}

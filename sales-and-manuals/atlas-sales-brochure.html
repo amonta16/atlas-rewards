@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Atlas — Sales Brochure</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+/* ─────────────────────────────────────────────────────────────────
+ * ATLAS SALES BROCHURE
+ * Print this file to PDF (browser → Print → Save as PDF).
+ * White background by design — only foreground inks needed.
+ * "Secret sales flowchart" is the LAST page — meant for the rep only.
+ * ─────────────────────────────────────────────────────────────────*/
+@page { size: letter; margin: 0; }
+@media print {
+  body { background: white !important; }
+  .page { box-shadow: none !important; margin: 0 !important; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+}
+:root {
+  --ocean-1: #0a3d62;
+  --ocean-2: #1d6fa5;
+  --ocean-3: #2a8cc4;
+  --gold:    #f59e0b;
+  --gold-2:  #fbbf24;
+  --red:     #ef4444;
+  --orange:  #fb923c;
+  --green:   #10b981;
+  --blue:    #4285F4;
+  --yellow:  #FBBC05;
+  --ink:     #0f172a;
+  --muted:   #475569;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f1f5f9;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  width: 8.5in;
+  min-height: 11in;
+  margin: 0 auto 32px;
+  padding: 0.6in;
+  background: white;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== TYPOGRAPHY ===== */
+h1 { font-size: 56px; font-weight: 900; letter-spacing: -1.5px; line-height: 1; margin: 0; }
+h2 { font-size: 32px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.05; margin: 0 0 8px; }
+h3 { font-size: 18px; font-weight: 800; margin: 0 0 6px; }
+.lede { font-size: 19px; line-height: 1.45; color: var(--muted); }
+.eyebrow {
+  font-size: 11px; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ocean-2);
+}
+.big-stat {
+  font-size: 56px; font-weight: 900; line-height: 1;
+  background: linear-gradient(135deg, var(--ocean-1), var(--ocean-3));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: -2px;
+}
+.big-stat-gold {
+  background: linear-gradient(135deg, var(--gold-2), var(--gold));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.big-stat-fire {
+  background: linear-gradient(135deg, var(--orange), var(--red));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* ===== ATLAS LOGO ===== */
+.logo {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 900; font-size: 22px; letter-spacing: -0.5px;
+}
+.logo-mark {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--ocean-1), var(--ocean-3));
+  position: relative;
+}
+.logo-mark::before {
+  content: ""; position: absolute; inset: 6px;
+  border: 2.5px solid white; border-radius: 50%;
+}
+.logo-mark::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px; height: 6px; background: white; border-radius: 50%;
+}
+
+/* ===== SPLATS ===== */
+.splat {
+  position: absolute; pointer-events: none;
+}
+
+/* ===== BLOCKS / CARDS ===== */
+.card {
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: white;
+  box-shadow: 4px 4px 0 var(--ink);
+  position: relative;
+}
+.card-gold {
+  border-color: var(--gold);
+  box-shadow: 4px 4px 0 var(--gold);
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+}
+.card-fire {
+  border-color: var(--red);
+  box-shadow: 4px 4px 0 var(--red);
+  background: linear-gradient(135deg, #fff7ed, #fee2e2);
+}
+.card-blue {
+  border-color: var(--ocean-2);
+  box-shadow: 4px 4px 0 var(--ocean-2);
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+}
+.card-green {
+  border-color: var(--green);
+  box-shadow: 4px 4px 0 var(--green);
+  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+}
+
+/* ===== UTILS ===== */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+.stat-card { text-align: center; padding: 18px 12px; }
+.stat-card .label { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--muted); letter-spacing: 0.1em; margin-top: 8px; }
+.stat-card .sub { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.3; }
+.row { display: flex; gap: 16px; align-items: flex-start; }
+.tag {
+  display: inline-block;
+  font-size: 10px; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--ocean-1); color: white;
+}
+.tag-red { background: var(--red); }
+.tag-gold { background: var(--gold); color: var(--ink); }
+.tag-green { background: var(--green); }
+
+/* ===== FLOWCHART (last page only) ===== */
+.flow-node {
+  border: 2px dashed var(--ink);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  font-size: 13px;
+}
+.flow-prompt { font-weight: 900; margin-bottom: 6px; color: var(--red); }
+.flow-line { color: var(--ink); }
+.flow-arrow {
+  text-align: center; font-size: 24px; color: var(--ocean-2); font-weight: 900;
+  margin: 6px 0;
+}
+
+/* ===== PHONE MOCKUP ===== */
+.phone {
+  width: 220px; aspect-ratio: 9 / 19.5;
+  border: 3px solid var(--ink); border-radius: 28px;
+  padding: 6px; background: var(--ink);
+  position: relative;
+}
+.phone-screen {
+  width: 100%; height: 100%;
+  background: white;
+  border-radius: 22px;
+  overflow: hidden;
+  position: relative;
+}
+.phone-notch {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  width: 60px; height: 14px; border-radius: 999px; background: var(--ink); z-index: 2;
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════ PAGE 1 — COVER ════════════════════════ -->
+<div class="page" style="display:flex; flex-direction:column; justify-content:space-between; padding:0;">
+
+  <!-- Decorative splats -->
+  <svg class="splat" style="top:-40px; left:-40px;" width="280" height="280" viewBox="0 0 200 200">
+    <path fill="#0a3d62" d="M100 10 C 130 20, 175 45, 180 95 C 185 145, 145 180, 95 185 C 45 190, 15 155, 15 100 C 15 50, 60 5, 100 10 Z"/>
+  </svg>
+  <svg class="splat" style="top:40px; right:-60px;" width="220" height="220" viewBox="0 0 200 200">
+    <path fill="#fbbf24" d="M100 15 C 145 30, 180 60, 175 110 C 170 160, 135 185, 90 180 C 45 175, 20 130, 25 85 C 30 40, 60 5, 100 15 Z" opacity="0.85"/>
+  </svg>
+  <svg class="splat" style="bottom:-80px; left:30%;" width="320" height="320" viewBox="0 0 200 200">
+    <path fill="#ef4444" d="M100 5 C 160 15, 200 65, 190 120 C 180 175, 130 200, 75 190 C 20 180, 0 130, 10 75 C 20 20, 60 0, 100 5 Z" opacity="0.18"/>
+  </svg>
+
+  <!-- Mario-style decorative blocks -->
+  <svg style="position:absolute; top:160px; left:60px;" width="48" height="48" viewBox="0 0 48 48">
+    <rect x="2" y="2" width="44" height="44" rx="6" fill="#f59e0b" stroke="#0f172a" stroke-width="3"/>
+    <text x="24" y="33" text-anchor="middle" font-size="28" font-weight="900" fill="#0f172a">?</text>
+  </svg>
+  <svg style="position:absolute; top:220px; right:140px;" width="42" height="42" viewBox="0 0 48 48">
+    <circle cx="24" cy="24" r="20" fill="#fbbf24" stroke="#0f172a" stroke-width="3"/>
+    <text x="24" y="33" text-anchor="middle" font-size="22" font-weight="900" fill="#0f172a">$</text>
+  </svg>
+
+  <div style="position:relative; padding: 0.7in 0.7in 0; z-index:5;">
+    <div class="logo" style="color:white; mix-blend-mode: difference;">
+      <span class="logo-mark"></span>
+      ATLAS ENGINE
+    </div>
+  </div>
+
+  <div style="position:relative; padding: 0 0.7in; z-index:5;">
+    <div class="eyebrow" style="margin-bottom:18px;">Customer Loyalty · Reinvented · for Local Business</div>
+    <h1 style="font-size:84px; line-height:0.92;">
+      Your business<br/>
+      deserves an app.<br/>
+      <span style="color:var(--red);">Not</span> <span style="background:linear-gradient(135deg,var(--ocean-1),var(--ocean-3)); -webkit-background-clip:text; background-clip:text; color:transparent;">a punch card.</span>
+    </h1>
+    <p class="lede" style="max-width:520px; margin-top:22px; font-size:22px; line-height:1.4;">
+      McDonald's spent <strong>$7&nbsp;billion</strong> on their app. Starbucks has
+      <strong>31&nbsp;million</strong> rewards members. Your local competitors? Still handing out
+      stamps that nobody finds in their wallet 4 months later.
+    </p>
+    <p class="lede" style="max-width:520px; margin-top:14px; font-size:22px; line-height:1.4;">
+      <strong style="color:var(--ocean-1);">Atlas levels the playing field.</strong>
+      Your own branded customer app. Live in your client's pocket. Built in 30 minutes.
+    </p>
+  </div>
+
+  <div style="position:relative; padding: 0 0.7in 0.7in; z-index:5; display:flex; align-items:flex-end; justify-content:space-between;">
+    <div>
+      <div class="tag" style="background:var(--ink); margin-bottom:8px;">Sales Brochure · 2026</div>
+      <div style="font-size:14px; color:var(--muted);">atlas-engine.org</div>
+    </div>
+    <div class="card card-gold" style="font-size:14px; max-width:240px;">
+      <strong style="font-size:18px; display:block; margin-bottom:4px;">5 min to demo.</strong>
+      <span style="color:var(--muted);">30 min to live.</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ PAGE 2 — PROBLEM AWARENESS ═══════════════════ -->
+<div class="page">
+  <svg class="splat" style="top:-30px; right:-50px;" width="240" height="240" viewBox="0 0 200 200">
+    <path fill="#ef4444" d="M100 10 C 145 25, 180 60, 180 110 C 180 160, 140 185, 95 185 C 50 185, 20 145, 20 100 C 20 55, 60 5, 100 10 Z" opacity="0.12"/>
+  </svg>
+
+  <div class="eyebrow" style="color:var(--red);">The Slow-Day Problem</div>
+  <h2 style="font-size:48px; line-height:0.95; max-width:7in;">
+    Your competition isn't<br/>
+    the shop next door.<br/>
+    <span style="color:var(--red);">It's forgetting.</span>
+  </h2>
+  <p class="lede" style="max-width:6in; margin-top:18px;">
+    A customer walks out happy. They tell themselves they'll be back next week.
+    Then their week happens — kids, traffic, a Costco run, a Netflix episode.
+    8 weeks later, they're at your competitor without remembering why.
+  </p>
+
+  <div class="grid-3" style="margin-top:36px;">
+    <div class="card stat-card">
+      <div class="big-stat-fire">68%</div>
+      <div class="label">of customers leave</div>
+      <div class="sub">because they feel forgotten — not because of price or product (Rockefeller Foundation, widely cited).</div>
+    </div>
+    <div class="card stat-card card-blue">
+      <div class="big-stat">5–25x</div>
+      <div class="label">costlier to acquire</div>
+      <div class="sub">a new customer than to retain an existing one (Harvard Business Review).</div>
+    </div>
+    <div class="card stat-card card-gold">
+      <div class="big-stat-gold">+5%</div>
+      <div class="label">retention =</div>
+      <div class="sub"><strong>25–95% more profit.</strong> Tiny improvements, huge compounding (Bain &amp; Co).</div>
+    </div>
+  </div>
+
+  <div style="margin-top:40px;">
+    <h3 style="font-size:22px; margin-bottom:14px;">The receipts on a typical "slow Tuesday":</h3>
+    <div class="grid-2" style="gap:16px;">
+      <div class="card">
+        <div style="font-size:14px; font-weight:800; color:var(--red); margin-bottom:4px;">YOUR BUSINESS · NO APP</div>
+        <ul style="margin:0; padding-left:18px; line-height:1.7; font-size:14px;">
+          <li>Stamp card sat in their wallet · 8 weeks · forgotten</li>
+          <li>Last visit 6 weeks ago · no way to nudge them back</li>
+          <li>Slow Tuesday = empty Tuesday</li>
+          <li>You hope they leave a Google review · usually don't</li>
+        </ul>
+      </div>
+      <div class="card card-blue">
+        <div style="font-size:14px; font-weight:800; color:var(--ocean-1); margin-bottom:4px;">SAME CUSTOMER · WITH ATLAS</div>
+        <ul style="margin:0; padding-left:18px; line-height:1.7; font-size:14px;">
+          <li>Your <em>branded</em> app on their home screen</li>
+          <li>Push notification: "Hey, your streak's about to break"</li>
+          <li>Streak milestone reward at week 4 → they come</li>
+          <li>App prompts them for Google review → +5★ for you</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-fire" style="margin-top:40px; padding:24px 26px;">
+    <h3 style="font-size:24px; color:var(--ink);">The unfair part:</h3>
+    <p style="font-size:18px; line-height:1.5; margin:6px 0 0; max-width:6.2in;">
+      Big chains have an app. You don't. <strong>Customers don't care that you're local.</strong>
+      They care that one tap gets them their reward. That's not a marketing problem.
+      That's a tooling problem. <strong style="color:var(--red);">Atlas fixes the tooling.</strong>
+    </p>
+  </div>
+</div>
+
+
+<!-- ════════════════ PAGE 3 — COMPETITOR AGITATE ════════════════ -->
+<div class="page">
+  <svg class="splat" style="top:-40px; left:-50px;" width="260" height="260" viewBox="0 0 200 200">
+    <path fill="#0a3d62" d="M100 10 C 150 20, 180 65, 180 115 C 180 165, 140 185, 90 185 C 40 185, 15 140, 20 90 C 25 40, 60 5, 100 10 Z" opacity="0.12"/>
+  </svg>
+
+  <div class="eyebrow">What the chains are spending</div>
+  <h2 style="font-size:44px; line-height:0.95;">
+    Here's what you're<br/>
+    actually <span style="color:var(--red);">up against.</span>
+  </h2>
+
+  <div style="margin-top:32px;">
+    <div class="card" style="margin-bottom:14px; padding:18px 20px;">
+      <div class="row" style="align-items:center;">
+        <div style="width:64px; height:64px; border-radius:14px; background:#FFC72C; display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:900; color:#DA291C; border:2px solid var(--ink); flex-shrink:0;">M</div>
+        <div style="flex:1;">
+          <h3 style="font-size:20px; margin:0;">McDonald's app</h3>
+          <div style="font-size:13px; color:var(--muted); margin-top:2px;">MyMcDonald's Rewards · launched 2021</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="big-stat-fire" style="font-size:36px;">$7B+</div>
+          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-weight:800;">in app sales</div>
+        </div>
+      </div>
+      <p style="margin:12px 0 0; font-size:13px; color:var(--muted); line-height:1.5;">
+        150M+ rewards members. Hundreds of millions of engineering budget per year.
+        Push notifications, geofenced offers, full point store.
+      </p>
+    </div>
+
+    <div class="card" style="margin-bottom:14px; padding:18px 20px;">
+      <div class="row" style="align-items:center;">
+        <div style="width:64px; height:64px; border-radius:50%; background:#006241; display:flex; align-items:center; justify-content:center; font-size:38px; color:white; border:2px solid var(--ink); flex-shrink:0;">★</div>
+        <div style="flex:1;">
+          <h3 style="font-size:20px; margin:0;">Starbucks Rewards</h3>
+          <div style="font-size:13px; color:var(--muted); margin-top:2px;">In-house from day one · 2009</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="big-stat" style="font-size:36px;">31M</div>
+          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-weight:800;">US members</div>
+        </div>
+      </div>
+      <p style="margin:12px 0 0; font-size:13px; color:var(--muted); line-height:1.5;">
+        Over half of all US store sales come through the app. The single biggest lever in their retention strategy.
+      </p>
+    </div>
+
+    <div class="card" style="margin-bottom:14px; padding:18px 20px;">
+      <div class="row" style="align-items:center;">
+        <div style="width:64px; height:64px; border-radius:14px; background:#FB4F14; display:flex; align-items:center; justify-content:center; font-size:30px; color:white; font-weight:900; border:2px solid var(--ink); flex-shrink:0;">D</div>
+        <div style="flex:1;">
+          <h3 style="font-size:20px; margin:0;">Dunkin' DD Perks</h3>
+          <div style="font-size:13px; color:var(--muted); margin-top:2px;">Point-per-dollar loyalty</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="big-stat-gold" style="font-size:36px;">20M+</div>
+          <div style="font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-weight:800;">members</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-gold" style="margin-top:36px; padding:24px;">
+    <div style="display:flex; gap:18px; align-items:center;">
+      <div style="font-size:64px; line-height:1;">⚖️</div>
+      <div>
+        <h3 style="font-size:24px; margin-bottom:4px;">The local business reality:</h3>
+        <p style="margin:0; font-size:16px; line-height:1.45;">
+          You can't outspend McDonald's. But you can <strong>match their tech</strong>
+          for <strong>0.001%</strong> of what they paid for it. <em>That's</em> the advantage Atlas gives you.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ PAGE 4 — SOLUTION ═══════════════════ -->
+<div class="page">
+  <svg class="splat" style="top:-30px; right:-40px;" width="220" height="220" viewBox="0 0 200 200">
+    <path fill="#10b981" d="M100 15 C 145 30, 180 60, 175 110 C 170 160, 135 185, 90 180 C 45 175, 20 130, 25 85 C 30 40, 60 5, 100 15 Z" opacity="0.15"/>
+  </svg>
+
+  <div class="eyebrow" style="color:var(--green);">The Atlas Answer</div>
+  <h2 style="font-size:48px; line-height:0.95;">
+    Your own branded app.<br/>
+    On their home screen.<br/>
+    <span style="color:var(--green);">Live in 30 minutes.</span>
+  </h2>
+
+  <div class="row" style="margin-top:32px; gap:32px;">
+    <div style="flex:1.4;">
+      <p class="lede" style="font-size:18px;">
+        Atlas builds your customers a <strong>real app</strong> — your logo, your colors, your name on
+        their home screen. They scan a QR code at your front desk and they're enrolled.
+        From that moment on:
+      </p>
+      <ul style="font-size:16px; line-height:1.8; padding-left:20px; margin-top:18px;">
+        <li><strong>Every visit auto-tracks</strong> · points without paper</li>
+        <li><strong>Streaks &amp; milestones</strong> · Mario-style rewards keep them coming</li>
+        <li><strong>Push notifications</strong> · "Your streak's about to break" beats any flyer</li>
+        <li><strong>Google reviews on tap</strong> · turn a member into a 5-star review in 30s</li>
+        <li><strong>Memberships in-app</strong> · recurring revenue, your existing payment stack</li>
+        <li><strong>Win-back AI</strong> · Atlas predicts who's slipping &amp; lets you tap once to message them</li>
+      </ul>
+    </div>
+
+    <!-- Phone mockup -->
+    <div style="flex:1; display:flex; justify-content:center;">
+      <div class="phone">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+          <!-- Hero -->
+          <div style="height:75px; background:linear-gradient(135deg, var(--ocean-1), var(--ocean-3)); padding:24px 12px 8px; color:white; position:relative;">
+            <div style="font-size:8px; letter-spacing:0.15em; font-weight:800; opacity:0.85;">YOUR BUSINESS</div>
+            <div style="font-size:11px; font-weight:800;">Welcome back, Andrew! 👋</div>
+          </div>
+          <!-- Member card -->
+          <div style="margin:-20px 10px 0; background:white; border-radius:10px; padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.08); position:relative; z-index:5;">
+            <div style="font-size:8px; font-weight:800; color:var(--muted); letter-spacing:0.15em;">YOUR POINTS</div>
+            <div style="font-size:22px; font-weight:900; color:var(--ocean-1);">1,247</div>
+            <div style="font-size:8px; color:var(--muted);">$12.47 of free stuff waiting</div>
+          </div>
+          <!-- Streak pill -->
+          <div style="margin:10px; background:linear-gradient(135deg, var(--orange), var(--red)); border-radius:10px; padding:10px; color:white; display:flex; gap:8px; align-items:center;">
+            <div style="font-size:18px;">🔥</div>
+            <div>
+              <div style="font-size:8px; letter-spacing:0.1em; font-weight:800; opacity:0.9;">STREAK</div>
+              <div style="font-size:14px; font-weight:900;">4 weeks · keep it alive</div>
+            </div>
+          </div>
+          <!-- Offer card -->
+          <div style="margin:10px; border:2px dashed var(--gold); border-radius:10px; padding:10px;">
+            <div style="font-size:8px; font-weight:800; color:var(--gold); letter-spacing:0.1em;">★ FEATURED OFFER</div>
+            <div style="font-size:11px; font-weight:800; margin-top:2px;">Free coffee with any purchase</div>
+            <div style="font-size:8px; color:var(--muted); margin-top:2px;">Expires in 3 days</div>
+          </div>
+          <!-- Tab bar -->
+          <div style="position:absolute; bottom:8px; left:8px; right:8px; height:34px; background:white; border:1px solid #e5e7eb; border-radius:14px; display:grid; grid-template-columns:1fr 1fr 1fr 1fr; align-items:center; justify-items:center; font-size:8px; font-weight:800; color:var(--muted);">
+            <div style="color:var(--ocean-1);">Home</div>
+            <div>Scan</div>
+            <div style="position:relative;">Rewards<span style="position:absolute; top:-6px; right:-8px; width:8px; height:8px; background:var(--red); border-radius:50%; border:1.5px solid white;"></span></div>
+            <div>Profile</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-4" style="margin-top:32px;">
+    <div class="card stat-card card-blue">
+      <div class="big-stat" style="font-size:34px;">30 min</div>
+      <div class="label">to live</div>
+    </div>
+    <div class="card stat-card card-gold">
+      <div class="big-stat-gold" style="font-size:34px;">$0</div>
+      <div class="label">app store fees</div>
+    </div>
+    <div class="card stat-card card-fire">
+      <div class="big-stat-fire" style="font-size:34px;">PWA</div>
+      <div class="label">no download</div>
+    </div>
+    <div class="card stat-card card-green">
+      <div class="big-stat" style="font-size:34px; background:linear-gradient(135deg,#10b981,#059669); -webkit-background-clip:text; background-clip:text; color:transparent;">Yours</div>
+      <div class="label">your brand · your data</div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ PAGE 5 — FEATURES SHOWCASE (PART 1) ═══════════════ -->
+<div class="page">
+  <div class="eyebrow">What Atlas does (the stuff that closes deals)</div>
+  <h2 style="font-size:42px;">Every feature, on tap.</h2>
+
+  <div class="grid-2" style="margin-top:24px; gap:18px;">
+
+    <!-- Feature 1 -->
+    <div class="card card-fire">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">🔥</div>
+        <span class="tag tag-red">Streaks</span>
+      </div>
+      <h3 style="font-size:18px;">Mario-style milestone rewards</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0 10px;">
+        Members see their visit streak as a row of glowing blocks. Milestone weeks
+        get a <strong>gold "★ REWARD" cube</strong>. They literally watch the next prize get closer.
+      </p>
+      <!-- Mini streak grid -->
+      <div style="display:grid; grid-template-columns:repeat(6, 1fr); gap:4px; max-width:200px;">
+        <div style="aspect-ratio:1; background:linear-gradient(135deg,#fde047,#dc2626); border-radius:4px;"></div>
+        <div style="aspect-ratio:1; background:linear-gradient(135deg,#fde047,#dc2626); border-radius:4px;"></div>
+        <div style="aspect-ratio:1; background:linear-gradient(135deg,#fde047,#dc2626); border-radius:4px;"></div>
+        <div style="aspect-ratio:1; background:linear-gradient(135deg,#fffbeb,#fbbf24); border-radius:4px; border:2px solid var(--gold); box-shadow:0 0 6px #fbbf24; display:flex; align-items:center; justify-content:center; font-size:10px;">⭐</div>
+        <div style="aspect-ratio:1; background:#e5e7eb; border-radius:4px;"></div>
+        <div style="aspect-ratio:1; background:#e5e7eb; border-radius:4px;"></div>
+      </div>
+    </div>
+
+    <!-- Feature 2 -->
+    <div class="card card-blue">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">🎤</div>
+        <span class="tag">Voice memo offers</span>
+      </div>
+      <h3 style="font-size:18px;">Record a voice note → it plays in their app</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Drop a 15-second audio message right into an automated offer. Customers tap play and
+        <strong>hear the owner's voice.</strong> Nothing else on earth does this.
+      </p>
+      <div style="background:white; border:2px solid var(--ocean-2); border-radius:10px; padding:10px; display:flex; align-items:center; gap:10px;">
+        <div style="width:32px; height:32px; border-radius:50%; background:var(--ocean-2); display:flex; align-items:center; justify-content:center; color:white; font-size:14px;">▶</div>
+        <div style="flex:1; height:6px; background:linear-gradient(90deg, var(--ocean-2) 40%, #e5e7eb 40%); border-radius:3px;"></div>
+        <div style="font-size:11px; font-weight:800; color:var(--muted);">0:08</div>
+      </div>
+    </div>
+
+    <!-- Feature 3 -->
+    <div class="card card-gold">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">⭐</div>
+        <span class="tag tag-gold">Google reviews</span>
+      </div>
+      <h3 style="font-size:18px;">5★ reviews on autopilot</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Red "!" badge on the Rewards tab nags members to leave a review. One tap →
+        Google review window opens. Front desk approves → points awarded. <strong>One-and-done.</strong>
+      </p>
+      <div style="display:flex; align-items:center; gap:8px; background:white; border-radius:8px; padding:8px;">
+        <div style="font-size:18px;">⭐⭐⭐⭐⭐</div>
+        <div style="font-size:11px; color:var(--muted);"><strong>+5 ★ avg</strong> after 90 days</div>
+      </div>
+    </div>
+
+    <!-- Feature 4 -->
+    <div class="card card-green">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">🧠</div>
+        <span class="tag tag-green">Come-Back AI</span>
+      </div>
+      <h3 style="font-size:18px;">Atlas predicts who's slipping</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        AI learns each customer's <em>personal</em> visit rhythm. When someone's overdue, you see a list with
+        a "Send win-back" button. <strong>One tap → bonus points + "we miss you" message.</strong>
+      </p>
+      <div style="background:white; border-radius:8px; padding:8px; display:flex; align-items:center; gap:8px;">
+        <div style="width:24px; height:24px; border-radius:6px; background:#fae8ff; color:#a21caf; font-size:11px; display:flex; align-items:center; justify-content:center;">⚡</div>
+        <div style="flex:1; font-size:11px;"><strong>Sarah K.</strong> · 2.3x overdue · <span style="color:var(--red);">12d since last</span></div>
+        <div style="font-size:9px; padding:3px 8px; background:var(--ocean-1); color:white; border-radius:999px; font-weight:800;">Send</div>
+      </div>
+    </div>
+
+    <!-- Feature 5 -->
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">📱</div>
+        <span class="tag">Daily Mystery Spin</span>
+      </div>
+      <h3 style="font-size:18px;">A reason to check in every day</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Members who check in unlock a daily prize wheel. Mystery rewards from 10 → 500 points.
+        <strong>Costs you nothing</strong> — the average prize is whatever you set.
+      </p>
+      <div style="display:flex; gap:6px;">
+        <div style="flex:1; height:32px; border-radius:6px; background:linear-gradient(135deg,#fef3c7,#fbbf24); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900;">+25</div>
+        <div style="flex:1; height:32px; border-radius:6px; background:linear-gradient(135deg,#ddd6fe,#a855f7); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:white;">+100</div>
+        <div style="flex:1; height:32px; border-radius:6px; background:linear-gradient(135deg,#a7f3d0,#10b981); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:white;">+50</div>
+      </div>
+    </div>
+
+    <!-- Feature 6 -->
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">👑</div>
+        <span class="tag">Premium memberships</span>
+      </div>
+      <h3 style="font-size:18px;">Recurring revenue · your payment stack</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Three modes: <strong>front-desk</strong> (cash or POS), <strong>external link</strong> (Square,
+        PayPal, anything), or <strong>Stripe auto</strong>. You keep using what you use.
+      </p>
+      <div style="display:flex; gap:6px; font-size:10px; font-weight:800;">
+        <span class="tag" style="background:var(--muted);">In-Person</span>
+        <span class="tag" style="background:var(--ocean-2);">External Link</span>
+        <span class="tag" style="background:var(--green);">Stripe Auto</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════ PAGE 6 — FEATURES SHOWCASE (PART 2) ═══════════════ -->
+<div class="page">
+  <div class="eyebrow">Built for how your front desk actually works</div>
+  <h2 style="font-size:42px;">Zero-friction operations.</h2>
+
+  <div class="grid-2" style="margin-top:24px; gap:18px;">
+
+    <!-- Feature 7 -->
+    <div class="card card-blue">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">📷</div>
+        <span class="tag">QR scan</span>
+      </div>
+      <h3 style="font-size:18px;">Members scan in. You award. Done.</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Camera scan in the manager app OR plug in a $30 USB QR scanner — Atlas auto-detects it.
+        <strong>1.2 seconds from scan to "+10 points awarded."</strong>
+      </p>
+    </div>
+
+    <!-- Feature 8 -->
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">↩️</div>
+        <span class="tag tag-red">Undo button</span>
+      </div>
+      <h3 style="font-size:18px;">Mistake at the front desk? Tap Undo.</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Awarded the wrong amount? 30 seconds to reverse. <strong>No customer ever sees an error.</strong>
+      </p>
+    </div>
+
+    <!-- Feature 9 -->
+    <div class="card card-gold">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">📊</div>
+        <span class="tag tag-gold">Atlas Impact</span>
+      </div>
+      <h3 style="font-size:18px;">"Atlas drove $5,540 for you this month."</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Driven-revenue hero on the dashboard. With/without Atlas comparison. Google review funnel.
+        <strong>Owners stop questioning the subscription.</strong>
+      </p>
+    </div>
+
+    <!-- Feature 10 -->
+    <div class="card card-green">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">🔔</div>
+        <span class="tag tag-green">Push notifications</span>
+      </div>
+      <h3 style="font-size:18px;">No app store. Real push notifications.</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Atlas is a PWA — installs straight from the browser, lives on the home screen,
+        delivers <strong>real push</strong> on iOS + Android. Zero Apple/Google review process.
+      </p>
+    </div>
+
+    <!-- Feature 11 -->
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">🎁</div>
+        <span class="tag">Drag-and-drop offers</span>
+      </div>
+      <h3 style="font-size:18px;">Build offers as fast as you can think them</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Template gallery for holidays, slow days, birthdays. <strong>Click → customize → live.</strong>
+      </p>
+    </div>
+
+    <!-- Feature 12 -->
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+        <div style="font-size:24px;">👥</div>
+        <span class="tag">Team accounts</span>
+      </div>
+      <h3 style="font-size:18px;">Manager + front-desk roles</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.5; margin:6px 0;">
+        Magic-link invitations. Front desk only sees what they need; managers see billing + insights.
+        <strong>No password sharing.</strong>
+      </p>
+    </div>
+  </div>
+
+  <div class="card card-blue" style="margin-top:24px; padding:20px 24px; display:flex; align-items:center; gap:24px;">
+    <div style="font-size:48px; line-height:1;">🚀</div>
+    <div style="flex:1;">
+      <h3 style="font-size:22px;">Built on Supabase + Next.js + Vercel</h3>
+      <p style="margin:6px 0 0; font-size:14px; color:var(--muted);">
+        Same tech stack OpenAI, Notion, and Stripe use. <strong>It scales.</strong> When you
+        outgrow free tier, you keep the data, keep the app, keep your business.
+      </p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════ PAGE 7 — ROI / PROOF ═══════════════════ -->
+<div class="page">
+  <svg class="splat" style="top:-30px; right:-50px;" width="280" height="280" viewBox="0 0 200 200">
+    <path fill="#10b981" d="M100 10 C 150 25, 180 60, 180 110 C 180 160, 140 185, 90 185 C 40 185, 15 140, 20 90 C 25 40, 60 5, 100 10 Z" opacity="0.12"/>
+  </svg>
+
+  <div class="eyebrow" style="color:var(--green);">The math that closes</div>
+  <h2 style="font-size:48px; line-height:0.95;">
+    "OK but what's it<br/>
+    <span style="color:var(--green);">actually worth?"</span>
+  </h2>
+  <p class="lede" style="max-width:6in; margin-top:14px;">
+    Here's a worked example based on a typical local business with 200 active customers
+    and a $35 average ticket.
+  </p>
+
+  <div class="card" style="margin-top:24px; padding:24px;">
+    <h3 style="font-size:20px; margin-bottom:18px;">The Atlas value calculator</h3>
+    <table style="width:100%; border-collapse:collapse; font-size:14px;">
+      <tr style="border-bottom:2px solid var(--ink);">
+        <td style="padding:10px 4px; font-weight:800;">Lever</td>
+        <td style="padding:10px 4px; font-weight:800; text-align:right;">Per month</td>
+        <td style="padding:10px 4px; font-weight:800; text-align:right;">Per year</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 4px;">5% retention lift × 200 customers × $35 ticket</td>
+        <td style="padding:10px 4px; text-align:right;">+$350</td>
+        <td style="padding:10px 4px; text-align:right;">+$4,200</td>
+      </tr>
+      <tr style="background:#fffbeb;">
+        <td style="padding:10px 4px;">Streak-driven extra visit (avg 1/member/month for 20%)</td>
+        <td style="padding:10px 4px; text-align:right;">+$1,400</td>
+        <td style="padding:10px 4px; text-align:right;">+$16,800</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 4px;">Google reviews → +5★ avg → +est 8% new customers</td>
+        <td style="padding:10px 4px; text-align:right;">+$560</td>
+        <td style="padding:10px 4px; text-align:right;">+$6,720</td>
+      </tr>
+      <tr style="background:#fffbeb;">
+        <td style="padding:10px 4px;">Win-back AI · recover 4 lapsed customers</td>
+        <td style="padding:10px 4px; text-align:right;">+$140</td>
+        <td style="padding:10px 4px; text-align:right;">+$1,680</td>
+      </tr>
+      <tr style="border-top:2px solid var(--ink); background:#ecfdf5;">
+        <td style="padding:14px 4px; font-weight:900; font-size:16px;">Estimated Atlas-driven revenue</td>
+        <td style="padding:14px 4px; text-align:right; font-weight:900; font-size:18px; color:var(--green);">+$2,450</td>
+        <td style="padding:14px 4px; text-align:right; font-weight:900; font-size:18px; color:var(--green);">+$29,400</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="card card-gold" style="margin-top:20px; padding:22px 26px;">
+    <h3 style="font-size:22px; margin-bottom:8px;">What does Atlas cost?</h3>
+    <p style="font-size:15px; margin:0; line-height:1.5;">
+      Setup fee: <strong>$497 one-time.</strong> Monthly subscription: <strong>$197/mo.</strong>
+      <br/>Annual cost: <strong>$2,861.</strong> Estimated annual return: <strong>$29,400+.</strong>
+    </p>
+    <p style="font-size:32px; font-weight:900; margin:14px 0 0; color:var(--ink);">
+      <span style="color:var(--green);">10x ROI</span> in year 1.
+    </p>
+  </div>
+
+  <p style="font-size:11px; color:var(--muted); margin-top:20px; line-height:1.4;">
+    Note: figures are based on widely-cited loyalty-program ROI ranges (Bain, HBR, industry studies on
+    customer retention). Actual results vary by business type, location, and how aggressively the
+    owner uses Atlas's outreach features. Atlas Impact dashboard tracks your real numbers daily.
+  </p>
+</div>
+
+
+<!-- ═════════════ PAGE 8 — SECRET SALES FLOWCHART (REP ONLY) ═════════════ -->
+<div class="page" style="background: repeating-linear-gradient(45deg, #fff 0 18px, #fffaf0 18px 36px);">
+  <div class="tag tag-red" style="font-size:11px;">REP ONLY · DO NOT HAND TO PROSPECT</div>
+  <h2 style="font-size:38px; margin-top:10px;">Objection → pivot map</h2>
+  <p style="color:var(--muted); margin-top:4px;">Not a script. Mental flowchart. Mirror them first, then pivot.</p>
+
+  <div style="margin-top:24px; display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+
+    <div class="flow-node">
+      <div class="flow-prompt">"We already have a punch card."</div>
+      <div class="flow-line">→ "Cool. How many of those punch cards do you think are sitting in wallets right now? When you message a customer, can the punch card answer back?" Then show streak demo.</div>
+    </div>
+
+    <div class="flow-node">
+      <div class="flow-prompt">"Too expensive."</div>
+      <div class="flow-line">→ Pull out the ROI table. "If Atlas brings you one extra visit per customer per month, you're up $1,400. We're $197. The question isn't if it's worth it — it's how fast you want to start."</div>
+    </div>
+
+    <div class="flow-node">
+      <div class="flow-prompt">"My customers won't use an app."</div>
+      <div class="flow-line">→ "Right. Which is why it's not an app — it's a website that installs to their home screen in 1 tap. No app store. They already use Instagram on their phone. They'll use this." Then demo PWA install.</div>
+    </div>
+
+    <div class="flow-node">
+      <div class="flow-prompt">"I'm too busy to set this up."</div>
+      <div class="flow-line">→ "That's exactly why we do it. Give me 30 minutes and your logo file. By tomorrow your customers are scanning in."</div>
+    </div>
+
+    <div class="flow-node">
+      <div class="flow-prompt">"I already use Square / Toast / Clover loyalty."</div>
+      <div class="flow-line">→ "Great POS — terrible loyalty app. Your customers see Square's branding, not yours. Atlas puts your brand on their home screen. We work alongside your POS, not replace it."</div>
+    </div>
+
+    <div class="flow-node">
+      <div class="flow-prompt">"Send me info, I'll think about it."</div>
+      <div class="flow-line">→ "Happy to. But the only way you'll know if it's right is to see your business with it. Can I build a demo with your logo + brand color right now? 5 minutes."</div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:30px; border-top:2px dashed var(--ink); padding-top:20px;">
+    <h3 style="font-size:22px;">Demo flow (10 minute pitch)</h3>
+    <div style="display:flex; gap:12px; margin-top:14px; align-items:stretch;">
+      <div class="flow-node" style="flex:1;">
+        <div class="flow-prompt" style="color:var(--ocean-1); font-size:14px;">① Pain (1 min)</div>
+        <div class="flow-line" style="font-size:12px;">"How many of your last 100 customers came back twice?" Wait. Don't fill the silence.</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" style="flex:1;">
+        <div class="flow-prompt" style="color:var(--ocean-1); font-size:14px;">② Scale (1 min)</div>
+        <div class="flow-line" style="font-size:12px;">"McDonald's spent $7B to fix that for themselves. Your competition is winning on tech alone."</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" style="flex:1;">
+        <div class="flow-prompt" style="color:var(--ocean-1); font-size:14px;">③ Live demo (5 min)</div>
+        <div class="flow-line" style="font-size:12px;">Pull up THEIR logo on a demo sub-account. Walk: scan → award → streak → push → review → impact dashboard.</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node" style="flex:1;">
+        <div class="flow-prompt" style="color:var(--ocean-1); font-size:14px;">④ ROI + Close (3 min)</div>
+        <div class="flow-line" style="font-size:12px;">"$197/mo. 10x ROI typical. Want to be live by Friday?" Then SHUT UP.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:30px; padding:18px 22px; background:#fef3c7; border:2px solid var(--gold); border-radius:12px;">
+    <div style="font-weight:900; font-size:14px; color:var(--ink); margin-bottom:6px;">Closing rule:</div>
+    <div style="font-size:13px; line-height:1.5;">
+      The first one to talk after the price loses. Quote it, ask if they want to be live by Friday,
+      then <strong style="color:var(--red);">don't say another word.</strong>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

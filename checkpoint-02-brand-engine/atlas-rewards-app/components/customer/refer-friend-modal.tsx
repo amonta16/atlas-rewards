@@ -18,7 +18,8 @@ export function ReferFriendModal({
   const [copied, setCopied] = useState(false);
 
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
-  const shareUrl = `http://${business.slug}.${rootDomain}:3000/signup?ref=${referralCode}`;
+  const isLocal = rootDomain.includes("lvh.me");
+  const shareUrl = `${isLocal ? "http" : "https"}://${business.slug}.${rootDomain}${isLocal ? ":3000" : ""}/signup?ref=${referralCode}`;
   const refReward = business.point_rules.referral_referrer;
   const friendReward = business.point_rules.referral_referee;
 

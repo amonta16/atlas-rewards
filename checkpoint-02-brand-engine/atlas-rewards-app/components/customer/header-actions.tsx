@@ -33,6 +33,15 @@ type StreakSnap = {
   checked_in_this_period: boolean;
 };
 
+// CP-36: matches member_checkin_status() RPC.
+type CheckinStatus = {
+  can_check_in_now: boolean;
+  last_checkin_at: string | null;
+  next_check_in_at: string | null;
+  seconds_until_next: number;
+  checked_in_today: boolean;
+};
+
 export function HeaderActions({
   business,
   membershipId,
@@ -45,6 +54,9 @@ export function HeaderActions({
   const router = useRouter();
   const [streak, setStreak] = useState<StreakSnap | null>(null);
   const [checkedInToday, setCheckedInToday] = useState(false);
+  // CP-36: 12-hour cooldown countdown shown on the Check-in pill.
+  // null means "no cooldown active" — pill renders the locked state.
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [mysteryOpen, setMysteryOpen] = useState(false);
   // CP-24: open the streak widget MODAL directly when the flame icon is
   // tapped instead of navigating to /app/rewards (which Andrew reported as
@@ -97,6 +109,22 @@ export function HeaderActions({
       const snap = (Array.isArray(sd) ? sd[0] : sd) as StreakSnap | null;
       setStreak(snap);
 
+      // CP-36: prefer the server-computed cooldown so the "6 Hr" timer is
+      // honest. Falls back to a simple "checked in today" calendar query
+      // if the cp36 RPC isn't installed yet.
+      const { data: cs, error: csErr } = await supabase.rpc("member_checkin_status", {
+        p_business_id: business.id,
+        p_membership_id: membershipId,
+      });
+      if (!csErr && cs) {
+        const status = (Array.isArray(cs) ? cs[0] : cs) as CheckinStatus | null;
+        if (status) {
+          setCheckedInToday(!!status.checked_in_today);
+          setSecondsLeft(status.can_check_in_now ? null : Math.max(0, Number(status.seconds_until_next || 0)));
+          return;
+        }
+      }
+      // Fallback path — legacy behavior.
       const dayStart = new Date();
       dayStart.setHours(0, 0, 0, 0);
       const { data: checkins } = await supabase
@@ -106,8 +134,19 @@ export function HeaderActions({
         .gte("created_at", dayStart.toISOString())
         .limit(1);
       setCheckedInToday((checkins?.length ?? 0) > 0);
+      setSecondsLeft(null);
     };
     loadStreak();
+
+    // CP-36: tick the cooldown locally so the "6 Hr" label feels live
+    // without hammering the RPC. We refetch on each check-in via realtime.
+    const tick = setInterval(() => {
+      setSecondsLeft(prev => {
+        if (prev == null) return prev;
+        const next = prev - 30; // we tick every 30s
+        return next <= 0 ? null : next;
+      });
+    }, 30_000);
 
     // CP-24-hotfix: realtime updates for streak_config + check_in_events
     // so the flame icon appears the moment the agency toggles streaks on,
@@ -130,7 +169,7 @@ export function HeaderActions({
         loadStreak,
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => { supabase.removeChannel(ch); clearInterval(tick); };
   }, [business.id, membershipId]);
 
   // ── derived state ─────────────────────────────────────────────────────────
@@ -178,38 +217,60 @@ export function HeaderActions({
           three pills always fit comfortably on a 320–360px header. */}
       <div className="flex items-center gap-1.5">
 
-        {/* ── 🎁 Daily Check-in ────────────────────────────────────────── */}
-        <button
-          onClick={() => setMysteryOpen(true)}
-          className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
-          style={{
-            background: checkedInToday
-              ? `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`
-              : `linear-gradient(135deg, ${primary}33 0%, ${primary}1a 100%)`,
-          }}
-          aria-label={checkedInToday ? "Claim your daily spin!" : "Check in to unlock daily spin"}
-        >
-          <Gift
-            className="h-[13px] w-[13px] shrink-0"
-            style={{ color: checkedInToday ? "#ffffff" : primary }}
-          />
-          <span
-            className="text-[10px] font-extrabold leading-none whitespace-nowrap"
-            style={{ color: checkedInToday ? "#ffffff" : primary }}
-          >
-            Check in
-          </span>
+        {/* ── 🎁 Daily Check-in (CP-36: 12h cooldown w/ live timer) ────── */}
+        {(() => {
+          // Cooldown labels: "6 Hr" / "45 min" — matches Andrew's mock.
+          // When the user is inside the 12-hour cooldown, we show the
+          // remaining time on the pill instead of "Check in" so they
+          // know exactly when they can next be scanned.
+          const cooldown = secondsLeft != null && secondsLeft > 0;
+          const cooldownLabel =
+            cooldown
+              ? (secondsLeft >= 3600
+                  ? `${Math.ceil(secondsLeft / 3600)} Hr`
+                  : `${Math.max(1, Math.ceil(secondsLeft / 60))} min`)
+              : null;
+          return (
+            <button
+              onClick={() => setMysteryOpen(true)}
+              className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
+              style={{
+                background: checkedInToday
+                  ? `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`
+                  : `linear-gradient(135deg, ${primary}33 0%, ${primary}1a 100%)`,
+              }}
+              aria-label={
+                cooldown
+                  ? `Next check-in in ${cooldownLabel}`
+                  : checkedInToday
+                    ? "Claim your daily spin!"
+                    : "Check in to unlock daily spin"
+              }
+            >
+              <Gift
+                className="h-[13px] w-[13px] shrink-0"
+                style={{ color: checkedInToday ? "#ffffff" : primary }}
+              />
+              <span
+                className="text-[10px] font-extrabold leading-none whitespace-nowrap tabular-nums"
+                style={{ color: checkedInToday ? "#ffffff" : primary }}
+              >
+                {cooldownLabel ?? "Check in"}
+              </span>
 
-          {/* Locked badge */}
-          {!checkedInToday && (
-            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-white ring-1 ring-zinc-200 flex items-center justify-center pointer-events-none shadow">
-              <Lock className="h-1.5 w-1.5 text-zinc-500" />
-            </span>
-          )}
-          {checkedInToday && (
-            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse pointer-events-none" />
-          )}
-        </button>
+              {/* Locked badge — only when they have NOT checked in today
+                  AND there's no active cooldown countdown. */}
+              {!checkedInToday && !cooldown && (
+                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-white ring-1 ring-zinc-200 flex items-center justify-center pointer-events-none shadow">
+                  <Lock className="h-1.5 w-1.5 text-zinc-500" />
+                </span>
+              )}
+              {checkedInToday && !cooldown && (
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse pointer-events-none" />
+              )}
+            </button>
+          );
+        })()}
 
         {/* ── ⭐ Membership ────────────────────────────────────────────── */}
         {/* CP-26: replaces the old profile/user icon. The Profile tab lives

@@ -10,6 +10,7 @@ import { TiltLoyaltyCard } from "./tilt-loyalty-card";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 import { StreakTrail } from "./streak-trail";
 import { LimitedOffersSection } from "./limited-offers-section";
+import { SavedGiftsSection } from "./saved-gifts-section";
 import type { Business, Membership } from "@/lib/types/database";
 
 type Reward = {
@@ -173,6 +174,16 @@ export function RewardsClient({
         joinedDays={joined}
         tierLabel={tier}
         membershipImageUrl={business.membership_image_url}
+      />
+
+      {/* CP-36: gifts the customer explicitly tapped "Save to my rewards"
+          on land here, immediately above their active rewards. Hidden
+          when the list is empty so the page stays tight. */}
+      <SavedGiftsSection
+        businessId={business.id}
+        primary={business.brand_colors.primary}
+        secondary={business.brand_colors.secondary}
+        membershipId={membership?.id ?? null}
       />
 
       {/* Active redemptions (above store) */}

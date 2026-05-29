@@ -251,7 +251,7 @@ export function DailyMysteryModal({
           </h2>
           <p className="text-[11px] mt-1 tracking-widest uppercase"
             style={{ color: `${primary}cc` }}>
-            One spin per check‑in
+            One spin per day
           </p>
         </div>
 

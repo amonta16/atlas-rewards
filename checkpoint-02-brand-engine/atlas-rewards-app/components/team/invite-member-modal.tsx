@@ -1,6 +1,6 @@
 "use client";
 /**
- * InviteMemberModal — CP-31 / CP-32
+ * InviteMemberModal — CP-31 / CP-32 / CP-36
  *
  * Email + role select. The role options are filtered by what the caller
  * is allowed to invite. The actual permission check happens server-side
@@ -9,13 +9,20 @@
  *
  * CP-32: when an agency_admin is on the agency Team page (businessId is
  * null), they can now ALSO invite a manager or front-desk for a specific
- * sub-account by picking it from a "Which business?" dropdown. Previously
- * they had to drill into each business's manager dashboard, which Andrew
- * found tedious.
+ * sub-account by picking it from a "Which business?" dropdown.
+ *
+ * CP-36 changes:
+ *   • Role gating tightened: business_staff (front desk) shows NO Invite
+ *     UI at all (handled by team-members.tsx). business_manager can invite
+ *     business_manager + business_staff for their own business — they
+ *     cannot create agency_admins.
+ *   • Email sending is removed. The RPC just mints a token and we render
+ *     a copy-link in place. Faster, fewer moving parts, and dodges the
+ *     "magic-link email never arrives" issue entirely.
  */
 
 import { useEffect, useState } from "react";
-import { X, Send, Crown, Shield, User, Loader2, Mail, Building2 } from "lucide-react";
+import { X, Send, Crown, Shield, User, Loader2, Mail, Building2, Copy, Check, Link as LinkIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +72,11 @@ export function InviteMemberModal({
     return "business_manager";
   });
   const [busy, setBusy] = useState(false);
+  // CP-36: after a successful create_invitation we show a copy-link panel
+  // in place of the form. The user copies the URL and sends it themselves
+  // (email / SMS / Slack / whatever).
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // CP-32: when the agency admin is on the agency Team page (businessId
   // prop is null), they can pick which sub-account to invite a manager
@@ -84,11 +96,16 @@ export function InviteMemberModal({
   }, [isAgencyFromAgency]);
 
   // What roles can the caller actually invite?
-  // CP-32: agency_admin can now invite ALL three roles from the agency
-  // Team page — manager + staff get scoped to a business they pick.
+  // CP-36: locked-down role matrix per Andrew's spec —
+  //   agency_admin     → any of the three (existing behavior)
+  //   business_manager → can invite co-managers + front desk for THEIR
+  //                      business (was: front desk only). NEVER admins.
+  //   business_staff   → nothing. They shouldn't even see the modal —
+  //                      team-members.tsx hides the Invite button — but
+  //                      this empty array is the belt-and-suspenders fallback.
   const allowed: Role[] = (() => {
     if (callerRole === "agency_admin") return ["agency_admin", "business_manager", "business_staff"];
-    if (callerRole === "business_manager") return ["business_staff"];
+    if (callerRole === "business_manager") return ["business_manager", "business_staff"];
     return [];
   })();
 
@@ -120,13 +137,82 @@ export function InviteMemberModal({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "invite failed");
-      toast.success(`Invite sent to ${email.trim()}`);
-      onInvited();
+      // CP-36: backend returns { token, url } — no email is sent. Surface
+      // the copy-link UI so the user can paste it into their channel of
+      // choice. We deliberately do not auto-close here.
+      const url = json.url
+        ?? `${window.location.origin}/accept-invitation/${json.token}`;
+      setInviteLink(url);
+      toast.success("Invite link ready — copy + share");
     } catch (e: any) {
-      toast.error(e?.message ?? "Could not send invite");
+      toast.error(e?.message ?? "Could not generate invite");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function copyLink() {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.error("Couldn't copy — long-press the field to copy manually");
+    }
+  }
+
+  function handleDone() {
+    setInviteLink(null);
+    setCopied(false);
+    onInvited();
+  }
+
+  // ── CP-36: copy-link success view ────────────────────────────────────
+  if (inviteLink) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden">
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b">
+            <h2 className="font-bold text-lg flex items-center gap-2">
+              <LinkIcon className="h-4 w-4" style={{ color: primary }} />
+              Invite link ready
+            </h2>
+            <button onClick={handleDone} className="h-9 w-9 rounded-full bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center" aria-label="Close">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="p-5 space-y-4">
+            <p className="text-sm text-zinc-600">
+              Send this link to <b>{email.trim()}</b>. They'll land in their
+              dashboard automatically after signing in.
+            </p>
+            <div className="rounded-xl border bg-zinc-50 p-3 break-all text-[12px] font-mono text-zinc-700 select-all">
+              {inviteLink}
+            </div>
+            <Button
+              onClick={copyLink}
+              className="w-full rounded-full text-white"
+              style={{ background: primary }}
+            >
+              {copied
+                ? <><Check className="h-4 w-4 mr-1.5" /> Copied!</>
+                : <><Copy className="h-4 w-4 mr-1.5" /> Copy link</>}
+            </Button>
+            <button
+              onClick={handleDone}
+              className="w-full text-sm font-semibold text-zinc-500 hover:text-zinc-800 py-2"
+            >
+              Done
+            </button>
+            <p className="text-[11px] text-zinc-400 text-center">
+              Link expires in 14 days. You can revoke it any time from the
+              pending list.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -155,8 +241,8 @@ export function InviteMemberModal({
               />
             </div>
             <p className="text-[11px] text-zinc-500 mt-1">
-              We'll send a magic-link sign-in email. They land in their dashboard
-              automatically once they click.
+              We'll generate a one-time sign-in link. Copy + share it however
+              you like (SMS, Slack, in person). No email gets sent automatically.
             </p>
           </div>
 
@@ -237,8 +323,8 @@ export function InviteMemberModal({
             className="rounded-full px-5 bg-zinc-900 hover:bg-zinc-800 text-white"
           >
             {busy
-              ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Sending…</>
-              : <><Send className="h-4 w-4 mr-1.5" /> Send invite</>}
+              ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Generating…</>
+              : <><LinkIcon className="h-4 w-4 mr-1.5" /> Generate link</>}
           </Button>
         </div>
       </div>
