@@ -164,6 +164,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
         .from("businesses")
         .update({
           name: b.name, industry: b.industry, logo_url: b.logo_url,
+          /* CP-38: dedicated square app icon (separate from logo so
+             horizontal logos don't get squished as PWA icons). */
+          app_icon_url: (b as any).app_icon_url ?? null,
           hero_image_url: b.hero_image_url,
           membership_image_url: b.membership_image_url,
           brand_colors: b.brand_colors, welcome_message: b.welcome_message,
@@ -276,7 +279,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 <Field label="Welcome message">
                   <Input value={b.welcome_message ?? ""} onChange={e => update("welcome_message", e.target.value)} placeholder="Welcome! Earn points every visit." />
                 </Field>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-3 gap-4">
                   <Field label="Logo">
                     <ImageUploader
                       bucket="business-logos"
@@ -286,8 +289,27 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       label="Logo"
                       aspectClass="aspect-square"
                     />
+                    <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">
+                      Used in the customer app header + agency dashboard. Any shape works.
+                    </p>
                   </Field>
-                  <Field label="Hero image (customer home tab background)">
+                  {/* CP-38: dedicated square app icon. Without this, the
+                      home-screen icon on a phone uses the regular logo
+                      which can get squished if it's not square. */}
+                  <Field label="App icon (home screen)">
+                    <ImageUploader
+                      bucket="business-logos"
+                      pathPrefix={`${b.id}/app-icon`}
+                      value={b.app_icon_url ?? null}
+                      onChange={(url) => update("app_icon_url" as any, url as any)}
+                      label="App icon"
+                      aspectClass="aspect-square"
+                    />
+                    <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">
+                      <strong>Square PNG, 512×512+.</strong> What shows up on customers' phone home screens. If empty, we fall back to the logo (may look squished).
+                    </p>
+                  </Field>
+                  <Field label="Hero image (home background)">
                     <ImageUploader
                       bucket="business-heroes"
                       pathPrefix={b.id}
@@ -296,6 +318,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       label="Hero"
                       aspectClass="aspect-square"
                     />
+                    <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">
+                      Landscape photo of your space (1600×900+). Shown behind the welcome message.
+                    </p>
                   </Field>
                 </div>
                 <Field label="Google review URL">

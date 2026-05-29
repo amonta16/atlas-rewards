@@ -21,13 +21,15 @@ export async function generateMetadata(
   const supabase = createClient();
   const { data } = await supabase
     .from("businesses")
-    .select("name, logo_url, brand_colors")
+    .select("name, logo_url, app_icon_url, brand_colors")
     .eq("slug", params.business)
     .maybeSingle();
 
   const name = data?.name ?? "Atlas Rewards";
   const themeColor = (data?.brand_colors as { primary?: string } | null)?.primary ?? "#0a3d62";
   const shortName = name.length > 12 ? name.slice(0, 12) : name;
+  // CP-38: square icon preferred for the home-screen / apple-touch-icon.
+  const iconUrl = (data as any)?.app_icon_url ?? data?.logo_url ?? null;
 
   return {
     title: `${name} Rewards`,
@@ -38,10 +40,10 @@ export async function generateMetadata(
       title: shortName,
       statusBarStyle: "default",
     },
-    icons: data?.logo_url
+    icons: iconUrl
       ? {
-          icon: data.logo_url,
-          apple: data.logo_url,
+          icon: iconUrl,
+          apple: iconUrl,
         }
       : undefined,
     other: {

@@ -10,10 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function manifest({ params }: { params: { business: string } }): Promise<MetadataRoute.Manifest> {
   const supabase = createClient();
   const { data } = await supabase
-    .from("businesses").select("name, logo_url, brand_colors").eq("slug", params.business).single();
+    .from("businesses")
+    .select("name, logo_url, app_icon_url, brand_colors")
+    .eq("slug", params.business)
+    .single();
 
   const name = data?.name ?? "Atlas Rewards";
   const themeColor = (data?.brand_colors as { primary?: string })?.primary ?? "#6366f1";
+  // CP-38: app icon falls back: dedicated square icon → regular logo → default
+  const iconUrl = (data as any)?.app_icon_url ?? data?.logo_url ?? "/icons/icon-512.png";
 
   return {
     name: `${name} Rewards`,
@@ -32,8 +37,8 @@ export default async function manifest({ params }: { params: { business: string 
     // CP-37: "any maskable" lets Android crop the icon to its preferred
     // shape (circle on Pixel, squircle on Samsung) without distortion.
     icons: [
-      { src: data?.logo_url ?? "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
-      { src: data?.logo_url ?? "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" },
     ],
   };
 }
