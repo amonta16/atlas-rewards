@@ -42,16 +42,17 @@ export async function middleware(request: NextRequest) {
   ]);
 
   // CP-42 fix: NEVER rewrite root-level static assets (service workers,
-  // manifests, robots.txt, sitemap, manifest.json) onto the [business]
-  // path — these MUST be served from the project root. Without this
-  // bail-out, requests to /sw-push.js on dermis.atlas-engine.app got
-  // rewritten to /dermis/sw-push.js and 404'd → push subscription
-  // never registered → no notifications.
+  // manifests, robots.txt, sitemap, manifest.json) OR /api/* onto the
+  // [business] path — these MUST be served from the project root.
+  // Without these bail-outs:
+  //   - /sw-push.js was rewritten → 404 → push subscription never registered
+  //   - /api/notifications/vapid-public-key was rewritten → 404 → browser
+  //     couldn't get the VAPID key to subscribe with
   const ROOT_ASSETS = new Set([
     "/sw.js", "/sw-push.js", "/manifest.json", "/manifest.webmanifest",
     "/robots.txt", "/sitemap.xml", "/atlas-favicon.png", "/atlas-apple-touch.png",
   ]);
-  const isRootAsset = ROOT_ASSETS.has(url.pathname);
+  const isRootAsset = ROOT_ASSETS.has(url.pathname) || url.pathname.startsWith("/api/");
 
   if (!isRootAsset && subdomain && !RESERVED.has(subdomain)) {
     // /agency is reserved for the agency dashboard (only reachable from the root domain).
