@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { hexToHsl } from "@/lib/utils";
 import type { Business } from "@/lib/types/database";
@@ -15,6 +15,21 @@ export const dynamic = "force-dynamic";
  * We also wire apple-touch-icon to the business's logo so the home-
  * screen icon picks up THEIR brand, not Atlas's default.
  */
+// CP-42: per-business theme color in a separate Viewport export.
+export async function generateViewport(
+  { params }: { params: { business: string } },
+): Promise<Viewport> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("businesses").select("brand_colors").eq("slug", params.business).maybeSingle();
+  const themeColor = (data?.brand_colors as { primary?: string } | null)?.primary ?? "#0a3d62";
+  return {
+    themeColor,
+    width: "device-width",
+    initialScale: 1,
+  };
+}
+
 export async function generateMetadata(
   { params }: { params: { business: string } },
 ): Promise<Metadata> {
@@ -34,7 +49,7 @@ export async function generateMetadata(
   return {
     title: `${name} Rewards`,
     description: `Earn points and unlock rewards at ${name}.`,
-    themeColor,
+    // CP-42: themeColor moved to viewport export (Next.js 14+ deprecated it from metadata).
     appleWebApp: {
       capable: true,
       title: shortName,

@@ -41,7 +41,19 @@ export async function middleware(request: NextRequest) {
     "docs", "status", "dev", "staging", "test",
   ]);
 
-  if (subdomain && !RESERVED.has(subdomain)) {
+  // CP-42 fix: NEVER rewrite root-level static assets (service workers,
+  // manifests, robots.txt, sitemap, manifest.json) onto the [business]
+  // path — these MUST be served from the project root. Without this
+  // bail-out, requests to /sw-push.js on dermis.atlas-engine.app got
+  // rewritten to /dermis/sw-push.js and 404'd → push subscription
+  // never registered → no notifications.
+  const ROOT_ASSETS = new Set([
+    "/sw.js", "/sw-push.js", "/manifest.json", "/manifest.webmanifest",
+    "/robots.txt", "/sitemap.xml", "/atlas-favicon.png", "/atlas-apple-touch.png",
+  ]);
+  const isRootAsset = ROOT_ASSETS.has(url.pathname);
+
+  if (!isRootAsset && subdomain && !RESERVED.has(subdomain)) {
     // /agency is reserved for the agency dashboard (only reachable from the root domain).
     if (url.pathname.startsWith("/agency")) {
       return response;
@@ -61,7 +73,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Skip static, image, and API routes
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Skip static, image, and API routes. CP-42: also exclude .js
+    // (so service workers like /sw-push.js never get rewritten),
+    // .txt, .xml, .webmanifest, .json (manifest.json fallback).
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|js|txt|xml|webmanifest|json)$).*)",
   ],
 };
