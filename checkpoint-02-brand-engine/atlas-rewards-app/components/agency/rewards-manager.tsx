@@ -13,7 +13,17 @@ type Reward = {
   id: string; name: string; description: string | null;
   reward_type: string; point_cost: number; image_url: string | null;
   is_active: boolean; sort_order: number;
+  // CP-42: free-form category label — powers the categorized Shop page.
+  category: string | null;
 };
+
+// CP-42: starter category suggestions surfaced as quick-pick chips when
+// a business hasn't created any categories yet. Free-form so any text
+// the manager types becomes a new category automatically.
+const STARTER_CATEGORIES = [
+  "Food", "Drinks", "Free Items", "Discounts",
+  "VIP / Exclusive", "Birthday", "New customer", "Limited time",
+];
 
 const TYPES = [
   { value: "discount",   label: "Discount" },
@@ -26,6 +36,9 @@ const TYPES = [
 export function RewardsManager({ business }: { business: Business }) {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [editing, setEditing] = useState<Partial<Reward> | null>(null);
+  // CP-42: distinct categories already used by THIS business — used as
+  // autocomplete chips above the category input.
+  const [usedCategories, setUsedCategories] = useState<string[]>([]);
 
   async function load() {
     const supabase = createClient();
@@ -34,6 +47,20 @@ export function RewardsManager({ business }: { business: Business }) {
       .eq("business_id", business.id)
       .order("sort_order").order("created_at");
     setRewards((data ?? []) as Reward[]);
+    // CP-42: pull the live category list. RPC silently no-ops if the
+    // cp42 migration hasn't been applied — we fall back to deriving
+    // categories client-side from the rewards we just loaded.
+    const { data: cats, error: catErr } = await supabase.rpc("business_reward_categories", {
+      p_business_id: business.id,
+    });
+    if (!catErr && Array.isArray(cats)) {
+      setUsedCategories((cats as any[]).map(r => r.category as string).filter(Boolean));
+    } else {
+      const fromRows = Array.from(new Set(
+        ((data ?? []) as any[]).map(r => r.category).filter(Boolean),
+      )) as string[];
+      setUsedCategories(fromRows);
+    }
   }
   useEffect(() => { load(); }, [business.id]);
 
@@ -50,6 +77,7 @@ export function RewardsManager({ business }: { business: Business }) {
       p_image_url: editing.image_url ?? null,
       p_is_active: editing.is_active ?? true,
       p_sort_order: editing.sort_order ?? 0,
+      p_category: (editing.category ?? "").trim() || null,  // CP-42
     });
     if (error) { alert("Save failed: " + error.message); return; }
     setEditing(null);
@@ -100,8 +128,18 @@ export function RewardsManager({ business }: { business: Business }) {
                 )}
               </div>
               <div className="p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {r.reward_type.replace(/_/g, " ")}
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <span>{r.reward_type.replace(/_/g, " ")}</span>
+                  {/* CP-42: surface the shop category on the card */}
+                  {r.category && (
+                    <>
+                      <span className="opacity-40">·</span>
+                      <span className="rounded-full px-1.5 py-0.5 text-[9px] font-extrabold"
+                        style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
+                        {r.category}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="text-sm font-bold mt-0.5">{r.name}</div>
                 <div className="text-xs font-bold mt-1" style={{ color: business.brand_colors.primary }}>
@@ -166,6 +204,42 @@ export function RewardsManager({ business }: { business: Business }) {
                     onChange={e => setEditing({ ...editing, point_cost: parseInt(e.target.value || "0", 10) })} />
                 </div>
               </div>
+              {/* CP-42: free-form category for the Shop page grouping.
+                  Quick-pick chips show whatever categories this business
+                  has already used, plus the STARTER_CATEGORIES list so
+                  fresh businesses have somewhere to start. */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Category (groups it on the Shop page)</Label>
+                <Input
+                  value={editing.category ?? ""}
+                  onChange={e => setEditing({ ...editing, category: e.target.value })}
+                  placeholder="e.g. Food, Drinks, VIP, Birthday…"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {Array.from(new Set([...usedCategories, ...STARTER_CATEGORIES]))
+                    .slice(0, 12)
+                    .map(c => {
+                      const active = (editing.category ?? "").trim().toLowerCase() === c.toLowerCase();
+                      return (
+                        <button
+                          type="button"
+                          key={c}
+                          onClick={() => setEditing({ ...editing, category: active ? "" : c })}
+                          className={
+                            "text-[11px] font-bold px-2 py-1 rounded-full border transition " +
+                            (active
+                              ? "text-white border-transparent"
+                              : "text-zinc-700 bg-white hover:bg-zinc-50")
+                          }
+                          style={active ? { background: business.brand_colors.primary } : undefined}
+                        >
+                          {c}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/20">
                 <Label className="cursor-pointer">Active (visible to customers)</Label>
                 <Switch checked={editing.is_active ?? true} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />

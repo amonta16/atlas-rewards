@@ -16,8 +16,7 @@ import { ManagerOffersPreview } from "@/components/manager/manager-offers-previe
 import { ScannerListener } from "@/components/manager/scanner-listener";
 import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
-// CP-42: bright value-prop hero strip — proves Atlas's ROI at a glance.
-import { AtlasValueStrip } from "@/components/manager/atlas-value-strip";
+// CP-42 (round 3): AtlasValueStrip moved to InsightsDashboard.
 import { TeamMembers } from "@/components/team/team-members";
 // CP-36b: NotificationBroadcast removed — moved to agency settings.
 import { OffersManager } from "@/components/agency/offers-manager";
@@ -271,43 +270,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
       <main className="max-w-2xl lg:max-w-7xl mx-auto p-4 space-y-4">
         {tab === "desk" && (
           <>
-            {/* CP-42: hard-to-cancel value strip. Sits at the very top so
-                it's the first thing the manager sees every shift. */}
-            <AtlasValueStrip
-              businessId={business.id}
-              primary={business.brand_colors.primary}
-              secondary={business.brand_colors.secondary}
-            />
-
-            {/* CP-30: live recap card. Hides itself if the CP-30 SQL isn't
-                installed yet — page still works either way. */}
-            <DailyRecapCard
-              businessId={business.id}
-              businessName={business.name}
-              primary={business.brand_colors.primary}
-              secondary={business.brand_colors.secondary}
-            />
-
-            {/* CP-30: customer search bar. Open AwardPointsPanel directly
-                on pick. Lives above the scan hero so it's the first thing
-                staff reach for. */}
-            <CustomerSearch
-              businessId={business.id}
-              primary={business.brand_colors.primary}
-              onPick={(h) => {
-                setMember({
-                  membership_id: h.membership_id,
-                  user_id: h.user_id,
-                  full_name: h.full_name,
-                  email: h.email,
-                  phone: h.phone,
-                  points_balance: h.points_balance,
-                  tier: h.tier,
-                  joined_at: h.joined_at,
-                  visit_count: h.visit_count,
-                });
-              }}
-            />
+            {/* CP-42 (round 3): Scanner hero MOVES UP to the top — Andrew
+                uses this every shift, so it gets the first visual slot.
+                Value strip moved to Insights where the impact data
+                belongs; daily recap drops below scanner. */}
 
             {/* Hero CTA — CP-42: bigger title, glowing CTA, decorative
                 blobs, brighter accent for the action buttons. */}
@@ -401,6 +367,33 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 </form>
               </div>
             )}
+
+            {/* CP-42 (round 3): customer search + recap moved BELOW the
+                scanner so the scan-to-start CTA gets the top slot. */}
+            <CustomerSearch
+              businessId={business.id}
+              primary={business.brand_colors.primary}
+              onPick={(h) => {
+                setMember({
+                  membership_id: h.membership_id,
+                  user_id: h.user_id,
+                  full_name: h.full_name,
+                  email: h.email,
+                  phone: h.phone,
+                  points_balance: h.points_balance,
+                  tier: h.tier,
+                  joined_at: h.joined_at,
+                  visit_count: h.visit_count,
+                });
+              }}
+            />
+
+            <DailyRecapCard
+              businessId={business.id}
+              businessName={business.name}
+              primary={business.brand_colors.primary}
+              secondary={business.brand_colors.secondary}
+            />
 
             <ReviewQueue business={business} />
 

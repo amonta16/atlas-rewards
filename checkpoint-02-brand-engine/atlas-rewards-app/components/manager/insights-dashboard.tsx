@@ -282,35 +282,56 @@ export function InsightsDashboard({ business }: { business: Business }) {
 
       {/* ============================================================
           GOOGLE REVIEW PERFORMANCE
+          CP-42: heavy Google branding (blue/red/yellow/green) so the
+          section is instantly recognizable as Google-flavored.
           ============================================================ */}
-      <div className="rounded-3xl border bg-white p-5 lg:p-7 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-bold text-lg flex items-center gap-2">
-              <Star className="h-5 w-5 text-amber-500 fill-amber-400" />
-              Google Review performance
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              How Atlas is moving the needle on reviews — funnel + monthly volume.
-            </p>
-          </div>
-          {funnel && funnel.total_lifetime_reviews > 0 && (
-            <div className="text-right">
-              <div className="text-3xl font-black tabular-nums" style={{ color: brand }}>
-                {funnel.total_lifetime_reviews}
-              </div>
-              <div className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">total verified</div>
-            </div>
-          )}
+      <div className="rounded-3xl border overflow-hidden bg-white shadow-sm">
+        {/* Google brand-bar — the iconic 4-color stripe at the top */}
+        <div className="h-1.5 w-full flex">
+          <div className="flex-1" style={{ background: "#4285F4" }} />
+          <div className="flex-1" style={{ background: "#EA4335" }} />
+          <div className="flex-1" style={{ background: "#FBBC04" }} />
+          <div className="flex-1" style={{ background: "#34A853" }} />
         </div>
 
-        {funnel && (
-          <div className="grid grid-cols-3 gap-2 mb-5">
-            <FunnelCell n={funnel.asks_30d}       label="Asks" tone="zinc" />
-            <FunnelCell n={funnel.submitted_30d}  label="Submitted" tone="amber" />
-            <FunnelCell n={funnel.verified_30d}   label="Verified" tone="emerald" />
+        <div className="p-5 lg:p-7">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-3">
+              {/* Inline multicolor "G" logomark */}
+              <div className="h-11 w-11 rounded-2xl bg-white border shadow-sm flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A10.99 10.99 0 0 0 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09a6.6 6.6 0 0 1 0-4.18V7.07H2.18a10.99 10.99 0 0 0 0 9.86l3.66-2.84z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg leading-tight">Google Review performance</h3>
+                <p className="text-xs text-muted-foreground">
+                  How Atlas is moving the needle on reviews — funnel + monthly volume.
+                </p>
+              </div>
+            </div>
+            {funnel && funnel.total_lifetime_reviews > 0 && (
+              <div className="text-right">
+                <div className="text-3xl font-black tabular-nums" style={{ color: "#34A853" }}>
+                  {funnel.total_lifetime_reviews}
+                </div>
+                <div className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">total verified</div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Funnel — Google blue → yellow → green follows the
+              "ask → submitted → verified" success path. */}
+          {funnel && (
+            <div className="grid grid-cols-3 gap-2 mb-5">
+              <FunnelCell n={funnel.asks_30d}       label="Asks"      tone="google-blue" />
+              <FunnelCell n={funnel.submitted_30d}  label="Submitted" tone="google-yellow" />
+              <FunnelCell n={funnel.verified_30d}   label="Verified"  tone="google-green" />
+            </div>
+          )}
 
         {/* Monthly chart — review volume + revenue trend over 6 months */}
         {monthly.length > 0 && (
@@ -342,27 +363,31 @@ export function InsightsDashboard({ business }: { business: Business }) {
         )}
 
         {funnel && funnel.star_avg_after !== null && funnel.star_avg_before !== null && (
-          <div className="mt-5 rounded-2xl bg-amber-50 border border-amber-100 p-4 flex items-center gap-4">
+          <div
+            className="mt-5 rounded-2xl border p-4 flex items-center gap-4"
+            style={{ background: "linear-gradient(135deg, #FBBC0410, #FBBC0420)", borderColor: "#FBBC04" }}
+          >
             <div className="text-center">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-amber-700">Before Atlas</div>
-              <div className="text-2xl font-black text-amber-900 tabular-nums">
+              <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#92400E" }}>Before Atlas</div>
+              <div className="text-2xl font-black tabular-nums" style={{ color: "#92400E" }}>
                 {funnel.star_avg_before.toFixed(1)}★
               </div>
             </div>
-            <ArrowRight className="h-5 w-5 text-amber-600" />
+            <ArrowRight className="h-5 w-5" style={{ color: "#92400E" }} />
             <div className="text-center">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-amber-700">Now</div>
-              <div className="text-2xl font-black text-amber-900 tabular-nums">
+              <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#34A853" }}>Now</div>
+              <div className="text-2xl font-black tabular-nums" style={{ color: "#34A853" }}>
                 {funnel.star_avg_after.toFixed(1)}★
               </div>
             </div>
-            <div className="ml-auto text-right text-xs text-amber-900 font-semibold">
+            <div className="ml-auto text-right text-xs font-semibold" style={{ color: "#1f2937" }}>
               {(funnel.star_avg_after - funnel.star_avg_before).toFixed(1)} star lift
               <br />
               <span className="text-[10px] opacity-80">since Atlas turned on</span>
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* ============================================================
@@ -645,19 +670,37 @@ function CompareRow({
   brand: string;
   note?: string;
 }) {
+  // CP-42: way bolder green/red contrast. The "With Atlas" cell now
+  // gets a solid green wash so the value pop and the "Without" cell
+  // gets a red wash so the gap is visceral.
   return (
-    <div className="rounded-2xl border bg-zinc-50 p-4">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-600 mb-2">
+    <div className="rounded-2xl border-2 border-zinc-200 bg-white p-4">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-extrabold text-zinc-700 mb-3">
         {icon} {label}
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-white p-3 ring-1" style={{ ['--tw-ring-color' as any]: `${brand}33` } as React.CSSProperties}>
-          <div className="text-[10px] font-bold text-emerald-700 uppercase">With Atlas</div>
-          <div className="text-xl font-black tabular-nums" style={{ color: brand }}>{withVal}</div>
+        <div
+          className="rounded-xl p-3 border-2"
+          style={{
+            background: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
+            borderColor: "#10b981",
+          }}
+        >
+          <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: "#047857" }}>With Atlas</div>
+          <div className="text-2xl font-black tabular-nums mt-0.5" style={{ color: "#064e3b" }}>{withVal}</div>
         </div>
-        <div className="rounded-xl bg-white p-3 ring-1 ring-zinc-200 opacity-80">
-          <div className="text-[10px] font-bold text-rose-600 uppercase">Without</div>
-          <div className="text-xl font-black tabular-nums text-zinc-500 line-through decoration-rose-400 decoration-2">
+        <div
+          className="rounded-xl p-3 border-2"
+          style={{
+            background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
+            borderColor: "#f87171",
+          }}
+        >
+          <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: "#b91c1c" }}>Without</div>
+          <div
+            className="text-2xl font-black tabular-nums mt-0.5 line-through decoration-2"
+            style={{ color: "#9ca3af", textDecorationColor: "#f87171" }}
+          >
             {withoutVal}
           </div>
         </div>
@@ -669,17 +712,29 @@ function CompareRow({
 
 function FunnelCell({
   n, label, tone,
-}: { n: number; label: string; tone: "zinc" | "amber" | "emerald" }) {
+}: {
+  n: number;
+  label: string;
+  // CP-42: added Google brand tones for heavy-Google review section.
+  tone: "zinc" | "amber" | "emerald" | "google-blue" | "google-yellow" | "google-green" | "google-red";
+}) {
   const tones = {
-    zinc:    { bg: "bg-zinc-50",    text: "text-zinc-700",    accent: "text-zinc-900" },
-    amber:   { bg: "bg-amber-50",   text: "text-amber-700",   accent: "text-amber-900" },
-    emerald: { bg: "bg-emerald-50", text: "text-emerald-700", accent: "text-emerald-900" },
+    zinc:           { bg: "#f4f4f5",        border: "#e4e4e7", text: "#3f3f46",  accent: "#18181b" },
+    amber:          { bg: "#fffbeb",        border: "#fde68a", text: "#b45309",  accent: "#78350f" },
+    emerald:        { bg: "#ecfdf5",        border: "#a7f3d0", text: "#047857",  accent: "#064e3b" },
+    "google-blue":  { bg: "#4285F410",      border: "#4285F4", text: "#1a73e8",  accent: "#1a73e8" },
+    "google-yellow":{ bg: "#FBBC0418",      border: "#FBBC04", text: "#92400E",  accent: "#92400E" },
+    "google-green": { bg: "#34A85318",      border: "#34A853", text: "#15803d",  accent: "#15803d" },
+    "google-red":   { bg: "#EA433518",      border: "#EA4335", text: "#b91c1c",  accent: "#b91c1c" },
   }[tone];
   return (
-    <div className={`rounded-2xl border p-4 ${tones.bg}`}>
-      <div className={`text-[10px] uppercase tracking-wider font-bold ${tones.text}`}>{label}</div>
-      <div className={`text-3xl font-black tabular-nums ${tones.accent}`}>{n}</div>
-      <div className={`text-[10px] ${tones.text} opacity-80 mt-0.5`}>last 30d</div>
+    <div
+      className="rounded-2xl border-2 p-4"
+      style={{ background: tones.bg, borderColor: tones.border }}
+    >
+      <div className="text-[10px] uppercase tracking-wider font-extrabold" style={{ color: tones.text }}>{label}</div>
+      <div className="text-3xl font-black tabular-nums" style={{ color: tones.accent }}>{n}</div>
+      <div className="text-[10px] opacity-80 mt-0.5" style={{ color: tones.text }}>last 30d</div>
     </div>
   );
 }

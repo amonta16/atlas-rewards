@@ -36,3 +36,20 @@
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   CP-42: itchy wobble keyframe for the review "!" badge. Designed
+   to look like a scratchable itch — short rotate-shake bursts every
+   few seconds, then settle. Subtle enough to not annoy, persistent
+   enough to draw the eye.
+   ───────────────────────────────────────────────────────────────── */
+@keyframes atlas-itch-wobble {
+  0%, 60%, 100%      { transform: rotate(0deg)   scale(1);   }
+  62%                { transform: rotate(-14deg) scale(1.08); }
+  64%                { transform: rotate(12deg)  scale(1.08); }
+  66%                { transform: rotate(-10deg) scale(1.08); }
+  68%                { transform: rotate(8deg)   scale(1.08); }
+  70%                { transform: rotate(-6deg)  scale(1.06); }
+  72%                { transform: rotate(4deg)   scale(1.04); }
+  74%                { transform: rotate(0deg)   scale(1);   }
+}

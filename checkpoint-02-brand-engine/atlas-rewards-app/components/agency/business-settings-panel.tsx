@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CalendarClock, CreditCard, KeyRound, Check, ExternalLink, Info, AlertCircle } from "lucide-react";
+// CP-42: pruned unused icons after removing the GHL Calendar panel.
+import { CreditCard, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +18,10 @@ type Plan = {
 
 /**
  * The per-business Settings tab — appears inside the brand-editor next to
- * Webhook Settings + Automation Rules. Two big sections:
- *   1. GHL Calendar integration (location_id + calendar_id + private API key)
- *   2. Plan & billing (monthly fee + setup fee for this specific sub-account)
+ * Webhook Settings + Automation Rules.
+ *
+ * CP-42: GHL Calendar integration section removed (booking was pulled in
+ * CP-06). Only Plan & billing remains here.
  */
 export function BusinessSettingsPanel({
   business,
@@ -74,75 +76,12 @@ export function BusinessSettingsPanel({
     }
   }
 
-  const ghlReady = !!(business.ghl_calendar_id && business.ghl_api_key && business.ghl_location_id);
-
   return (
     <div className="space-y-6">
-      {/* ============ GHL ============ */}
-      <div className="rounded-2xl border bg-white p-6">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="h-10 w-10 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center shrink-0">
-            <CalendarClock className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="font-semibold">GoHighLevel Calendar integration</h3>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              When configured, the customer booking flow uses GHL's availability + double-booking
-              prevention. Leave blank to use Atlas's built-in scheduler.
-            </p>
-          </div>
-        </div>
-
-        <div className={`rounded-lg px-4 py-3 mb-4 flex items-start gap-2 text-xs ${ghlReady ? "bg-emerald-50 text-emerald-900" : "bg-zinc-50 text-zinc-700"}`}>
-          {ghlReady
-            ? <Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-600" />
-            : <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />}
-          <div>
-            {ghlReady
-              ? "GHL is wired up for this business. The customer Book tab now pulls slots from GHL and writes appointments there."
-              : "Need a private integration token? In GHL: Sub-Account Settings → My Staff → API Key, or use Private Integration."}
-          </div>
-        </div>
-
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="GHL Location ID">
-            <Input
-              value={business.ghl_location_id ?? ""}
-              onChange={e => onUpdate({ ghl_location_id: e.target.value || null })}
-              placeholder="loc_..."
-            />
-          </Field>
-          <Field label="GHL Calendar ID">
-            <Input
-              value={business.ghl_calendar_id ?? ""}
-              onChange={e => onUpdate({ ghl_calendar_id: e.target.value || null })}
-              placeholder="cal_..."
-            />
-          </Field>
-        </div>
-        <div className="mt-3">
-          <Field label="Private Integration API key">
-            <div className="relative">
-              <KeyRound className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="password"
-                value={business.ghl_api_key ?? ""}
-                onChange={e => onUpdate({ ghl_api_key: e.target.value || null })}
-                placeholder="pit-..."
-                className="pl-8 font-mono"
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Stored encrypted at-rest in Supabase. Only agency admins can read this row (RLS-protected).
-            </p>
-          </Field>
-        </div>
-
-        <a href="https://highlevel.stoplight.io/docs/integrations/" target="_blank" rel="noreferrer"
-          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-primary hover:underline">
-          GHL API docs <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
+      {/* CP-42: GHL Calendar integration panel removed — Atlas is
+          loyalty-only (booking was removed in CP-06). The GHL fields
+          on the business row are kept for any future contact-sync
+          features, but the calendar UI is no longer surfaced. */}
 
       {/* ============ PLAN ============ */}
       <div className="rounded-2xl border bg-white p-6">

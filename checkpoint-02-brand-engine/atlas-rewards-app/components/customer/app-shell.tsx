@@ -87,9 +87,16 @@ export function CustomerAppShell({
                   <span
                     aria-label={reviewTone === "orange" ? "Review pending verification" : "Google review available"}
                     className={cn(
-                      "absolute -top-1.5 -right-2 h-4 w-4 rounded-full text-white text-[10px] font-extrabold flex items-center justify-center shadow ring-2 ring-white animate-pulse",
+                      "absolute -top-1.5 -right-2 h-4 w-4 rounded-full text-white text-[10px] font-extrabold flex items-center justify-center shadow ring-2 ring-white",
                       reviewTone === "orange" ? "bg-amber-500" : "bg-rose-500",
                     )}
+                    // CP-42: itchy wobble — short rotate-shake bursts every
+                    // few seconds so it visually itches the customer into
+                    // tapping. Replaces the steady pulse.
+                    style={{
+                      animation: "atlas-itch-wobble 3.6s ease-in-out infinite",
+                      transformOrigin: "center center",
+                    }}
                   >!</span>
                 )}
               </div>

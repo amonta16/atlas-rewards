@@ -207,9 +207,14 @@ export function RewardsClient({
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-base font-bold">Rewards store</h2>
-            <button className="text-xs font-semibold flex items-center gap-0.5" style={{ color: business.brand_colors.primary }}>
+            {/* CP-42: wired to the new categorized shop page */}
+            <a
+              href={`/${business.slug}/app/shop`}
+              className="text-xs font-semibold flex items-center gap-0.5"
+              style={{ color: business.brand_colors.primary }}
+            >
               See more <ChevronRight className="h-3 w-3" />
-            </button>
+            </a>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {rewards.map(r => {
