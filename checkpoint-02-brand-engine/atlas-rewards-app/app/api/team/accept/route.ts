@@ -34,12 +34,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  // CP-42: accept_invitation now returns out_role + out_business_id
+  // (renamed to dodge the business_id ambiguity bug). We accept either
+  // shape so the route keeps working if/when the SQL is rolled back.
   const row = (Array.isArray(data) ? data[0] : data) as
-    { ok: boolean; role: string; business_id: string | null } | null;
+    {
+      ok: boolean;
+      role?: string;
+      business_id?: string | null;
+      out_role?: string;
+      out_business_id?: string | null;
+    } | null;
 
   return NextResponse.json({
     ok: true,
-    role: row?.role ?? null,
-    business_id: row?.business_id ?? null,
+    role: row?.out_role ?? row?.role ?? null,
+    business_id: row?.out_business_id ?? row?.business_id ?? null,
   });
 }

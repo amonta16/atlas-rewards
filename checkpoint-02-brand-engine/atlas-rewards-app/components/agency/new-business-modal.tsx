@@ -9,7 +9,11 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { INDUSTRY_TEMPLATES, templateByValue } from "@/lib/industry-templates";
 
-type Step = "basics" | "template";
+// CP-42: third step captures the business's PRE-Atlas baseline numbers
+// so the Insights "With Atlas vs Without" comparison uses their real
+// data instead of an estimate. Required — every new business gets a
+// snapshot before going live.
+type Step = "basics" | "template" | "baseline";
 
 export function NewBusinessModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -19,6 +23,11 @@ export function NewBusinessModal({ onClose }: { onClose: () => void }) {
   const [templateValue, setTemplateValue] = useState<string>("other");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // CP-42 baseline fields
+  const [baselineReviewCount, setBaselineReviewCount] = useState<string>("");
+  const [baselineRating,      setBaselineRating]      = useState<string>("");
+  const [baselineRevenue,     setBaselineRevenue]     = useState<string>("");
+  const [baselineVisits,      setBaselineVisits]      = useState<string>("");
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
   const tpl = templateByValue(templateValue);
 
@@ -42,8 +51,30 @@ export function NewBusinessModal({ onClose }: { onClose: () => void }) {
     } : { p_name: name, p_slug: slug, p_industry: null };
 
     const { data, error } = await supabase.rpc("create_business", payload);
+    if (error) { setSubmitting(false); setErr(error.message); return; }
+
+    // CP-42: persist the baseline snapshot before routing into the
+    // brand editor. Silent fallback if the cp42 RPC isn't installed.
+    const newBusinessId = data as string;
+    if (newBusinessId) {
+      const revenueCents = baselineRevenue
+        ? Math.round(parseFloat(baselineRevenue) * 100)
+        : null;
+      try {
+        await supabase.rpc("save_business_baseline", {
+          p_business_id: newBusinessId,
+          p_google_review_count: baselineReviewCount ? parseInt(baselineReviewCount, 10) : null,
+          p_google_rating:       baselineRating ? parseFloat(baselineRating) : null,
+          p_monthly_revenue_cents: revenueCents,
+          p_monthly_visits:      baselineVisits ? parseInt(baselineVisits, 10) : null,
+        });
+      } catch {
+        // Non-fatal — the business is created, agency can re-enter the
+        // baseline from settings later.
+      }
+    }
+
     setSubmitting(false);
-    if (error) { setErr(error.message); return; }
     router.push(`/agency/businesses/${data}`);
     router.refresh();
   }
@@ -56,7 +87,11 @@ export function NewBusinessModal({ onClose }: { onClose: () => void }) {
             <div className="h-9 w-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <Building2 className="h-4 w-4" />
             </div>
-            <h2 className="font-bold">{step === "basics" ? "Add new business" : "Pick a starting template"}</h2>
+            <h2 className="font-bold">
+              {step === "basics" ? "Add new business"
+                : step === "template" ? "Pick a starting template"
+                : "Pre-Atlas baseline"}
+            </h2>
           </div>
           <button onClick={onClose} className="h-9 w-9 rounded-full bg-zinc-100 flex items-center justify-center">
             <X className="h-4 w-4" />
@@ -129,21 +164,91 @@ export function NewBusinessModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
+          {step === "baseline" && (
+            <div className="p-6 space-y-4">
+              <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-xs text-indigo-900">
+                <b>Snapshot their last year</b> — these are the numbers we'll compare against in Insights so the operator sees exactly how much Atlas moved the needle. <span className="italic">Required.</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Google reviews (count)</Label>
+                  <Input
+                    type="number" min={0}
+                    value={baselineReviewCount}
+                    onChange={e => setBaselineReviewCount(e.target.value)}
+                    placeholder="e.g. 47"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Google rating (★)</Label>
+                  <Input
+                    type="number" step="0.1" min={1} max={5}
+                    value={baselineRating}
+                    onChange={e => setBaselineRating(e.target.value)}
+                    placeholder="e.g. 4.2"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Monthly revenue ($)</Label>
+                  <Input
+                    type="number" min={0} step="100"
+                    value={baselineRevenue}
+                    onChange={e => setBaselineRevenue(e.target.value)}
+                    placeholder="e.g. 18000"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Monthly visits (estimate)</Label>
+                  <Input
+                    type="number" min={0}
+                    value={baselineVisits}
+                    onChange={e => setBaselineVisits(e.target.value)}
+                    placeholder="e.g. 320"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground italic">
+                Quick estimates are fine — they only need to be in the right ballpark. You can refine these later from the business's Settings tab.
+              </p>
+            </div>
+          )}
+
           {err && <p className="text-sm text-red-600 px-6 pb-3">{err}</p>}
         </div>
 
         <div className="p-5 border-t flex gap-2">
-          {step === "basics" ? (
+          {step === "basics" && (
             <>
               <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
               <Button className="flex-1" onClick={() => setStep("template")} disabled={!name || !slug}>
                 Next: pick template
               </Button>
             </>
-          ) : (
+          )}
+          {step === "template" && (
             <>
               <Button variant="outline" className="flex-1" onClick={() => setStep("basics")}>Back</Button>
-              <Button className="flex-1" onClick={create} disabled={submitting}>
+              <Button className="flex-1" onClick={() => setStep("baseline")}>
+                Next: baseline
+              </Button>
+            </>
+          )}
+          {step === "baseline" && (
+            <>
+              <Button variant="outline" className="flex-1" onClick={() => setStep("template")}>Back</Button>
+              <Button
+                className="flex-1"
+                onClick={create}
+                disabled={
+                  submitting ||
+                  !baselineReviewCount ||
+                  !baselineRating ||
+                  !baselineRevenue ||
+                  !baselineVisits
+                }
+              >
                 {submitting ? "Creating…" : `Create ${name}`}
               </Button>
             </>

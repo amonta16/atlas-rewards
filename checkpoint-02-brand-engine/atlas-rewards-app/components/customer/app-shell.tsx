@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { WidgetConfig } from "@/lib/types/database";
 import { useReviewStatus, reviewBadgeTone } from "@/lib/hooks/use-review-status";
+// CP-42: one-time first-visit nudge pointing at the bell.
+import { EnablePushNudge } from "./enable-push-nudge";
 
 type TabDef = { href: string; label: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
 
@@ -67,6 +69,10 @@ export function CustomerAppShell({
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50">
+      {/* CP-42: arrow-points-at-bell nudge on first visit when push
+          permission is still "default". Self-dismisses after 8s or on
+          tap. Stores a flag in localStorage so it never re-shows. */}
+      <EnablePushNudge primary={primary} />
       <main className="flex-1 pb-20">{children}</main>
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-zinc-200 px-1 py-1.5 flex items-center justify-around z-40">
         {tabs.map(t => {

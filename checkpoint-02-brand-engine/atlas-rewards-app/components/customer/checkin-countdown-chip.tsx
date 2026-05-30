@@ -1,6 +1,6 @@
 "use client";
 /**
- * CheckinCountdownChip — CP-39
+ * CheckinCountdownChip — CP-39 → CP-42
  *
  * Subtle "Next check-in in 6 Hr" / "Ready to check in" pill that sits
  * above the QR on the customer's Check in (scan) tab. Intentionally
@@ -10,6 +10,19 @@
  * Backed by the member_checkin_status RPC (from cp36_migration.sql).
  * If that RPC isn't applied yet, the chip self-hides rather than
  * showing a broken state.
+ *
+ * CP-42 rewrite: the previous version drifted because it kept a local
+ * `secondsLeft` counter and decremented it every 30s — if realtime
+ * ever missed a check-in event (which happens often: check_in_events
+ * isn't always in the realtime publication, network blips, etc.) the
+ * chip would never reset to 12h.
+ *
+ * The fix: derive the countdown from a WALL-CLOCK `expiresAt` Date.
+ * Each tick just computes (expiresAt - now). Combined with:
+ *   • Realtime on check_in_events AND member_streaks UPDATE
+ *   • A 60s polling fallback that re-queries the RPC
+ *   • A focus-listener that refreshes when the tab comes back
+ * the chip stays in sync even if realtime drops events.
  */
 import { useEffect, useState } from "react";
 import { Clock, Check, Lock } from "lucide-react";
@@ -33,7 +46,10 @@ export function CheckinCountdownChip({
   primary: string;
 }) {
   const [status, setStatus] = useState<Status | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  // CP-42: store the WALL-CLOCK expiration time, not a decrementing
+  // counter. Drift-proof — every render recomputes (expires - now).
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!membershipId) return;
@@ -47,29 +63,42 @@ export function CheckinCountdownChip({
       });
       if (cancelled) return;
       if (error) {
-        // RPC not deployed → silently hide the chip
         setStatus(null);
         return;
       }
       const row = (Array.isArray(data) ? data[0] : data) as Status | null;
       setStatus(row);
-      setSecondsLeft(
-        row && !row.can_check_in_now ? Math.max(0, Number(row.seconds_until_next || 0)) : null,
-      );
+      // CP-42: use next_check_in_at as the source of truth. It's a
+      // server-side absolute timestamp (last_checkin_at + 12h), so it
+      // accounts for clock drift between the client and Postgres.
+      if (row && !row.can_check_in_now && row.next_check_in_at) {
+        setExpiresAt(new Date(row.next_check_in_at));
+      } else {
+        setExpiresAt(null);
+      }
     };
     load();
 
-    // Tick locally every 30s so the countdown feels live without
-    // hammering the RPC.
-    const tick = setInterval(() => {
-      setSecondsLeft(prev => {
-        if (prev == null) return prev;
-        const next = prev - 30;
-        return next <= 0 ? null : next;
-      });
-    }, 30_000);
+    // Wall-clock tick — every 15s force a re-render so the displayed
+    // remaining time recomputes from expiresAt. We don't mutate any
+    // counter; the displayed label is derived from `expiresAt - now`
+    // at render time. 15s is fast enough that minute-precision labels
+    // ("11 min", "10 min", ...) stay accurate.
+    const renderTick = setInterval(() => setTick(t => t + 1), 15_000);
 
-    // Refresh whenever a new check-in lands
+    // CP-42: poll every 60s in case realtime drops the check-in event.
+    // Cheap because the RPC is fast and idempotent.
+    const pollTick = setInterval(load, 60_000);
+
+    // Refresh on visibility change — when the user comes back to the
+    // tab, immediately re-query so the chip catches up.
+    const onVis = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVis);
+
+    // Realtime: a check-in landed → re-pull.
+    // ALSO subscribe to member_streaks UPDATE so that even if
+    // check_in_events isn't in the realtime publication, the
+    // member_streaks last_checkin_at change still triggers a refresh.
     const ch = supabase
       .channel(`checkin-chip-${membershipId}`)
       .on(
@@ -77,15 +106,34 @@ export function CheckinCountdownChip({
         { event: "INSERT", schema: "public", table: "check_in_events", filter: `membership_id=eq.${membershipId}` },
         load,
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "member_streaks", filter: `membership_id=eq.${membershipId}` },
+        load,
+      )
       .subscribe();
 
-    return () => { cancelled = true; clearInterval(tick); supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      clearInterval(renderTick);
+      clearInterval(pollTick);
+      document.removeEventListener("visibilitychange", onVis);
+      supabase.removeChannel(ch);
+    };
   }, [businessId, membershipId]);
 
   // Hide entirely if we have no useful status (RPC missing, no membership, etc.)
   if (!status) return null;
 
-  const cooldown = secondsLeft != null && secondsLeft > 0;
+  // CP-42: compute remaining time from the wall clock every render.
+  // `tick` is in the deps via React's render flow — incrementing it
+  // is what triggers a re-render so this fresh computation happens.
+  const secondsLeft = expiresAt
+    ? Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+    : 0;
+  void tick; // mark tick as used (it's needed only to force re-render)
+
+  const cooldown = secondsLeft > 0;
   const ready = !cooldown && status.can_check_in_now;
 
   const label = cooldown

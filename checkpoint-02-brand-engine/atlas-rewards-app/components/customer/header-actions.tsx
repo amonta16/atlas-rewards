@@ -56,7 +56,14 @@ export function HeaderActions({
   const [checkedInToday, setCheckedInToday] = useState(false);
   // CP-36: 12-hour cooldown countdown shown on the Check-in pill.
   // null means "no cooldown active" — pill renders the locked state.
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  // CP-42: track absolute expiration time and force re-renders, so the
+  // countdown doesn't drift / get stuck when realtime events are missed.
+  // `secondsLeft` is derived from (expiresAt - now) at render time.
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
+  const [, setRenderTick] = useState(0);
+  const secondsLeft: number | null = expiresAt
+    ? Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+    : null;
   const [mysteryOpen, setMysteryOpen] = useState(false);
   // CP-24: open the streak widget MODAL directly when the flame icon is
   // tapped instead of navigating to /app/rewards (which Andrew reported as
@@ -120,7 +127,13 @@ export function HeaderActions({
         const status = (Array.isArray(cs) ? cs[0] : cs) as CheckinStatus | null;
         if (status) {
           setCheckedInToday(!!status.checked_in_today);
-          setSecondsLeft(status.can_check_in_now ? null : Math.max(0, Number(status.seconds_until_next || 0)));
+          // CP-42: use the absolute timestamp the server returns so the
+          // chip is drift-proof. Render-time secondsLeft = expiresAt - now.
+          if (!status.can_check_in_now && status.next_check_in_at) {
+            setExpiresAt(new Date(status.next_check_in_at));
+          } else {
+            setExpiresAt(null);
+          }
           return;
         }
       }
@@ -134,19 +147,20 @@ export function HeaderActions({
         .gte("created_at", dayStart.toISOString())
         .limit(1);
       setCheckedInToday((checkins?.length ?? 0) > 0);
-      setSecondsLeft(null);
+      setExpiresAt(null);
     };
     loadStreak();
 
-    // CP-36: tick the cooldown locally so the "6 Hr" label feels live
-    // without hammering the RPC. We refetch on each check-in via realtime.
-    const tick = setInterval(() => {
-      setSecondsLeft(prev => {
-        if (prev == null) return prev;
-        const next = prev - 30; // we tick every 30s
-        return next <= 0 ? null : next;
-      });
-    }, 30_000);
+    // CP-42: bump a render counter every 15s so the wall-clock derived
+    // secondsLeft refreshes. Replaces the old setSecondsLeft(prev - 30)
+    // pattern which drifted when realtime events were missed.
+    const tick = setInterval(() => setRenderTick(t => t + 1), 15_000);
+    // Also poll the RPC every 60s as a safety net for missed realtime
+    // events (check_in_events isn't always in the realtime publication).
+    const poll = setInterval(loadStreak, 60_000);
+    // And refresh when the tab regains focus.
+    const onVis = () => { if (document.visibilityState === "visible") loadStreak(); };
+    document.addEventListener("visibilitychange", onVis);
 
     // CP-24-hotfix: realtime updates for streak_config + check_in_events
     // so the flame icon appears the moment the agency toggles streaks on,
@@ -169,7 +183,12 @@ export function HeaderActions({
         loadStreak,
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); clearInterval(tick); };
+    return () => {
+      supabase.removeChannel(ch);
+      clearInterval(tick);
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [business.id, membershipId]);
 
   // ── derived state ─────────────────────────────────────────────────────────

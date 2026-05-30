@@ -39,7 +39,7 @@ type Rollup = {
   inactive_60d: number; total_revenue_30d_cents: number;
 };
 
-/** atlas_impact_rollup(p_business_id) — CP-32 */
+/** atlas_impact_rollup(p_business_id) — CP-32 + CP-42 baseline fields */
 type Impact = {
   driven_revenue_cents: number;            // total $ attributed to Atlas (loyalty + reviews + winbacks)
   repeat_visit_lift_pct: number;           // % of repeat visits attributable to loyalty
@@ -55,6 +55,10 @@ type Impact = {
   actual_visits_30d: number;
   baseline_revenue_30d_cents: number;
   actual_revenue_30d_cents: number;
+  // CP-42: operator-supplied historical baselines from onboarding
+  baseline_google_reviews?: number | null;
+  baseline_google_rating?: number | null;
+  baseline_captured_at?: string | null;
 };
 
 type MonthlyPoint = { month: string; reviews: number; revenue_cents: number; visits: number };
@@ -248,7 +252,9 @@ export function InsightsDashboard({ business }: { business: Business }) {
                 With Atlas <span className="text-zinc-400 mx-1">vs.</span> Without
               </h3>
               <p className="text-xs text-muted-foreground">
-                Side-by-side: what's happening today vs. an estimated baseline with no loyalty + no review automation.
+                {impact.baseline_captured_at
+                  ? <>Side-by-side using <b>your real pre-Atlas numbers</b> from {new Date(impact.baseline_captured_at).toLocaleDateString(undefined, { month: "short", year: "numeric" })}.</>
+                  : <>Side-by-side: what's happening today vs. an estimated baseline with no loyalty + no review automation.</>}
               </p>
             </div>
           </div>
@@ -260,6 +266,7 @@ export function InsightsDashboard({ business }: { business: Business }) {
               withVal={dollarsBig(impact.actual_revenue_30d_cents)}
               withoutVal={dollarsBig(impact.baseline_revenue_30d_cents)}
               brand={brand}
+              note={impact.baseline_captured_at ? "From your onboarding baseline" : undefined}
             />
             <CompareRow
               label="Repeat visits (30d)"
@@ -267,14 +274,23 @@ export function InsightsDashboard({ business }: { business: Business }) {
               withVal={`${impact.actual_visits_30d}`}
               withoutVal={`${impact.baseline_visits_30d}`}
               brand={brand}
+              note={impact.baseline_captured_at ? "From your onboarding baseline" : undefined}
             />
             <CompareRow
-              label="Google reviews (30d)"
+              label="Google reviews (lifetime)"
               icon={<Star className="h-4 w-4" />}
-              withVal={`${impact.reviews_generated_30d}`}
-              withoutVal={`${Math.max(0, Math.round(impact.reviews_generated_30d * 0.18))}`}
+              withVal={`${impact.reviews_generated}`}
+              withoutVal={
+                impact.baseline_google_reviews != null
+                  ? `${impact.baseline_google_reviews}`
+                  : `${Math.max(0, Math.round(impact.reviews_generated_30d * 0.18))}`
+              }
               brand={brand}
-              note="Industry baseline: ~18% organic without prompting"
+              note={
+                impact.baseline_google_reviews != null
+                  ? "From your onboarding baseline (last year)"
+                  : "Industry baseline: ~18% organic without prompting"
+              }
             />
           </div>
         </div>
@@ -362,31 +378,40 @@ export function InsightsDashboard({ business }: { business: Business }) {
           </div>
         )}
 
-        {funnel && funnel.star_avg_after !== null && funnel.star_avg_before !== null && (
-          <div
-            className="mt-5 rounded-2xl border p-4 flex items-center gap-4"
-            style={{ background: "linear-gradient(135deg, #FBBC0410, #FBBC0420)", borderColor: "#FBBC04" }}
-          >
-            <div className="text-center">
-              <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#92400E" }}>Before Atlas</div>
-              <div className="text-2xl font-black tabular-nums" style={{ color: "#92400E" }}>
-                {funnel.star_avg_before.toFixed(1)}★
+        {/* CP-42: prefer operator-supplied baseline rating when set,
+            otherwise fall back to whatever the review funnel computed. */}
+        {(() => {
+          const before = impact?.baseline_google_rating ?? funnel?.star_avg_before ?? null;
+          const after  = funnel?.star_avg_after ?? null;
+          if (before == null || after == null) return null;
+          return (
+            <div
+              className="mt-5 rounded-2xl border p-4 flex items-center gap-4"
+              style={{ background: "linear-gradient(135deg, #FBBC0410, #FBBC0420)", borderColor: "#FBBC04" }}
+            >
+              <div className="text-center">
+                <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#92400E" }}>Before Atlas</div>
+                <div className="text-2xl font-black tabular-nums" style={{ color: "#92400E" }}>
+                  {before.toFixed(1)}★
+                </div>
+              </div>
+              <ArrowRight className="h-5 w-5" style={{ color: "#92400E" }} />
+              <div className="text-center">
+                <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#34A853" }}>Now</div>
+                <div className="text-2xl font-black tabular-nums" style={{ color: "#34A853" }}>
+                  {after.toFixed(1)}★
+                </div>
+              </div>
+              <div className="ml-auto text-right text-xs font-semibold" style={{ color: "#1f2937" }}>
+                {(after - before).toFixed(1)} star lift
+                <br />
+                <span className="text-[10px] opacity-80">
+                  {impact?.baseline_google_rating != null ? "vs. your onboarding baseline" : "since Atlas turned on"}
+                </span>
               </div>
             </div>
-            <ArrowRight className="h-5 w-5" style={{ color: "#92400E" }} />
-            <div className="text-center">
-              <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#34A853" }}>Now</div>
-              <div className="text-2xl font-black tabular-nums" style={{ color: "#34A853" }}>
-                {funnel.star_avg_after.toFixed(1)}★
-              </div>
-            </div>
-            <div className="ml-auto text-right text-xs font-semibold" style={{ color: "#1f2937" }}>
-              {(funnel.star_avg_after - funnel.star_avg_before).toFixed(1)} star lift
-              <br />
-              <span className="text-[10px] opacity-80">since Atlas turned on</span>
-            </div>
-          </div>
-        )}
+          );
+        })()}
         </div>
       </div>
 
