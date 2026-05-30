@@ -15,16 +15,43 @@ export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
+    console.warn("[subscribe] no auth");
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
   let payload: any;
-  try { payload = await req.json(); } catch { return NextResponse.json({ error: "bad json" }, { status: 400 }); }
+  try { payload = await req.json(); }
+  catch (e) {
+    console.warn("[subscribe] bad json", e);
+    return NextResponse.json({ error: "bad json" }, { status: 400 });
+  }
 
   const businessId = payload.business_id ?? null;
   const sub = payload.subscription;
+
+  // CP-42 verbose logging — chase the 400s
+  console.log("[subscribe] payload shape:", {
+    has_subscription: !!sub,
+    has_endpoint: !!sub?.endpoint,
+    has_keys: !!sub?.keys,
+    has_p256dh: !!sub?.keys?.p256dh,
+    has_auth: !!sub?.keys?.auth,
+    business_id: businessId,
+    user_id: user.id,
+  });
+
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
-    return NextResponse.json({ error: "invalid subscription" }, { status: 400 });
+    console.warn("[subscribe] invalid subscription shape — missing required fields");
+    return NextResponse.json({
+      error: "invalid subscription",
+      received_shape: {
+        has_subscription: !!sub,
+        has_endpoint: !!sub?.endpoint,
+        has_keys: !!sub?.keys,
+        has_p256dh: !!sub?.keys?.p256dh,
+        has_auth: !!sub?.keys?.auth,
+      },
+    }, { status: 400 });
   }
 
   const { error } = await supabase.rpc("upsert_push_subscription", {
@@ -33,7 +60,14 @@ export async function POST(req: Request) {
     p_p256dh:      sub.keys.p256dh,
     p_auth:        sub.keys.auth,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) {
+    console.error("[subscribe] upsert_push_subscription RPC failed:", error);
+    return NextResponse.json({
+      error: "rpc_failed: " + error.message,
+      hint: "Make sure cp32_migration.sql is applied (creates upsert_push_subscription RPC + push_subscriptions table)",
+    }, { status: 400 });
+  }
 
+  console.log("[subscribe] saved subscription for user", user.id, "business", businessId);
   return NextResponse.json({ ok: true });
 }
