@@ -1,17 +1,35 @@
 /**
- * /accept-invitation/[token] — CP-31
+ * /accept-invitation/[token] — CP-41
  *
- * Public landing page invitees arrive at after clicking the magic-link
- * email. Server component: if not signed in, redirect to /login with a
- * `next` param so they come back here after auth. If signed in, render
- * the client component that calls the accept_invitation RPC and routes
- * the user to the right dashboard on success.
+ * Public landing for invite links. Three branches:
+ *
+ *   1. NOT signed in → render signup form with the invited email pre-
+ *      filled + locked. Invitee sets their own password, account is
+ *      created, accept_invitation fires automatically, route to
+ *      dashboard.
+ *   2. Signed in + email matches the invite → render "Accept" button.
+ *   3. Signed in + email doesn't match → show "sign out + restart"
+ *      with a clear message about which email is needed.
+ *
+ * Server-renders the invitation metadata via preview_invitation() RPC
+ * (public — token is the auth).
  */
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AcceptInvitationClient } from "./accept-invitation-client";
 
 export const dynamic = "force-dynamic";
+
+type Preview = {
+  email: string;
+  role: "agency_admin" | "business_manager" | "business_staff";
+  business_id: string | null;
+  business_name: string | null;
+  expires_at: string;
+  is_expired: boolean;
+  is_accepted: boolean;
+  is_revoked: boolean;
+};
 
 export default async function AcceptInvitationPage({
   params,
@@ -19,21 +37,25 @@ export default async function AcceptInvitationPage({
   params: { token: string };
 }) {
   const supabase = createClient();
+
+  // Fetch invite metadata via preview_invitation RPC. Public-readable
+  // by token holders so we can render the signup form without auth.
+  const { data: previewData } = await supabase.rpc("preview_invitation", {
+    p_token: params.token,
+  });
+  const preview = (Array.isArray(previewData) ? previewData[0] : previewData) as Preview | null;
+
+  if (!preview) notFound();
+
+  // Check current auth state — we pass this to the client so it knows
+  // which branch to render.
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    // Bounce to login, then come back here. The login page already preserves
-    // the `next` query param.
-    redirect(`/login?next=/accept-invitation/${encodeURIComponent(params.token)}`);
-  }
-
-  // Pre-fetch the invitation so we can show a friendly "this invite is for
-  // <email>" header even before clicking Accept. We use the same RPC the
-  // client uses, but read-only — we don't accept on the server in case the
-  // user wants to bail or switch accounts.
-  // (We deliberately don't surface invite contents publicly; the read is
-  // RLS-gated to the inviter and admins. The accept RPC itself proves the
-  // user has access to the email it was sent to.)
-
-  return <AcceptInvitationClient token={params.token} userEmail={user.email ?? ""} />;
+  return (
+    <AcceptInvitationClient
+      token={params.token}
+      preview={preview}
+      signedInEmail={user?.email ?? null}
+    />
+  );
 }
