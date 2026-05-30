@@ -20,7 +20,7 @@
 import { useEffect, useState } from "react";
 import {
   X, Flame, Star, ClipboardCheck, Sparkles, MessageSquareHeart, Gift,
-  Bell, Loader2,
+  Bell, Loader2, BellOff,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -49,8 +49,14 @@ const KIND_META: Record<NotifKind, { icon: typeof Flame; tone: string; label: st
 };
 
 export function NotificationCenter({
-  primary, onClose,
-}: { primary: string; onClose: () => void }) {
+  primary, onClose, permState,
+}: {
+  primary: string;
+  onClose: () => void;
+  /** CP-42: passed from NotificationBell so we can surface a hint if
+   *  the user denied push permission (iOS won't re-prompt). */
+  permState?: NotificationPermission | "unsupported";
+}) {
   const [list, setList] = useState<Notif[] | null>(null);
 
   useEffect(() => {
@@ -94,6 +100,33 @@ export function NotificationCenter({
           </div>
           <h2 className="text-2xl font-extrabold mt-1">What's new</h2>
         </div>
+
+        {/* CP-42: tell the user how to re-enable push if they denied it.
+            iOS hides the in-app re-prompt option once dismissed — they
+            have to fix it from their phone's Settings app. */}
+        {permState === "denied" && (
+          <div className="m-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 flex items-start gap-2">
+            <BellOff className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-bold">Push is off</div>
+              <div className="mt-1">
+                You'll still see notifications here in the app, but not on your lock screen. To turn push on: open your phone's <strong>Settings → Notifications → {typeof window !== "undefined" && window.location.host}</strong> → allow.
+              </div>
+            </div>
+          </div>
+        )}
+        {permState === "default" && (
+          <div className="m-3 rounded-xl border p-3 text-xs flex items-start gap-2"
+            style={{ borderColor: `${primary}33`, background: `${primary}10`, color: primary }}>
+            <Bell className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-bold">Tap the bell again to enable push</div>
+              <div className="mt-1 opacity-90">
+                Get a phone notification when you earn points, a reward unlocks, or the team sends an offer — even when the app is closed.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
