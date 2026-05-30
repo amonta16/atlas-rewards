@@ -101,6 +101,9 @@ export function NotificationBell({
       <button
         onClick={handleClick}
         disabled={pushing}
+        // CP-42: data-attr so the first-visit nudge overlay can locate
+        // this exact button and aim its arrow at it.
+        data-atlas-bell="1"
         className="relative h-10 w-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center hover:bg-white/25 transition"
         aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
       >

@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,16 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // CP-42: pre-fill the email from ?email=… so admin-created accounts
+  // land on a login page that's already populated. The user just types
+  // their password.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    const prefill = q.get("email");
+    if (prefill) setEmail(prefill);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

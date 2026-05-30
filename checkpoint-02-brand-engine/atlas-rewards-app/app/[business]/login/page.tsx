@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +13,14 @@ export default function CustomerLogin() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // CP-42: pre-fill email from ?email=… so admin-created accounts land
+  // on a populated login page. They just type the password Andrew set.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const prefill = new URLSearchParams(window.location.search).get("email");
+    if (prefill) setEmail(prefill);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
