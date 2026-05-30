@@ -51,7 +51,12 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 403 });
   }
-  const token = (Array.isArray(data) ? data[0]?.token : (data as any)?.token) as string | undefined;
+  // CP-40: SQL function renamed the return column from `token` to
+  // `invite_token` to dodge the column-ambiguity bug. Accept either
+  // shape so this route keeps working whether the new or old SQL
+  // migration is applied.
+  const row = (Array.isArray(data) ? data[0] : data) as any;
+  const token = (row?.invite_token ?? row?.token) as string | undefined;
   if (!token) {
     return NextResponse.json({ error: "no token returned" }, { status: 500 });
   }

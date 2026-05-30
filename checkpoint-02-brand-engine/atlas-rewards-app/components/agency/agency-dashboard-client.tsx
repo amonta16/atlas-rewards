@@ -1,12 +1,15 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Building2, Users, Activity, DollarSign, Plus, ListFilter, Search, LayoutGrid, List } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Building2, Users, Activity, DollarSign, Plus, ListFilter, Search, LayoutGrid, List, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/ui/stat-card";
 import { NewBusinessModal } from "./new-business-modal";
 import { AgencyBillingPanel } from "./billing-panel";
+import { ConfirmDeleteModal } from "@/components/ui/confirm-delete-modal";
+import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import type { Business } from "@/lib/types/database";
 
@@ -19,10 +22,27 @@ type Rollup = {
 export function AgencyDashboardClient({
   friendlyName, initialBusinesses,
 }: { friendlyName: string; initialBusinesses: Business[] }) {
+  const router = useRouter();
+  const { toast } = useToast();
   const [newOpen, setNewOpen] = useState(false);
   const [rollup, setRollup] = useState<Rollup | null>(null);
-  const list = initialBusinesses;
+  const [list, setList] = useState<Business[]>(initialBusinesses);
+  // CP-40: type-DELETE-to-confirm modal for destructive business removal.
+  const [pendingDelete, setPendingDelete] = useState<Business | null>(null);
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
+
+  async function performDelete(business: Business) {
+    const supabase = createClient();
+    const { error } = await supabase.rpc("delete_business", { p_business_id: business.id });
+    if (error) {
+      toast.error("Delete failed: " + error.message);
+      throw error;
+    }
+    setList(prev => prev.filter(b => b.id !== business.id));
+    setPendingDelete(null);
+    toast.success(`${business.name} deleted`);
+    router.refresh();
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -94,8 +114,8 @@ export function AgencyDashboardClient({
 
           <div className="divide-y">
             {list.map(b => (
-              <Link key={b.id} href={`/agency/businesses/${b.id}`} className="flex items-center justify-between p-5 hover:bg-muted/30 transition-colors">
-                <div className="flex items-center gap-4">
+              <div key={b.id} className="flex items-center justify-between p-5 hover:bg-muted/30 transition-colors">
+                <Link href={`/agency/businesses/${b.id}`} className="flex items-center gap-4 flex-1 min-w-0">
                   {b.logo_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={b.logo_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
@@ -107,17 +127,28 @@ export function AgencyDashboardClient({
                       {b.name[0]}
                     </div>
                   )}
-                  <div>
-                    <div className="font-semibold">{b.name}</div>
-                    <div className="text-xs text-muted-foreground">{b.industry ?? "Uncategorized"} · <code>{b.slug}.{rootDomain}</code></div>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{b.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{b.industry ?? "Uncategorized"} · <code>{b.slug}.{rootDomain}</code></div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
+                </Link>
+                <div className="flex items-center gap-3 shrink-0">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${b.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
                     {b.status === "active" ? "● Active" : b.status}
                   </span>
+                  {/* CP-40: explicit per-business delete. Opens a
+                      type-DELETE-to-confirm modal so nothing happens
+                      from a misclick. */}
+                  <button
+                    onClick={() => setPendingDelete(b)}
+                    className="h-8 w-8 rounded-full text-zinc-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
+                    aria-label={`Delete ${b.name}`}
+                    title={`Delete ${b.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-              </Link>
+              </div>
             ))}
             {list.length === 0 && (
               <div className="p-10 text-center text-muted-foreground">
@@ -129,6 +160,25 @@ export function AgencyDashboardClient({
       </div>
 
       {newOpen && <NewBusinessModal onClose={() => setNewOpen(false)} />}
+
+      {/* CP-40: destructive delete-business modal */}
+      {pendingDelete && (
+        <ConfirmDeleteModal
+          title={`Delete ${pendingDelete.name}?`}
+          description="This removes the business + every customer, reward, offer, ledger entry, and Google review tied to it. Cannot be undone."
+          detail={
+            <div className="rounded-lg bg-zinc-50 border p-3 text-xs space-y-1">
+              <div><strong>Slug:</strong> <code>{pendingDelete.slug}.{rootDomain}</code></div>
+              <div><strong>Status:</strong> {pendingDelete.status}</div>
+              <div className="text-rose-700 font-bold mt-2">⚠ All customer apps for this business stop working immediately.</div>
+            </div>
+          }
+          confirmWord="DELETE"
+          destructiveLabel="Delete business"
+          onClose={() => setPendingDelete(null)}
+          onConfirm={() => performDelete(pendingDelete)}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { EditableProfile } from "@/components/customer/editable-profile";
 import { HeaderActions } from "@/components/customer/header-actions";
+import { DeleteAccountSection } from "@/components/customer/delete-account-section";
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,11 @@ export default async function ProfileTab({ params }: { params: { business: strin
           joined,
         }}
       />
+
+      {/* CP-40: customer self-delete account section. Lives at the
+          bottom so it's discoverable but not in the way of regular
+          profile editing. */}
+      <DeleteAccountSection business={business} />
     </>
   );
 }
