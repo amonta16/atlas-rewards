@@ -32,11 +32,10 @@ export default async function manifest({ params }: { params: { business: string 
     display: "standalone",
     display_override: ["standalone", "minimal-ui"],
     orientation: "portrait",
-    // CP-42: was "#ffffff" — caused a white flash on PWA launch. Setting
-    // it to the BRAND color makes iOS show a colored splash matching the
-    // app's theme instead of a blank/black screen. NOTE: existing
-    // installed PWAs must be removed + re-added for iOS to pick up.
-    background_color: themeColor,
+    // CP-42 (round 2): back to white. The PWABootSplash overlay paints
+    // the logo on white and fades into the app — so the manifest's
+    // pre-React background should match (white) for a seamless handoff.
+    background_color: "#ffffff",
     theme_color: themeColor,
     // CP-37: "any maskable" lets Android crop the icon to its preferred
     // shape (circle on Pixel, squircle on Samsung) without distortion.

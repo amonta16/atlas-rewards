@@ -81,57 +81,71 @@ export function DailyRecapCard({
   // RPC missing → hide silently so the page still works pre-migration.
   if (errored || !recap) return null;
 
+  // CP-42: per-tile color palette — each KPI gets its own vibrant
+  // color so the row reads at a glance and feels alive. Was a flat
+  // brand-color list which Andrew said felt washed out.
   const tiles = [
-    { label: "Check-ins",  value: recap.check_ins_today,        icon: <ScanLine className="h-3.5 w-3.5" /> },
-    { label: "Points",     value: recap.points_awarded_today,   icon: <Sparkles className="h-3.5 w-3.5" /> },
-    { label: "Redemptions",value: recap.rewards_redeemed_today, icon: <Gift className="h-3.5 w-3.5" /> },
-    { label: "New members",value: recap.new_members_today,      icon: <Users className="h-3.5 w-3.5" /> },
-    { label: "Live offers",value: recap.active_offers,          icon: <Tag className="h-3.5 w-3.5" /> },
+    { label: "Check-ins",   value: recap.check_ins_today,        icon: <ScanLine className="h-4 w-4" />,  bg: "bg-emerald-500", soft: "bg-emerald-50",  text: "text-emerald-700" },
+    { label: "Points",      value: recap.points_awarded_today,   icon: <Sparkles className="h-4 w-4" />,  bg: "bg-amber-500",   soft: "bg-amber-50",    text: "text-amber-700" },
+    { label: "Redemptions", value: recap.rewards_redeemed_today, icon: <Gift className="h-4 w-4" />,      bg: "bg-rose-500",    soft: "bg-rose-50",     text: "text-rose-700" },
+    { label: "New members", value: recap.new_members_today,      icon: <Users className="h-4 w-4" />,     bg: "bg-violet-500",  soft: "bg-violet-50",   text: "text-violet-700" },
+    { label: "Live offers", value: recap.active_offers,          icon: <Tag className="h-4 w-4" />,       bg: "bg-sky-500",     soft: "bg-sky-50",      text: "text-sky-700" },
   ];
 
   return (
     <div
-      className="rounded-2xl border bg-white overflow-hidden"
+      className="rounded-2xl border bg-white overflow-hidden shadow-sm"
       style={{ borderColor: `${primary}22` }}
     >
-      {/* Header bar */}
+      {/* Header bar — CP-42: full color, white text. Was a soft tint. */}
       <div
-        className="px-4 py-2.5 flex items-center gap-2"
+        className="px-4 py-3 flex items-center gap-2 text-white"
         style={{
-          background: `linear-gradient(135deg, ${primary}10 0%, ${sec}05 100%)`,
+          background: `linear-gradient(135deg, ${primary}, ${sec})`,
         }}
       >
-        <span
-          className="inline-flex items-center gap-1 text-[10px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
-          style={{ background: `linear-gradient(135deg, ${primary}, ${sec})` }}
-        >
+        <span className="inline-flex items-center gap-1 text-[10px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm">
           <TrendingUp className="h-2.5 w-2.5" /> Today
         </span>
-        <span className="text-[11px] font-semibold text-zinc-600">
+        <span className="text-[11px] font-bold text-white/95">
           {businessName} · {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}
         </span>
       </div>
 
-      {/* Tiles */}
-      <div className="grid grid-cols-5 divide-x border-b">
+      {/* Tiles — CP-42: each KPI gets its own colored block for pop */}
+      <div className="grid grid-cols-5 gap-px bg-zinc-100">
         {tiles.map((t) => (
-          <div key={t.label} className="px-2 py-3 text-center">
-            <div className="text-[9px] uppercase tracking-wider font-bold text-zinc-500 inline-flex items-center gap-1">
-              {t.icon} {t.label}
+          <div key={t.label} className={"px-2 py-3 text-center bg-white"}>
+            <div className={"mx-auto h-8 w-8 rounded-xl flex items-center justify-center text-white shadow-sm " + t.bg}>
+              {t.icon}
             </div>
-            <div className="text-xl font-extrabold tabular-nums mt-0.5" style={{ color: primary }}>
+            <div className="text-2xl font-extrabold tabular-nums mt-1.5 text-zinc-900">
               {t.value.toLocaleString()}
+            </div>
+            <div className={"text-[9px] uppercase tracking-wider font-extrabold mt-0.5 " + t.text}>
+              {t.label}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Week footer */}
-      <div className="px-4 py-2 text-[11px] text-zinc-500 flex items-center justify-between">
-        <span>Last 7 days</span>
-        <span className="font-semibold tabular-nums">
-          <span className="text-zinc-700">{recap.check_ins_week.toLocaleString()}</span> check-ins ·{" "}
-          <span className="text-zinc-700">{recap.points_awarded_week.toLocaleString()}</span> points
+      {/* Week footer — CP-42: bolder type, pill-styled numbers */}
+      <div
+        className="px-4 py-2.5 text-[11px] flex items-center justify-between"
+        style={{ background: `${primary}06` }}
+      >
+        <span className="font-bold uppercase tracking-widest text-zinc-500 text-[9px]">Last 7 days</span>
+        <span className="font-bold tabular-nums flex items-center gap-3">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="text-zinc-900">{recap.check_ins_week.toLocaleString()}</span>
+            <span className="text-zinc-500">check-ins</span>
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            <span className="text-zinc-900">{recap.points_awarded_week.toLocaleString()}</span>
+            <span className="text-zinc-500">points</span>
+          </span>
         </span>
       </div>
     </div>

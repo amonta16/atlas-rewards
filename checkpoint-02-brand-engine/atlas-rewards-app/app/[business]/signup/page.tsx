@@ -24,6 +24,9 @@ export default function CustomerSignup() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  // CP-42: birthday is now REQUIRED on signup so businesses can run
+  // automated Birthday offers from day one. Format: YYYY-MM-DD.
+  const [birthday, setBirthday] = useState("");
   // CP-36b: notification consent. Defaults to ON (opt-out model). Customer
   // can also flip individual types off later in their Profile tab.
   const [notifyConsent, setNotifyConsent] = useState(true);
@@ -37,17 +40,34 @@ export default function CustomerSignup() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // CP-42: enforce required fields client-side. Birthday format check
+    // is loose — the <input type="date"> already enforces YYYY-MM-DD.
+    if (!name.trim()) { setErr("Please enter your name."); return; }
+    if (!birthday)    { setErr("Please enter your birthday."); return; }
     setLoading(true);
     setErr(null);
     const supabase = createClient();
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name, phone } },
+      options: { data: { full_name: name, phone, birthday } },
     });
     if (error) { setErr(error.message); setLoading(false); return; }
 
     const { data: { user } } = await supabase.auth.getUser();
+    // CP-42: also persist birthday onto the profiles row so the rest of
+    // the app (Birthday offers, profile tab) can read it without
+    // round-tripping through auth.users.user_metadata.
+    if (user) {
+      try {
+        await supabase.from("profiles").upsert({
+          id: user.id,
+          full_name: name.trim(),
+          phone: phone || null,
+          birthday: birthday || null,
+        }, { onConflict: "id" });
+      } catch { /* non-fatal */ }
+    }
     let welcomeBonus = 0;
     let referralBonus = 0;
     if (user) {
@@ -129,6 +149,21 @@ export default function CustomerSignup() {
           <Field label="Your name"><Input value={name} onChange={e => setName(e.target.value)} required /></Field>
           <Field label="Email"><Input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></Field>
           <Field label="Phone"><Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" /></Field>
+          {/* CP-42: birthday is required — powers Birthday automated offers
+              from day one. set-once: once saved, the customer can't change
+              it later (enforced server-side by the CP-28 trigger). */}
+          <Field label="Your birthday">
+            <Input
+              type="date"
+              value={birthday}
+              onChange={e => setBirthday(e.target.value)}
+              required
+              max={new Date().toISOString().slice(0, 10)}
+            />
+            <p className="text-[10px] text-zinc-500 mt-1">
+              We use this to send you a birthday reward. Can't be changed later — pick carefully.
+            </p>
+          </Field>
           <Field label="Choose a password"><Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} /></Field>
 
           {/* CP-36b: notification consent checkbox. Opt-OUT model so most

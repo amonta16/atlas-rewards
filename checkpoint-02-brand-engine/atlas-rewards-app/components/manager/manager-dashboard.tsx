@@ -16,6 +16,8 @@ import { ManagerOffersPreview } from "@/components/manager/manager-offers-previe
 import { ScannerListener } from "@/components/manager/scanner-listener";
 import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
+// CP-42: bright value-prop hero strip — proves Atlas's ROI at a glance.
+import { AtlasValueStrip } from "@/components/manager/atlas-value-strip";
 import { TeamMembers } from "@/components/team/team-members";
 // CP-36b: NotificationBroadcast removed — moved to agency settings.
 import { OffersManager } from "@/components/agency/offers-manager";
@@ -269,6 +271,14 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
       <main className="max-w-2xl lg:max-w-7xl mx-auto p-4 space-y-4">
         {tab === "desk" && (
           <>
+            {/* CP-42: hard-to-cancel value strip. Sits at the very top so
+                it's the first thing the manager sees every shift. */}
+            <AtlasValueStrip
+              businessId={business.id}
+              primary={business.brand_colors.primary}
+              secondary={business.brand_colors.secondary}
+            />
+
             {/* CP-30: live recap card. Hides itself if the CP-30 SQL isn't
                 installed yet — page still works either way. */}
             <DailyRecapCard
@@ -299,28 +309,44 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               }}
             />
 
-            {/* Hero CTA */}
-            <div className="rounded-2xl p-6 text-white"
-              style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)` }}>
-              <h1 className="text-xl font-bold">Scan to start</h1>
-              <p className="text-sm text-white/85 mt-1">
-                Scan a member's QR to award points, or scan a reward code to deliver a redemption.
-              </p>
-              <div className="mt-5 grid grid-cols-2 gap-2">
-                <Button onClick={() => setMode("scanning")} className="bg-white text-zinc-900 hover:bg-zinc-100">
-                  <ScanLine className="h-4 w-4 mr-2"/> Scan code
-                </Button>
-                <Button onClick={() => setMode("code-entry")} variant="outline" className="border-white/40 text-white bg-transparent hover:bg-white/10 hover:text-white">
-                  <UserSearch className="h-4 w-4 mr-2"/> Type code
-                </Button>
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-3 text-[11px] text-white/85">
-                <div className="flex items-center gap-1.5"><ScanLine className="h-3.5 w-3.5"/> 6-char = member</div>
-                <div className="flex items-center gap-1.5"><Gift className="h-3.5 w-3.5"/> 7-char = redemption</div>
-                {/* CP-30: USB scanner status indicator */}
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
-                  USB scanner ready
+            {/* Hero CTA — CP-42: bigger title, glowing CTA, decorative
+                blobs, brighter accent for the action buttons. */}
+            <div
+              className="rounded-3xl p-6 text-white relative overflow-hidden shadow-xl"
+              style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)` }}
+            >
+              <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/15 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-16 -left-12 w-56 h-56 rounded-full bg-black/15 blur-3xl pointer-events-none" />
+              <div className="relative">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full mb-2">
+                  <ScanLine className="h-3 w-3" /> Front desk · live
+                </div>
+                <h1 className="text-2xl font-black drop-shadow-sm">Scan to start</h1>
+                <p className="text-sm text-white/90 mt-1.5 leading-snug">
+                  Scan a member's QR to award points, or scan a reward code to deliver a redemption.
+                </p>
+                <div className="mt-5 grid grid-cols-2 gap-2.5">
+                  <Button
+                    onClick={() => setMode("scanning")}
+                    className="bg-white text-zinc-900 hover:bg-zinc-100 h-12 font-extrabold text-base shadow-lg"
+                  >
+                    <ScanLine className="h-5 w-5 mr-2"/> Scan code
+                  </Button>
+                  <Button
+                    onClick={() => setMode("code-entry")}
+                    className="bg-white/15 backdrop-blur-sm border border-white/40 text-white hover:bg-white/25 h-12 font-extrabold text-base"
+                  >
+                    <UserSearch className="h-5 w-5 mr-2"/> Type code
+                  </Button>
+                </div>
+                <div className="mt-3.5 grid grid-cols-3 gap-3 text-[11px] text-white/90 font-medium">
+                  <div className="flex items-center gap-1.5"><ScanLine className="h-3.5 w-3.5"/> 6-char = member</div>
+                  <div className="flex items-center gap-1.5"><Gift className="h-3.5 w-3.5"/> 7-char = redemption</div>
+                  {/* CP-30: USB scanner status indicator */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                    USB scanner ready
+                  </div>
                 </div>
               </div>
             </div>

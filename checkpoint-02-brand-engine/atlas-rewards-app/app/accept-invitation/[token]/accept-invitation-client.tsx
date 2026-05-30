@@ -47,6 +47,15 @@ export function AcceptInvitationClient({
   // Signup form state (only used when !signedInEmail)
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
+  // CP-42: customer/team signup must capture birthday upfront so we can
+  // power Birthday automated offers. Required for the customer flow;
+  // optional for team signup. We always show it for symmetry.
+  const [birthday, setBirthday] = useState("");
+  // CP-42: when Supabase tells us the email is already registered, we
+  // flip into "existing account" mode — the user just needs to type
+  // their existing password (or use forgot-password) to attach the
+  // invitation to that account.
+  const [existingMode, setExistingMode] = useState(false);
 
   // ── Guard rails on the invite itself ────────────────────────────
   if (preview.is_revoked) {
@@ -100,18 +109,73 @@ export function AcceptInvitationClient({
       const { error: signErr } = await supabase.auth.signUp({
         email: preview.email,
         password,
-        options: { data: { full_name: fullName.trim() } },
+        options: { data: { full_name: fullName.trim(), birthday: birthday || null } },
       });
-      if (signErr) throw signErr;
+      // CP-42: Supabase returns "User already registered" if this email
+      // exists in auth.users. Switch into existing-account mode so they
+      // can type their existing password — this attaches the invite to
+      // the EXISTING account rather than failing outright.
+      if (signErr) {
+        const msg = String(signErr.message || "").toLowerCase();
+        if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
+          setExistingMode(true);
+          setErr("You already have an Atlas account with this email. Type your existing password to accept this invite.");
+          return;
+        }
+        throw signErr;
+      }
       // Auto sign-in if Supabase is set to confirm-off (recommended for this flow).
       const { error: loginErr } = await supabase.auth.signInWithPassword({
         email: preview.email,
         password,
       });
       if (loginErr) throw loginErr;
+      // CP-42: write profile fields so other parts of the app can
+      // surface name + birthday immediately (no second prompt later).
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("profiles").upsert({
+            id: user.id,
+            full_name: fullName.trim(),
+            birthday: birthday || null,
+          }, { onConflict: "id" });
+        }
+      } catch { /* non-fatal — profile can be filled later */ }
       await claimAndRoute();
     } catch (e: any) {
       setErr(e?.message ?? "Could not create account");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** CP-42: existing-account branch — invite email already has an Atlas
+   *  account. Sign them in with the password they just typed, then
+   *  claim the invite. If sign-in fails (wrong password), surface a
+   *  clean error and point them at the forgot-password flow. */
+  async function signinAndAccept() {
+    if (password.length < 1) {
+      setErr("Enter your existing password.");
+      return;
+    }
+    setBusy(true); setErr(null);
+    try {
+      const supabase = createClient();
+      const { error: loginErr } = await supabase.auth.signInWithPassword({
+        email: preview.email,
+        password,
+      });
+      if (loginErr) {
+        const lm = String(loginErr.message || "").toLowerCase();
+        if (lm.includes("invalid") || lm.includes("credentials")) {
+          throw new Error("That password didn't match. Try again, or reset it from the login page.");
+        }
+        throw loginErr;
+      }
+      await claimAndRoute();
+    } catch (e: any) {
+      setErr(e?.message ?? "Could not sign in");
     } finally {
       setBusy(false);
     }
@@ -203,49 +267,91 @@ export function AcceptInvitationClient({
           </div>
         )}
 
-        {/* ── Branch 1: NOT signed in → sign up form ────────────────── */}
+        {/* ── Branch 1: NOT signed in → sign up form ──────────────────
+            CP-42: when Supabase says the email is already registered
+            we flip `existingMode` and ask for the EXISTING password
+            instead of a new one. */}
         {!signedInEmail && (
           <div className="p-6 space-y-4">
+            {!existingMode && (
+              <>
+                <div>
+                  <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Your name</Label>
+                  <Input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Sarah Johnson"
+                    autoFocus
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Email</Label>
+                  <Input
+                    value={preview.email}
+                    disabled
+                    className="mt-1 bg-zinc-50 text-zinc-700"
+                  />
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Locked to the email this invite was sent to.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {existingMode && (
+              <div className="rounded-xl bg-zinc-50 border p-3 text-sm">
+                <div className="font-bold text-zinc-800">{preview.email}</div>
+                <div className="text-xs text-zinc-500 mt-0.5">
+                  Type your existing password to attach this invite to your account.
+                </div>
+              </div>
+            )}
+
             <div>
-              <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Your name</Label>
-              <Input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Sarah Johnson"
-                autoFocus
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Email</Label>
-              <Input
-                value={preview.email}
-                disabled
-                className="mt-1 bg-zinc-50 text-zinc-700"
-              />
-              <p className="text-[10px] text-zinc-500 mt-1">
-                Locked to the email this invite was sent to.
-              </p>
-            </div>
-            <div>
-              <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500">Set a password</Label>
+              <Label className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                {existingMode ? "Your password" : "Set a password"}
+              </Label>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
+                placeholder={existingMode ? "Your existing password" : "At least 8 characters"}
                 className="mt-1"
+                autoFocus={existingMode}
               />
+              {existingMode && (
+                <a
+                  href={`/login?email=${encodeURIComponent(preview.email)}&forgot=1`}
+                  className="text-[11px] text-zinc-500 hover:text-zinc-800 mt-1 inline-block"
+                >
+                  Forgot password? Reset it →
+                </a>
+              )}
             </div>
-            <Button
-              onClick={signupAndAccept}
-              disabled={busy || !fullName.trim() || password.length < 8}
-              className="w-full h-12 text-base font-bold bg-zinc-900 hover:bg-zinc-800 text-white"
-            >
-              {busy
-                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating account…</>
-                : "Create account & join"}
-            </Button>
+
+            {!existingMode && (
+              <Button
+                onClick={signupAndAccept}
+                disabled={busy || !fullName.trim() || password.length < 8}
+                className="w-full h-12 text-base font-bold bg-zinc-900 hover:bg-zinc-800 text-white"
+              >
+                {busy
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating account…</>
+                  : "Create account & join"}
+              </Button>
+            )}
+            {existingMode && (
+              <Button
+                onClick={signinAndAccept}
+                disabled={busy || password.length < 1}
+                className="w-full h-12 text-base font-bold bg-zinc-900 hover:bg-zinc-800 text-white"
+              >
+                {busy
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing in…</>
+                  : "Sign in & accept"}
+              </Button>
+            )}
           </div>
         )}
       </div>

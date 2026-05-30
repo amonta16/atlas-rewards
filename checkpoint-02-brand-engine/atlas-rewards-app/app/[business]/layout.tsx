@@ -5,6 +5,9 @@ import { hexToHsl } from "@/lib/utils";
 import type { Business } from "@/lib/types/database";
 // CP-42: cache brand into localStorage so loading.tsx files can theme.
 import { BrandCacheWriter } from "@/components/ui/brand-cache-writer";
+// CP-42: logo-fade splash that plays once per cold boot (and on first
+// install). Replaces the prior brand-color body-paint approach.
+import { PWABootSplash } from "@/components/ui/pwa-boot-splash";
 
 export const dynamic = "force-dynamic";
 
@@ -97,23 +100,24 @@ export default async function BusinessLayout({
     --brand-accent: ${hexToHsl(business.brand_colors.accent)};
   `;
 
-  // CP-42: paint <body> in the brand color BEFORE React hydrates. iOS
-  // PWA installs show a black screen for ~1s on launch — this kills
-  // that flash because the underlying body is already painted brand-color
-  // by the time the splash image fades. Belt-and-suspenders with the
-  // manifest's background_color (which only applies once the user
-  // reinstalls the PWA — body color works for everyone today).
+  // CP-42 (round 2): replaced the brand-color body-paint approach with
+  // a proper logo-fade boot splash overlay. White everywhere so the
+  // splash blends seamlessly into the app behind it.
   const splashCss = `
-    html, body { background-color: ${business.brand_colors.primary}; }
-    /* Snap back to white once the customer/manager view starts to
-       render — the white app surface lives inside the page itself, so
-       only the brief launch frame uses brand color. */
-    body > div[data-business-slug] { background-color: white; min-height: 100vh; }
+    html, body { background-color: white; }
   `;
 
   return (
     <>
       <style>{`:root { ${themeVars} } ${splashCss}`}</style>
+      {/* CP-42: white-background, logo-center boot splash that fades
+          into the app over ~1.25s. Fires ONCE per session — every
+          subsequent navigation gets the BrandedLoading route screen. */}
+      <PWABootSplash
+        primary={business.brand_colors.primary}
+        name={business.name}
+        logoUrl={business.logo_url ?? null}
+      />
       {/* CP-42: store brand in localStorage so subsequent navigations
           render a THEMED loading screen (via BrandedLoading), not the
           default Atlas blue. No-op on first visit. */}
