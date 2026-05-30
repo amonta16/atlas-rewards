@@ -1,5 +1,6 @@
-import { AtlasLoading } from "@/components/ui/atlas-loading";
+import { BrandedLoading } from "@/components/ui/branded-loading";
 
+// CP-42: themed per-business via the localStorage brand cache.
 export default function ManageLoading() {
-  return <AtlasLoading title="Opening front desk…" />;
+  return <BrandedLoading title="Opening front desk…" />;
 }

@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { hexToHsl } from "@/lib/utils";
 import type { Business } from "@/lib/types/database";
+// CP-42: cache brand into localStorage so loading.tsx files can theme.
+import { BrandCacheWriter } from "@/components/ui/brand-cache-writer";
 
 export const dynamic = "force-dynamic";
 
@@ -95,9 +97,32 @@ export default async function BusinessLayout({
     --brand-accent: ${hexToHsl(business.brand_colors.accent)};
   `;
 
+  // CP-42: paint <body> in the brand color BEFORE React hydrates. iOS
+  // PWA installs show a black screen for ~1s on launch — this kills
+  // that flash because the underlying body is already painted brand-color
+  // by the time the splash image fades. Belt-and-suspenders with the
+  // manifest's background_color (which only applies once the user
+  // reinstalls the PWA — body color works for everyone today).
+  const splashCss = `
+    html, body { background-color: ${business.brand_colors.primary}; }
+    /* Snap back to white once the customer/manager view starts to
+       render — the white app surface lives inside the page itself, so
+       only the brief launch frame uses brand color. */
+    body > div[data-business-slug] { background-color: white; min-height: 100vh; }
+  `;
+
   return (
     <>
-      <style>{`:root { ${themeVars} }`}</style>
+      <style>{`:root { ${themeVars} } ${splashCss}`}</style>
+      {/* CP-42: store brand in localStorage so subsequent navigations
+          render a THEMED loading screen (via BrandedLoading), not the
+          default Atlas blue. No-op on first visit. */}
+      <BrandCacheWriter
+        slug={business.slug}
+        primary={business.brand_colors.primary}
+        name={business.name}
+        logoUrl={business.logo_url ?? null}
+      />
       {/* Pass business down via React context in CP 3 — for now layout is server-rendered */}
       <div data-business-slug={business.slug}>{children}</div>
     </>

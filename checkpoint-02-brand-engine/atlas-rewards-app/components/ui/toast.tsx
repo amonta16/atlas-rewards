@@ -14,7 +14,7 @@
  * out of the way of modals / popups (z-50 so it sits above page chrome but
  * below z-60 dialogs like the offer reveal popup).
  */
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Check, AlertTriangle, Info, X } from "lucide-react";
 
 type ToastKind = "success" | "error" | "info";
@@ -44,13 +44,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, DURATION_MS);
   }, []);
 
-  const value: Ctx = {
+  // CP-42 hotfix: the value object was being recreated every render,
+  // which made every consumer that captured `toast` (e.g. team-members.tsx
+  // via useCallback deps) re-fire its effect every render — the source
+  // of the "Couldn't load team — not authenticated" toast flood.
+  // useMemo + the stable `push` callback gives consumers a stable identity.
+  const value: Ctx = useMemo(() => ({
     toast: {
-      success: (m) => push("success", m),
-      error:   (m) => push("error",   m),
-      info:    (m) => push("info",    m),
+      success: (m: string) => push("success", m),
+      error:   (m: string) => push("error",   m),
+      info:    (m: string) => push("info",    m),
     },
-  };
+  }), [push]);
 
   return (
     <ToastCtx.Provider value={value}>

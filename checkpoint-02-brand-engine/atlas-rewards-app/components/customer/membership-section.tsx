@@ -19,6 +19,8 @@ import { useEffect, useState } from "react";
 import {
   // CP-28: Wallet removed — points-only product, no cash credit perk.
   Crown, Sparkles, Check, ChevronRight, Lock, Zap, CalendarCheck, Tag,
+  // CP-42: badge / refresh icons for the active-member ribbon.
+  BadgeCheck, CalendarClock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { MembershipJoinModal } from "./membership-join-modal";
@@ -52,10 +54,14 @@ export function MembershipSection({
   const primary   = business.brand_colors.primary;
   const secondary = business.brand_colors.secondary;
 
-  const isPaid = !!(
-    membership &&
-    (business.tiers ?? []).find(t => t.name === membership.tier)?.monthly_price_cents
-  );
+  // CP-42: source of truth for "is this user a paid member" is now the
+  // business_memberships.membership_payment_status column (via the new
+  // member_membership_status RPC). The legacy `business.tiers` lookup
+  // was unreliable after the CP-22 single-membership refactor — it kept
+  // showing the Join CTA to paid members.
+  const [paidStatus, setPaidStatus] = useState<
+    { is_paid: boolean; paid_at: string | null; renewal_due_at: string | null } | null
+  >(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -66,7 +72,31 @@ export function MembershipSection({
       const row = Array.isArray(data) ? data[0] : data;
       setBilling(row ?? null);
     })();
-  }, [business.id]);
+
+    // CP-42: query paid-member status separately. The RPC is brand new in
+    // cp42_membership_paid_at.sql. If it isn't installed yet we fall back
+    // to the legacy tier-table check so the page still renders correctly.
+    (async () => {
+      const { data, error } = await supabase.rpc("member_membership_status", {
+        p_business_id: business.id,
+      });
+      if (error) {
+        setPaidStatus({
+          is_paid: !!(
+            membership &&
+            (business.tiers ?? []).find(t => t.name === membership.tier)?.monthly_price_cents
+          ),
+          paid_at: null,
+          renewal_due_at: null,
+        });
+        return;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      setPaidStatus(row ?? { is_paid: false, paid_at: null, renewal_due_at: null });
+    })();
+  }, [business.id, membership, business.tiers]);
+
+  const isPaid = !!paidStatus?.is_paid;
 
   // Don't render the section at all if billing is still loading silently
   // (avoid CLS — section appears after hydration)
@@ -149,13 +179,53 @@ export function MembershipSection({
             )}
           </div>
 
-          {/* Footer ribbon */}
-          <div
-            className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-1.5"
-            style={{ background: `${primary}08`, color: primary }}
-          >
-            <Sparkles className="h-3 w-3" /> You're in — enjoy your perks
-          </div>
+          {/* CP-42: Member-since + renewal-due bar — replaces the "you're in"
+              ribbon when we know the paid_at date from member_membership_status.
+              Doubles as a "you're already a member, no Join CTA" signal. */}
+          {(paidStatus?.paid_at || paidStatus?.renewal_due_at) ? (
+            <div
+              className="px-5 py-3 grid grid-cols-2 gap-3 text-[11px] border-t"
+              style={{ background: `${primary}06`, borderColor: `${primary}18` }}
+            >
+              {paidStatus?.paid_at && (
+                <div className="flex items-start gap-1.5">
+                  <BadgeCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} />
+                  <div>
+                    <div className="font-bold uppercase tracking-wider text-[9px]" style={{ color: primary }}>
+                      Member since
+                    </div>
+                    <div className="font-semibold text-zinc-800 leading-tight mt-0.5">
+                      {new Date(paidStatus.paid_at).toLocaleDateString(undefined, {
+                        month: "short", day: "numeric", year: "numeric",
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {paidStatus?.renewal_due_at && (
+                <div className="flex items-start gap-1.5">
+                  <CalendarClock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} />
+                  <div>
+                    <div className="font-bold uppercase tracking-wider text-[9px]" style={{ color: primary }}>
+                      Renews
+                    </div>
+                    <div className="font-semibold text-zinc-800 leading-tight mt-0.5">
+                      {new Date(paidStatus.renewal_due_at).toLocaleDateString(undefined, {
+                        month: "short", day: "numeric", year: "numeric",
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-1.5"
+              style={{ background: `${primary}08`, color: primary }}
+            >
+              <Sparkles className="h-3 w-3" /> You're in — enjoy your perks
+            </div>
+          )}
         </div>
       </div>
     );

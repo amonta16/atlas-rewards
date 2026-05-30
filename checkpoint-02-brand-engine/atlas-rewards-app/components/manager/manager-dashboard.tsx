@@ -69,7 +69,16 @@ type Member = {
   points_balance: number; tier: string; joined_at: string; visit_count: number;
 };
 
-type LedgerRow = { id: string; delta: number; rule_type: string; notes: string | null; created_at: string };
+type LedgerRow = {
+  id: string;
+  delta: number;
+  rule_type: string;
+  notes: string | null;
+  created_at: string;
+  // CP-42: joined from memberships/profiles in the page loader so the
+  // front desk sees who each transaction belongs to.
+  customer_name?: string | null;
+};
 
 export function ManagerDashboard({ business: initialBusiness, recent }: { business: Business; recent: LedgerRow[] }) {
   const router = useRouter();
@@ -214,7 +223,18 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             )}
             <div>
               <div className="text-sm font-bold">{business.name}</div>
-              <div className="text-[10px] text-muted-foreground tracking-wider uppercase">Front desk</div>
+              {/* CP-42 fix: was hardcoded to "Front desk" for every role —
+                  misleading for agency_admin / manager viewers. Surface
+                  the actual role so it matches what the user can do. */}
+              <div className="text-[10px] text-muted-foreground tracking-wider uppercase">
+                {role === "agency_admin"
+                  ? "Agency admin"
+                  : role === "business_manager"
+                  ? "Manager"
+                  : role === "business_staff"
+                  ? "Front desk"
+                  : "Manage"}
+              </div>
             </div>
           </div>
           <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="h-4 w-4 mr-1"/>Sign out</Button>
@@ -371,17 +391,39 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               <div className="divide-y">
                 {recent.length === 0 ? (
                   <div className="p-6 text-center text-sm text-muted-foreground">No transactions yet.</div>
-                ) : recent.map(r => (
-                  <div key={r.id} className="px-4 py-3 flex items-center justify-between text-sm">
-                    <div>
-                      <div className="font-medium capitalize">{r.rule_type.replace(/_/g, " ")}</div>
-                      <div className="text-[11px] text-muted-foreground">{new Date(r.created_at).toLocaleString()}</div>
+                ) : recent.map(r => {
+                  // CP-42: avatar circle from initials makes the customer
+                  // identity scannable at a glance.
+                  const name = r.customer_name ?? "Guest";
+                  const initials = name
+                    .split(" ")
+                    .map(s => s[0])
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase() || "?";
+                  return (
+                    <div key={r.id} className="px-4 py-3 flex items-center gap-3 text-sm">
+                      <div
+                        className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.primary}cc)` }}
+                      >
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold truncate">{name}</div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                          <span className="capitalize">{r.rule_type.replace(/_/g, " ")}</span>
+                          <span className="opacity-50">•</span>
+                          <span>{new Date(r.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                        </div>
+                      </div>
+                      <div className={r.delta >= 0 ? "text-emerald-600 font-bold shrink-0" : "text-rose-600 font-bold shrink-0"}>
+                        {r.delta >= 0 ? "+" : ""}{r.delta} pts
+                      </div>
                     </div>
-                    <div className={r.delta >= 0 ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-                      {r.delta >= 0 ? "+" : ""}{r.delta} pts
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </>

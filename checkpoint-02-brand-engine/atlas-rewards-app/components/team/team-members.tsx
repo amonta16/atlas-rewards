@@ -58,6 +58,12 @@ export function TeamMembers({
   const canInvite = callerRole === "agency_admin"
     || (callerRole === "business_manager" && businessId !== null);
 
+  // CP-42 hotfix: previously this useCallback depended on `toast` and
+  // ran inside a useEffect([load]). When toast identity wasn't stable
+  // it triggered an infinite re-render → "not authenticated" toast flood.
+  // We now (a) drop `toast` from deps, and (b) swallow the FIRST auth
+  // race silently — Supabase session sometimes needs a tick to attach.
+  const firstLoad = useMemo(() => ({ tried: false }), []);
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
@@ -66,11 +72,18 @@ export function TeamMembers({
     });
     setLoading(false);
     if (error) {
-      toast.error("Couldn't load team — " + error.message);
+      // Suppress the "not authenticated" toast on the very first attempt —
+      // the session usually attaches on the next render. Real failures
+      // still surface to the user once we've already loaded once.
+      const isAuthRace = /not authenticated|JWT|auth/i.test(error.message) && !firstLoad.tried;
+      firstLoad.tried = true;
+      if (!isAuthRace) toast.error("Couldn't load team — " + error.message);
       return;
     }
+    firstLoad.tried = true;
     setRows((data ?? []) as Row[]);
-  }, [businessId, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId]);
 
   useEffect(() => { load(); }, [load]);
 
