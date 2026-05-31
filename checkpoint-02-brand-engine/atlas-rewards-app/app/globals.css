@@ -53,3 +53,10 @@
   72%                { transform: rotate(4deg)   scale(1.04); }
   74%                { transform: rotate(0deg)   scale(1);   }
 }
+
+/* CP-42: voice-message pill on the featured-offer banner. Tiny bounce
+   while idle to nudge the eye, settles when playing. */
+@keyframes atlas-voice-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-2px) scale(1.04); }
+}

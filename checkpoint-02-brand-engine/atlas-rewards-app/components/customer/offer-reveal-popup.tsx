@@ -33,8 +33,9 @@ export type RevealOffer = {
   voice_message_url: string | null;
   expires_at: string | null;
   /** Optional discount fields the agency configured. When present we render
-   *  a big colored chip on the unwrapped card. */
-  discount_type?: "none" | "percent" | "flat_cents" | "points_bonus" | null;
+   *  a big colored chip on the unwrapped card.
+   *  CP-42: added 'reward' for the Reward-gift mode. */
+  discount_type?: "none" | "percent" | "flat_cents" | "points_bonus" | "reward" | null;
   discount_value?: number | null;
 };
 
@@ -129,6 +130,9 @@ export function OfferRevealPopup({
     if (offer.discount_type === "percent") return `${v}% off`;
     if (offer.discount_type === "flat_cents") return `$${(v / 100).toFixed(0)} off`;
     if (offer.discount_type === "points_bonus") return `+${v} pts`;
+    // CP-42: reward-mode gift — the popup just badges "Gift". The actual
+    // reward redemption happens when the customer taps through.
+    if (offer.discount_type === "reward") return "🎁 Gift";
     return null;
   })();
 

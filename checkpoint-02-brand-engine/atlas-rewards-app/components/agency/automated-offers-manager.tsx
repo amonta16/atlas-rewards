@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AudioUploader } from "./audio-uploader";
+import { ImageUploader } from "./image-uploader";
 import { AutomatedOfferPopupPreview } from "./automated-offer-popup-preview";
 import type { Business } from "@/lib/types/database";
 
@@ -47,14 +48,23 @@ type Row = {
   custom_title: string | null;
   custom_description: string | null;
   custom_image_url: string | null;
-  discount_type: "none" | "percent" | "flat_cents" | "points_bonus";
+  // CP-42: 'reward' joins gift_reward_id; 'points_bonus' uses discount_value
+  // as point count. 'percent' / 'flat_cents' are legacy — UI no longer
+  // surfaces them but they still load correctly for businesses migrating.
+  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | "reward";
   discount_value: number | null;
   voice_message_url: string | null;
   last_triggered_at: string | null;
+  // CP-42: gift picker — either link to a Reward (QR redemption) or set
+  // a points amount (no QR).
+  gift_reward_id?: string | null;
+  gift_reward_name?: string | null;
 };
 
-/** Local discount-type buckets matching the mockup's two-tab toggle. */
-type DiscountTab = "percent" | "flat";
+/** CP-42: single gift mode — either pick a Reward or award Points. */
+type GiftMode = "reward" | "points";
+
+type RewardOption = { id: string; name: string; point_cost: number };
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -73,15 +83,20 @@ function imageFor(row: Row): string | null {
   return `/automated-offers/${row.slug.replace(/_/g, "-")}.png`;
 }
 
-/** Human-readable content cell: matches "No Discount", "10% off", "$5 off", "+200 pts". */
+/** Human-readable content cell — CP-42: now mentions Reward gift OR points. */
 function discountLabel(row: Row): string {
-  if (!row.discount_type || row.discount_type === "none") return "No Discount";
+  if (row.discount_type === "reward") {
+    return row.gift_reward_name ? `🎁 ${row.gift_reward_name}` : "🎁 Gift";
+  }
+  if (row.discount_type === "points_bonus" && row.discount_value) {
+    return `+${row.discount_value} pts`;
+  }
+  // Legacy values still load — render them in case a business hasn't migrated yet.
   const v = row.discount_value ?? 0;
   switch (row.discount_type) {
     case "percent":      return `${v}% off`;
     case "flat_cents":   return `$${(v / 100).toFixed(0)} off`;
-    case "points_bonus": return `+${v} pts`;
-    default:             return "No Discount";
+    default:             return "No Gift";
   }
 }
 
@@ -118,6 +133,8 @@ export function AutomatedOffersManager({ business }: { business: Business }) {
   /** Which row's 3-dot menu is open (template_id or null). */
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [savingErr, setSavingErr] = useState<string | null>(null);
+  // CP-42: business's rewards — populates the Gift picker dropdown.
+  const [rewards, setRewards] = useState<RewardOption[]>([]);
 
   async function load() {
     const supabase = createClient();
@@ -129,6 +146,15 @@ export function AutomatedOffersManager({ business }: { business: Business }) {
       return;
     }
     setRows((data ?? []) as Row[]);
+
+    // CP-42: load active rewards for the gift picker. Silent if it fails.
+    const { data: rRows } = await supabase
+      .from("rewards")
+      .select("id, name, point_cost")
+      .eq("business_id", business.id)
+      .eq("is_active", true)
+      .order("name");
+    setRewards((rRows ?? []) as RewardOption[]);
   }
   useEffect(() => { load(); }, [business.id]);
 
@@ -146,6 +172,7 @@ export function AutomatedOffersManager({ business }: { business: Business }) {
       p_discount_value: row.discount_value,
       p_expires_after_days: 7,
       p_voice_message_url: row.voice_message_url,
+      p_gift_reward_id: row.gift_reward_id ?? null,  // CP-42
     });
     if (error) { setSavingErr(error.message); return; }
     await load();
@@ -167,6 +194,7 @@ export function AutomatedOffersManager({ business }: { business: Business }) {
       p_discount_value: editing.discount_value,
       p_expires_after_days: 7,
       p_voice_message_url: editing.voice_message_url,
+      p_gift_reward_id: editing.gift_reward_id ?? null,  // CP-42
     });
     if (error) { setSavingErr(error.message); return; }
     setEditing(null);
@@ -298,6 +326,7 @@ export function AutomatedOffersManager({ business }: { business: Business }) {
         <EditPanel
           row={editing}
           business={business}
+          rewards={rewards}
           onClose={() => setEditing(null)}
           onChange={(patch) => setEditing({ ...editing, ...patch })}
           onSave={save}
@@ -343,46 +372,24 @@ function OccasionThumb({ row, imgUrl, brandPrimary }: { row: Row; imgUrl: string
 /* ───────────────────────── edit panel ───────────────────────── */
 
 function EditPanel({
-  row, business, onClose, onChange, onSave,
+  row, business, rewards, onClose, onChange, onSave,
 }: {
   row: Row;
   business: Business;
+  rewards: RewardOption[];
   onClose: () => void;
   onChange: (patch: Partial<Row>) => void;
   onSave: () => void;
 }) {
   const businessId = business.id;
   const brandPrimary = business.brand_colors.primary;
-  // Local UI state for the Percentage / Set $ amount tab toggle. We derive
-  // the initial tab from the saved discount_type so reopening preserves it.
-  const initialTab: DiscountTab = useMemo(() => {
-    if (row.discount_type === "flat_cents") return "flat";
-    return "percent";
+  // CP-42: gift mode replaces the old discount tab. Default to whatever
+  // was saved (reward, points_bonus, or fallback to reward if unset).
+  const initialMode: GiftMode = useMemo(() => {
+    if (row.discount_type === "points_bonus") return "points";
+    return "reward";
   }, [row.discount_type]);
-  const [tab, setTab] = useState<DiscountTab>(initialTab);
-
-  /** Translate the tab + numeric input into discount_type + discount_value. */
-  function setDiscount(rawValue: number | null) {
-    if (rawValue == null || rawValue === 0) {
-      onChange({ discount_type: "none", discount_value: null });
-      return;
-    }
-    if (tab === "percent") {
-      onChange({ discount_type: "percent", discount_value: rawValue });
-    } else {
-      // Tab is "flat" — store cents so the DB matches existing convention.
-      onChange({ discount_type: "flat_cents", discount_value: Math.round(rawValue * 100) });
-    }
-  }
-
-  /** Pretty value to render in the input field, regardless of which tab. */
-  const inputValue = (() => {
-    if (row.discount_type === "percent") return row.discount_value ?? "";
-    if (row.discount_type === "flat_cents") return row.discount_value != null ? (row.discount_value / 100).toFixed(0) : "";
-    return "";
-  })();
-
-  const inputSuffix = tab === "percent" ? "% off per purchase" : "$ off per purchase";
+  const [giftMode, setGiftMode] = useState<GiftMode>(initialMode);
 
   const img = imageFor(row);
 
@@ -432,16 +439,34 @@ function EditPanel({
             </p>
           </div>
 
-          {/* Image + Active toggle row — matches the mock */}
-          <div className="flex items-center gap-3">
-            <OccasionThumbBig row={row} imgUrl={img} brandPrimary={brandPrimary} />
-            <div className="flex-1 rounded-2xl border bg-white p-3 flex items-center justify-between">
-              <Label className="cursor-pointer text-sm font-semibold">Active</Label>
-              <Switch
-                checked={row.is_active}
-                onCheckedChange={(v) => onChange({ is_active: v })}
+          {/* Image — CP-42: real upload. ImageUploader uploads to the
+              reward-images bucket; the URL is saved to custom_image_url
+              so the Home banner + popup preview render it. */}
+          <div>
+            <Label className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
+              Card image
+            </Label>
+            <div className="mt-1.5">
+              <ImageUploader
+                bucket="reward-images"
+                pathPrefix={`automated-offers/${businessId}`}
+                value={row.custom_image_url ?? null}
+                onChange={(url) => onChange({ custom_image_url: url })}
+                aspectClass="aspect-[4/3]"
               />
             </div>
+            <p className="text-[10px] text-zinc-500 mt-1">
+              Falls back to the holiday default art if you leave this blank.
+            </p>
+          </div>
+
+          {/* Active toggle — its own row now that image got its own block */}
+          <div className="rounded-2xl border bg-white p-3 flex items-center justify-between">
+            <Label className="cursor-pointer text-sm font-semibold">Active</Label>
+            <Switch
+              checked={row.is_active}
+              onCheckedChange={(v) => onChange({ is_active: v })}
+            />
           </div>
 
           {/* Personalize headline/description — optional, collapsed by default
@@ -475,62 +500,96 @@ function EditPanel({
             </div>
           </details>
 
-          {/* Discount section */}
+          {/* CP-42: GIFT picker — replaces the old Discount section. The
+              admin picks ONE of two modes:
+                • Pick a Reward → customer gets a QR redemption when the
+                                  offer fires
+                • Award Points  → customer gets a points credit (no QR) */}
           <section>
-            <h3 className="text-base font-extrabold mb-2">Discount</h3>
-            {/* Tab toggle: Percentage | Set $ amount */}
+            <h3 className="text-base font-extrabold mb-2">Gift</h3>
+
             <div className="rounded-full bg-zinc-100 p-1 grid grid-cols-2 mb-3">
               <button
                 type="button"
                 onClick={() => {
-                  setTab("percent");
-                  // Reinterpret the existing value as a percentage when possible.
-                  if (row.discount_type === "flat_cents" && row.discount_value != null) {
-                    onChange({ discount_type: "percent", discount_value: Math.round(row.discount_value / 100) });
-                  }
+                  setGiftMode("reward");
+                  onChange({ discount_type: "reward", discount_value: null });
                 }}
                 className={`text-sm font-bold py-2 rounded-full transition ${
-                  tab === "percent" ? "bg-white shadow text-zinc-900" : "text-zinc-500"
+                  giftMode === "reward" ? "bg-white shadow text-zinc-900" : "text-zinc-500"
                 }`}
               >
-                Percentage
+                🎁 Pick a Reward
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  setTab("flat");
-                  if (row.discount_type === "percent" && row.discount_value != null) {
-                    onChange({ discount_type: "flat_cents", discount_value: row.discount_value * 100 });
-                  }
+                  setGiftMode("points");
+                  onChange({ discount_type: "points_bonus", gift_reward_id: null });
                 }}
                 className={`text-sm font-bold py-2 rounded-full transition ${
-                  tab === "flat" ? "bg-white shadow text-zinc-900" : "text-zinc-500"
+                  giftMode === "points" ? "bg-white shadow text-zinc-900" : "text-zinc-500"
                 }`}
               >
-                Set $ amount
+                ✨ Award Points
               </button>
             </div>
 
-            <Label className="text-xs text-muted-foreground">
-              {tab === "percent" ? "% amount" : "$ amount"}
-            </Label>
-            <div className="relative mt-1">
-              <Input
-                type="number"
-                min={0}
-                step={tab === "percent" ? 1 : 1}
-                value={inputValue}
-                onChange={(e) => {
-                  const n = e.target.value === "" ? null : parseFloat(e.target.value);
-                  setDiscount(Number.isFinite(n as number) ? (n as number) : null);
-                }}
-                placeholder="0"
-                className="pr-36"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
-                {inputSuffix}
-              </span>
-            </div>
+            {giftMode === "reward" && (
+              <>
+                <Label className="text-xs text-muted-foreground">Which reward?</Label>
+                <select
+                  value={row.gift_reward_id ?? ""}
+                  onChange={(e) => onChange({
+                    gift_reward_id: e.target.value || null,
+                    discount_type: "reward",
+                  })}
+                  className="mt-1 w-full h-11 rounded-md border bg-white px-3 text-sm"
+                >
+                  <option value="">— Select a reward —</option>
+                  {rewards.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.point_cost.toLocaleString()} pt value)
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  Customer gets a QR they can show at the front desk to redeem.
+                  {rewards.length === 0 && (
+                    <> Add rewards in the <b>Rewards</b> tab first.</>
+                  )}
+                </p>
+              </>
+            )}
+
+            {giftMode === "points" && (
+              <>
+                <Label className="text-xs text-muted-foreground">Points to award</Label>
+                <div className="relative mt-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    step={10}
+                    value={row.discount_value ?? ""}
+                    onChange={(e) => {
+                      const n = e.target.value === "" ? null : parseInt(e.target.value, 10);
+                      onChange({
+                        discount_type: "points_bonus",
+                        discount_value: Number.isFinite(n as number) ? (n as number) : null,
+                      });
+                    }}
+                    placeholder="200"
+                    className="pr-20"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
+                    points
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  Credited the moment the offer fires. No QR needed — the customer just sees their balance go up.
+                </p>
+              </>
+            )}
           </section>
 
           {/* Voice message section */}

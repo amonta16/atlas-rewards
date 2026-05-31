@@ -10,9 +10,6 @@ import { TiltLoyaltyCard } from "./tilt-loyalty-card";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 import { StreakTrail } from "./streak-trail";
 import { LimitedOffersSection } from "./limited-offers-section";
-// CP-42: surface the mystery spin card on Rewards so the SpinHomeWidget
-// deep link (`#mystery-reward`) lands on a real spin UI.
-import { MysteryRewardCard } from "./mystery-reward-card";
 import { SavedGiftsSection } from "./saved-gifts-section";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -205,16 +202,9 @@ export function RewardsClient({
         secondary={business.brand_colors.secondary}
       />
 
-      {/* CP-42: Mystery spin card. Anchored with id so the Home tab's
-          SpinHomeWidget can deep-link here (#mystery-reward) when the
-          customer taps the "Your spin is ready" card. Self-hides when
-          the business hasn't configured the mystery feature.
-          BUGFIX: scope var is `membership` (object), not `membershipId`. */}
-      {membership?.id && (
-        <div id="mystery-reward">
-          <MysteryRewardCard business={business} membershipId={membership.id} />
-        </div>
-      )}
+      {/* CP-42 hotfix: MysteryRewardCard removed — Andrew already has the
+          "Daily spin · Check in to unlock" button working below; mine was
+          a duplicate. The existing UI is the source of truth. */}
 
       {/* Rewards grid */}
       {business.widget_config.rewards_store && (

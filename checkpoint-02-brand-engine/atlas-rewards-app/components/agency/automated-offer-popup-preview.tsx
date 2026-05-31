@@ -24,7 +24,8 @@ type DraftOffer = {
   custom_image_url: string | null;
   default_image_url?: string | null;
   slug: string;
-  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | null;
+  // CP-42: added 'reward' for the new Reward-gift mode.
+  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | "reward" | null;
   discount_value: number | null;
   voice_message_url: string | null;
 };

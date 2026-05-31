@@ -107,6 +107,9 @@ export function FeaturedOfferBanner({
         {/* CP-29: voice note play button — only renders when one is attached. */}
         {liveOffer.voice_message_url && (
           <>
+            {/* CP-42: way poppier — white pill, brand-tinted ring, soft glow,
+                pulsing dot, and a subtle bounce when idle so the eye snaps
+                to it against the dark banner background. */}
             <button
               type="button"
               onClick={(e) => {
@@ -117,13 +120,32 @@ export function FeaturedOfferBanner({
                 if (playing) { el.pause(); }
                 else { el.play().catch(() => {/* user gesture missing — ignore */}); }
               }}
-              className="ml-1 inline-flex items-center gap-1 h-5 pl-1 pr-2 rounded-full bg-white/25 hover:bg-white/35 transition shrink-0"
+              className="atlas-voice-btn ml-2 inline-flex items-center gap-1.5 h-7 pl-1.5 pr-2.5 rounded-full bg-white text-zinc-900 shrink-0 transition active:scale-95"
+              style={{
+                boxShadow: "0 0 0 2px rgba(255,255,255,0.9), 0 0 0 4px rgba(255,255,255,0.35), 0 6px 18px rgba(0,0,0,0.25)",
+                animation: playing ? undefined : "atlas-voice-bounce 1.8s ease-in-out infinite",
+              }}
               aria-label={playing ? "Pause voice message" : "Play voice message"}
             >
-              {playing
-                ? <Pause className="h-2.5 w-2.5 fill-white" />
-                : <Play className="h-2.5 w-2.5 fill-white" />}
-              <span className="text-[10px] font-bold">Voice</span>
+              <span
+                className="inline-flex items-center justify-center h-5 w-5 rounded-full text-white"
+                style={{
+                  background: "linear-gradient(135deg, #f43f5e 0%, #fb7185 100%)",
+                  boxShadow: playing
+                    ? "0 0 0 2px rgba(244,63,94,0.4), 0 0 12px rgba(244,63,94,0.6)"
+                    : "0 0 8px rgba(244,63,94,0.5)",
+                }}
+              >
+                {playing
+                  ? <Pause className="h-2.5 w-2.5 fill-white" />
+                  : <Play className="h-2.5 w-2.5 fill-white ml-[1px]" />}
+              </span>
+              <span className="text-[11px] font-extrabold tracking-wide">
+                {playing ? "Playing" : "Voice"}
+              </span>
+              {playing && (
+                <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+              )}
             </button>
             {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
             <audio

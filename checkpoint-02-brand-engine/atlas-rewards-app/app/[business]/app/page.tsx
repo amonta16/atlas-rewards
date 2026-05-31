@@ -6,9 +6,9 @@ import { WinbackBanner } from "@/components/customer/winback-banner";
 import { HeaderActions } from "@/components/customer/header-actions";
 import { MembershipSection } from "@/components/customer/membership-section";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-// CP-42: spin status card right below the Featured offer so customers
-// who land here from a "spin ready" push notification see it instantly.
-import { SpinHomeWidget } from "@/components/customer/spin-home-widget";
+// CP-42: reuse the existing Daily Spin button (the same one Andrew has
+// on Rewards) under the Featured offer on Home.
+import { DailySpinButton } from "@/components/customer/daily-spin-button";
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -175,18 +175,11 @@ export default async function CustomerHome({ params }: { params: { business: str
         </div>
       )}
 
-      {/* CP-42: spin-availability card — directly under the featured
-          offer. Self-hides when the business hasn't configured mystery
-          rewards. Tapping a "Ready" card lands the user on the rewards
-          tab where the spin animation lives. */}
+      {/* CP-42 v2: same Daily Spin button as the Rewards tab, surfaced
+          right below the Featured offer. Locked until they check in;
+          opens the slot-machine modal when they tap it after check-in. */}
       {mem?.id && (
-        <SpinHomeWidget
-          businessId={business.id}
-          membershipId={mem.id}
-          businessSlug={business.slug}
-          primary={business.brand_colors.primary}
-          secondary={business.brand_colors.secondary}
-        />
+        <DailySpinButton business={business} membershipId={mem.id} />
       )}
 
       {/* Top rewards */}
