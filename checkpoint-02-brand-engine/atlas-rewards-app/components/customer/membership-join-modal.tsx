@@ -61,6 +61,11 @@ export function MembershipJoinModal({
   // CP-34: after a non-Stripe request_membership call, show a "pending"
   // success screen instead of redirecting.
   const [requested, setRequested] = useState(false);
+  // CP-42: if the customer is ALREADY pending when the modal opens, we
+  // skip straight to the pending state instead of letting them re-apply.
+  const [existingPaymentStatus, setExistingPaymentStatus] = useState<
+    "unpaid" | "pending" | "paid" | null
+  >(null);
 
   const primary = business.brand_colors.primary;
 
@@ -73,11 +78,24 @@ export function MembershipJoinModal({
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const { data } = await supabase.rpc("membership_billing_public", {
-        p_business_id: business.id,
-      });
-      const row = Array.isArray(data) ? data[0] : data;
-      setBilling(row ?? null);
+      const [billingRes, stateRes] = await Promise.all([
+        supabase.rpc("membership_billing_public", { p_business_id: business.id }),
+        // CP-42: read-only state check. Silent fallback if the new RPC
+        // hasn't been deployed yet.
+        supabase.rpc("my_membership_payment_state", { p_business_id: business.id }),
+      ]);
+
+      const billRow = Array.isArray(billingRes.data) ? billingRes.data[0] : billingRes.data;
+      setBilling(billRow ?? null);
+
+      const stateRow = Array.isArray(stateRes.data) ? stateRes.data[0] : stateRes.data;
+      if (stateRow && (stateRow as any).has_row) {
+        const ps = (stateRow as any).payment_status as "unpaid" | "pending" | "paid";
+        setExistingPaymentStatus(ps);
+        // Already pending → drop straight into the pending success state.
+        if (ps === "pending") setRequested(true);
+      }
+
       setLoading(false);
     })();
   }, [business.id]);
@@ -389,10 +407,12 @@ export function MembershipJoinModal({
                 </div>
               )}
 
-              {/* CTA */}
+              {/* CTA — CP-42: also disabled if customer is already pending
+                  (we route them to the pending success state on load, but
+                  this is belt-and-suspenders if the load races). */}
               <button
                 onClick={handleSubscribe}
-                disabled={subscribing}
+                disabled={subscribing || existingPaymentStatus === "pending"}
                 className="w-full py-4 rounded-2xl text-sm font-extrabold text-white tracking-wide flex items-center justify-center gap-2 transition active:scale-95 disabled:opacity-70"
                 style={{
                   background: `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`,
