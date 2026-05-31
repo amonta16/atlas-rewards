@@ -19,6 +19,8 @@ If those are solid, an attacker holding the entire source code can do *nothing m
 
 Run these from the project root before going public (or as a pre-commit hook).
 
+### macOS / Linux / Git Bash on Windows
+
 ```bash
 # Anything that looks like a Supabase service key, VAPID private key, or Stripe secret
 git log --all -p | grep -E "(sb_secret|service_role|sk_live|sk_test|VAPID_PRIVATE_KEY|SUPABASE_SERVICE_ROLE)"
@@ -29,6 +31,21 @@ git log --all --pretty=format: --name-only --diff-filter=A | sort -u | grep -E "
 # JSON files with embedded keys
 git log --all -p | grep -E '"(service_role_key|secret|private_key|api_key)"'
 ```
+
+### Windows PowerShell (no `grep` — use `Select-String`)
+
+```powershell
+# 1. Service / VAPID / Stripe keys in history
+git log --all -p | Select-String -Pattern "sb_secret|service_role|sk_live|sk_test|VAPID_PRIVATE_KEY|SUPABASE_SERVICE_ROLE"
+
+# 2. .env files ever added
+git log --all --pretty=format: --name-only --diff-filter=A | Sort-Object -Unique | Select-String -Pattern "\.env"
+
+# 3. JSON files with key-like fields
+git log --all -p | Select-String -Pattern '"(service_role_key|secret|private_key|api_key)"'
+```
+
+**Reading the output:** if a command prints NOTHING (just returns to the prompt), you're clean. If lines come back, that's a leak — each match shows the commit + leaked value. Rotate the affected key using the table below.
 
 If any of those return hits, you've leaked. The fix is to **rotate those keys** in Supabase/Vercel/Stripe (a public leak is permanent — `git filter-branch` doesn't help once people have cloned). Steps to rotate:
 

@@ -93,7 +93,24 @@ export function SavedGiftsSection({
       )
       .subscribe();
 
-    return () => { cancelled = true; supabase.removeChannel(ch); };
+    // CP-42: explicit refresh signal from LimitedOffersSection.claim().
+    // Supabase realtime on customer_saved_offers isn't always in the
+    // publication, so we double-belt with a window event the claim
+    // handler dispatches synchronously.
+    const onSavedChanged = () => load();
+    window.addEventListener("atlas:saved-offer-changed", onSavedChanged);
+
+    // Also refresh on focus — catches the case where a user claims a
+    // gift in one tab and switches back to this one.
+    const onVis = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+      window.removeEventListener("atlas:saved-offer-changed", onSavedChanged);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [businessId, membershipId]);
 
   if (!rows || rows.length === 0) return null;

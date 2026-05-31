@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, Gift, Mic, Play, Sparkles, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
+import { useToast } from "@/components/ui/toast";
 
 type ActiveOffer = RevealOffer & {
   is_automated: boolean;
@@ -39,6 +40,7 @@ export function LimitedOffersSection({
   primary: string;
   secondary?: string | null;
 }) {
+  const { toast } = useToast();
   const [rows, setRows] = useState<ActiveOffer[] | null>(null);
   const [replaying, setReplaying] = useState<ActiveOffer | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -87,17 +89,43 @@ export function LimitedOffersSection({
     return () => { cancelled = true; };
   }, [businessId]);
 
-  /** CP-39: one-tap "Claim this gift" → save_offer RPC → scroll up to
-   *  the Saved Gifts section so the user sees their new QR code. */
+  /** CP-39 → CP-42: one-tap "Claim this gift" → save_offer RPC → fire a
+   *  window event so SavedGiftsSection refreshes immediately (don't rely
+   *  on Supabase realtime on customer_saved_offers which isn't always in
+   *  the realtime publication) → scroll to the saved-gifts anchor so the
+   *  user actually sees their new QR appear.
+   *
+   *  Errors are now SURFACED to the user instead of silently swallowed.
+   *  Andrew kept seeing "nothing happened" because the previous code
+   *  just bailed on error with no UI feedback. */
   async function claim(offer: ActiveOffer) {
     setClaiming(offer.id);
     const supabase = createClient();
     const { error } = await supabase.rpc("save_offer", { p_offer_id: offer.id });
     setClaiming(null);
-    if (error) return; // realistic edge case: already saved; UI auto-updates
+    if (error) {
+      const msg = String(error.message || "");
+      // "already saved" is the one expected failure — treat as success.
+      if (/already|duplicate|unique/i.test(msg)) {
+        setSavedIds(prev => new Set([...prev, offer.id]));
+        toast.info("Already in your saved gifts");
+      } else if (/membership/i.test(msg)) {
+        toast.error("Join the rewards program first to claim this gift");
+      } else if (/not authenticated/i.test(msg)) {
+        toast.error("Sign in to claim this gift");
+      } else {
+        toast.error("Couldn't claim — " + msg);
+      }
+      return;
+    }
     setSavedIds(prev => new Set([...prev, offer.id]));
-    // Scroll up to the Saved Gifts section so the user sees the QR appear
+    toast.success("Saved! Find it in Your Saved Gifts at the top.");
+    // CP-42: tell SavedGiftsSection to refresh NOW — Supabase realtime
+    // on customer_saved_offers isn't always in the publication so we
+    // can't depend on it firing.
     if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("atlas:saved-offer-changed"));
+      // Scroll up so the user sees the new gift land at the top.
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }
