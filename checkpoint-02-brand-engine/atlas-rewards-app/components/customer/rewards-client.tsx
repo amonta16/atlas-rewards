@@ -208,10 +208,11 @@ export function RewardsClient({
       {/* CP-42: Mystery spin card. Anchored with id so the Home tab's
           SpinHomeWidget can deep-link here (#mystery-reward) when the
           customer taps the "Your spin is ready" card. Self-hides when
-          the business hasn't configured the mystery feature. */}
-      {membershipId && (
+          the business hasn't configured the mystery feature.
+          BUGFIX: scope var is `membership` (object), not `membershipId`. */}
+      {membership?.id && (
         <div id="mystery-reward">
-          <MysteryRewardCard business={business} membershipId={membershipId} />
+          <MysteryRewardCard business={business} membershipId={membership.id} />
         </div>
       )}
 
