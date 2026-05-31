@@ -47,7 +47,7 @@ const GROUPS: Group[] = [
     icon: <MessageSquare className="h-4 w-4 text-sky-500" />,
     items: [
       { key: "push", label: "Push notifications", sub: "App-side push (requires Atlas Engine native shell)" },
-      { key: "sms",  label: "SMS campaigns",      sub: "Outbound text (requires SMS provider)" },
+      // CP-42: SMS campaigns removed — Atlas isn't shipping an SMS surface.
     ],
   },
 ];

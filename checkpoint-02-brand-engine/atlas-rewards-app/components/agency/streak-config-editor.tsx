@@ -8,8 +8,23 @@ import { Switch } from "@/components/ui/switch";
 import { createClient } from "@/lib/supabase/client";
 import type { Business } from "@/lib/types/database";
 
-type Milestone = { count: number; label: string; points: number; mystery?: boolean };
+// CP-42: streak milestones now use the SAME Reward-or-Points pattern as
+// automated offers. `gift_kind` selects the mode:
+//   'reward' → reward_id is set; customer gets a QR redemption.
+//   'points' → points count is awarded; no QR.
+// Legacy `points` and `mystery` fields are kept for back-compat — old
+// milestones load as points-mode.
+type Milestone = {
+  count: number;
+  label: string;
+  points: number;                 // legacy + used when gift_kind = 'points'
+  mystery?: boolean;              // legacy (no longer surfaced)
+  gift_kind?: "points" | "reward";
+  reward_id?: string | null;
+};
 type PeriodType = "daily" | "weekly" | "monthly";
+
+type RewardOption = { id: string; name: string; point_cost: number };
 
 type StreakConfig = {
   is_enabled: boolean;
@@ -46,6 +61,18 @@ export function StreakConfigEditor({ business }: { business: Business }) {
   });
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  // CP-42: business's active rewards — feeds the milestone Reward picker.
+  const [rewards, setRewards] = useState<RewardOption[]>([]);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("rewards")
+      .select("id, name, point_cost")
+      .eq("business_id", business.id)
+      .eq("is_active", true)
+      .order("name")
+      .then(({ data }) => setRewards((data ?? []) as RewardOption[]));
+  }, [business.id]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -185,46 +212,100 @@ export function StreakConfigEditor({ business }: { business: Business }) {
             <div className="rounded-xl border-2 border-dashed py-8 text-center text-sm text-muted-foreground">
               No milestones yet — add at least one so the trail has rewards.
             </div>
-          ) : cfg.milestones.map((m, i) => (
-            <div key={i} className="rounded-xl border p-3 grid grid-cols-12 gap-2 items-end">
-              <div className="col-span-2">
-                <Label className="text-[10px] text-muted-foreground">At</Label>
-                <Input
-                  type="number" min={1}
-                  value={m.count}
-                  onChange={e => updateMilestone(i, { count: Math.max(1, parseInt(e.target.value || "1", 10)) })}
-                />
+          ) : cfg.milestones.map((m, i) => {
+            // CP-42: derive gift mode. Legacy milestones default to 'points'.
+            const giftKind: "points" | "reward" = m.gift_kind ?? "points";
+            return (
+              <div key={i} className="rounded-xl border p-3 space-y-3">
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <Label className="text-[10px] text-muted-foreground">At streak</Label>
+                    <Input
+                      type="number" min={1}
+                      value={m.count}
+                      onChange={e => updateMilestone(i, { count: Math.max(1, parseInt(e.target.value || "1", 10)) })}
+                    />
+                  </div>
+                  <div className="col-span-8">
+                    <Label className="text-[10px] text-muted-foreground">Label</Label>
+                    <Input
+                      value={m.label}
+                      onChange={e => updateMilestone(i, { label: e.target.value })}
+                      placeholder="2 weeks"
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-end">
+                    <Button size="sm" variant="outline" className="text-rose-600" onClick={() => removeMilestone(i)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* CP-42: Reward / Points gift picker — same UX as the
+                    automated offers picker, just inline. */}
+                <div className="rounded-lg bg-zinc-50 border p-2.5">
+                  <div className="rounded-full bg-white p-0.5 grid grid-cols-2 mb-2 border">
+                    <button
+                      type="button"
+                      onClick={() => updateMilestone(i, { gift_kind: "reward" })}
+                      className={`text-xs font-bold py-1.5 rounded-full transition ${
+                        giftKind === "reward" ? "bg-zinc-900 text-white shadow" : "text-zinc-500"
+                      }`}
+                    >
+                      🎁 Pick a Reward
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateMilestone(i, { gift_kind: "points" })}
+                      className={`text-xs font-bold py-1.5 rounded-full transition ${
+                        giftKind === "points" ? "bg-zinc-900 text-white shadow" : "text-zinc-500"
+                      }`}
+                    >
+                      ✨ Award Points
+                    </button>
+                  </div>
+
+                  {giftKind === "reward" ? (
+                    <>
+                      <select
+                        value={m.reward_id ?? ""}
+                        onChange={(e) => updateMilestone(i, { reward_id: e.target.value || null, gift_kind: "reward" })}
+                        className="w-full h-9 rounded-md border bg-white px-2 text-sm"
+                      >
+                        <option value="">— Select a reward —</option>
+                        {rewards.map(r => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} ({r.point_cost.toLocaleString()} pt value)
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-zinc-500 mt-1">
+                        Customer gets a QR to redeem at the front desk when they hit this milestone.
+                        {rewards.length === 0 && <> Add rewards in the <b>Rewards</b> section first.</>}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <Input
+                          type="number" min={0}
+                          value={m.points}
+                          onChange={e => updateMilestone(i, { points: Math.max(0, parseInt(e.target.value || "0", 10)), gift_kind: "points" })}
+                          className="pr-16"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">
+                          points
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-zinc-500 mt-1">
+                        Credited the moment they hit the milestone. No QR.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="col-span-5">
-                <Label className="text-[10px] text-muted-foreground">Label</Label>
-                <Input
-                  value={m.label}
-                  onChange={e => updateMilestone(i, { label: e.target.value })}
-                  placeholder="2 weeks"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label className="text-[10px] text-muted-foreground">Points</Label>
-                <Input
-                  type="number" min={0}
-                  value={m.points}
-                  onChange={e => updateMilestone(i, { points: Math.max(0, parseInt(e.target.value || "0", 10)) })}
-                />
-              </div>
-              <div className="col-span-2 flex flex-col items-center gap-1">
-                <Label className="text-[10px] text-muted-foreground">Mystery</Label>
-                <Switch
-                  checked={m.mystery ?? false}
-                  onCheckedChange={(v) => updateMilestone(i, { mystery: v })}
-                />
-              </div>
-              <div className="col-span-1 flex justify-end">
-                <Button size="sm" variant="outline" className="text-rose-600" onClick={() => removeMilestone(i)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -13,7 +13,9 @@ import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
 import { RewardsManager } from "@/components/agency/rewards-manager";
-import { MysteryPoolManager } from "@/components/agency/mystery-pool-manager";
+// CP-42: MysteryPoolManager removed — weighted prize pool felt over-engineered
+// for the Daily Spin product. Streak milestones now use the same Reward-or-Points
+// picker pattern as automated offers.
 import { StreakConfigEditor } from "@/components/agency/streak-config-editor";
 import { BusinessInsights } from "@/components/agency/business-insights";
 import { WebhookSettings } from "@/components/agency/webhook-settings";
@@ -24,13 +26,13 @@ import { AutomatedOffersManager } from "@/components/agency/automated-offers-man
 import { MembershipEditor } from "@/components/agency/membership-editor";
 import { NewsManager } from "@/components/agency/news-manager";
 // Products manager removed — Atlas is loyalty-only now (no in-app commerce).
-import { TemplateApplyPanel } from "@/components/agency/template-apply-panel";
+// CP-42: TemplateApplyPanel removed — industry template only applied during create.
 import { WidgetToggleGroups } from "@/components/agency/widget-toggle-groups";
 import { BookingTagsManager } from "@/components/agency/booking-tags-manager";
 import { BusinessSettingsPanel } from "@/components/agency/business-settings-panel";
 import { NotificationSettingsPanel } from "@/components/agency/notification-settings-panel";
 import { CalendarClock } from "lucide-react";
-import type { IndustryTemplate } from "@/lib/industry-templates";
+// CP-42: IndustryTemplate import removed alongside TemplateApplyPanel.
 import type { PreviewBookingTag } from "@/components/customer-preview/customer-preview";
 
 const WIDGET_LABELS: Record<string, string> = {
@@ -352,17 +354,10 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 />
               </Section>
 
-              <TemplateApplyPanel
-                business={b}
-                onApply={(tpl: IndustryTemplate) => {
-                  patch({
-                    industry: tpl.value === "other" ? b.industry : tpl.value,
-                    widget_config: tpl.widget_config,
-                    point_rules:   tpl.point_rules,
-                  });
-                }}
-              />
-
+              {/* CP-42: TemplateApplyPanel removed. The industry template
+                  is chosen ONCE during the new-business creation flow
+                  (NewBusinessModal). A post-creation reset surface added
+                  no value and risked clobbering the agency's tuning. */}
               <BusinessDiscoveryQR business={b} />
             </>
           )}
@@ -385,7 +380,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
               </Section>
 
               <RewardsManager business={b} />
-              <MysteryPoolManager business={b} />
+              {/* CP-42: MysteryPoolManager dropped — the Daily Spin still
+                  runs on the customer side using the simpler spin RPC. */}
               <StreakConfigEditor business={b} />
             </>
           )}
