@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Bell, Flame, Gift, Tag, Calendar, AlertCircle, Star, MessageSquareHeart, Send, Loader2 } from "lucide-react";
+import { Bell, Flame, Gift, Tag, Calendar, AlertCircle, Star, MessageSquareHeart, Send, Loader2, Stethoscope, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -53,12 +53,42 @@ const TYPES: Array<{
   { key: "review_request",              label: "Review request",           description: "Ask happy members to drop a Google review.",                         icon: AlertCircle,       tone: "bg-yellow-100 text-yellow-700" },
 ];
 
+type NotifDebug = {
+  vapid_configured: boolean;
+  vapid_subject: string | null;
+  member_count: number;
+  push_subscribed_members: number;
+  subscriptions_total: number;
+  recent_notifications_24h: number;
+  atlas_base_url_setting: string | null;
+  warnings: string[];
+};
+
 export function NotificationSettingsPanel({ business }: { business: Business }) {
   const { toast } = useToast();
   const [s, setS] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   // CP-37.2: send-test-notification state.
   const [testing, setTesting] = useState<string | null>(null);
+  // CP-37.10: notification diagnostics state.
+  const [debug, setDebug] = useState<NotifDebug | null>(null);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugErr, setDebugErr] = useState<string | null>(null);
+
+  async function runDiagnostics() {
+    setDebugLoading(true);
+    setDebugErr(null);
+    try {
+      const res = await fetch(`/api/notifications/debug?business_id=${business.id}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "diagnostics failed");
+      setDebug(json as NotifDebug);
+    } catch (e: any) {
+      setDebugErr(e?.message ?? "diagnostics failed");
+    } finally {
+      setDebugLoading(false);
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient();
@@ -221,6 +251,101 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
         </div>
       </div>
 
+      {/* CP-37.10 — diagnostics panel. Surfaces every link in the
+          push-notification chain so the failure mode is obvious
+          instead of silent. Andrew kept seeing "test fired" toasts
+          while no push arrived — almost always because VAPID env
+          vars aren't set in Vercel OR no customer has granted push
+          permission yet. This panel makes both visible in one tap. */}
+      <div className="rounded-3xl border bg-white p-5 lg:p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <Stethoscope className="h-4 w-4 text-indigo-500" />
+          <h3 className="font-bold">Notification diagnostics</h3>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          Reports every link in the push chain — VAPID keys, member count, push subscribers, recent activity. Run this any time push "succeeds" but no phone lights up.
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={debugLoading}
+          onClick={runDiagnostics}
+        >
+          {debugLoading
+            ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Checking…</>
+            : <><Stethoscope className="h-3.5 w-3.5 mr-1.5" /> Run diagnostics</>}
+        </Button>
+
+        {debugErr && (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+            {debugErr}
+          </div>
+        )}
+
+        {debug && (
+          <div className="mt-4 space-y-3">
+            {/* Quick status rows. */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <DebugStat
+                label="VAPID keys"
+                ok={debug.vapid_configured}
+                okText="Configured"
+                badText="Missing"
+              />
+              <DebugStat
+                label="Members"
+                ok={debug.member_count > 0}
+                okText={`${debug.member_count}`}
+                badText="0"
+              />
+              <DebugStat
+                label="Push subscribers"
+                ok={debug.push_subscribed_members > 0}
+                okText={`${debug.push_subscribed_members}`}
+                badText="0"
+              />
+              <DebugStat
+                label="Notifs 24h"
+                ok={debug.recent_notifications_24h > 0}
+                okText={`${debug.recent_notifications_24h}`}
+                badText="0"
+              />
+            </div>
+
+            {/* Detail row */}
+            <div className="rounded-xl bg-zinc-50 ring-1 ring-zinc-200 px-3 py-2 text-[11px] text-zinc-600 leading-relaxed">
+              <div>
+                <strong>VAPID subject:</strong> {debug.vapid_subject ?? <span className="text-zinc-400 italic">default (mailto:hello@atlas-engine.org)</span>}
+              </div>
+              <div>
+                <strong>Push subscription rows total:</strong> {debug.subscriptions_total}
+              </div>
+              <div>
+                <strong>atlas.base_url Postgres setting:</strong> {debug.atlas_base_url_setting ?? <span className="text-zinc-400 italic">not set (using hardcoded fallback)</span>}
+              </div>
+            </div>
+
+            {/* Warnings. */}
+            {debug.warnings.length > 0 ? (
+              <div className="space-y-1.5">
+                {debug.warnings.map((w, i) => (
+                  <div key={i} className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2 text-xs text-amber-900">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>{w}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 flex items-start gap-2 text-xs text-emerald-900">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>All checks pass — if push still isn't arriving, the customer's browser may have blocked notifications. Have them re-tap the bell icon on /<em>slug</em>/app to re-grant.</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* CP-36b: manual broadcast composer relocated from manager view. */}
       <NotificationBroadcast businessId={business.id} primary={business.brand_colors.primary} />
     </div>
@@ -239,6 +364,35 @@ function Switch({ on }: { on: boolean }) {
           on ? "translate-x-5" : "translate-x-0.5"
         }`}
       />
+    </div>
+  );
+}
+
+// CP-37.10 — diagnostics stat tile (good vs bad).
+function DebugStat({
+  label, ok, okText, badText,
+}: { label: string; ok: boolean; okText: string; badText: string }) {
+  return (
+    <div
+      className={`rounded-xl border p-2.5 ${
+        ok ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
+      }`}
+    >
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-widest font-bold text-zinc-500">
+        {ok ? (
+          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+        ) : (
+          <XCircle className="h-3 w-3 text-rose-600" />
+        )}
+        {label}
+      </div>
+      <div
+        className={`text-sm font-extrabold mt-0.5 ${
+          ok ? "text-emerald-700" : "text-rose-700"
+        }`}
+      >
+        {ok ? okText : badText}
+      </div>
     </div>
   );
 }
