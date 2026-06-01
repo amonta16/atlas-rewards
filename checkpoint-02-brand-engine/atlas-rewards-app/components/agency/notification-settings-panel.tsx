@@ -210,17 +210,28 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
             disabled={testing === "all"}
             onClick={async () => {
               setTesting("all");
-              const supabase = createClient();
-              const { data, error } = await supabase.rpc("send_test_notification", {
-                p_business_id: business.id,
-                p_kind: null,
-              });
-              setTesting(null);
-              if (error) { toast.error("Test failed — " + error.message); return; }
-              const row = Array.isArray(data) ? data[0] : data;
-              const sent = row?.sent ?? 0;
-              const recipients = row?.recipients ?? 0;
-              toast.success(`Test sent · ${sent} notifications across ${recipients} member${recipients === 1 ? "" : "s"} ✨`);
+              // CP-37.11: switched from the SQL RPC (which depended on the
+              // pg_net trigger that silently failed for us) to the
+              // /api/notifications/test endpoint that calls
+              // sendPushToBusiness directly — the same proven path
+              // /api/notifications/broadcast uses for "Send to all".
+              try {
+                const res = await fetch("/api/notifications/test", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ business_id: business.id, kind: null }),
+                });
+                const json = await res.json();
+                if (!res.ok) throw new Error(json?.error ?? "test failed");
+                const { kinds_fired = 0, recipients = 0, push_sent = 0, push_failed = 0 } = json;
+                toast.success(
+                  `Test sent · ${kinds_fired} kind${kinds_fired === 1 ? "" : "s"} across ${recipients} member${recipients === 1 ? "" : "s"} · push: ${push_sent} ${push_failed ? `(${push_failed} failed)` : ""} ✨`,
+                );
+              } catch (e: any) {
+                toast.error("Test failed — " + (e?.message ?? "unknown"));
+              } finally {
+                setTesting(null);
+              }
             }}
           >
             {testing === "all" ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Sending all…</> : "Send one of each enabled kind"}
@@ -234,14 +245,23 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
               disabled={testing === t.key}
               onClick={async () => {
                 setTesting(t.key);
-                const supabase = createClient();
-                const { error } = await supabase.rpc("send_test_notification", {
-                  p_business_id: business.id,
-                  p_kind: t.key,
-                });
-                setTesting(null);
-                if (error) { toast.error(`${t.label} failed — ` + error.message); return; }
-                toast.success(`${t.label} test fired`);
+                try {
+                  const res = await fetch("/api/notifications/test", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ business_id: business.id, kind: t.key }),
+                  });
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json?.error ?? "failed");
+                  const { push_sent = 0, push_failed = 0 } = json;
+                  toast.success(
+                    `${t.label} test · push sent to ${push_sent}${push_failed ? ` (${push_failed} failed)` : ""} 🧪`,
+                  );
+                } catch (e: any) {
+                  toast.error(`${t.label} failed — ` + (e?.message ?? "unknown"));
+                } finally {
+                  setTesting(null);
+                }
               }}
             >
               {testing === t.key ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
