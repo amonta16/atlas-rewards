@@ -155,18 +155,22 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
         </div>
       </div>
 
-      {/* CP-37.2 — send-test-notification panel.
-          One tap fires a sample of EACH enabled notification kind to
-          the currently signed-in agency admin so Andrew can verify the
-          end-to-end pipe (DB trigger → push fanout → device) actually
-          works. Calls send_test_notification RPC. */}
+      {/* CP-37.5 — send-test-notification panel.
+          Now fans the test out to EVERY enrolled member of this
+          business (same recipient set as the manual "Send to all"
+          composer) prefixed with 🧪 Test. The agency admin doesn't
+          have a customer surface to view notifications on, so we
+          deliver the test to the real customer accounts — that's
+          the only path where a test can actually be SEEN AND the
+          delivery matches the production wiring exactly. Use on a
+          test sub-account so you don't ping real members. */}
       <div className="rounded-3xl border bg-white p-5 lg:p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-1">
           <Send className="h-4 w-4 text-emerald-500" />
           <h3 className="font-bold">Test notifications</h3>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          Fire a sample of each enabled notification kind to your own account so you can verify the bell + push wiring. Lands as in-app rows and, if you've granted push permission, as a phone notification too.
+          Fires a sample of each enabled kind to every enrolled member of this business — same path "Send to all" uses, with a 🧪 Test prefix. Use on a test sub-account so you don't ping real customers.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -183,8 +187,10 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
               });
               setTesting(null);
               if (error) { toast.error("Test failed — " + error.message); return; }
-              const sent = (Array.isArray(data) ? data[0]?.sent : data?.sent) ?? 0;
-              toast.success(`Test sent: ${sent} notification${sent === 1 ? "" : "s"} ✨`);
+              const row = Array.isArray(data) ? data[0] : data;
+              const sent = row?.sent ?? 0;
+              const recipients = row?.recipients ?? 0;
+              toast.success(`Test sent · ${sent} notifications across ${recipients} member${recipients === 1 ? "" : "s"} ✨`);
             }}
           >
             {testing === "all" ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Sending all…</> : "Send one of each enabled kind"}

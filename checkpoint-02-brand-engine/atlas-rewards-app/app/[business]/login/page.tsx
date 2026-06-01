@@ -67,7 +67,15 @@ export default function CustomerLogin() {
       setLoading(false);
       return;
     }
-    router.push("/app");
+    // CP-37.5: honor ?next=/<path> so manager / front-desk invite links
+    // (which always include ?next=/<slug>/manage) land on the right
+    // surface. Customer signups arrive without ?next= and still get
+    // /app as the default.
+    let next: string | null = null;
+    if (typeof window !== "undefined") {
+      next = new URLSearchParams(window.location.search).get("next");
+    }
+    router.push(next && next.startsWith("/") ? next : "/app");
     router.refresh();
   }
 
@@ -83,14 +91,19 @@ export default function CustomerLogin() {
     setLinkSending(true);
     setErr(null);
     const supabase = createClient();
+    // CP-37.5: pass ?next through to the magic-link redirect so the
+    // post-confirm landing is /<slug>/manage for managers / front-desk.
+    let next: string | null = null;
+    if (typeof window !== "undefined") {
+      next = new URLSearchParams(window.location.search).get("next");
+    }
+    const dest = next && next.startsWith("/") ? next : "/app";
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        // Bring them back to the per-business app shell after they tap
-        // the link in their email.
         emailRedirectTo:
           typeof window !== "undefined"
-            ? `${window.location.origin}/app`
+            ? `${window.location.origin}${dest}`
             : undefined,
       },
     });

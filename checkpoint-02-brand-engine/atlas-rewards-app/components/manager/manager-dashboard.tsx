@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
-import { ScanLine, UserSearch, History, LogOut, Gift, Tag, Newspaper, Home, Check, Shield } from "lucide-react";
+import { ScanLine, UserSearch, History, LogOut, Gift, Tag, Newspaper, Home, Check, Shield, Lightbulb } from "lucide-react";
+import { ManagerTutorial, useTutorialAutoOpen } from "@/components/manager/manager-tutorial";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,6 +105,15 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   // Insights from front desk. RLS still enforces the actual data block —
   // this is purely so staff don't see options they can't use.
   const [role, setRole] = useState<AppRole>(null);
+
+  // CP-37.5: tutorial walkthrough state. Auto-opens once per role the
+  // first time someone signs in (persisted to localStorage). Header
+  // lightbulb button re-opens it any time.
+  const [autoOpen, dismissAutoOpen] = useTutorialAutoOpen(role);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  useEffect(() => {
+    if (autoOpen) setTutorialOpen(true);
+  }, [autoOpen]);
   useEffect(() => {
     const supabase = createClient();
     (async () => {
@@ -244,9 +254,35 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               </div>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="h-4 w-4 mr-1"/>Sign out</Button>
+          {/* CP-37.5: header tutorial button. Subtle until tapped —
+              walks the user through their role's features one step
+              at a time. Auto-opens on first sign-in for new accounts. */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTutorialOpen(true)}
+              title="Show tutorial"
+              aria-label="Show tutorial"
+            >
+              <Lightbulb className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">Tutorial</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="h-4 w-4 mr-1"/>Sign out</Button>
+          </div>
         </div>
       </header>
+
+      {/* CP-37.5: tutorial walkthrough overlay. */}
+      <ManagerTutorial
+        role={role}
+        primary={business.brand_colors.primary}
+        open={tutorialOpen}
+        onClose={() => {
+          setTutorialOpen(false);
+          dismissAutoOpen();
+        }}
+      />
 
       {/* Tabs */}
       <div className="bg-white border-b">

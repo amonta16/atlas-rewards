@@ -167,25 +167,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: roleErr.message }, { status: 400 });
   }
 
-  // 5. Build the sign-in URL. We don't need a token — they sign in
-  // with the email + password Andrew just set for them.
+  // 5. Build the sign-in URL.
   //
-  // /login?email=<email>&forBusiness=<slug> lets the page pre-fill
-  // the email and (optionally) route them to the right post-login
-  // destination.
-  const signInUrl = new URL("/login", req.nextUrl.origin);
-  signInUrl.searchParams.set("email", email);
-
-  if (role !== "agency_admin" && businessId) {
-    // Look up the slug so the link points at the right subdomain login.
+  // CP-37.5: previously this always returned /login (the agency-admin
+  // login form), which silently locked out managers and front-desk —
+  // /login redirects to /agency on success, where non-admin users
+  // have no permission. Now:
+  //   • agency_admin    → /login              (agency surface)
+  //   • business_*      → /<slug>/login       (per-business surface)
+  // The per-business login page redirects to /<slug>/manage on success.
+  let signInUrl: URL;
+  if (role === "agency_admin") {
+    signInUrl = new URL("/login", req.nextUrl.origin);
+    signInUrl.searchParams.set("email", email);
+  } else if (businessId) {
+    // Look up the slug so we can build /<slug>/login.
     const { data: biz } = await admin
       .from("businesses")
       .select("slug")
       .eq("id", businessId)
       .maybeSingle();
-    if ((biz as any)?.slug) {
-      signInUrl.searchParams.set("biz", (biz as any).slug);
+    const slug = (biz as any)?.slug;
+    if (!slug) {
+      return NextResponse.json({ error: "business slug not found" }, { status: 500 });
     }
+    signInUrl = new URL(`/${slug}/login`, req.nextUrl.origin);
+    signInUrl.searchParams.set("email", email);
+    // Redirect target after sign-in — the per-business login already
+    // routes to /<slug>/app on success, but managers/front-desk need
+    // /<slug>/manage. Pass it as ?next= so the login page honors it.
+    signInUrl.searchParams.set("next", `/${slug}/manage`);
+  } else {
+    // Defensive fallback — shouldn't hit this since we validated
+    // businessId for non-admin roles above.
+    signInUrl = new URL("/login", req.nextUrl.origin);
+    signInUrl.searchParams.set("email", email);
   }
 
   return NextResponse.json({
