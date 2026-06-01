@@ -47,12 +47,28 @@ export default function CustomerSignup() {
     setLoading(true);
     setErr(null);
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data: signupData, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name, phone, birthday } },
     });
     if (error) { setErr(error.message); setLoading(false); return; }
+
+    // CP-37.1: detect "email confirmation required" — when Supabase has
+    // Confirm-email enabled, signUp returns a user but NO session, and
+    // every subsequent call (enroll_member, profiles upsert) silently
+    // fails because auth.uid() is null. The customer ends up with a
+    // half-built account they can't sign in to. Bail out early with a
+    // clear "check your email" message so they don't think the button
+    // is broken.
+    if (signupData?.user && !signupData?.session) {
+      setLoading(false);
+      setErr(null);
+      router.push(
+        `/login?email=${encodeURIComponent(email)}&confirm=1`
+      );
+      return;
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
     // CP-42: also persist birthday onto the profiles row so the rest of

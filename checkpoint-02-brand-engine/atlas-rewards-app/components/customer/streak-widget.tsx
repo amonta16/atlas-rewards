@@ -26,7 +26,19 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Business } from "@/lib/types/database";
 
-type Milestone = { count: number; label: string; points: number; mystery?: boolean };
+type Milestone = {
+  count: number;
+  label: string;
+  points: number;
+  mystery?: boolean;
+  // CP-37.1: enrichment fields injected by get_streak_status. When the
+  // milestone is configured with a linked reward (gift_kind='reward'),
+  // these come back populated and we render the reward's photo inline
+  // on the cell instead of the generic Gift icon.
+  reward_id?: string | null;
+  reward_image_url?: string | null;
+  reward_name?: string | null;
+};
 
 type StreakStatus = {
   is_enabled: boolean;
@@ -306,46 +318,77 @@ export function StreakWidget({
                     )}
 
                     {/* Icon + period label.
-                        CP-37: milestone cells now display the actual reward
-                        NAME (truncated) instead of just a generic Gift icon.
-                        Andrew's complaint: customers had no idea what they
-                        were working toward — "is it points? a free coffee?".
-                        Showing the label inline answers that without a tap. */}
+                        CP-37.1: milestone cells now PREFER the linked
+                        reward's image (when one is configured). Falls
+                        back through:
+                          1. reward image (if reward_id set + image_url)
+                          2. reward label text (if reward but no image)
+                          3. generic Gift / Sparkles / Trophy icon
+                        So agencies that wired up a Reward-kind milestone
+                        get the actual product photo on the streak path
+                        instead of a generic gift icon. */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center px-1">
-                      {isMilestone ? (
-                        isClaimed ? (
-                          <Trophy className="h-5 w-5 text-amber-900 drop-shadow-lg" />
-                        ) : isMystery ? (
-                          <Sparkles className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
-                        ) : (
-                          <Gift className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
-                        )
+                      {isMilestone && milestone!.reward_image_url ? (
+                        // Real reward photo — fills the cell. Claimed
+                        // gets a Trophy overlay so it's clear it's
+                        // already been redeemed.
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={milestone!.reward_image_url!}
+                            alt={milestone!.reward_name ?? milestone!.label}
+                            className="absolute inset-0 h-full w-full object-cover rounded-xl"
+                            style={{ opacity: isFilled ? 1 : 0.55 }}
+                          />
+                          {/* Soft scrim so the period number stays legible
+                              on top of busy product photos. */}
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/55 via-transparent to-transparent pointer-events-none" />
+                          {isClaimed && (
+                            <Trophy className="relative z-10 h-5 w-5 text-amber-300 drop-shadow-lg" />
+                          )}
+                          <div
+                            className="relative z-10 text-[9px] font-extrabold tabular-nums mt-auto mb-0.5 text-white drop-shadow"
+                          >
+                            {periodWord.charAt(0)}{n}
+                          </div>
+                        </>
+                      ) : isMilestone ? (
+                        // Reward configured but no image, OR points-only
+                        // milestone. Use the icon + label fallback from
+                        // the original CP-37 behavior.
+                        <>
+                          {isClaimed ? (
+                            <Trophy className="h-5 w-5 text-amber-900 drop-shadow-lg" />
+                          ) : isMystery ? (
+                            <Sparkles className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
+                          ) : (
+                            <Gift className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
+                          )}
+                          <div
+                            className={`text-[8px] leading-[1.05] font-extrabold text-center mt-0.5 line-clamp-2 ${
+                              isFilled ? "text-amber-900" : "text-amber-50"
+                            }`}
+                            title={milestone!.reward_name ?? milestone!.label}
+                          >
+                            {milestone!.reward_name ?? milestone!.label}
+                          </div>
+                        </>
                       ) : (
-                        <Flame
-                          className={`h-5 w-5 drop-shadow ${isFilled ? "" : "opacity-40"}`}
-                          style={{ color: isFilled ? "#fff7ed" : "rgba(255,255,255,0.6)" }}
-                        />
-                      )}
-                      {/* For milestone cells: render the reward label on
-                          two clamped lines so even "Free coffee" shows. */}
-                      {isMilestone ? (
-                        <div
-                          className={`text-[8px] leading-[1.05] font-extrabold text-center mt-0.5 line-clamp-2 ${
-                            isFilled ? "text-amber-900" : "text-amber-50"
-                          }`}
-                          title={milestone!.label}
-                        >
-                          {milestone!.label}
-                        </div>
-                      ) : (
-                        <div
-                          className={`text-[9px] font-extrabold tabular-nums mt-0.5 ${
-                            isFilled ? "text-white" : "text-white/55"
-                          }`}
-                        >
-                          {periodWord.charAt(0)}
-                          {n}
-                        </div>
+                        // Regular (non-milestone) check-in cell — flame.
+                        <>
+                          <Flame
+                            className={`h-5 w-5 drop-shadow ${isFilled ? "" : "opacity-40"}`}
+                            style={{ color: isFilled ? "#fff7ed" : "rgba(255,255,255,0.6)" }}
+                          />
+                          <div
+                            className={`text-[9px] font-extrabold tabular-nums mt-0.5 ${
+                              isFilled ? "text-white" : "text-white/55"
+                            }`}
+                          >
+                            {periodWord.charAt(0)}
+                            {n}
+                          </div>
+                        </>
                       )}
                     </div>
 
@@ -392,7 +435,7 @@ export function StreakWidget({
                       }}
                     >
                       <div
-                        className="h-8 w-8 rounded-md flex items-center justify-center shrink-0"
+                        className="h-8 w-8 rounded-md flex items-center justify-center shrink-0 overflow-hidden"
                         style={{
                           background: claimed
                             ? "linear-gradient(135deg, #facc15, #f59e0b)"
@@ -401,7 +444,15 @@ export function StreakWidget({
                               : "rgba(255,255,255,0.10)",
                         }}
                       >
-                        {claimed ? (
+                        {/* CP-37.1: prefer the linked reward's photo. */}
+                        {m.reward_image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={m.reward_image_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : claimed ? (
                           <Trophy className="h-4 w-4 text-white" />
                         ) : m.mystery ? (
                           <Sparkles className="h-4 w-4 text-white" />
@@ -411,7 +462,10 @@ export function StreakWidget({
                       </div>
                       <div className="flex-1 text-white min-w-0">
                         <div className="text-xs font-bold leading-tight truncate">
-                          {m.label}
+                          {/* CP-37.1: prefer the linked reward's name so
+                              "Free Latte" wins over a generic milestone
+                              label like "3 in a row". */}
+                          {m.reward_name ?? m.label}
                         </div>
                         <div className="text-[10px] opacity-80">
                           {periodWord} {m.count} · +{m.points} pts
