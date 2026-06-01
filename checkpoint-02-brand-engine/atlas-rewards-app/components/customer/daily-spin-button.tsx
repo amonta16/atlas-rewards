@@ -1,25 +1,37 @@
 "use client";
 /**
- * DailySpinButton — CP-42
+ * DailySpinButton — CP-42, revised CP-37
  *
- * Reusable wrapper around the existing "Daily Spin · Check in to unlock"
- * button so we can render the SAME UI on both:
- *   • the Rewards tab (where Andrew originally placed it)
- *   • the Home tab (Andrew asked to surface it under the Featured offer)
+ * Reusable wrapper around the "Daily Spin" CTA on Home + Rewards.
  *
- * State source-of-truth: queries check_in_events for "checked in today"
- * once on mount + subscribes to INSERTs so the button flips the moment
- * front-desk scans the customer.
+ * CP-37 fix: before this revision the button ONLY tracked "checked in
+ * today" — so after the customer actually spun, the card kept saying
+ * "You're ready to spin!" even though the spin had already happened.
+ * Tapping it then surfaced the "already spun, come back tomorrow"
+ * modal — confusing UX.
  *
- * Locked → gray card, "Check in to unlock", tap does nothing.
- * Unlocked → brand-gradient card, "You're ready to spin!", tap opens
- *            DailyMysteryModal (existing slot-machine reveal).
+ * The fix is to ALSO subscribe to mystery_reward_status, which already
+ * tells us is_available + next_spin_at. We now have three states:
+ *
+ *   • locked     — haven't checked in yet today → "Check in to unlock"
+ *   • ready      — checked in AND is_available=true → bright SPIN
+ *   • cooldown   — already spun → countdown to next spin
+ *
+ * Realtime: subscribes to BOTH check_in_events (unlock) and
+ * mystery_reward_spins (lock + show countdown) so the card flips
+ * the instant either event lands on the customer's account.
+ *
+ * Robust to mystery_reward_status not being deployed yet — if the
+ * RPC errors, we silently fall back to the original check-in-only
+ * behavior (same UI as before this fix).
  */
 import { useEffect, useState } from "react";
-import { Zap } from "lucide-react";
+import { Zap, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 import type { Business } from "@/lib/types/database";
+
+type SpinStatus = { is_available: boolean; next_spin_at: string | null };
 
 export function DailySpinButton({
   business,
@@ -29,6 +41,9 @@ export function DailySpinButton({
   membershipId: string;
 }) {
   const [checkedInToday, setCheckedInToday] = useState(false);
+  const [spinStatus, setSpinStatus] = useState<SpinStatus | null>(null);
+  // Tick once a second so the countdown ticks visibly without remounting.
+  const [, forceRerender] = useState(0);
   const [spinOpen, setSpinOpen] = useState(false);
 
   useEffect(() => {
@@ -36,71 +51,157 @@ export function DailySpinButton({
     const supabase = createClient();
 
     const load = async () => {
+      // Check-in today (existing behavior, still authoritative for the
+      // "locked" state).
       const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
-      const { data } = await supabase
+      const { data: ci } = await supabase
         .from("check_in_events")
         .select("id")
         .eq("membership_id", membershipId)
         .gte("created_at", dayStart.toISOString())
         .limit(1);
-      setCheckedInToday((data?.length ?? 0) > 0);
+      setCheckedInToday((ci?.length ?? 0) > 0);
+
+      // Spin availability (CP-37). RPC may not exist on older deploys.
+      const { data: st, error: stErr } = await supabase.rpc("mystery_reward_status", {
+        p_business_id: business.id,
+        p_membership_id: membershipId,
+      });
+      if (!stErr) {
+        const row = (Array.isArray(st) ? st[0] : st) as SpinStatus | null;
+        setSpinStatus(row);
+      }
     };
     load();
 
-    // Realtime: flip to unlocked the moment they get scanned at the desk.
-    const ch = supabase
-      .channel(`spin-button-${membershipId}`)
+    // Realtime: flip locked → ready when they check in.
+    const ch1 = supabase
+      .channel(`spin-button-checkin-${membershipId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "check_in_events", filter: `membership_id=eq.${membershipId}` },
         load,
       )
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [membershipId]);
+    // Realtime: flip ready → cooldown the moment a spin lands.
+    const ch2 = supabase
+      .channel(`spin-button-spins-${membershipId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "mystery_reward_spins", filter: `membership_id=eq.${membershipId}` },
+        load,
+      )
+      .subscribe();
+
+    // Countdown tick.
+    const tick = setInterval(() => forceRerender(t => t + 1), 1000);
+    // Safety re-poll every 60s in case realtime drops.
+    const poll = setInterval(load, 60_000);
+
+    return () => {
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
+      clearInterval(tick);
+      clearInterval(poll);
+    };
+  }, [business.id, membershipId]);
+
+  // Derive the three states.
+  // CP-37: if mystery_reward_status RPC returned data, prefer it as the
+  // source of truth on whether a spin is actually available right now.
+  // Otherwise fall back to "checked in today".
+  const knownNotAvailable =
+    spinStatus !== null && spinStatus.is_available === false;
+  const cooldown =
+    knownNotAvailable && checkedInToday && spinStatus?.next_spin_at != null;
+  const ready =
+    spinStatus !== null
+      ? !!spinStatus.is_available
+      : checkedInToday;
+
+  const nextAt = spinStatus?.next_spin_at ? new Date(spinStatus.next_spin_at) : null;
+  const msLeft = nextAt ? Math.max(0, nextAt.getTime() - Date.now()) : 0;
+  const hh = Math.floor(msLeft / 3_600_000);
+  const mm = Math.floor((msLeft % 3_600_000) / 60_000);
+  const ss = Math.floor((msLeft % 60_000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const countdown = hh > 0 ? `${hh}:${pad(mm)}:${pad(ss)}` : `${pad(mm)}:${pad(ss)}`;
+
+  // Visual state buckets.
+  const variant: "ready" | "cooldown" | "locked" =
+    ready ? "ready" : cooldown ? "cooldown" : "locked";
 
   return (
     <>
       <div className="px-4 mt-5">
         <button
-          onClick={() => setSpinOpen(true)}
-          className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform"
+          onClick={() => {
+            // Only the "ready" state actually opens the slot machine.
+            // Cooldown + locked are informational — tapping does nothing
+            // so the customer isn't dropped into a modal that just says
+            // "no spin available".
+            if (variant === "ready") setSpinOpen(true);
+          }}
+          disabled={variant !== "ready"}
+          className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform disabled:cursor-default"
           style={{
-            background: checkedInToday
-              ? `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)`
-              : "rgb(244 244 245)",
+            background:
+              variant === "ready"
+                ? `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)`
+                : "rgb(244 244 245)",
           }}
         >
           <div className="p-4 flex items-center gap-4">
             <div
               className="h-14 w-14 rounded-2xl flex items-center justify-center text-3xl shrink-0"
               style={{
-                background: checkedInToday ? "rgba(255,255,255,0.2)" : "rgb(228 228 231)",
+                background: variant === "ready" ? "rgba(255,255,255,0.2)" : "rgb(228 228 231)",
               }}
             >
-              🎰
+              {variant === "cooldown" ? <Clock className="h-7 w-7 text-zinc-500" /> : "🎰"}
             </div>
             <div className="flex-1 min-w-0">
               <div
-                className={`text-[11px] font-extrabold uppercase tracking-widest ${checkedInToday ? "text-white/80" : "text-zinc-400"}`}
+                className={`text-[11px] font-extrabold uppercase tracking-widest ${variant === "ready" ? "text-white/80" : "text-zinc-400"}`}
               >
                 Daily Spin
               </div>
-              <div className={`font-extrabold text-base leading-tight mt-0.5 ${checkedInToday ? "text-white" : "text-zinc-400"}`}>
-                {checkedInToday ? "You're ready to spin!" : "Check in to unlock"}
+              <div
+                className={`font-extrabold text-base leading-tight mt-0.5 ${variant === "ready" ? "text-white" : "text-zinc-500"}`}
+              >
+                {variant === "ready"
+                  ? "You're ready to spin!"
+                  : variant === "cooldown"
+                    ? "Already spun today"
+                    : "Check in to unlock"}
               </div>
-              <div className={`text-xs mt-0.5 ${checkedInToday ? "text-white/75" : "text-zinc-400"}`}>
-                {checkedInToday ? "Tap to play your slot machine" : "Visit the shop to get your spin"}
+              <div className={`text-xs mt-0.5 ${variant === "ready" ? "text-white/75" : "text-zinc-400"}`}>
+                {variant === "ready"
+                  ? "Tap to play your slot machine"
+                  : variant === "cooldown"
+                    ? `Next spin in ${countdown}`
+                    : "Visit the shop to get your spin"}
               </div>
             </div>
             <div className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${
-              checkedInToday ? "bg-white text-zinc-900" : "bg-zinc-200 text-zinc-500"
+              variant === "ready" ? "bg-white text-zinc-900" : "bg-zinc-200 text-zinc-500"
             }`}>
-              <Zap className="h-3 w-3" />
-              {checkedInToday ? "SPIN!" : "Locked"}
+              {variant === "ready" ? (
+                <>
+                  <Zap className="h-3 w-3" />
+                  SPIN!
+                </>
+              ) : variant === "cooldown" ? (
+                <span className="tabular-nums">{countdown}</span>
+              ) : (
+                <>
+                  <Zap className="h-3 w-3" />
+                  Locked
+                </>
+              )}
             </div>
           </div>
-          {checkedInToday && (
+          {variant === "ready" && (
             <div className="absolute top-2 right-20 text-lg opacity-20 pointer-events-none">⭐💎🔥</div>
           )}
         </button>

@@ -18,7 +18,13 @@ import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
 // CP-42 (round 3): AtlasValueStrip moved to InsightsDashboard.
 import { TeamMembers } from "@/components/team/team-members";
-// CP-36b: NotificationBroadcast removed — moved to agency settings.
+// CP-37: NotificationBroadcast restored to the front-desk tab so
+// managers can send a one-off "Send to all members" notification
+// without having to bounce into the agency settings. The composer
+// itself is scoped by business_id (managers only see their own
+// business) and the underlying broadcast_notification RPC re-checks
+// is_business_manager_or_admin, so this is safe to surface here.
+import { NotificationBroadcast } from "@/components/notifications/notification-broadcast";
 import { OffersManager } from "@/components/agency/offers-manager";
 import { AutomatedOffersManager } from "@/components/agency/automated-offers-manager";
 import { NewsManager } from "@/components/agency/news-manager";
@@ -400,6 +406,18 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             {/* CP-34: pending memberships awaiting in-person / external-link
                 payment confirmation. Self-hides when empty. */}
             <PendingMembershipsQueue business={business} />
+
+            {/* CP-37: "Send to all members" composer, restored to the
+                front-desk surface so managers + agency admins can post a
+                one-off broadcast without leaving the desk. Scoped to
+                this business's members only — the broadcast_notification
+                RPC enforces is_business_manager_or_admin(business_id). */}
+            {(role === "business_manager" || role === "agency_admin") && (
+              <NotificationBroadcast
+                businessId={business.id}
+                primary={business.brand_colors.primary}
+              />
+            )}
 
             {/* Recent activity */}
             <div className="rounded-2xl border bg-white">

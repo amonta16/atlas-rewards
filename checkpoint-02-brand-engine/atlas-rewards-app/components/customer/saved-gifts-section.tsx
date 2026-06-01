@@ -26,13 +26,20 @@ type SavedOffer = {
   title: string;
   description: string | null;
   image_url: string | null;
-  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | null;
+  // CP-37: 'reward' added so a welcome gift / automated offer can link
+  // directly to a pre-existing rewards row (free coffee, 10% off, etc).
+  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | "reward" | null;
   discount_value: number | null;
   expires_at: string | null;
   voice_message_url: string | null;
   redeem_code: string | null;
   fulfilled_at: string | null;
   saved_at: string;
+  // CP-37: when the gift is a 'reward' kind, my_saved_offers returns
+  // the linked reward's id + name so we render "Free Latte" instead
+  // of a blank row.
+  gift_reward_id?: string | null;
+  gift_reward_name?: string | null;
 };
 
 export function SavedGiftsSection({
@@ -216,6 +223,12 @@ export function SavedGiftsSection({
 }
 
 function discountLabel(o: SavedOffer): string | null {
+  // CP-37: 'reward' kind shows the linked reward's name; this is what
+  // makes a welcome gift like "🎁 Free latte" actually say what it is
+  // instead of being a blank row.
+  if (o.discount_type === "reward") {
+    return o.gift_reward_name ? `🎁 ${o.gift_reward_name}` : "🎁 Free reward";
+  }
   if (!o.discount_type || o.discount_type === "none") return null;
   const v = o.discount_value ?? 0;
   if (o.discount_type === "percent")      return `${v}% off`;

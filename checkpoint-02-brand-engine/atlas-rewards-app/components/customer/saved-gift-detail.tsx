@@ -25,11 +25,15 @@ type GiftLike = {
   title: string;
   description: string | null;
   image_url: string | null;
-  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | null;
+  // CP-37: 'reward' added to keep the type compatible with the parent
+  // SavedGiftsSection union (welcome gifts can now link to a specific
+  // pre-existing reward — discount label shows the reward name).
+  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | "reward" | null;
   discount_value: number | null;
   expires_at: string | null;
   redeem_code: string | null;
   fulfilled_at: string | null;
+  gift_reward_name?: string | null;
 };
 
 export function SavedGiftDetail({
@@ -52,6 +56,12 @@ export function SavedGiftDetail({
   const expired = remainMs != null && remainMs <= 0;
 
   const discount = (() => {
+    // CP-37: 'reward' kind shows the linked reward's name so the modal
+    // doesn't look empty for welcome gifts that hand out a specific
+    // pre-existing reward.
+    if (gift.discount_type === "reward") {
+      return gift.gift_reward_name ? `🎁 ${gift.gift_reward_name}` : "🎁 Free reward";
+    }
     if (!gift.discount_type || gift.discount_type === "none") return null;
     const v = gift.discount_value ?? 0;
     if (gift.discount_type === "percent")      return `${v}% off`;

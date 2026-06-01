@@ -1,0 +1,1493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Atlas Engine — Features Brochure</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+/* ─────────────────────────────────────────────────────────────────
+ * ATLAS ENGINE — FEATURES BROCHURE
+ * 10 letter pages. Customer → manager → agency → CTA.
+ * Mockups are inline SVG so the brochure is one self-contained file.
+ * Print: browser → Print → Save as PDF (Letter, default margins).
+ * ─────────────────────────────────────────────────────────────── */
+@page { size: letter; margin: 0; }
+@media print {
+  body { background: white !important; }
+  .page { box-shadow: none !important; margin: 0 !important; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .no-print { display: none !important; }
+}
+:root {
+  --ocean-1: #0a3d62;
+  --ocean-2: #1d6fa5;
+  --ocean-3: #2a8cc4;
+  --gold:    #f59e0b;
+  --gold-2:  #fbbf24;
+  --rose:    #f43f5e;
+  --emerald: #10b981;
+  --violet:  #8b5cf6;
+  --sky:     #0ea5e9;
+  --amber:   #f59e0b;
+  --ink:     #0f172a;
+  --muted:   #475569;
+  --line:    #e2e8f0;
+  --bg-soft: #f8fafc;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f1f5f9;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  width: 8.5in;
+  min-height: 11in;
+  margin: 0 auto 32px;
+  padding: 0.55in;
+  background: white;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== TYPOGRAPHY ===== */
+h1 { font-size: 52px; font-weight: 900; letter-spacing: -1.5px; line-height: 1; margin: 0; }
+h2 { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.05; margin: 0 0 8px; color: var(--ocean-1); }
+h3 { font-size: 18px; font-weight: 800; margin: 0 0 6px; }
+.lede { font-size: 16px; line-height: 1.5; color: var(--muted); }
+.eyebrow {
+  font-size: 11px; font-weight: 900; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ocean-2);
+}
+
+/* ===== LOGO ===== */
+.logo {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 900; font-size: 20px; letter-spacing: -0.5px;
+}
+.logo-mark {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--ocean-1), var(--ocean-3));
+  position: relative;
+}
+.logo-mark::before {
+  content: ""; position: absolute; inset: 5px;
+  border: 2.2px solid white; border-radius: 50%;
+}
+.logo-mark::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px; height: 5px; background: white; border-radius: 50%;
+}
+
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 14px; margin-bottom: 22px;
+  border-bottom: 2px solid var(--ocean-1);
+}
+.pg-num {
+  font-size: 11px; font-weight: 800; color: var(--ocean-2);
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+
+/* ===== COVER ===== */
+.cover {
+  display: flex; flex-direction: column; min-height: 9.8in; padding: 0;
+}
+.cover-hero {
+  background: linear-gradient(135deg, var(--ocean-1) 0%, var(--ocean-2) 55%, var(--ocean-3) 100%);
+  color: white; padding: 0.8in 0.7in; position: relative; overflow: hidden;
+  flex: 1;
+}
+.cover-hero::before {
+  content: ""; position: absolute; top: -80px; right: -80px;
+  width: 320px; height: 320px; border-radius: 50%;
+  background: rgba(255,255,255,0.1); filter: blur(50px);
+}
+.cover-hero::after {
+  content: ""; position: absolute; bottom: -100px; left: -60px;
+  width: 360px; height: 360px; border-radius: 50%;
+  background: rgba(0,0,0,0.18); filter: blur(60px);
+}
+.cover-foot {
+  background: white; padding: 0.5in 0.7in;
+  border-top: 4px solid var(--gold);
+}
+
+/* ===== TWO-COLUMN LAYOUTS ===== */
+.split {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 32px; align-items: start;
+}
+.split-mock-left { grid-template-columns: auto 1fr; }
+.split-mock-right { grid-template-columns: 1fr auto; }
+
+/* ===== FEATURE BULLET ===== */
+.feat {
+  display: flex; gap: 12px; padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.feat:last-child { border-bottom: none; }
+.feat-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--ocean-1), var(--ocean-3));
+  color: white; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.feat-icon-gold { background: linear-gradient(135deg, var(--gold-2), var(--gold)); }
+.feat-icon-rose { background: linear-gradient(135deg, var(--rose), #fb7185); }
+.feat-icon-emerald { background: linear-gradient(135deg, var(--emerald), #34d399); }
+.feat-icon-violet { background: linear-gradient(135deg, var(--violet), #a78bfa); }
+.feat-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+.feat-sub { font-size: 12px; line-height: 1.45; color: var(--muted); margin-top: 2px; }
+
+/* ===== CALLOUT ===== */
+.callout {
+  background: linear-gradient(135deg, #eff6ff, #fef3c7);
+  border: 1.5px solid var(--ocean-2); border-radius: 10px;
+  padding: 12px 14px; font-size: 12.5px; line-height: 1.45;
+}
+.callout-gold {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border-color: var(--gold);
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--ocean-1); color: white;
+  font-size: 10px; font-weight: 800; padding: 3px 9px;
+  border-radius: 999px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.pill-gold { background: var(--gold); color: #1f1300; }
+.pill-rose { background: var(--rose); color: white; }
+
+/* ───── PHONE FRAME ───── */
+.phone {
+  width: 280px;
+  background: #0a0a0a;
+  border-radius: 36px;
+  padding: 10px;
+  box-shadow: 0 20px 50px rgba(10,61,98,0.25), 0 6px 18px rgba(0,0,0,0.18);
+  position: relative;
+}
+.phone::before {
+  content: ""; position: absolute; top: 12px; left: 50%;
+  transform: translateX(-50%);
+  width: 110px; height: 22px;
+  background: #0a0a0a; border-radius: 14px;
+  z-index: 10;
+}
+.phone-screen {
+  background: #f8fafc;
+  border-radius: 28px;
+  overflow: hidden;
+  aspect-ratio: 9 / 19.5;
+  position: relative;
+  width: 100%;
+}
+
+/* ───── DESKTOP FRAME ───── */
+.desk {
+  background: #0a0a0a;
+  border-radius: 12px 12px 6px 6px;
+  padding: 24px 6px 6px;
+  box-shadow: 0 20px 50px rgba(10,61,98,0.25), 0 6px 18px rgba(0,0,0,0.18);
+  position: relative;
+}
+.desk::before {
+  content: "● ● ●"; position: absolute; top: 7px; left: 12px;
+  color: #444; font-size: 9px; letter-spacing: 2px;
+}
+.desk-screen {
+  background: white;
+  border-radius: 6px 6px 4px 4px;
+  overflow: hidden;
+}
+
+/* ===== SVG INLINE MOCKUPS HELPERS ===== */
+.mock-img { display: block; width: 100%; height: auto; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 1 — "PLAY LIKE McDONALD'S" HEADLINE PAGE
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page" style="padding: 0; display: flex; flex-direction: column;">
+  <!-- white headline hero -->
+  <div style="padding: 0.85in 0.7in 0.4in; flex: 1; display: flex; flex-direction: column;">
+
+    <div class="logo">
+      <span class="logo-mark"></span><span>Atlas Engine</span>
+    </div>
+
+    <div style="margin-top: 60px;">
+      <div class="eyebrow" style="color: var(--rose); font-size: 13px;">
+        The big-chain playbook · without the big-chain budget
+      </div>
+      <h1 style="margin-top: 14px; font-size: 70px; line-height: 0.95; letter-spacing: -2.5px;">
+        Play like<br/>
+        <span style="background: linear-gradient(135deg, #DA291C 0%, #FFC72C 50%, #006341 100%); -webkit-background-clip: text; background-clip: text; color: transparent;">the big guys.</span><br/>
+        Spend 0.001%<br/>
+        of their budget.
+      </h1>
+      <p style="font-size: 19px; line-height: 1.5; color: var(--muted); margin-top: 26px; max-width: 6in;">
+        McDonald's, Starbucks, and Domino's spent <strong style="color: var(--ink);">millions</strong> building the same loyalty mechanics that lock customers in: branded apps, points, streaks, push notifications, member-only offers, voice messages, win-back automations. Atlas hands every one of those mechanics to a local business for the cost of a phone bill.
+      </p>
+    </div>
+
+    <!-- Logos row: stylized references (not real trademarks) -->
+    <div style="margin-top: 50px;">
+      <div class="eyebrow" style="font-size: 11px; margin-bottom: 12px;">Same playbook as</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px;">
+        <!-- McDonald's stylized -->
+        <div style="background: #DA291C; border-radius: 14px; padding: 18px 16px; text-align: center; box-shadow: 0 8px 24px rgba(218,41,28,0.25);">
+          <svg viewBox="0 0 100 60" style="width: 100%; height: 60px;" xmlns="http://www.w3.org/2000/svg">
+            <!-- golden arches: two parabolic strokes meeting in the middle -->
+            <path d="M 18 56 Q 18 6, 50 6 Q 50 30, 50 56 M 50 56 Q 50 30, 50 6 Q 82 6, 82 56"
+                  fill="none" stroke="#FFC72C" stroke-width="11" stroke-linejoin="round"/>
+          </svg>
+          <div style="color: white; font-weight: 900; font-size: 13px; margin-top: 8px; letter-spacing: 0.5px;">McDonald's app</div>
+          <div style="color: rgba(255,255,255,0.85); font-size: 10px; margin-top: 3px; font-weight: 600;">$$$M build · 60M+ users</div>
+        </div>
+
+        <!-- Starbucks stylized -->
+        <div style="background: #006341; border-radius: 14px; padding: 18px 16px; text-align: center; box-shadow: 0 8px 24px rgba(0,99,65,0.25);">
+          <svg viewBox="0 0 100 60" style="width: 100%; height: 60px;" xmlns="http://www.w3.org/2000/svg">
+            <!-- green circular crest with a stylized star -->
+            <circle cx="50" cy="30" r="24" fill="white"/>
+            <circle cx="50" cy="30" r="20" fill="#006341"/>
+            <!-- star -->
+            <polygon points="50,18 53,28 63,28 55,34 58,44 50,38 42,44 45,34 37,28 47,28" fill="white"/>
+          </svg>
+          <div style="color: white; font-weight: 900; font-size: 13px; margin-top: 8px; letter-spacing: 0.5px;">Starbucks Rewards</div>
+          <div style="color: rgba(255,255,255,0.85); font-size: 10px; margin-top: 3px; font-weight: 600;">$$$M build · 31M+ members</div>
+        </div>
+
+        <!-- Domino's stylized -->
+        <div style="background: linear-gradient(135deg, #006491 50%, #E31837 50%); border-radius: 14px; padding: 18px 16px; text-align: center; box-shadow: 0 8px 24px rgba(227,24,55,0.25);">
+          <svg viewBox="0 0 100 60" style="width: 100%; height: 60px;" xmlns="http://www.w3.org/2000/svg">
+            <!-- a tilted domino: half blue / half red with 3 dots -->
+            <g transform="rotate(-12 50 30)">
+              <rect x="22" y="14" width="56" height="32" rx="5" fill="white"/>
+              <rect x="22" y="14" width="28" height="32" rx="5" fill="#006491"/>
+              <rect x="50" y="14" width="28" height="32" rx="5" fill="#E31837"/>
+              <circle cx="34" cy="22" r="2.6" fill="white"/>
+              <circle cx="34" cy="38" r="2.6" fill="white"/>
+              <circle cx="66" cy="22" r="2.6" fill="white"/>
+              <circle cx="66" cy="30" r="2.6" fill="white"/>
+              <circle cx="66" cy="38" r="2.6" fill="white"/>
+            </g>
+          </svg>
+          <div style="color: white; font-weight: 900; font-size: 13px; margin-top: 8px; letter-spacing: 0.5px;">Domino's Piece of the Pie</div>
+          <div style="color: rgba(255,255,255,0.92); font-size: 10px; margin-top: 3px; font-weight: 600;">$$$M build · 25M+ members</div>
+        </div>
+      </div>
+      <div style="font-size: 9px; color: var(--muted); margin-top: 10px; text-align: center; font-style: italic;">
+        Brand references for comparison only. Atlas Engine is not affiliated with McDonald's Corp., Starbucks Corp., or Domino's Pizza Inc.
+      </div>
+    </div>
+
+    <!-- vs Atlas comparison -->
+    <div style="margin-top: 36px; background: linear-gradient(135deg, #0a3d62 0%, #1d6fa5 60%, #2a8cc4 100%); border-radius: 18px; padding: 28px 32px; color: white; position: relative; overflow: hidden;">
+      <div style="position: absolute; top: -40px; right: -40px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,0.1); filter: blur(40px);"></div>
+      <div style="position: relative;">
+        <div class="eyebrow" style="color: rgba(255,255,255,0.9); font-size: 11px;">vs. Atlas Engine</div>
+        <h2 style="color: white; font-size: 36px; margin-top: 8px;">Same engine. <span style="color: #fbbf24;">Pocket-change price.</span></h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 22px;">
+          <div style="background: rgba(255,255,255,0.12); border-radius: 12px; padding: 14px;">
+            <div style="font-size: 10px; font-weight: 800; opacity: 0.85; letter-spacing: 1px;">BIG-CHAIN APP</div>
+            <div style="font-size: 24px; font-weight: 900; margin-top: 4px;">$2M+</div>
+            <div style="font-size: 11px; opacity: 0.9; margin-top: 4px;">to design, build, ship, maintain.</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.12); border-radius: 12px; padding: 14px;">
+            <div style="font-size: 10px; font-weight: 800; opacity: 0.85; letter-spacing: 1px;">+ ONGOING</div>
+            <div style="font-size: 24px; font-weight: 900; margin-top: 4px;">~$50k/mo</div>
+            <div style="font-size: 11px; opacity: 0.9; margin-top: 4px;">engineering, hosting, support team.</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1f1300; border-radius: 12px; padding: 14px;">
+            <div style="font-size: 10px; font-weight: 900; letter-spacing: 1px;">ATLAS ENGINE</div>
+            <div style="font-size: 24px; font-weight: 900; margin-top: 4px;">~$99/mo</div>
+            <div style="font-size: 11px; opacity: 0.85; margin-top: 4px; font-weight: 700;">launched in 48 hours. Done.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: auto; padding-top: 20px; display: flex; align-items: center; justify-content: space-between; border-top: 2px solid #f1f5f9;">
+      <div style="font-size: 11px; color: var(--muted); font-weight: 600;">Turn the page → see every feature.</div>
+      <div style="font-size: 11px; color: var(--ocean-1); font-weight: 800;">atlas-engine.app</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 2 — COVER (formerly page 1)
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-hero">
+    <div class="logo" style="color: white;">
+      <span class="logo-mark"></span>
+      <span>Atlas Engine</span>
+    </div>
+
+    <div style="margin-top: 90px; position: relative; z-index: 2;">
+      <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.28em; opacity: 0.88; text-transform: uppercase;">
+        Features at a glance
+      </div>
+      <h1 style="margin-top: 10px; font-size: 64px;">Every<br/>feature your<br/>loyalty program<br/>needs.</h1>
+      <p style="font-size: 18px; line-height: 1.5; opacity: 0.95; margin-top: 22px; max-width: 5.4in;">
+        White-label rewards app, automated offers, voice messages, member streaks, push notifications, real-time analytics — all in one ecosystem you can launch for any local business in 48 hours.
+      </p>
+    </div>
+
+    <div style="margin-top: 60px; display: flex; gap: 24px; position: relative; z-index: 2;">
+      <div>
+        <div style="font-size: 36px; font-weight: 900;">48hr</div>
+        <div style="font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">to launch</div>
+      </div>
+      <div>
+        <div style="font-size: 36px; font-weight: 900;">+158%</div>
+        <div style="font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">offer conversion w/ voice</div>
+      </div>
+      <div>
+        <div style="font-size: 36px; font-weight: 900;">3x</div>
+        <div style="font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700;">repeat-visit lift</div>
+      </div>
+    </div>
+  </div>
+  <div class="cover-foot">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <div>
+        <div class="eyebrow">In this brochure</div>
+        <div style="font-size: 13px; color: var(--muted); margin-top: 6px; max-width: 5in;">
+          The customer phone · the rewards game · push notifications · the front desk · manager tools · owner insights · automated offers + voice · multi-business power · launch in 48hr
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 11px; font-weight: 800; color: var(--ocean-1);">atlas-engine.app</div>
+        <div style="font-size: 13px; font-weight: 700;">hello@atlas-engine.app</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 2 — CUSTOMER PHONE: HOME
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">02 · The Customer Phone</div>
+  </div>
+
+  <div class="split split-mock-left">
+    <!-- PHONE: HOME -->
+    <div class="phone">
+      <div class="phone-screen">
+        <svg viewBox="0 0 280 600" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+          <!-- header -->
+          <rect x="0" y="0" width="280" height="180" fill="url(#gradHome)" />
+          <defs>
+            <linearGradient id="gradHome" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#0a3d62"/><stop offset="1" stop-color="#2a8cc4"/>
+            </linearGradient>
+            <linearGradient id="gradGold" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#f59e0b"/>
+            </linearGradient>
+          </defs>
+          <!-- biz logo + bell -->
+          <rect x="12" y="40" width="78" height="22" rx="11" fill="#fbbf24"/>
+          <text x="51" y="55" font-size="10" font-weight="800" fill="#1f1300" text-anchor="middle">JOE'S</text>
+          <circle cx="258" cy="51" r="14" fill="rgba(255,255,255,0.2)"/>
+          <text x="258" y="55" font-size="12" text-anchor="middle">🔔</text>
+          <text x="258" y="42" font-size="9" font-weight="800" fill="#f43f5e" text-anchor="middle">●</text>
+          <!-- greeting -->
+          <text x="12" y="100" font-size="9" font-weight="700" fill="rgba(255,255,255,0.85)">JOE'S COFFEE</text>
+          <text x="12" y="120" font-size="15" font-weight="800" fill="white">Welcome back, Sarah!</text>
+          <!-- points card -->
+          <rect x="12" y="155" width="256" height="100" rx="16" fill="white" stroke="#e2e8f0"/>
+          <text x="24" y="180" font-size="9" font-weight="800" fill="#475569" letter-spacing="1">YOUR POINTS</text>
+          <text x="24" y="220" font-size="34" font-weight="900" fill="#0a3d62">2,150</text>
+          <text x="125" y="220" font-size="11" font-weight="700" fill="#475569">pts</text>
+          <!-- tier badge -->
+          <rect x="195" y="172" width="62" height="22" rx="11" fill="url(#gradGold)"/>
+          <text x="226" y="187" font-size="9" font-weight="800" fill="#1f1300" text-anchor="middle">★ MEMBER</text>
+          <!-- visits chip -->
+          <rect x="24" y="232" width="80" height="16" rx="8" fill="#f1f5f9"/>
+          <text x="64" y="243" font-size="8" font-weight="700" fill="#475569" text-anchor="middle">12 visits this month</text>
+          <!-- featured offer -->
+          <rect x="12" y="270" width="256" height="100" rx="14" fill="url(#gradHome)"/>
+          <rect x="22" y="280" width="60" height="16" rx="8" fill="#fbbf24"/>
+          <text x="52" y="291" font-size="9" font-weight="800" fill="#1f1300" text-anchor="middle">★ FEATURED</text>
+          <text x="22" y="318" font-size="14" font-weight="800" fill="white">Welcome gift</text>
+          <text x="22" y="333" font-size="9" fill="rgba(255,255,255,0.9)">A free drink, on the house ☕</text>
+          <!-- voice pill -->
+          <rect x="22" y="345" width="68" height="18" rx="9" fill="white"/>
+          <circle cx="32" cy="354" r="6" fill="#f43f5e"/>
+          <polygon points="30,351 30,357 35,354" fill="white"/>
+          <text x="69" y="358" font-size="9" font-weight="800" fill="#0f172a" text-anchor="middle">Voice</text>
+          <!-- spin -->
+          <rect x="12" y="380" width="256" height="74" rx="14" fill="url(#gradHome)"/>
+          <rect x="22" y="390" width="54" height="54" rx="12" fill="rgba(255,255,255,0.2)"/>
+          <text x="49" y="425" font-size="22" text-anchor="middle">🎰</text>
+          <text x="86" y="404" font-size="9" font-weight="800" fill="rgba(255,255,255,0.85)" letter-spacing="1">DAILY SPIN</text>
+          <text x="86" y="421" font-size="13" font-weight="900" fill="white">You're ready to spin!</text>
+          <text x="86" y="434" font-size="9" fill="rgba(255,255,255,0.85)">Tap to play your slot machine</text>
+          <rect x="218" y="408" width="40" height="20" rx="10" fill="white"/>
+          <text x="238" y="421" font-size="9" font-weight="800" fill="#0f172a" text-anchor="middle">⚡ SPIN!</text>
+          <!-- top rewards -->
+          <text x="12" y="478" font-size="12" font-weight="800" fill="#0f172a">Top rewards</text>
+          <rect x="12" y="488" width="120" height="92" rx="10" fill="white" stroke="#e2e8f0"/>
+          <rect x="12" y="488" width="120" height="50" rx="10" fill="#fef3c7"/>
+          <text x="72" y="520" font-size="22" text-anchor="middle">☕</text>
+          <text x="22" y="555" font-size="9" font-weight="800" fill="#0a3d62">🔒 500 PTS</text>
+          <text x="22" y="568" font-size="9" font-weight="800" fill="#0f172a">Free latte</text>
+          <rect x="22" y="572" width="100" height="4" rx="2" fill="#e2e8f0"/>
+          <rect x="22" y="572" width="100" height="4" rx="2" fill="#10b981"/>
+          <rect x="148" y="488" width="120" height="92" rx="10" fill="white" stroke="#e2e8f0"/>
+          <rect x="148" y="488" width="120" height="50" rx="10" fill="#dbeafe"/>
+          <text x="208" y="520" font-size="22" text-anchor="middle">🎁</text>
+          <text x="158" y="555" font-size="9" font-weight="800" fill="#0a3d62">🔒 2,000 PTS</text>
+          <text x="158" y="568" font-size="9" font-weight="800" fill="#0f172a">Free pastry</text>
+          <rect x="158" y="572" width="100" height="4" rx="2" fill="#e2e8f0"/>
+          <rect x="158" y="572" width="100" height="4" rx="2" fill="#2a8cc4"/>
+          <!-- bottom nav -->
+          <rect x="0" y="586" width="280" height="14" fill="white" stroke="#e2e8f0"/>
+        </svg>
+      </div>
+    </div>
+
+    <div>
+      <div class="eyebrow">Customer side</div>
+      <h2>One tap to everything they care about</h2>
+      <p class="lede">
+        Branded to the business, installable as a PWA, opens on the phone with a clean Home tab that shows points, featured offer, daily spin, and progress toward their next reward.
+      </p>
+
+      <div style="margin-top: 16px;">
+        <div class="feat">
+          <div class="feat-icon">★</div>
+          <div>
+            <div class="feat-title">Live points balance</div>
+            <div class="feat-sub">Updates in real-time the moment the front desk awards. No refresh.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-rose">🎁</div>
+          <div>
+            <div class="feat-title">Featured offer with voice memo</div>
+            <div class="feat-sub">Owner records a 10-second message. Customers tap to play. +158% conversion vs. text-only.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-gold">🎰</div>
+          <div>
+            <div class="feat-title">Daily Spin slot machine</div>
+            <div class="feat-sub">Unlocked after each visit. Surprise prize keeps them coming back daily.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-emerald">📊</div>
+          <div>
+            <div class="feat-title">Progress bars on every reward</div>
+            <div class="feat-sub">"828 / 2,000 — 1,172 to go." The next thing to chase is always visible.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 3 — THE REWARDS GAME
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">03 · The Rewards Game</div>
+  </div>
+
+  <div class="split split-mock-right">
+    <div>
+      <div class="eyebrow">Streaks + Spins + Shop</div>
+      <h2>Built to make loyalty addictive</h2>
+      <p class="lede">
+        Atlas borrows the best mechanics from your favorite mobile games — Mario-style streak trails, slot-machine spins, categorized shops, saved-gift QR codes — and bends them toward sending people back to your store.
+      </p>
+
+      <div style="margin-top: 16px;">
+        <div class="feat">
+          <div class="feat-icon">🔥</div>
+          <div>
+            <div class="feat-title">Streak trail with milestones</div>
+            <div class="feat-sub">3 in a row · 1 week · 1 month — each milestone fires a reward (your choice of a Reward or points).</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-violet">🛍️</div>
+          <div>
+            <div class="feat-title">Categorized Rewards Shop</div>
+            <div class="feat-sub">McDonald's / Starbucks style — Food, Drinks, Birthday, VIP. Live search + "Ready to redeem" pinned row.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-rose">🎟️</div>
+          <div>
+            <div class="feat-title">Saved-gift QR codes</div>
+            <div class="feat-sub">Claim a limited-time offer → gift lands in their wallet with a QR the front desk scans to fulfill.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-gold">⏰</div>
+          <div>
+            <div class="feat-title">Live expiration countdowns</div>
+            <div class="feat-sub">"Use it before you lose it" — the single biggest driver of return visits.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE: REWARDS -->
+    <div class="phone">
+      <div class="phone-screen">
+        <svg viewBox="0 0 280 600" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gradOcean" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#0a3d62"/><stop offset="1" stop-color="#2a8cc4"/>
+            </linearGradient>
+            <linearGradient id="gradRose" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#f43f5e"/><stop offset="1" stop-color="#fb7185"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="280" height="56" fill="white"/>
+          <text x="14" y="34" font-size="18" font-weight="900" fill="#0f172a">Rewards</text>
+
+          <!-- saved gift -->
+          <rect x="12" y="60" width="256" height="86" rx="14" fill="url(#gradOcean)"/>
+          <rect x="22" y="72" width="58" height="58" rx="11" fill="rgba(255,255,255,0.18)"/>
+          <text x="51" y="108" font-size="24" text-anchor="middle">🎁</text>
+          <text x="90" y="86" font-size="9" font-weight="800" fill="rgba(255,255,255,0.85)" letter-spacing="1">SAVED GIFT</text>
+          <text x="90" y="103" font-size="13" font-weight="800" fill="white">Free pastry</text>
+          <text x="90" y="118" font-size="10" fill="rgba(255,255,255,0.95)">Code: <tspan font-family="monospace" font-weight="800">A2B3C4D</tspan></text>
+          <rect x="222" y="80" width="38" height="42" rx="8" fill="rgba(255,255,255,0.18)"/>
+          <rect x="228" y="86" width="26" height="26" fill="white"/>
+          <rect x="232" y="90" width="6" height="6" fill="#0f172a"/>
+          <rect x="244" y="90" width="6" height="6" fill="#0f172a"/>
+          <rect x="232" y="102" width="6" height="6" fill="#0f172a"/>
+          <text x="241" y="120" font-size="6" fill="rgba(255,255,255,0.7)" text-anchor="middle">QR</text>
+
+          <!-- active reward -->
+          <rect x="12" y="156" width="256" height="86" rx="14" fill="url(#gradOcean)" opacity="0.92"/>
+          <rect x="22" y="168" width="58" height="58" rx="11" fill="rgba(255,255,255,0.18)"/>
+          <text x="51" y="204" font-size="22" text-anchor="middle">☕</text>
+          <text x="90" y="182" font-size="9" font-weight="800" fill="rgba(255,255,255,0.85)" letter-spacing="1">ACTIVE REWARD</text>
+          <text x="90" y="199" font-size="13" font-weight="800" fill="white">Free latte</text>
+          <text x="90" y="216" font-size="10" fill="#fbbf24" font-weight="700">⏰ 2 days left</text>
+
+          <!-- streak trail header -->
+          <text x="14" y="266" font-size="14" font-weight="800" fill="#0f172a">🔥 Streak</text>
+          <text x="240" y="266" font-size="11" font-weight="800" fill="#f59e0b" text-anchor="middle">7 in a row</text>
+
+          <!-- streak grid 3x3 -->
+          <g transform="translate(14, 276)">
+            <!-- row 1 -->
+            <rect x="0" y="0" width="78" height="42" rx="10" fill="#fef3c7" stroke="#fbbf24"/>
+            <text x="39" y="20" font-size="10" font-weight="800" fill="#92400e" text-anchor="middle">DAY 1</text>
+            <text x="39" y="34" font-size="9" fill="#92400e" text-anchor="middle">✓ done</text>
+            <rect x="84" y="0" width="78" height="42" rx="10" fill="#fef3c7" stroke="#fbbf24"/>
+            <text x="123" y="20" font-size="10" font-weight="800" fill="#92400e" text-anchor="middle">DAY 2</text>
+            <text x="123" y="34" font-size="9" fill="#92400e" text-anchor="middle">✓ done</text>
+            <rect x="168" y="0" width="84" height="42" rx="10" fill="url(#gradGold)"/>
+            <text x="210" y="20" font-size="10" font-weight="900" fill="white" text-anchor="middle">⭐ MILESTONE</text>
+            <text x="210" y="34" font-size="9" font-weight="700" fill="white" text-anchor="middle">free upgrade</text>
+            <!-- row 2 -->
+            <rect x="0" y="48" width="78" height="42" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+            <text x="39" y="68" font-size="10" font-weight="800" fill="#475569" text-anchor="middle">DAY 4</text>
+            <text x="39" y="82" font-size="9" fill="#475569" text-anchor="middle">today</text>
+            <rect x="84" y="48" width="78" height="42" rx="10" fill="white" stroke="#e2e8f0"/>
+            <text x="123" y="68" font-size="10" font-weight="700" fill="#cbd5e1" text-anchor="middle">DAY 5</text>
+            <rect x="168" y="48" width="84" height="42" rx="10" fill="white" stroke="#e2e8f0"/>
+            <text x="210" y="68" font-size="10" font-weight="700" fill="#cbd5e1" text-anchor="middle">DAY 6</text>
+          </g>
+
+          <!-- rewards store header -->
+          <text x="14" y="396" font-size="14" font-weight="800" fill="#0f172a">Rewards store</text>
+          <text x="250" y="396" font-size="10" font-weight="700" fill="#2a8cc4" text-anchor="end">See more ›</text>
+
+          <!-- shop cards -->
+          <rect x="12" y="406" width="120" height="120" rx="12" fill="white" stroke="#e2e8f0"/>
+          <rect x="12" y="406" width="120" height="68" rx="12" fill="#fef3c7"/>
+          <text x="72" y="448" font-size="28" text-anchor="middle">☕</text>
+          <text x="22" y="490" font-size="9" font-weight="800" fill="#0a3d62">✨ 500 PTS</text>
+          <text x="22" y="504" font-size="11" font-weight="800" fill="#0f172a">Free latte</text>
+          <rect x="22" y="510" width="100" height="4" rx="2" fill="#e2e8f0"/>
+          <rect x="22" y="510" width="100" height="4" rx="2" fill="#10b981"/>
+          <text x="22" y="522" font-size="8" fill="#10b981" font-weight="700">Tap to redeem ✨</text>
+
+          <rect x="148" y="406" width="120" height="120" rx="12" fill="white" stroke="#e2e8f0"/>
+          <rect x="148" y="406" width="120" height="68" rx="12" fill="#dbeafe"/>
+          <text x="208" y="448" font-size="28" text-anchor="middle">🎁</text>
+          <text x="158" y="490" font-size="9" font-weight="800" fill="#0a3d62">🔒 1,200 PTS</text>
+          <text x="158" y="504" font-size="11" font-weight="800" fill="#0f172a">VIP perk</text>
+          <rect x="158" y="510" width="100" height="4" rx="2" fill="#e2e8f0"/>
+          <rect x="158" y="510" width="68" height="4" rx="2" fill="#2a8cc4"/>
+          <text x="158" y="522" font-size="8" fill="#475569" font-weight="700">372 to go</text>
+
+          <rect x="0" y="586" width="280" height="14" fill="white" stroke="#e2e8f0"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 4 — NOTIFICATIONS + PWA
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">04 · Notifications &amp; PWA</div>
+  </div>
+
+  <div class="split split-mock-left">
+    <!-- PHONE: PUSH NOTIFICATION -->
+    <div class="phone">
+      <div class="phone-screen">
+        <svg viewBox="0 0 280 600" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gradLock" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1e293b"/><stop offset="1" stop-color="#0f172a"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="280" height="600" fill="url(#gradLock)"/>
+          <!-- time -->
+          <text x="140" y="76" font-size="64" font-weight="200" fill="white" text-anchor="middle">9:41</text>
+          <text x="140" y="100" font-size="13" fill="rgba(255,255,255,0.7)" text-anchor="middle">Tuesday, May 31</text>
+
+          <!-- notif 1 -->
+          <rect x="14" y="150" width="252" height="68" rx="14" fill="rgba(255,255,255,0.12)"/>
+          <rect x="22" y="158" width="22" height="22" rx="5" fill="#fbbf24"/>
+          <text x="33" y="174" font-size="12" text-anchor="middle">☕</text>
+          <text x="52" y="166" font-size="10" font-weight="700" fill="rgba(255,255,255,0.8)">JOE'S COFFEE</text>
+          <text x="252" y="166" font-size="9" fill="rgba(255,255,255,0.5)" text-anchor="end">now</text>
+          <text x="22" y="190" font-size="12" font-weight="800" fill="white">🎰 Your spin is ready</text>
+          <text x="22" y="207" font-size="10.5" fill="rgba(255,255,255,0.85)">Come back and spin for a surprise reward.</text>
+
+          <!-- notif 2 -->
+          <rect x="14" y="228" width="252" height="68" rx="14" fill="rgba(255,255,255,0.12)"/>
+          <rect x="22" y="236" width="22" height="22" rx="5" fill="#fbbf24"/>
+          <text x="33" y="252" font-size="12" text-anchor="middle">☕</text>
+          <text x="52" y="244" font-size="10" font-weight="700" fill="rgba(255,255,255,0.8)">JOE'S COFFEE</text>
+          <text x="252" y="244" font-size="9" fill="rgba(255,255,255,0.5)" text-anchor="end">2h ago</text>
+          <text x="22" y="268" font-size="12" font-weight="800" fill="white">🎁 Reward unlocked!</text>
+          <text x="22" y="285" font-size="10.5" fill="rgba(255,255,255,0.85)">You can now redeem Free latte at Joe's Coffee.</text>
+
+          <!-- notif 3 -->
+          <rect x="14" y="306" width="252" height="68" rx="14" fill="rgba(255,255,255,0.12)"/>
+          <rect x="22" y="314" width="22" height="22" rx="5" fill="#fbbf24"/>
+          <text x="33" y="330" font-size="12" text-anchor="middle">☕</text>
+          <text x="52" y="322" font-size="10" font-weight="700" fill="rgba(255,255,255,0.8)">JOE'S COFFEE</text>
+          <text x="252" y="322" font-size="9" fill="rgba(255,255,255,0.5)" text-anchor="end">Tue 8:30 AM</text>
+          <text x="22" y="346" font-size="12" font-weight="800" fill="white">🎁 A welcome gift just dropped</text>
+          <text x="22" y="363" font-size="10.5" fill="rgba(255,255,255,0.85)">Tap to see what's waiting on your Home tab.</text>
+
+          <!-- notif 4 -->
+          <rect x="14" y="384" width="252" height="68" rx="14" fill="rgba(255,255,255,0.12)"/>
+          <rect x="22" y="392" width="22" height="22" rx="5" fill="#fbbf24"/>
+          <text x="33" y="408" font-size="12" text-anchor="middle">☕</text>
+          <text x="52" y="400" font-size="10" font-weight="700" fill="rgba(255,255,255,0.8)">JOE'S COFFEE</text>
+          <text x="252" y="400" font-size="9" fill="rgba(255,255,255,0.5)" text-anchor="end">Mon</text>
+          <text x="22" y="424" font-size="12" font-weight="800" fill="white">⭐ Leave a quick review</text>
+          <text x="22" y="441" font-size="10.5" fill="rgba(255,255,255,0.85)">It takes 30s and helps Joe's a ton.</text>
+
+          <!-- swipe hint -->
+          <rect x="100" y="550" width="80" height="4" rx="2" fill="rgba(255,255,255,0.4)"/>
+        </svg>
+      </div>
+    </div>
+
+    <div>
+      <div class="eyebrow">Real phone notifications</div>
+      <h2>Lock-screen pings, not just email</h2>
+      <p class="lede">
+        Atlas is a true PWA — installs to the home screen, runs full-screen, fires actual iOS / Android push notifications. Customers see "🎰 Your spin is ready" on their lock screen, not buried in inbox.
+      </p>
+
+      <div style="margin-top: 16px;">
+        <div class="feat">
+          <div class="feat-icon">🔔</div>
+          <div>
+            <div class="feat-title">8 notification types, all toggleable</div>
+            <div class="feat-sub">Streak break · gift expiring · offer drop · check-in available · reward unlocked · birthday · review request · we-miss-you</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-gold">📲</div>
+          <div>
+            <div class="feat-title">Installs to home screen</div>
+            <div class="feat-sub">iOS Safari + Android Chrome both support it. No app store, no review, no 30% Apple cut.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-violet">🎙️</div>
+          <div>
+            <div class="feat-title">In-app notification center</div>
+            <div class="feat-sub">Slide-up sheet with every recent ping, grouped by type (streak, gift, review, offer).</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-emerald">⚡</div>
+          <div>
+            <div class="feat-title">Real-time updates</div>
+            <div class="feat-sub">Points awarded at the front desk land on the customer's phone in &lt;1 second. No refresh.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-gold" style="margin-top: 14px;">
+        <strong>White-labeled.</strong> The lock-screen icon is the business's logo. The app name is the business's name. Atlas is invisible to the customer.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 5 — FRONT DESK
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">05 · The Front Desk</div>
+  </div>
+
+  <div style="margin-bottom: 16px;">
+    <div class="eyebrow">For staff</div>
+    <h2>Scan → award → done in 4 seconds</h2>
+    <p class="lede">
+      The same browser surface works on a phone, a tablet, or a kitchen PC with a USB QR scanner. No special hardware required.
+    </p>
+  </div>
+
+  <!-- DESKTOP MOCK: FRONT DESK -->
+  <div class="desk">
+    <div class="desk-screen">
+      <svg viewBox="0 0 680 360" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradDesk" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#0a3d62"/><stop offset="1" stop-color="#2a8cc4"/>
+          </linearGradient>
+          <linearGradient id="gradEmerald" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#10b981"/><stop offset="1" stop-color="#059669"/></linearGradient>
+          <linearGradient id="gradAmber" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+          <linearGradient id="gradRoseG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f43f5e"/><stop offset="1" stop-color="#e11d48"/></linearGradient>
+          <linearGradient id="gradViolet" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+          <linearGradient id="gradSky" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0ea5e9"/><stop offset="1" stop-color="#0284c7"/></linearGradient>
+        </defs>
+        <rect x="0" y="0" width="680" height="360" fill="#f8fafc"/>
+        <!-- header -->
+        <rect x="0" y="0" width="680" height="44" fill="white" stroke="#e2e8f0"/>
+        <rect x="14" y="10" width="60" height="24" rx="12" fill="#fbbf24"/>
+        <text x="44" y="26" font-size="11" font-weight="800" fill="#1f1300" text-anchor="middle">JOE'S</text>
+        <text x="84" y="20" font-size="11" font-weight="800" fill="#0f172a">Joe's Coffee</text>
+        <text x="84" y="32" font-size="8" font-weight="700" fill="#475569" letter-spacing="1">FRONT DESK</text>
+
+        <!-- tabs -->
+        <rect x="0" y="44" width="680" height="30" fill="white" stroke="#e2e8f0"/>
+        <text x="22" y="62" font-size="10" font-weight="800" fill="#0f172a">🏠 Front desk</text>
+        <text x="106" y="62" font-size="10" font-weight="700" fill="#94a3b8">📊 Insights</text>
+        <text x="178" y="62" font-size="10" font-weight="700" fill="#94a3b8">🏷️ Offers</text>
+        <text x="232" y="62" font-size="10" font-weight="700" fill="#94a3b8">📰 News</text>
+        <text x="280" y="62" font-size="10" font-weight="700" fill="#94a3b8">💳 Billing</text>
+        <text x="338" y="62" font-size="10" font-weight="700" fill="#94a3b8">👑 Membership</text>
+        <text x="416" y="62" font-size="10" font-weight="700" fill="#94a3b8">🛡 Team</text>
+        <line x1="14" y1="73" x2="100" y2="73" stroke="#0f172a" stroke-width="2"/>
+
+        <!-- search -->
+        <rect x="14" y="86" width="652" height="34" rx="10" fill="white" stroke="#e2e8f0"/>
+        <text x="26" y="107" font-size="11" fill="#94a3b8">🔍 Search customer by name, email, phone...</text>
+
+        <!-- daily recap card -->
+        <rect x="14" y="130" width="404" height="92" rx="12" fill="white" stroke="#e2e8f0"/>
+        <rect x="14" y="130" width="404" height="22" rx="12" fill="url(#gradDesk)"/>
+        <text x="22" y="146" font-size="9" font-weight="800" fill="white">📈 TODAY · Joe's Coffee · Tue May 31</text>
+        <!-- 5 stat tiles -->
+        <g transform="translate(14, 158)">
+          <g><rect width="28" height="28" rx="7" x="14" y="6" fill="url(#gradEmerald)"/><text x="28" y="24" font-size="11" text-anchor="middle">📱</text>
+             <text x="40" y="46" font-size="15" font-weight="900" fill="#0f172a" text-anchor="middle">24</text>
+             <text x="40" y="56" font-size="7" font-weight="800" fill="#047857" text-anchor="middle">CHECK-INS</text></g>
+          <g transform="translate(80, 0)"><rect width="28" height="28" rx="7" x="14" y="6" fill="url(#gradAmber)"/><text x="28" y="24" font-size="11" text-anchor="middle">✨</text>
+             <text x="40" y="46" font-size="15" font-weight="900" fill="#0f172a" text-anchor="middle">820</text>
+             <text x="40" y="56" font-size="7" font-weight="800" fill="#b45309" text-anchor="middle">POINTS</text></g>
+          <g transform="translate(160, 0)"><rect width="28" height="28" rx="7" x="14" y="6" fill="url(#gradRoseG)"/><text x="28" y="24" font-size="11" text-anchor="middle">🎁</text>
+             <text x="40" y="46" font-size="15" font-weight="900" fill="#0f172a" text-anchor="middle">5</text>
+             <text x="40" y="56" font-size="7" font-weight="800" fill="#b91c1c" text-anchor="middle">REDEEMED</text></g>
+          <g transform="translate(240, 0)"><rect width="28" height="28" rx="7" x="14" y="6" fill="url(#gradViolet)"/><text x="28" y="24" font-size="11" text-anchor="middle">👥</text>
+             <text x="40" y="46" font-size="15" font-weight="900" fill="#0f172a" text-anchor="middle">3</text>
+             <text x="40" y="56" font-size="7" font-weight="800" fill="#6d28d9" text-anchor="middle">NEW</text></g>
+          <g transform="translate(320, 0)"><rect width="28" height="28" rx="7" x="14" y="6" fill="url(#gradSky)"/><text x="28" y="24" font-size="11" text-anchor="middle">🏷</text>
+             <text x="40" y="46" font-size="15" font-weight="900" fill="#0f172a" text-anchor="middle">2</text>
+             <text x="40" y="56" font-size="7" font-weight="800" fill="#0369a1" text-anchor="middle">OFFERS</text></g>
+        </g>
+
+        <!-- scan hero -->
+        <rect x="430" y="130" width="236" height="92" rx="12" fill="url(#gradDesk)"/>
+        <rect x="442" y="140" width="80" height="14" rx="7" fill="rgba(255,255,255,0.2)"/>
+        <text x="482" y="150" font-size="7" font-weight="800" fill="white" text-anchor="middle">📷 FRONT DESK · LIVE</text>
+        <text x="442" y="178" font-size="18" font-weight="900" fill="white">Scan to start</text>
+        <rect x="442" y="190" width="100" height="24" rx="12" fill="white"/>
+        <text x="492" y="206" font-size="10" font-weight="800" fill="#0f172a" text-anchor="middle">📷 Scan code</text>
+        <rect x="554" y="190" width="100" height="24" rx="12" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.4)"/>
+        <text x="604" y="206" font-size="10" font-weight="800" fill="white" text-anchor="middle">⌨ Type code</text>
+
+        <!-- recent activity -->
+        <rect x="14" y="232" width="652" height="118" rx="12" fill="white" stroke="#e2e8f0"/>
+        <text x="26" y="252" font-size="11" font-weight="800" fill="#0f172a">🕒 Recent activity</text>
+        <g transform="translate(20, 264)">
+          <g><circle cx="14" cy="14" r="12" fill="url(#gradDesk)"/><text x="14" y="18" font-size="9" font-weight="800" fill="white" text-anchor="middle">SM</text>
+             <text x="32" y="11" font-size="10" font-weight="700" fill="#0f172a">Sarah Mitchell</text>
+             <text x="32" y="22" font-size="8" fill="#475569">Purchase · May 31, 10:18 AM</text>
+             <text x="608" y="18" font-size="11" font-weight="800" fill="#059669" text-anchor="end">+30 pts</text></g>
+          <g transform="translate(0, 30)"><circle cx="14" cy="14" r="12" fill="url(#gradDesk)"/><text x="14" y="18" font-size="9" font-weight="800" fill="white" text-anchor="middle">JD</text>
+             <text x="32" y="11" font-size="10" font-weight="700" fill="#0f172a">James Davis</text>
+             <text x="32" y="22" font-size="8" fill="#475569">First visit bonus · May 31, 10:05 AM</text>
+             <text x="608" y="18" font-size="11" font-weight="800" fill="#059669" text-anchor="end">+100 pts</text></g>
+          <g transform="translate(0, 60)"><circle cx="14" cy="14" r="12" fill="url(#gradDesk)"/><text x="14" y="18" font-size="9" font-weight="800" fill="white" text-anchor="middle">EP</text>
+             <text x="32" y="11" font-size="10" font-weight="700" fill="#0f172a">Emily Park</text>
+             <text x="32" y="22" font-size="8" fill="#475569">Redemption · May 31, 9:42 AM</text>
+             <text x="608" y="18" font-size="11" font-weight="800" fill="#dc2626" text-anchor="end">−500 pts</text></g>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 18px;">
+    <div class="feat">
+      <div class="feat-icon">📷</div>
+      <div><div class="feat-title">Camera + USB scanner</div>
+      <div class="feat-sub">Phone camera, tablet camera, OR USB barcode scanner — Atlas accepts all three.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-rose">↩️</div>
+      <div><div class="feat-title">30-second Undo</div>
+      <div class="feat-sub">Accidentally awarded 50 pts when you meant 5? Tap Undo within 30s.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-emerald">👤</div>
+      <div><div class="feat-title">Fuzzy name search</div>
+      <div class="feat-sub">Customer forgot to install the app? Type their name; Atlas finds them.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 6 — MANAGER TOOLS
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">06 · Manager Tools</div>
+  </div>
+
+  <div class="split">
+    <div>
+      <div class="eyebrow">For the manager</div>
+      <h2>Run the whole program from one screen</h2>
+      <p class="lede">
+        Managers get a deeper surface above the front desk: live recap, offers manager, news, membership setup, billing, and a Team tab to invite staff.
+      </p>
+
+      <div style="margin-top: 16px;">
+        <div class="feat">
+          <div class="feat-icon">🏷️</div>
+          <div>
+            <div class="feat-title">Offers Manager</div>
+            <div class="feat-sub">One-time promos AND automated templates side-by-side. Live mobile preview as you edit.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-gold">👑</div>
+          <div>
+            <div class="feat-title">Membership setup</div>
+            <div class="feat-sub">3 payment modes: in-person (cash), external link (Stripe payment link), or built-in Stripe Connect.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-rose">⭐</div>
+          <div>
+            <div class="feat-title">Google review queue</div>
+            <div class="feat-sub">Verify each review, award points, lifetime rating tracker.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-emerald">🛡</div>
+          <div>
+            <div class="feat-title">Team Manager</div>
+            <div class="feat-sub">Invite staff via copy-link. Pre-set their email + password. Roles: Manager / Front Desk.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-violet">📰</div>
+          <div>
+            <div class="feat-title">News + announcements</div>
+            <div class="feat-sub">Drop a post on the customer Home tab — new menu items, holiday hours, etc.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manager screen mock: Offers tab -->
+    <div class="desk">
+      <div class="desk-screen">
+        <svg viewBox="0 0 400 460" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gradManager" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#0a3d62"/><stop offset="1" stop-color="#2a8cc4"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="400" height="460" fill="#f8fafc"/>
+          <!-- top -->
+          <rect x="0" y="0" width="400" height="36" fill="white" stroke="#e2e8f0"/>
+          <text x="14" y="22" font-size="12" font-weight="800" fill="#0f172a">Automated offers</text>
+
+          <!-- header strip -->
+          <text x="14" y="58" font-size="9" font-weight="800" fill="#475569" letter-spacing="1">OCCASION</text>
+          <text x="218" y="58" font-size="9" font-weight="800" fill="#475569" letter-spacing="1">GIFT</text>
+          <text x="304" y="58" font-size="9" font-weight="800" fill="#475569" letter-spacing="1">STATUS</text>
+
+          <!-- rows -->
+          <g transform="translate(0, 70)">
+            <rect x="8" y="0" width="384" height="44" rx="8" fill="white" stroke="#e2e8f0"/>
+            <rect x="14" y="8" width="48" height="28" rx="6" fill="url(#gradManager)"/>
+            <text x="38" y="27" font-size="13" text-anchor="middle">🎁</text>
+            <text x="72" y="22" font-size="11" font-weight="800" fill="#0f172a">Welcome Gift</text>
+            <text x="72" y="34" font-size="8" fill="#475569">Lands on first signup</text>
+            <text x="218" y="27" font-size="10" font-weight="700" fill="#0f172a">🎁 Free pastry</text>
+            <rect x="294" y="18" width="50" height="20" rx="10" fill="#d1fae5" stroke="#10b981"/>
+            <text x="319" y="32" font-size="9" font-weight="800" fill="#047857" text-anchor="middle">● Active</text>
+
+            <rect x="8" y="52" width="384" height="44" rx="8" fill="white" stroke="#e2e8f0"/>
+            <rect x="14" y="60" width="48" height="28" rx="6" fill="#fce7f3"/>
+            <text x="38" y="79" font-size="13" text-anchor="middle">🎂</text>
+            <text x="72" y="74" font-size="11" font-weight="800" fill="#0f172a">Birthday</text>
+            <text x="72" y="86" font-size="8" fill="#475569">On their birthday</text>
+            <text x="218" y="79" font-size="10" font-weight="700" fill="#0f172a">✨ +250 pts</text>
+            <rect x="294" y="70" width="50" height="20" rx="10" fill="#d1fae5" stroke="#10b981"/>
+            <text x="319" y="84" font-size="9" font-weight="800" fill="#047857" text-anchor="middle">● Active</text>
+
+            <rect x="8" y="104" width="384" height="44" rx="8" fill="white" stroke="#e2e8f0"/>
+            <rect x="14" y="112" width="48" height="28" rx="6" fill="#fef3c7"/>
+            <text x="38" y="131" font-size="13" text-anchor="middle">🍀</text>
+            <text x="72" y="126" font-size="11" font-weight="800" fill="#0f172a">St. Patrick's Day</text>
+            <text x="72" y="138" font-size="8" fill="#475569">Around March 17</text>
+            <text x="218" y="131" font-size="10" font-weight="700" fill="#0f172a">🎁 Free drink</text>
+            <rect x="294" y="122" width="50" height="20" rx="10" fill="#fee2e2" stroke="#f87171"/>
+            <text x="319" y="136" font-size="9" font-weight="800" fill="#b91c1c" text-anchor="middle">✗ Off</text>
+
+            <rect x="8" y="156" width="384" height="44" rx="8" fill="white" stroke="#e2e8f0"/>
+            <rect x="14" y="164" width="48" height="28" rx="6" fill="#fed7aa"/>
+            <text x="38" y="183" font-size="13" text-anchor="middle">💌</text>
+            <text x="72" y="178" font-size="11" font-weight="800" fill="#0f172a">We miss you</text>
+            <text x="72" y="190" font-size="8" fill="#475569">60+ days inactive</text>
+            <text x="218" y="183" font-size="10" font-weight="700" fill="#0f172a">✨ +500 pts</text>
+            <rect x="294" y="174" width="50" height="20" rx="10" fill="#d1fae5" stroke="#10b981"/>
+            <text x="319" y="188" font-size="9" font-weight="800" fill="#047857" text-anchor="middle">● Active</text>
+          </g>
+
+          <!-- gift picker block (open) -->
+          <rect x="14" y="288" width="372" height="160" rx="10" fill="white" stroke="#e2e8f0"/>
+          <text x="24" y="306" font-size="11" font-weight="800" fill="#0f172a">🎁 Welcome Gift — Edit</text>
+
+          <text x="24" y="328" font-size="9" font-weight="800" fill="#475569" letter-spacing="0.5">GIFT</text>
+          <rect x="24" y="334" width="172" height="26" rx="13" fill="#0f172a"/>
+          <text x="110" y="350" font-size="9" font-weight="800" fill="white" text-anchor="middle">🎁 Pick a Reward</text>
+          <rect x="202" y="334" width="172" height="26" rx="13" fill="white" stroke="#e2e8f0"/>
+          <text x="288" y="350" font-size="9" font-weight="700" fill="#94a3b8" text-anchor="middle">✨ Award Points</text>
+
+          <rect x="24" y="368" width="350" height="28" rx="6" fill="#f8fafc" stroke="#e2e8f0"/>
+          <text x="34" y="386" font-size="10" font-weight="700" fill="#0f172a">Free pastry (1,200 pt value)</text>
+
+          <rect x="24" y="406" width="350" height="28" rx="6" fill="#ecfdf5" stroke="#10b981"/>
+          <text x="34" y="424" font-size="9" font-weight="700" fill="#047857">🎙 Voice message attached — boosts conversion 158%</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 7 — OWNER INSIGHTS
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">07 · Owner Insights</div>
+  </div>
+
+  <div style="margin-bottom: 16px;">
+    <div class="eyebrow">For the owner</div>
+    <h2>Real-time proof Atlas is paying for itself</h2>
+    <p class="lede">
+      Every owner dashboard answers one question: <em>"How much did Atlas drive for my business this month?"</em> The number is right there at the top. Always.
+    </p>
+  </div>
+
+  <!-- DESKTOP MOCK: INSIGHTS -->
+  <div class="desk">
+    <div class="desk-screen">
+      <svg viewBox="0 0 680 380" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradImpact" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#0a3d62"/><stop offset="1" stop-color="#2a8cc4"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="680" height="380" fill="#f8fafc"/>
+        <!-- Atlas Impact hero -->
+        <rect x="14" y="12" width="652" height="148" rx="20" fill="url(#gradImpact)"/>
+        <text x="32" y="38" font-size="10" font-weight="800" fill="rgba(255,255,255,0.9)" letter-spacing="2">✦ ATLAS IMPACT · LAST 30 DAYS</text>
+        <text x="32" y="62" font-size="11" font-weight="800" fill="rgba(255,255,255,0.85)" letter-spacing="1">ATLAS DROVE</text>
+        <text x="32" y="110" font-size="48" font-weight="900" fill="white">$2,840</text>
+        <text x="32" y="128" font-size="11" font-weight="700" fill="rgba(255,255,255,0.9)">for Joe's Coffee this month.</text>
+        <!-- retention lift chip -->
+        <rect x="200" y="80" width="150" height="44" rx="10" fill="rgba(255,255,255,0.18)"/>
+        <text x="216" y="100" font-size="22" font-weight="900" fill="white">+182%</text>
+        <text x="216" y="116" font-size="9" font-weight="800" fill="rgba(255,255,255,0.9)" letter-spacing="1">RETENTION LIFT</text>
+        <!-- 4 chips -->
+        <g transform="translate(366, 70)">
+          <rect x="0" y="0" width="68" height="60" rx="8" fill="rgba(255,255,255,0.16)"/>
+          <text x="34" y="14" font-size="8" font-weight="800" fill="rgba(255,255,255,0.9)" text-anchor="middle" letter-spacing="0.5">REPEAT VISITS</text>
+          <text x="34" y="40" font-size="14" font-weight="900" fill="white" text-anchor="middle">$1,420</text>
+        </g>
+        <g transform="translate(440, 70)">
+          <rect x="0" y="0" width="68" height="60" rx="8" fill="rgba(255,255,255,0.16)"/>
+          <text x="34" y="14" font-size="8" font-weight="800" fill="rgba(255,255,255,0.9)" text-anchor="middle" letter-spacing="0.5">REVIEW VALUE</text>
+          <text x="34" y="40" font-size="14" font-weight="900" fill="white" text-anchor="middle">$525</text>
+        </g>
+        <g transform="translate(514, 70)">
+          <rect x="0" y="0" width="68" height="60" rx="8" fill="rgba(255,255,255,0.16)"/>
+          <text x="34" y="14" font-size="8" font-weight="800" fill="rgba(255,255,255,0.9)" text-anchor="middle" letter-spacing="0.5">WIN-BACKS</text>
+          <text x="34" y="40" font-size="14" font-weight="900" fill="white" text-anchor="middle">$895</text>
+        </g>
+        <g transform="translate(588, 70)">
+          <rect x="0" y="0" width="68" height="60" rx="8" fill="rgba(255,255,255,0.16)"/>
+          <text x="34" y="14" font-size="8" font-weight="800" fill="rgba(255,255,255,0.9)" text-anchor="middle" letter-spacing="0.5">MEMBER LTV</text>
+          <text x="34" y="40" font-size="14" font-weight="900" fill="white" text-anchor="middle">$184</text>
+        </g>
+
+        <!-- With Atlas vs Without -->
+        <rect x="14" y="170" width="652" height="92" rx="14" fill="white" stroke="#e2e8f0"/>
+        <text x="32" y="190" font-size="12" font-weight="800" fill="#0f172a">🛡 With Atlas <tspan fill="#94a3b8" font-size="10">vs.</tspan> Without</text>
+        <text x="32" y="204" font-size="9" fill="#475569">Side-by-side using your real pre-Atlas numbers from May 2025.</text>
+
+        <g transform="translate(14, 212)">
+          <rect x="14" y="0" width="200" height="44" rx="10" fill="white" stroke="#e2e8f0"/>
+          <text x="24" y="14" font-size="8" font-weight="800" fill="#0f172a" letter-spacing="1">$ REVENUE (30D)</text>
+          <rect x="24" y="20" width="80" height="20" rx="6" fill="#ecfdf5" stroke="#10b981"/>
+          <text x="64" y="34" font-size="11" font-weight="900" fill="#064e3b" text-anchor="middle">$5,240</text>
+          <rect x="110" y="20" width="80" height="20" rx="6" fill="#fef2f2" stroke="#f87171"/>
+          <text x="150" y="34" font-size="11" font-weight="900" fill="#94a3b8" text-anchor="middle" text-decoration="line-through">$2,400</text>
+
+          <rect x="226" y="0" width="200" height="44" rx="10" fill="white" stroke="#e2e8f0"/>
+          <text x="236" y="14" font-size="8" font-weight="800" fill="#0f172a" letter-spacing="1">↻ REPEAT VISITS (30D)</text>
+          <rect x="236" y="20" width="80" height="20" rx="6" fill="#ecfdf5" stroke="#10b981"/>
+          <text x="276" y="34" font-size="11" font-weight="900" fill="#064e3b" text-anchor="middle">87</text>
+          <rect x="322" y="20" width="80" height="20" rx="6" fill="#fef2f2" stroke="#f87171"/>
+          <text x="362" y="34" font-size="11" font-weight="900" fill="#94a3b8" text-anchor="middle" text-decoration="line-through">31</text>
+
+          <rect x="438" y="0" width="214" height="44" rx="10" fill="white" stroke="#e2e8f0"/>
+          <text x="448" y="14" font-size="8" font-weight="800" fill="#0f172a" letter-spacing="1">★ GOOGLE REVIEWS</text>
+          <rect x="448" y="20" width="80" height="20" rx="6" fill="#ecfdf5" stroke="#10b981"/>
+          <text x="488" y="34" font-size="11" font-weight="900" fill="#064e3b" text-anchor="middle">62</text>
+          <rect x="534" y="20" width="80" height="20" rx="6" fill="#fef2f2" stroke="#f87171"/>
+          <text x="574" y="34" font-size="11" font-weight="900" fill="#94a3b8" text-anchor="middle" text-decoration="line-through">47</text>
+        </g>
+
+        <!-- Google review section -->
+        <rect x="14" y="272" width="652" height="96" rx="14" fill="white" stroke="#e2e8f0"/>
+        <!-- google stripe -->
+        <rect x="14" y="272" width="163" height="4" fill="#4285F4"/>
+        <rect x="177" y="272" width="163" height="4" fill="#EA4335"/>
+        <rect x="340" y="272" width="163" height="4" fill="#FBBC04"/>
+        <rect x="503" y="272" width="163" height="4" fill="#34A853"/>
+        <rect x="26" y="288" width="36" height="36" rx="9" fill="white" stroke="#e2e8f0"/>
+        <text x="44" y="312" font-size="20" font-weight="900" fill="#4285F4" text-anchor="middle">G</text>
+        <text x="70" y="304" font-size="12" font-weight="800" fill="#0f172a">Google Review performance</text>
+        <text x="70" y="318" font-size="9" fill="#475569">How Atlas is moving the needle on reviews.</text>
+        <text x="640" y="312" font-size="20" font-weight="900" fill="#34A853" text-anchor="end">15</text>
+        <text x="640" y="324" font-size="7" font-weight="800" fill="#475569" text-anchor="end" letter-spacing="1">VERIFIED 30D</text>
+        <!-- funnel -->
+        <g transform="translate(20, 334)">
+          <rect x="0" y="0" width="200" height="28" rx="7" fill="#4285F410" stroke="#4285F4" stroke-width="1.5"/>
+          <text x="100" y="13" font-size="8" font-weight="800" fill="#1a73e8" text-anchor="middle">ASKS</text>
+          <text x="100" y="24" font-size="11" font-weight="900" fill="#1a73e8" text-anchor="middle">42 in 30d</text>
+          <rect x="212" y="0" width="200" height="28" rx="7" fill="#FBBC0418" stroke="#FBBC04" stroke-width="1.5"/>
+          <text x="312" y="13" font-size="8" font-weight="800" fill="#92400E" text-anchor="middle">SUBMITTED</text>
+          <text x="312" y="24" font-size="11" font-weight="900" fill="#92400E" text-anchor="middle">21 in 30d</text>
+          <rect x="424" y="0" width="200" height="28" rx="7" fill="#34A85318" stroke="#34A853" stroke-width="1.5"/>
+          <text x="524" y="13" font-size="8" font-weight="800" fill="#15803d" text-anchor="middle">VERIFIED</text>
+          <text x="524" y="24" font-size="11" font-weight="900" fill="#15803d" text-anchor="middle">15 in 30d</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px;">
+    <div class="feat">
+      <div class="feat-icon">📈</div>
+      <div><div class="feat-title">Pre-Atlas baseline comparison</div>
+      <div class="feat-sub">Captured at onboarding. Every "Without Atlas" number uses YOUR real past-year data, not an estimate.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-emerald">💼</div>
+      <div><div class="feat-title">Operations dashboard</div>
+      <div class="feat-sub">Total members · repeat rate · redemption rate · inactive count — at a glance.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-rose">🏆</div>
+      <div><div class="feat-title">Top loyal members</div>
+      <div class="feat-sub">Live leaderboard ranked by lifetime points + visits. Updates the moment someone scans in.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-gold">💌</div>
+      <div><div class="feat-title">We-miss-you composer</div>
+      <div class="feat-sub">Send a win-back push to one inactive member or all of them at once. Choose bonus points + custom message.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 8 — AUTOMATED OFFERS + VOICE
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">08 · Automated Offers &amp; Voice</div>
+  </div>
+
+  <div class="split split-mock-right">
+    <div>
+      <div class="eyebrow">Set-and-forget marketing</div>
+      <h2>Offers that fire on their own</h2>
+      <p class="lede">
+        Welcome gifts, birthday bonuses, anniversary surprises, holiday promos, win-backs for the inactive — all on autopilot. Each can carry the owner's own voice memo, recorded right from their phone.
+      </p>
+
+      <div style="margin-top: 16px;">
+        <div class="feat">
+          <div class="feat-icon feat-icon-rose">🎙</div>
+          <div>
+            <div class="feat-title">Owner voice memo on every offer</div>
+            <div class="feat-sub">"Hey Sarah, happy birthday from Joe's!" — recorded once, plays on the customer's phone forever.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon">🎁</div>
+          <div>
+            <div class="feat-title">Reward OR Points gift</div>
+            <div class="feat-sub">Each offer fires either a Reward (with QR for the front desk) or a points credit. Owner picks.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-gold">🗓</div>
+          <div>
+            <div class="feat-title">12+ holiday templates</div>
+            <div class="feat-sub">Valentine's · St. Patrick's · Easter · Mother's · Father's · 4th of July · Halloween · Thanksgiving · Christmas + custom.</div>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-icon feat-icon-violet">🎉</div>
+          <div>
+            <div class="feat-title">Unwrap-moment popup</div>
+            <div class="feat-sub">When an offer fires, the customer sees an animated gift-box unwrap reveal. Replayable from the rewards tab.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout callout-gold" style="margin-top: 14px;">
+        <strong>Why voice works.</strong> Real owners with real voices feel like a friend, not a brand. Conversion on offers with a voice memo runs 158% higher than text-only in our tests.
+      </div>
+    </div>
+
+    <!-- PHONE: OFFER REVEAL POPUP -->
+    <div class="phone">
+      <div class="phone-screen">
+        <svg viewBox="0 0 280 600" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gradPop" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#0a3d62"/><stop offset="1" stop-color="#2a8cc4"/>
+            </linearGradient>
+            <linearGradient id="gradPink" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#f43f5e"/><stop offset="1" stop-color="#fb7185"/>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="280" height="600" fill="rgba(0,0,0,0.45)"/>
+
+          <!-- popup card -->
+          <rect x="20" y="80" width="240" height="440" rx="22" fill="white"/>
+          <rect x="20" y="80" width="240" height="170" rx="22" fill="url(#gradPop)"/>
+          <!-- decorative dots -->
+          <circle cx="60" cy="120" r="6" fill="white" opacity="0.6"/>
+          <circle cx="220" cy="160" r="4" fill="white" opacity="0.4"/>
+          <circle cx="180" cy="100" r="5" fill="white" opacity="0.5"/>
+          <circle cx="245" cy="220" r="4" fill="white" opacity="0.5"/>
+
+          <!-- gift -->
+          <text x="140" y="180" font-size="64" text-anchor="middle">🎁</text>
+
+          <!-- chip -->
+          <rect x="86" y="260" width="108" height="22" rx="11" fill="#fbbf24"/>
+          <text x="140" y="275" font-size="10" font-weight="900" fill="#1f1300" text-anchor="middle">🎁 GIFT</text>
+
+          <!-- title -->
+          <text x="140" y="304" font-size="20" font-weight="900" fill="#0f172a" text-anchor="middle">Happy birthday!</text>
+          <text x="140" y="324" font-size="11" fill="#475569" text-anchor="middle">A little something on us 🎂</text>
+
+          <!-- voice button -->
+          <rect x="56" y="346" width="168" height="40" rx="20" fill="white" stroke="white" stroke-width="3"
+                filter="url(#voiceGlow)"/>
+          <defs>
+            <filter id="voiceGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3"/>
+            </filter>
+          </defs>
+          <rect x="56" y="346" width="168" height="40" rx="20" fill="white"/>
+          <rect x="56" y="346" width="168" height="40" rx="20" fill="none" stroke="#f43f5e" stroke-width="2" opacity="0.3"/>
+          <circle cx="80" cy="366" r="14" fill="url(#gradPink)"/>
+          <polygon points="76,360 76,372 88,366" fill="white"/>
+          <text x="140" y="372" font-size="12" font-weight="800" fill="#0f172a">Play Joe's voice note</text>
+
+          <!-- countdown -->
+          <rect x="56" y="400" width="168" height="32" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+          <circle cx="76" cy="416" r="4" fill="#f43f5e"/>
+          <text x="140" y="420" font-size="11" font-weight="800" fill="#b91c1c" text-anchor="middle">⏰ Expires in 6 days</text>
+
+          <!-- big CTA -->
+          <rect x="40" y="448" width="200" height="48" rx="24" fill="#0a3d62"/>
+          <text x="140" y="478" font-size="14" font-weight="900" fill="white" text-anchor="middle">Save to my rewards →</text>
+
+          <text x="140" y="510" font-size="9" fill="#94a3b8" text-anchor="middle">From Joe's Coffee with ❤</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 9 — MULTI-BUSINESS POWER
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">09 · Multi-Business Power</div>
+  </div>
+
+  <div style="margin-bottom: 16px;">
+    <div class="eyebrow">For the agency</div>
+    <h2>Manage 1 business or 100 from one cockpit</h2>
+    <p class="lede">
+      Atlas is multi-tenant by design. Every business is fully isolated (their data never leaks across) but you, the operator, see them all from a single agency dashboard. Add a new sub-account in 90 seconds.
+    </p>
+  </div>
+
+  <!-- DESKTOP MOCK: AGENCY -->
+  <div class="desk">
+    <div class="desk-screen">
+      <svg viewBox="0 0 680 380" class="mock-img" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradSidebar" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0a3d62"/><stop offset="1" stop-color="#082c45"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="680" height="380" fill="#f1f5f9"/>
+        <!-- sidebar -->
+        <rect x="0" y="0" width="180" height="380" fill="url(#gradSidebar)"/>
+        <rect x="20" y="20" width="28" height="28" rx="7" fill="#fbbf24"/>
+        <text x="34" y="40" font-size="12" font-weight="900" fill="white" text-anchor="middle">A</text>
+        <text x="54" y="40" font-size="13" font-weight="900" fill="white">Atlas</text>
+        <!-- nav items -->
+        <rect x="14" y="68" width="152" height="32" rx="8" fill="rgba(255,255,255,0.18)"/>
+        <text x="26" y="88" font-size="11" font-weight="700" fill="white">🏢 Businesses</text>
+        <text x="26" y="120" font-size="11" font-weight="600" fill="rgba(255,255,255,0.7)">📊 Atlas Impact</text>
+        <text x="26" y="148" font-size="11" font-weight="600" fill="rgba(255,255,255,0.7)">💳 Plans &amp; MRR</text>
+        <text x="26" y="176" font-size="11" font-weight="600" fill="rgba(255,255,255,0.7)">🛡 Team</text>
+        <text x="26" y="204" font-size="11" font-weight="600" fill="rgba(255,255,255,0.7)">⚙ Settings</text>
+
+        <!-- bottom user -->
+        <circle cx="32" cy="350" r="14" fill="#fbbf24"/>
+        <text x="32" y="354" font-size="9" font-weight="900" fill="#1f1300" text-anchor="middle">A</text>
+        <text x="54" y="348" font-size="10" font-weight="800" fill="white">Andrew M.</text>
+        <text x="54" y="360" font-size="8" fill="rgba(255,255,255,0.7)">Agency admin</text>
+
+        <!-- main -->
+        <text x="200" y="40" font-size="20" font-weight="900" fill="#0f172a">Businesses</text>
+        <rect x="580" y="22" width="80" height="28" rx="14" fill="#0a3d62"/>
+        <text x="620" y="40" font-size="10" font-weight="800" fill="white" text-anchor="middle">+ Add new</text>
+
+        <!-- business grid -->
+        <g transform="translate(200, 60)">
+          <!-- card 1 -->
+          <rect x="0" y="0" width="148" height="146" rx="12" fill="white" stroke="#e2e8f0"/>
+          <rect x="0" y="0" width="148" height="60" rx="12" fill="#fbbf24"/>
+          <text x="74" y="38" font-size="20" font-weight="900" fill="#1f1300" text-anchor="middle">JOE'S</text>
+          <text x="12" y="78" font-size="11" font-weight="800" fill="#0f172a">Joe's Coffee</text>
+          <text x="12" y="92" font-size="9" fill="#475569">joes.atlas-engine.app</text>
+          <text x="12" y="116" font-size="16" font-weight="900" fill="#10b981">$2,840</text>
+          <text x="64" y="116" font-size="9" font-weight="700" fill="#475569">driven · 30d</text>
+          <text x="12" y="132" font-size="9" font-weight="700" fill="#0a3d62">218 members · 12 reviews</text>
+
+          <!-- card 2 -->
+          <rect x="156" y="0" width="148" height="146" rx="12" fill="white" stroke="#e2e8f0"/>
+          <rect x="156" y="0" width="148" height="60" rx="12" fill="#fce7f3"/>
+          <text x="230" y="38" font-size="14" font-weight="900" fill="#831843" text-anchor="middle">DERMIS</text>
+          <text x="168" y="78" font-size="11" font-weight="800" fill="#0f172a">Dermis Medspa</text>
+          <text x="168" y="92" font-size="9" fill="#475569">dermis.atlas-engine.app</text>
+          <text x="168" y="116" font-size="16" font-weight="900" fill="#10b981">$8,420</text>
+          <text x="220" y="116" font-size="9" font-weight="700" fill="#475569">driven · 30d</text>
+          <text x="168" y="132" font-size="9" font-weight="700" fill="#0a3d62">94 members · 22 reviews</text>
+
+          <!-- card 3 -->
+          <rect x="312" y="0" width="148" height="146" rx="12" fill="white" stroke="#e2e8f0"/>
+          <rect x="312" y="0" width="148" height="60" rx="12" fill="#dbeafe"/>
+          <text x="386" y="38" font-size="14" font-weight="900" fill="#1e40af" text-anchor="middle">FLIPPOS</text>
+          <text x="324" y="78" font-size="11" font-weight="800" fill="#0f172a">Flippo's Arcade</text>
+          <text x="324" y="92" font-size="9" fill="#475569">flippos.atlas-engine.app</text>
+          <text x="324" y="116" font-size="16" font-weight="900" fill="#10b981">$1,240</text>
+          <text x="376" y="116" font-size="9" font-weight="700" fill="#475569">driven · 30d</text>
+          <text x="324" y="132" font-size="9" font-weight="700" fill="#0a3d62">63 members · 4 reviews</text>
+
+          <!-- card 4 — add new -->
+          <rect x="0" y="156" width="148" height="146" rx="12" fill="white" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+          <text x="74" y="220" font-size="32" fill="#cbd5e1" text-anchor="middle">+</text>
+          <text x="74" y="246" font-size="11" font-weight="800" fill="#94a3b8" text-anchor="middle">Add a business</text>
+          <text x="74" y="260" font-size="8" fill="#94a3b8" text-anchor="middle">3-step wizard, ~2 min</text>
+
+          <!-- card 5 -->
+          <rect x="156" y="156" width="148" height="146" rx="12" fill="white" stroke="#e2e8f0"/>
+          <rect x="156" y="156" width="148" height="60" rx="12" fill="#dcfce7"/>
+          <text x="230" y="194" font-size="14" font-weight="900" fill="#14532d" text-anchor="middle">FROYO</text>
+          <text x="168" y="234" font-size="11" font-weight="800" fill="#0f172a">Yogurty's</text>
+          <text x="168" y="248" font-size="9" fill="#475569">yogurtys.atlas-engine.app</text>
+          <text x="168" y="272" font-size="16" font-weight="900" fill="#10b981">$3,180</text>
+          <text x="220" y="272" font-size="9" font-weight="700" fill="#475569">driven · 30d</text>
+          <text x="168" y="288" font-size="9" font-weight="700" fill="#0a3d62">142 members · 18 reviews</text>
+
+          <!-- card 6 -->
+          <rect x="312" y="156" width="148" height="146" rx="12" fill="white" stroke="#e2e8f0"/>
+          <rect x="312" y="156" width="148" height="60" rx="12" fill="#ede9fe"/>
+          <text x="386" y="194" font-size="14" font-weight="900" fill="#5b21b6" text-anchor="middle">SALON</text>
+          <text x="324" y="234" font-size="11" font-weight="800" fill="#0f172a">Cut &amp; Shine</text>
+          <text x="324" y="248" font-size="9" fill="#475569">cutandshine.atlas-engine.app</text>
+          <text x="324" y="272" font-size="16" font-weight="900" fill="#10b981">$5,640</text>
+          <text x="376" y="272" font-size="9" font-weight="700" fill="#475569">driven · 30d</text>
+          <text x="324" y="288" font-size="9" font-weight="700" fill="#0a3d62">87 members · 11 reviews</text>
+        </g>
+
+        <!-- agency MRR strip -->
+        <rect x="200" y="338" width="464" height="32" rx="8" fill="white" stroke="#e2e8f0"/>
+        <text x="216" y="356" font-size="10" font-weight="800" fill="#0a3d62">💰 Agency MRR</text>
+        <text x="320" y="356" font-size="14" font-weight="900" fill="#0f172a">$1,485</text>
+        <text x="380" y="356" font-size="10" fill="#475569">/mo</text>
+        <text x="424" y="356" font-size="10" font-weight="700" fill="#10b981">+18% MoM</text>
+        <text x="640" y="356" font-size="10" font-weight="700" fill="#0a3d62" text-anchor="end">5 active · 1 pending →</text>
+      </svg>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px;">
+    <div class="feat">
+      <div class="feat-icon">🏢</div>
+      <div><div class="feat-title">Subdomain per business</div>
+      <div class="feat-sub">Each customer-facing app lives at <code>their-name.atlas-engine.app</code>. Branded, isolated, RLS-locked.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-gold">💰</div>
+      <div><div class="feat-title">Agency MRR tracking</div>
+      <div class="feat-sub">What every sub-account pays you. Charts, growth, churn — all in one place.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-emerald">🚀</div>
+      <div><div class="feat-title">3-step new business wizard</div>
+      <div class="feat-sub">Basics → industry template → baseline stats → branded app launches in &lt;90 seconds.</div></div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon feat-icon-rose">🛡</div>
+      <div><div class="feat-title">Role-based team access</div>
+      <div class="feat-sub">Agency admin sees everything. Each business has its own manager + front-desk team, isolated.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 10 — CLOSING CTA
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page" style="padding: 0;">
+  <div style="background: linear-gradient(135deg, #0a3d62 0%, #1d6fa5 60%, #2a8cc4 100%); color: white; padding: 0.7in; position: relative; overflow: hidden; min-height: 11in;">
+    <div style="position: absolute; top: -80px; right: -80px; width: 320px; height: 320px; border-radius: 50%; background: rgba(255,255,255,0.1); filter: blur(50px);"></div>
+    <div style="position: absolute; bottom: -100px; left: -60px; width: 360px; height: 360px; border-radius: 50%; background: rgba(0,0,0,0.18); filter: blur(60px);"></div>
+
+    <div class="logo" style="color: white; position: relative; z-index: 2;">
+      <span class="logo-mark"></span>
+      <span>Atlas Engine</span>
+    </div>
+
+    <div style="margin-top: 70px; position: relative; z-index: 2;">
+      <div style="font-size: 12px; font-weight: 800; letter-spacing: 0.28em; opacity: 0.88; text-transform: uppercase;">
+        Ready to launch?
+      </div>
+      <h1 style="margin-top: 12px; font-size: 64px;">Your branded<br/>loyalty app,<br/>live in 48 hours.</h1>
+      <p style="font-size: 18px; line-height: 1.55; opacity: 0.95; margin-top: 24px; max-width: 5.6in;">
+        Fill out the onboarding form, send us your logo + brand colors, and we handle the rest. You can be scanning your first customer this week.
+      </p>
+    </div>
+
+    <div style="margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; position: relative; z-index: 2;">
+      <div style="background: rgba(255,255,255,0.12); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.2em; opacity: 0.85; text-transform: uppercase;">Step 1</div>
+        <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">Fill the onboarding form</div>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 8px; line-height: 1.5;">25 minutes. Business basics, branding, point rules, rewards, membership, automated offers.</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.12); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.2em; opacity: 0.85; text-transform: uppercase;">Step 2</div>
+        <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">Email us your assets</div>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 8px; line-height: 1.5;">Logo, hero photo, reward photos, voice memos. We do the rest.</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.12); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.2em; opacity: 0.85; text-transform: uppercase;">Step 3</div>
+        <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">We build + launch</div>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 8px; line-height: 1.5;">Your branded subdomain goes live within 48 hours. We walk you through it on a 30-min call.</div>
+      </div>
+      <div style="background: rgba(255,255,255,0.12); backdrop-filter: blur(10px); border-radius: 16px; padding: 24px;">
+        <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.2em; opacity: 0.85; text-transform: uppercase;">Step 4</div>
+        <div style="font-size: 22px; font-weight: 900; margin-top: 6px;">Scan + grow</div>
+        <div style="font-size: 13px; opacity: 0.9; margin-top: 8px; line-height: 1.5;">Print the install card, start scanning, watch retention climb.</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 60px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.2); position: relative; z-index: 2;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; text-align: center;">
+        <div>
+          <div style="font-size: 11px; font-weight: 800; opacity: 0.85; letter-spacing: 0.2em; text-transform: uppercase;">Email</div>
+          <div style="font-size: 18px; font-weight: 800; margin-top: 6px;">hello@atlas-engine.app</div>
+        </div>
+        <div>
+          <div style="font-size: 11px; font-weight: 800; opacity: 0.85; letter-spacing: 0.2em; text-transform: uppercase;">Web</div>
+          <div style="font-size: 18px; font-weight: 800; margin-top: 6px;">atlas-engine.app</div>
+        </div>
+        <div>
+          <div style="font-size: 11px; font-weight: 800; opacity: 0.85; letter-spacing: 0.2em; text-transform: uppercase;">Onboarding form</div>
+          <div style="font-size: 13px; font-weight: 700; margin-top: 6px;">atlas-business-onboarding-form.html</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position: absolute; bottom: 0.4in; left: 0.7in; right: 0.7in; font-size: 10px; opacity: 0.65; text-align: center;">
+      © Atlas Engine · One agency, every loyalty program, one ecosystem.
+    </div>
+  </div>
+</div>
+
+<button class="no-print" style="position: fixed; bottom: 24px; right: 24px; background: #0a3d62; color: white; padding: 12px 18px; border-radius: 999px; font-weight: 800; font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); cursor: pointer; border: none;" onclick="window.print()">📄 Print / Save as PDF</button>
+
+</body>
+</html>

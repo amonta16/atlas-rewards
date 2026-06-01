@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Atlas Engine — Business Onboarding Form</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+/* ─────────────────────────────────────────────────────────────────
+ * ATLAS ENGINE — BUSINESS ONBOARDING FORM
+ *
+ * Hand this to a new business client. They fill every section either
+ * in print (handwritten) or on-screen (the fields are real <input>s).
+ *
+ * Print to PDF: browser → Print → Save as PDF (Letter paper, default
+ * margins). Fillable on-screen: open in any browser; type into the
+ * boxes; print or save to PDF when done.
+ *
+ * Atlas branding: ocean blue + gold. Same design system as the sales
+ * brochure / install card / owner manual.
+ * ───────────────────────────────────────────────────────────────── */
+@page { size: letter; margin: 0; }
+@media print {
+  body { background: white !important; }
+  .page { box-shadow: none !important; margin: 0 !important; page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .no-print { display: none !important; }
+  input, textarea, select {
+    border-color: #cbd5e1 !important;
+    background: white !important;
+  }
+}
+:root {
+  --ocean-1: #0a3d62;
+  --ocean-2: #1d6fa5;
+  --ocean-3: #2a8cc4;
+  --gold:    #f59e0b;
+  --gold-2:  #fbbf24;
+  --red:     #ef4444;
+  --green:   #10b981;
+  --ink:     #0f172a;
+  --muted:   #475569;
+  --line:    #e2e8f0;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f1f5f9;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.page {
+  width: 8.5in;
+  min-height: 11in;
+  margin: 0 auto 32px;
+  padding: 0.6in;
+  background: white;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== TYPOGRAPHY ===== */
+h1 { font-size: 48px; font-weight: 900; letter-spacing: -1.2px; line-height: 1; margin: 0; }
+h2 { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.05; margin: 0 0 6px; color: var(--ocean-1); }
+h3 { font-size: 16px; font-weight: 800; margin: 0 0 6px; color: var(--ocean-2); }
+.lede { font-size: 16px; line-height: 1.5; color: var(--muted); }
+.eyebrow {
+  font-size: 10px; font-weight: 900; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ocean-2);
+}
+.small { font-size: 12px; color: var(--muted); }
+.tiny  { font-size: 10px; color: var(--muted); }
+
+/* ===== ATLAS LOGO ===== */
+.logo {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-weight: 900; font-size: 20px; letter-spacing: -0.5px;
+}
+.logo-mark {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--ocean-1), var(--ocean-3));
+  position: relative;
+}
+.logo-mark::before {
+  content: ""; position: absolute; inset: 5px;
+  border: 2.2px solid white; border-radius: 50%;
+}
+.logo-mark::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px; height: 5px; background: white; border-radius: 50%;
+}
+
+/* ===== HEADER STRIP (every page after cover) ===== */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 16px; margin-bottom: 22px;
+  border-bottom: 2px solid var(--ocean-1);
+}
+.page-header .pg-num {
+  font-size: 11px; font-weight: 800; color: var(--ocean-2);
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+
+/* ===== SECTION ===== */
+.section {
+  margin-top: 18px;
+}
+.section + .section { margin-top: 22px; }
+.section-title {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.section-title .num {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--ocean-1), var(--ocean-3));
+  color: white; font-weight: 900; font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===== FORM FIELDS ===== */
+.field { margin-bottom: 12px; }
+.field-label {
+  display: block; font-size: 11px; font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ocean-1); margin-bottom: 5px;
+}
+.field-hint { font-size: 10px; color: var(--muted); margin-top: 3px; }
+input[type="text"], input[type="email"], input[type="tel"],
+input[type="url"], input[type="number"], input[type="date"],
+select, textarea {
+  width: 100%; padding: 8px 10px; font: inherit; font-size: 13px;
+  border: 1.5px solid var(--line); border-radius: 6px;
+  background: #f8fafc;
+  color: var(--ink);
+}
+input:focus, textarea:focus, select:focus {
+  outline: none; border-color: var(--ocean-2);
+  background: white;
+}
+textarea { resize: vertical; min-height: 60px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.row-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
+.row-tight { grid-template-columns: 2fr 1fr; }
+
+/* ===== CHECKBOXES / RADIO TILES ===== */
+.tile-group {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.tile-3 { grid-template-columns: 1fr 1fr 1fr; }
+.tile {
+  border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+}
+.tile input[type="checkbox"], .tile input[type="radio"] {
+  width: 16px; height: 16px; accent-color: var(--ocean-2);
+}
+.tile-body { flex: 1; min-width: 0; }
+.tile-body .t-title { font-size: 13px; font-weight: 800; color: var(--ink); }
+.tile-body .t-sub   { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+/* ===== TABLES ===== */
+.t {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  border: 1.5px solid var(--line); border-radius: 8px; overflow: hidden;
+}
+.t th, .t td {
+  text-align: left; padding: 7px 9px; font-size: 11.5px; vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.t th {
+  background: var(--ocean-1); color: white; font-weight: 800;
+  letter-spacing: 0.05em; text-transform: uppercase; font-size: 10px;
+}
+.t tr:last-child td { border-bottom: none; }
+.t input, .t select, .t textarea {
+  width: 100%; padding: 4px 6px; font-size: 11.5px;
+  border: 1px solid var(--line); border-radius: 4px; background: white;
+  min-height: 26px;
+}
+
+/* ===== CALLOUT ===== */
+.callout {
+  background: linear-gradient(135deg, #eff6ff, #fef3c7);
+  border: 1.5px solid var(--ocean-2); border-radius: 10px;
+  padding: 12px 14px; font-size: 12px; line-height: 1.45;
+}
+.callout-gold {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border-color: var(--gold);
+}
+.callout strong { color: var(--ocean-1); }
+
+/* ===== COVER PAGE ===== */
+.cover {
+  display: flex; flex-direction: column; min-height: 9.6in; padding: 0;
+}
+.cover-hero {
+  background: linear-gradient(135deg, var(--ocean-1) 0%, var(--ocean-2) 60%, var(--ocean-3) 100%);
+  color: white; padding: 0.8in 0.7in 0.6in; position: relative; overflow: hidden;
+}
+.cover-hero::before {
+  content: ""; position: absolute; top: -60px; right: -60px;
+  width: 240px; height: 240px; border-radius: 50%;
+  background: rgba(255,255,255,0.08); filter: blur(40px);
+}
+.cover-hero::after {
+  content: ""; position: absolute; bottom: -80px; left: -40px;
+  width: 280px; height: 280px; border-radius: 50%;
+  background: rgba(0,0,0,0.15); filter: blur(50px);
+}
+.cover-hero h1 { font-size: 60px; letter-spacing: -2px; }
+.cover-body { padding: 0.6in 0.7in; flex: 1; }
+
+/* ===== SIGNATURE LINE ===== */
+.sig-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 16px; }
+.sig-block {
+  border-top: 1.5px solid var(--ink); padding-top: 4px;
+  font-size: 10px; color: var(--muted); text-transform: uppercase;
+  font-weight: 700; letter-spacing: 0.08em;
+}
+
+/* ===== NO-PRINT FLOATING BUTTON ===== */
+.no-print-bar {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--ocean-1); color: white;
+  padding: 12px 18px; border-radius: 999px;
+  font-weight: 800; font-size: 13px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  cursor: pointer; border: none;
+}
+.no-print-bar:hover { background: var(--ocean-2); }
+
+/* ===== SUB-SECTION ===== */
+.sub {
+  margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line);
+}
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--ocean-1); color: white;
+  font-size: 10px; font-weight: 800; padding: 3px 8px;
+  border-radius: 999px; letter-spacing: 0.05em; text-transform: uppercase;
+}
+.pill-gold { background: var(--gold); color: #1f1300; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 1 — COVER
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-hero">
+    <div class="logo" style="color: white;">
+      <span class="logo-mark"></span>
+      <span>Atlas Engine</span>
+    </div>
+    <div style="margin-top: 70px;">
+      <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.25em; opacity: 0.85; text-transform: uppercase;">
+        Welcome to Atlas
+      </div>
+      <h1 style="margin-top: 8px;">Business<br/>Onboarding<br/>Form</h1>
+      <p style="font-size: 17px; line-height: 1.45; opacity: 0.92; margin-top: 20px; max-width: 5.5in;">
+        Fill this out once and we'll launch your branded loyalty app, your customer rewards program, your automated offers, and your front-desk system — usually within 48 hours.
+      </p>
+    </div>
+  </div>
+
+  <div class="cover-body">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+      <div>
+        <div class="eyebrow">For</div>
+        <div class="field" style="margin-top: 6px;">
+          <input type="text" style="font-size: 18px; padding: 12px;" />
+        </div>
+        <div class="field">
+          <input type="text" style="font-size: 14px;" />
+        </div>
+        <div class="field">
+          <input type="date" />
+        </div>
+      </div>
+      <div>
+        <div class="eyebrow">Prepared by</div>
+        <div class="callout" style="margin-top: 6px;">
+          <strong>Atlas Engine</strong><br/>
+          <span style="font-size: 11px;">hello@atlas-engine.app<br/>atlas-engine.app</span>
+        </div>
+        <div class="callout callout-gold" style="margin-top: 12px;">
+          <strong>How long?</strong> About 25 minutes. You can fill it in print or on screen — your call.
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 28px;">What's inside</h3>
+    <ol style="font-size: 13px; line-height: 1.8; color: var(--muted); padding-left: 18px;">
+      <li><strong style="color: var(--ink);">Business basics</strong> — name, contact, hours, location</li>
+      <li><strong style="color: var(--ink);">Branding</strong> — logo, colors, welcome copy</li>
+      <li><strong style="color: var(--ink);">Pre-Atlas baseline</strong> — your past-year numbers (so we can show your growth)</li>
+      <li><strong style="color: var(--ink);">Point system</strong> — how customers earn</li>
+      <li><strong style="color: var(--ink);">Rewards catalog</strong> — what they can redeem</li>
+      <li><strong style="color: var(--ink);">Membership</strong> — optional premium tier</li>
+      <li><strong style="color: var(--ink);">Check-in streak</strong> — the streak-trail game</li>
+      <li><strong style="color: var(--ink);">Automated offers</strong> — welcome, birthday, anniversary, holidays + voice messages</li>
+      <li><strong style="color: var(--ink);">Google review</strong> — the link customers tap to leave a review</li>
+      <li><strong style="color: var(--ink);">Team roster</strong> — managers + front-desk staff to invite</li>
+      <li><strong style="color: var(--ink);">Notifications</strong> — what your customers get pinged about</li>
+      <li><strong style="color: var(--ink);">Sign-off</strong></li>
+    </ol>
+
+    <div class="callout" style="margin-top: 24px;">
+      <strong>Don't sweat it.</strong> Leave anything blank you're unsure about — we'll get it on a quick call. The most important sections are <strong>1, 2, 4, and 5</strong>.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 2 — BUSINESS BASICS + BRANDING
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 2 of 9 · Basics &amp; Branding</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">1</span>
+      <h2>Business basics</h2>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Business name (as shown on storefront)</label>
+      <input type="text" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Doing-business-as (DBA) if different</label>
+        <input type="text" />
+      </div>
+      <div class="field">
+        <label class="field-label">Industry</label>
+        <select>
+          <option>— select —</option>
+          <option>Coffee shop</option>
+          <option>Restaurant</option>
+          <option>Frozen yogurt / dessert</option>
+          <option>Medspa / aesthetics</option>
+          <option>Salon / barber</option>
+          <option>Gym / fitness</option>
+          <option>Dental office</option>
+          <option>Retail store</option>
+          <option>Arcade / entertainment</option>
+          <option>Home service</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Owner full name</label>
+        <input type="text" />
+      </div>
+      <div class="field">
+        <label class="field-label">Owner email</label>
+        <input type="email" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Owner phone</label>
+        <input type="tel" />
+      </div>
+      <div class="field">
+        <label class="field-label">Best time to reach you</label>
+        <input type="text" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Physical address (street, city, state, zip)</label>
+      <input type="text" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Website (if any)</label>
+        <input type="url" />
+      </div>
+      <div class="field">
+        <label class="field-label">Hours of operation (summary)</label>
+        <input type="text" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Preferred app URL slug</label>
+      <input type="text" />
+      <div class="field-hint">Will become <code>your-slug.atlas-engine.app</code>. Lowercase, letters + numbers + dashes only.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">2</span>
+      <h2>Branding</h2>
+    </div>
+
+    <div class="callout">
+      <strong>Logo + photos:</strong> email PNG/JPG files to <strong>hello@atlas-engine.app</strong> with subject line <em>"Branding files — &lt;your business name&gt;"</em>. Logo should be high-res, transparent background preferred.
+    </div>
+
+    <div class="sub">
+      <h3>Brand colors (hex codes if you know them)</h3>
+      <div class="row-3">
+        <div class="field">
+          <label class="field-label">Primary</label>
+          <input type="text" />
+          <div class="field-hint">Buttons, accents</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Secondary</label>
+          <input type="text" />
+          <div class="field-hint">Gradients, highlights</div>
+        </div>
+        <div class="field">
+          <label class="field-label">Accent</label>
+          <input type="text" />
+          <div class="field-hint">Badges, celebrations</div>
+        </div>
+      </div>
+      <div class="field-hint" style="margin-top:-4px;">
+        Don't have hex codes? Just describe your vibe: <em>"ocean blue and gold," "warm pink and cream," "deep green with copper"</em> — we'll pick.
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Welcome message</h3>
+      <div class="field">
+        <label class="field-label">What the customer sees on their Home tab</label>
+        <textarea>
+        </textarea>
+        <div class="field-hint">Keep it short and warm. Use <code>{{first_name}}</code> if you want it personalized.</div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Hero image</h3>
+      <div class="callout callout-gold">
+        Send us a wide landscape photo of your shop / product / vibe. Will appear behind the welcome message. Optional — we'll use a brand-color gradient if you skip it.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 3 — BASELINE + POINT SYSTEM
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 3 of 9 · Baseline &amp; Points</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">3</span>
+      <h2>Pre-Atlas baseline</h2>
+    </div>
+
+    <div class="callout callout-gold">
+      <strong>Why this matters:</strong> these are your numbers from the last 12 months <em>before</em> Atlas. Your Insights dashboard will use them as the "Without Atlas" baseline in side-by-side comparisons — so you'll always see exactly how much Atlas moved the needle. Quick estimates are fine.
+    </div>
+
+    <div class="row" style="margin-top: 14px;">
+      <div class="field">
+        <label class="field-label">Google reviews (total count today)</label>
+        <input type="number" min="0" />
+      </div>
+      <div class="field">
+        <label class="field-label">Google rating today (★)</label>
+        <input type="number" step="0.1" min="1" max="5" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Average monthly revenue ($)</label>
+        <input type="number" min="0" />
+      </div>
+      <div class="field">
+        <label class="field-label">Average monthly visits / transactions</label>
+        <input type="number" min="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">4</span>
+      <h2>Point system</h2>
+    </div>
+
+    <p class="lede">How customers earn points. You can change any of this after launch.</p>
+
+    <div class="row" style="margin-top: 12px;">
+      <div class="field">
+        <label class="field-label">First-visit bonus</label>
+        <input type="number" min="0" value="100" />
+        <div class="field-hint">Awarded the first time they check in. Big number = sticky.</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Points per visit (no purchase)</label>
+        <input type="number" min="0" value="10" />
+        <div class="field-hint">For the daily check-in itself.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Points per $1 spent</label>
+        <input type="number" min="0" step="0.1" value="1" />
+        <div class="field-hint">e.g. $20 purchase × 1 = 20 points.</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Google review bonus</label>
+        <input type="number" min="0" value="200" />
+        <div class="field-hint">Awarded once verified.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Referral bonus (to referrer)</label>
+        <input type="number" min="0" value="150" />
+      </div>
+      <div class="field">
+        <label class="field-label">Referral bonus (to new signup)</label>
+        <input type="number" min="0" value="100" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Birthday bonus</label>
+        <input type="number" min="0" value="250" />
+        <div class="field-hint">Auto-dropped on the customer's birthday.</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Sign-up anniversary bonus</label>
+        <input type="number" min="0" value="100" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 4 — REWARDS CATALOG
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 4 of 9 · Rewards Catalog</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">5</span>
+      <h2>Rewards catalog</h2>
+    </div>
+
+    <p class="lede">
+      What customers can redeem with their points. Aim for 5–10 to start. We recommend a low-cost teaser (~500 pts), a sweet spot (~1,500 pts), and a hero reward (5,000+ pts) so there's always a "next thing" to chase.
+    </p>
+
+    <table class="t" style="margin-top: 12px;">
+      <thead>
+        <tr>
+          <th style="width: 24px;">#</th>
+          <th>Reward name</th>
+          <th style="width: 24%;">Description (optional)</th>
+          <th style="width: 14%;">Category</th>
+          <th style="width: 10%;">Point cost</th>
+          <th style="width: 14%;">Reward type</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 10 blank rows -->
+        <script>/* rows generated below in JS-free HTML */</script>
+        <tr><td>1</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>2</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>3</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>4</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>5</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>6</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>7</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>8</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>9</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+        <tr><td>10</td><td><input type="text" /></td><td><input type="text" /></td><td><input type="text" /></td><td><input type="number" /></td><td><select><option>Free item</option><option>Discount</option><option>VIP perk</option><option>Upgrade</option><option>Custom</option></select></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout" style="margin-top: 14px;">
+      <strong>Photos for each reward:</strong> attach a square JPG/PNG of every reward (or product photo of what they redeem for). Name files <code>reward-1.jpg</code>, <code>reward-2.jpg</code>, etc. and email with your other branding files. Optional but boosts redemption rate &gt;30%.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 5 — MEMBERSHIP
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 5 of 9 · Membership</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">6</span>
+      <h2>Premium membership (optional)</h2>
+    </div>
+
+    <p class="lede">
+      A paid monthly tier customers can upgrade to. Locks in repeat visits, doubles your average ticket. Skip this section if you don't want a paid tier yet.
+    </p>
+
+    <div class="tile-group" style="margin-top: 12px;">
+      <label class="tile">
+        <input type="radio" name="membership-enabled" />
+        <div class="tile-body">
+          <div class="t-title">Enable membership</div>
+          <div class="t-sub">I want a paid premium tier</div>
+        </div>
+      </label>
+      <label class="tile">
+        <input type="radio" name="membership-enabled" />
+        <div class="tile-body">
+          <div class="t-title">Skip for now</div>
+          <div class="t-sub">Maybe later — start free-only</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="sub">
+      <h3>Membership details</h3>
+      <div class="row">
+        <div class="field">
+          <label class="field-label">Membership name</label>
+          <input type="text" />
+        </div>
+        <div class="field">
+          <label class="field-label">Monthly price ($)</label>
+          <input type="number" min="0" step="0.01" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Member-only perks (one per line)</label>
+        <textarea rows="5"></textarea>
+      </div>
+
+      <div class="row-3">
+        <div class="field">
+          <label class="field-label">Points multiplier</label>
+          <select>
+            <option>1x (off)</option>
+            <option>1.5x</option>
+            <option>2x</option>
+            <option>3x</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Monthly credit ($)</label>
+          <input type="number" min="0" step="0.01" />
+        </div>
+        <div class="field">
+          <label class="field-label">Priority booking</label>
+          <select><option>No</option><option>Yes</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Payment collection</h3>
+      <div class="tile-group tile-3">
+        <label class="tile">
+          <input type="radio" name="pay-mode" />
+          <div class="tile-body">
+            <div class="t-title">In person</div>
+            <div class="t-sub">Customer asks at the front desk; you collect cash/card, staff activates</div>
+          </div>
+        </label>
+        <label class="tile">
+          <input type="radio" name="pay-mode" />
+          <div class="tile-body">
+            <div class="t-title">External link</div>
+            <div class="t-sub">Send to your Stripe payment link, Square, etc.</div>
+          </div>
+        </label>
+        <label class="tile">
+          <input type="radio" name="pay-mode" />
+          <div class="tile-body">
+            <div class="t-title">Stripe (built-in)</div>
+            <div class="t-sub">Auto-charge monthly via your Stripe account</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="field" style="margin-top: 10px;">
+        <label class="field-label">If external link: paste URL</label>
+        <input type="url" />
+      </div>
+
+      <div class="field">
+        <label class="field-label">Instructions for the customer (optional)</label>
+        <textarea rows="2"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 6 — STREAK / CHECK-IN
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 6 of 9 · Check-in Streak</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">7</span>
+      <h2>Check-in streak</h2>
+    </div>
+
+    <p class="lede">
+      The streak trail game: customers earn bigger rewards as their streak grows. Coffee shops should turn this on (daily). Service businesses with monthly cadence should skip it.
+    </p>
+
+    <div class="tile-group" style="margin-top: 12px;">
+      <label class="tile"><input type="radio" name="streak-on" /><div class="tile-body"><div class="t-title">Turn streak on</div><div class="t-sub">Customers see the streak trail on Rewards</div></div></label>
+      <label class="tile"><input type="radio" name="streak-on" /><div class="tile-body"><div class="t-title">Skip</div><div class="t-sub">Not relevant for our cadence</div></div></label>
+    </div>
+
+    <div class="sub">
+      <h3>Cadence</h3>
+      <div class="row-3">
+        <div class="field">
+          <label class="field-label">Period</label>
+          <select>
+            <option>Daily</option>
+            <option>Weekly</option>
+            <option>Monthly</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Check-ins per period</label>
+          <input type="number" min="1" value="1" />
+        </div>
+        <div class="field">
+          <label class="field-label">Grace hours</label>
+          <input type="number" min="0" value="6" />
+        </div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <h3>Milestones</h3>
+      <p class="small">Each milestone fires a reward when the customer hits it. Pick either an existing reward from your catalog OR a points amount.</p>
+      <table class="t" style="margin-top: 6px;">
+        <thead>
+          <tr>
+            <th style="width: 60px;">Streak</th>
+            <th style="width: 30%;">Label</th>
+            <th style="width: 25%;">Gift type</th>
+            <th>Reward name OR points amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>3</td><td><input type="text" /></td><td><select><option>Points</option><option>Reward</option></select></td><td><input type="text" /></td></tr>
+          <tr><td>7</td><td><input type="text" /></td><td><select><option>Points</option><option>Reward</option></select></td><td><input type="text" /></td></tr>
+          <tr><td>14</td><td><input type="text" /></td><td><select><option>Points</option><option>Reward</option></select></td><td><input type="text" /></td></tr>
+          <tr><td>30</td><td><input type="text" /></td><td><select><option>Points</option><option>Reward</option></select></td><td><input type="text" /></td></tr>
+          <tr><td><input type="number" /></td><td><input type="text" /></td><td><select><option>Points</option><option>Reward</option></select></td><td><input type="text" /></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 7 — AUTOMATED OFFERS
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 7 of 9 · Automated Offers</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">8</span>
+      <h2>Automated offers</h2>
+    </div>
+
+    <p class="lede">
+      Set-and-forget offers that fire on their own — welcome, birthday, anniversary, holidays. Each one can come with a voice message recorded by you (boosts conversion 158%).
+    </p>
+
+    <div class="callout callout-gold" style="margin-top: 8px;">
+      <strong>Voice messages:</strong> record on your phone (any voice memo app), email the .m4a or .mp3 to <strong>hello@atlas-engine.app</strong> with the offer name as the subject line. Aim for 8–15 seconds, friendly tone, mention the gift.
+    </div>
+
+    <table class="t" style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th>Occasion</th>
+          <th style="width: 7%;">On?</th>
+          <th>Headline (customer sees)</th>
+          <th>Gift</th>
+          <th style="width: 14%;">Voice memo?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Welcome gift</strong><br/><span class="tiny">First-ever sign-up</span></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Birthday</strong><br/><span class="tiny">Every year on their birthday</span></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Sign-up anniversary</strong><br/><span class="tiny">Every year of membership</span></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>We-miss-you</strong><br/><span class="tiny">60+ days inactive</span></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: Valentine's</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: St. Patrick's</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: Mother's Day</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: Father's Day</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: 4th of July</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: Halloween</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: Thanksgiving</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Holiday: Christmas / Hanukkah</strong></td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+        <tr><td><strong>Custom occasion</strong> ___________</td><td style="text-align: center;"><input type="checkbox" /></td><td><input type="text" /></td><td><input type="text" /></td><td style="text-align: center;"><input type="checkbox" /></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout" style="margin-top: 12px;">
+      <strong>Photos for the offers:</strong> attach a square image for each one you turned on. Welcome, birthday, anniversary are the highest-impact — get photos for those first.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 8 — GOOGLE REVIEW + TEAM
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 8 of 9 · Google Review &amp; Team</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">9</span>
+      <h2>Google review</h2>
+    </div>
+
+    <div class="callout callout-gold">
+      <strong>How to grab your Google review URL:</strong> open Google Maps → search your business → click <em>Write a review</em> → copy the URL that opens. That's the link Atlas drops customers into when they tap "Leave a Google review."
+    </div>
+
+    <div class="field" style="margin-top: 12px;">
+      <label class="field-label">Google review link</label>
+      <input type="url" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label class="field-label">Star rating to surface as "After Atlas"</label>
+        <input type="number" step="0.1" min="1" max="5" />
+        <div class="field-hint">Your goal rating. Shown in your insights as the "Now" number once you hit it.</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Points awarded for a verified review</label>
+        <input type="number" min="0" value="200" />
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">10</span>
+      <h2>Team roster</h2>
+    </div>
+
+    <p class="lede">
+      Who needs access to the manager / front-desk dashboards. We'll create accounts and email each person a sign-in link.
+    </p>
+
+    <table class="t" style="margin-top: 10px;">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th style="width: 14%;">Role</th>
+          <th style="width: 16%;">Phone (optional)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><input type="text" /></td><td><input type="email" /></td><td><select><option>Manager</option><option>Front desk</option></select></td><td><input type="tel" /></td></tr>
+        <tr><td><input type="text" /></td><td><input type="email" /></td><td><select><option>Manager</option><option>Front desk</option></select></td><td><input type="tel" /></td></tr>
+        <tr><td><input type="text" /></td><td><input type="email" /></td><td><select><option>Manager</option><option>Front desk</option></select></td><td><input type="tel" /></td></tr>
+        <tr><td><input type="text" /></td><td><input type="email" /></td><td><select><option>Manager</option><option>Front desk</option></select></td><td><input type="tel" /></td></tr>
+        <tr><td><input type="text" /></td><td><input type="email" /></td><td><select><option>Manager</option><option>Front desk</option></select></td><td><input type="tel" /></td></tr>
+        <tr><td><input type="text" /></td><td><input type="email" /></td><td><select><option>Manager</option><option>Front desk</option></select></td><td><input type="tel" /></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout" style="margin-top: 12px;">
+      <strong>Role guide:</strong> <strong>Manager</strong> sees everything for your business — Insights, Billing, Offers, Team. <strong>Front desk</strong> only sees the scanner, customer search, and points/redemption flow. You can change roles later.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════
+     PAGE 9 — NOTIFICATIONS + SIGN-OFF
+     ════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div class="pg-num">Page 9 of 9 · Notifications &amp; Sign-off</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">11</span>
+      <h2>Customer notification defaults</h2>
+    </div>
+
+    <p class="lede">
+      Push notifications your customers will get unless they opt out. All are on by default — uncheck any you'd rather keep silent. Customers can always tune their own preferences in Profile.
+    </p>
+
+    <div class="tile-group" style="margin-top: 12px;">
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">🔥 Streak reminders</div><div class="t-sub">Nudge before their streak breaks</div></div></label>
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">🎁 Reward unlocked</div><div class="t-sub">When their points cross a threshold</div></div></label>
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">🎰 Spin available</div><div class="t-sub">12 hours after their last check-in</div></div></label>
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">🎂 Birthday bonus</div><div class="t-sub">Celebratory ping on their birthday</div></div></label>
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">⭐ Review request</div><div class="t-sub">Asks for Google review after a redemption</div></div></label>
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">✨ Offer announcements</div><div class="t-sub">When a new automated offer drops</div></div></label>
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">⏰ Gift expiring</div><div class="t-sub">Heads-up when a saved gift is about to expire</div></div></label>
+      <label class="tile"><input type="checkbox" checked /><div class="tile-body"><div class="t-title">💌 We-miss-you</div><div class="t-sub">Win-back for inactive members</div></div></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">
+      <span class="num">12</span>
+      <h2>Anything else?</h2>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Notes, requests, questions — anything we should know</label>
+      <textarea rows="5"></textarea>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top: 36px;">
+    <div class="section-title">
+      <span class="num">✓</span>
+      <h2>Sign-off</h2>
+    </div>
+
+    <p class="small">
+      By signing below you confirm the information above is accurate and authorize Atlas Engine to build, host, and operate your branded loyalty app under our standard <a href="https://atlas-engine.app/legal/terms" style="color: var(--ocean-2);">Terms of Service</a> and <a href="https://atlas-engine.app/legal/privacy" style="color: var(--ocean-2);">Privacy Policy</a>.
+    </p>
+
+    <div class="sig-row" style="margin-top: 20px;">
+      <div>
+        <div style="height: 40px;"></div>
+        <div class="sig-block">Owner signature</div>
+      </div>
+      <div>
+        <div style="height: 40px;"></div>
+        <div class="sig-block">Date</div>
+      </div>
+    </div>
+
+    <div class="sig-row" style="margin-top: 16px;">
+      <div>
+        <div style="height: 40px;"></div>
+        <div class="sig-block">Print name</div>
+      </div>
+      <div>
+        <div style="height: 40px;"></div>
+        <div class="sig-block">Title</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 36px; padding-top: 18px; border-top: 2px solid var(--ocean-1); display: flex; align-items: center; justify-content: space-between;">
+    <div class="logo"><span class="logo-mark"></span><span>Atlas Engine</span></div>
+    <div style="text-align: right;">
+      <div style="font-size: 11px; font-weight: 800; color: var(--ocean-1);">Send completed form to</div>
+      <div style="font-size: 13px; font-weight: 700;">hello@atlas-engine.app</div>
+      <div style="font-size: 10px; color: var(--muted);">We'll have your app live within 48 hours</div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating button — only visible on screen, hidden when printing -->
+<button class="no-print no-print-bar" onclick="window.print()">📄 Print / Save as PDF</button>
+
+</body>
+</html>

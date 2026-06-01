@@ -305,15 +305,20 @@ export function StreakWidget({
                       <div className="absolute inset-0 rounded-xl ring-4 ring-yellow-200 ring-offset-2 ring-offset-transparent animate-pulse pointer-events-none" />
                     )}
 
-                    {/* Icon + period label */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    {/* Icon + period label.
+                        CP-37: milestone cells now display the actual reward
+                        NAME (truncated) instead of just a generic Gift icon.
+                        Andrew's complaint: customers had no idea what they
+                        were working toward — "is it points? a free coffee?".
+                        Showing the label inline answers that without a tap. */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center px-1">
                       {isMilestone ? (
                         isClaimed ? (
-                          <Trophy className="h-6 w-6 text-amber-900 drop-shadow-lg" />
+                          <Trophy className="h-5 w-5 text-amber-900 drop-shadow-lg" />
                         ) : isMystery ? (
-                          <Sparkles className={`h-6 w-6 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
+                          <Sparkles className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
                         ) : (
-                          <Gift className={`h-6 w-6 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
+                          <Gift className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
                         )
                       ) : (
                         <Flame
@@ -321,16 +326,27 @@ export function StreakWidget({
                           style={{ color: isFilled ? "#fff7ed" : "rgba(255,255,255,0.6)" }}
                         />
                       )}
-                      <div
-                        className={`text-[9px] font-extrabold tabular-nums mt-0.5 ${
-                          milestoneRim
-                            ? (isFilled ? "text-amber-900" : "text-amber-50")
-                            : isFilled ? "text-white" : "text-white/55"
-                        }`}
-                      >
-                        {periodWord.charAt(0)}
-                        {n}
-                      </div>
+                      {/* For milestone cells: render the reward label on
+                          two clamped lines so even "Free coffee" shows. */}
+                      {isMilestone ? (
+                        <div
+                          className={`text-[8px] leading-[1.05] font-extrabold text-center mt-0.5 line-clamp-2 ${
+                            isFilled ? "text-amber-900" : "text-amber-50"
+                          }`}
+                          title={milestone!.label}
+                        >
+                          {milestone!.label}
+                        </div>
+                      ) : (
+                        <div
+                          className={`text-[9px] font-extrabold tabular-nums mt-0.5 ${
+                            isFilled ? "text-white" : "text-white/55"
+                          }`}
+                        >
+                          {periodWord.charAt(0)}
+                          {n}
+                        </div>
+                      )}
                     </div>
 
                     {/* "REWARD" badge tag on un-claimed milestones */}
