@@ -12,7 +12,7 @@
  * routing) — they're hand-built inline HTML that mirrors the look of
  * the actual component being explained, so they stay in sync with
  * future restyles without scraping screenshots. Each is a self-
- * contained <Visual*/> component below.
+ * contained Visual* component below.
  *
  * Role-aware:
  *   • business_staff (front desk) — only the day-to-day ops steps.
@@ -334,8 +334,8 @@ function VisualTypeCode({ primary }: { primary: string }) {
         Member or redemption code
       </div>
       <div
-        className="rounded-lg ring-2 px-3 h-12 flex items-center justify-center font-mono tracking-[0.4em] text-xl font-bold"
-        style={{ ringColor: primary, color: primary, borderColor: primary } as React.CSSProperties}
+        className="rounded-lg px-3 h-12 flex items-center justify-center font-mono tracking-[0.4em] text-xl font-bold border-2"
+        style={{ color: primary, borderColor: primary, background: `${primary}08` }}
       >
         A2B3C4D
       </div>
