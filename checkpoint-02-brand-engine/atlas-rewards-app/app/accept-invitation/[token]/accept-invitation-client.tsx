@@ -97,7 +97,13 @@ export function AcceptInvitationClient({
     setTimeout(() => router.push(to), 400);
   }
 
-  /** Branch 1: NOT signed in → sign up with locked email + set password. */
+  /** Branch 1: NOT signed in → server-side admin.createUser with
+   *  email_confirm=true, then sign in with password. CP-37.3 rewrite:
+   *  the previous client-side signUp was leaving accounts unconfirmed
+   *  whenever Supabase had Confirm-email enabled, which made every
+   *  subsequent password sign-in fail with "Invalid login credentials".
+   *  The new /api/team/accept-signup endpoint creates the user
+   *  pre-confirmed and attaches the role in one call. */
   async function signupAndAccept() {
     if (!fullName.trim() || password.length < 8) {
       setErr("Name required and password must be at least 8 characters.");
@@ -105,33 +111,42 @@ export function AcceptInvitationClient({
     }
     setBusy(true); setErr(null);
     try {
-      const supabase = createClient();
-      const { error: signErr } = await supabase.auth.signUp({
-        email: preview.email,
-        password,
-        options: { data: { full_name: fullName.trim(), birthday: birthday || null } },
+      // (1) Create-or-attach via the admin endpoint.
+      const res = await fetch("/api/team/accept-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          password,
+          full_name: fullName.trim(),
+          birthday: birthday || null,
+        }),
       });
-      // CP-42: Supabase returns "User already registered" if this email
-      // exists in auth.users. Switch into existing-account mode so they
-      // can type their existing password — this attaches the invite to
-      // the EXISTING account rather than failing outright.
-      if (signErr) {
-        const msg = String(signErr.message || "").toLowerCase();
+      const json = await res.json();
+      if (!res.ok) {
+        // If the server tells us the email already exists, switch to
+        // the existing-account branch so they can type their EXISTING
+        // password rather than the one in the box.
+        const msg = String(json?.error ?? "").toLowerCase();
         if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
           setExistingMode(true);
           setErr("You already have an Atlas account with this email. Type your existing password to accept this invite.");
           return;
         }
-        throw signErr;
+        throw new Error(json?.error ?? "Could not create account");
       }
-      // Auto sign-in if Supabase is set to confirm-off (recommended for this flow).
+
+      // (2) Sign in client-side now that the user exists + is confirmed.
+      const supabase = createClient();
       const { error: loginErr } = await supabase.auth.signInWithPassword({
         email: preview.email,
         password,
       });
       if (loginErr) throw loginErr;
-      // CP-42: write profile fields so other parts of the app can
-      // surface name + birthday immediately (no second prompt later).
+
+      // (3) Profile upsert (server already did the basics, but birthday
+      //     persistence is double-belt for older databases without the
+      //     accept-signup route deployed yet).
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -141,7 +156,8 @@ export function AcceptInvitationClient({
             birthday: birthday || null,
           }, { onConflict: "id" });
         }
-      } catch { /* non-fatal — profile can be filled later */ }
+      } catch { /* non-fatal */ }
+
       await claimAndRoute();
     } catch (e: any) {
       setErr(e?.message ?? "Could not create account");

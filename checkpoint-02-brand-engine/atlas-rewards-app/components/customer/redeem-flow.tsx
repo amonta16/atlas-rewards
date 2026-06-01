@@ -58,10 +58,24 @@ export function RedeemFlow({
             </div>
 
             <div className="p-6">
-              <div className="h-32 rounded-2xl flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}20 0%, ${business.brand_colors.primary}40 100%)` }}>
-                <Gift className="h-12 w-12" style={{ color: business.brand_colors.primary }} />
-              </div>
+              {/* CP-37.3: show the actual reward image (was hardcoded
+                  Gift icon — Andrew's customers saw a blank pink card
+                  even when the reward had a great product photo). */}
+              {reward.image_url ? (
+                <div className="h-40 rounded-2xl overflow-hidden ring-1 ring-black/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={reward.image_url}
+                    alt={reward.name}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="h-32 rounded-2xl flex items-center justify-center"
+                  style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}20 0%, ${business.brand_colors.primary}40 100%)` }}>
+                  <Gift className="h-12 w-12" style={{ color: business.brand_colors.primary }} />
+                </div>
+              )}
 
               <h3 className="text-xl font-bold text-center mt-5">{reward.name}</h3>
               {reward.description && <p className="text-sm text-muted-foreground text-center mt-1">{reward.description}</p>}

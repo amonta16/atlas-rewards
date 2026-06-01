@@ -63,6 +63,25 @@ export function RewardsClient({
     return () => clearTimeout(t);
   }, []);
 
+  // CP-37.3: ?redeem=<reward_id> opens the RedeemFlow on this reward
+  // immediately. Used by the Home-tab "Top rewards" cards + the
+  // /app/shop "Ready to redeem" strip so customers can redeem from
+  // anywhere in the app — not just the Rewards tab grid.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    const want = sp.get("redeem");
+    if (!want) return;
+    const match = rewards.find(r => r.id === want);
+    if (match) {
+      setRedeemingReward(match);
+      // Clean up the URL so a refresh doesn't re-open the modal.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("redeem");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [rewards]);
+
   // Check if member checked in today (to unlock the Daily Spin)
   useEffect(() => {
     if (!membership?.id) return;

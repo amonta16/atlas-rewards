@@ -199,8 +199,17 @@ export default async function CustomerHome({ params }: { params: { business: str
                 : 100;
               const unlocked = points >= r.point_cost;
               const remaining = Math.max(0, r.point_cost - points);
+              // CP-37.3: top rewards on Home are now tappable. Tapping an
+              // unlocked card jumps to the Rewards tab with ?redeem=<id>
+              // which the rewards-client picks up and auto-opens the
+              // RedeemFlow modal. Locked cards stay inert.
               return (
-                <div key={r.id} className="rounded-xl border bg-white overflow-hidden">
+                <a
+                  key={r.id}
+                  href={unlocked ? `/${params.business}/app/rewards?redeem=${r.id}` : `/${params.business}/app/rewards`}
+                  className="rounded-xl border bg-white overflow-hidden block hover:shadow-md transition-shadow"
+                  style={unlocked ? { borderColor: `${business.brand_colors.primary}55` } : undefined}
+                >
                   {r.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={r.image_url} alt={r.name} className="aspect-[4/3] w-full object-cover" />
@@ -231,12 +240,12 @@ export default async function CustomerHome({ params }: { params: { business: str
                       </div>
                       <div className={`text-[9px] font-bold mt-0.5 tabular-nums ${unlocked ? "text-emerald-600" : "text-zinc-500"}`}>
                         {unlocked
-                          ? "Ready to redeem ✨"
+                          ? "Tap to redeem ✨"
                           : `${points.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`}
                       </div>
                     </div>
                   </div>
-                </div>
+                </a>
               );
             })}
           </div>
