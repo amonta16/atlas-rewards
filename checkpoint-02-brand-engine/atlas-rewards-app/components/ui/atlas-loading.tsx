@@ -1,16 +1,16 @@
 /**
- * AtlasLoading — CP-41
+ * AtlasLoading — CP-41, revised CP-37.2.
  *
- * Branded loading screen shown during Next.js route transitions
- * (via loading.tsx convention). Soft animated logo + tagline.
- * Designed to feel intentional, not "this is broken." Friends
- * gave feedback the app felt unresponsive — this surfaces the
- * "we're loading" moment so taps feel acknowledged.
+ * Branded loading screen shown during Next.js route transitions.
+ * CP-37.2 adds `logoUrl`: when set, we render the business's actual
+ * logo art instead of the generic Atlas triangle mark. Andrew kept
+ * seeing the Atlas triangle on tab switches inside a sub-account —
+ * confusing because it's not the local business's brand.
  *
- * Two variants:
- *   - <AtlasLoading /> — full-screen Atlas brand (agency surfaces)
- *   - <AtlasLoading primary={hex} title="..." /> — per-business
- *     brand color, used in customer + manager surfaces
+ * Behavior:
+ *   - logoUrl set → logo image inside a soft-tinted rounded square
+ *   - no logoUrl → falls back to the Atlas triangle silhouette
+ *   - color comes from cached brand primary (per business) or default
  */
 import { Loader2 } from "lucide-react";
 
@@ -18,6 +18,7 @@ export function AtlasLoading({
   primary,
   title,
   subtitle,
+  logoUrl,
 }: {
   /** Optional brand color override. Defaults to Atlas ocean-blue. */
   primary?: string;
@@ -25,6 +26,9 @@ export function AtlasLoading({
   title?: string;
   /** Optional subtitle */
   subtitle?: string;
+  /** CP-37.2 — optional business logo URL. When set, replaces the
+   *  generic Atlas triangle mark with the business's actual logo. */
+  logoUrl?: string | null;
 }) {
   const color = primary ?? "#0a3d62";
   const color2 = "#2a8cc4";
@@ -38,21 +42,27 @@ export function AtlasLoading({
       {/* Pulsing logo mark */}
       <div className="relative">
         <div
-          className="h-16 w-16 rounded-2xl flex items-center justify-center text-white shadow-xl ring-1 ring-black/5"
-          style={{ background: `linear-gradient(135deg, ${color}, ${color2})` }}
+          className="h-16 w-16 rounded-2xl flex items-center justify-center shadow-xl ring-1 ring-black/5 overflow-hidden"
+          style={{
+            background: logoUrl
+              ? "white"
+              : `linear-gradient(135deg, ${color}, ${color2})`,
+          }}
         >
-          {/* Inline triangle mark — matches the Atlas logo silhouette */}
-          <svg viewBox="0 0 48 48" className="h-9 w-9" aria-hidden="true">
-            <path
-              d="M24 8 L42 38 L6 38 Z"
-              fill="white"
-              opacity="0.9"
+          {logoUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={logoUrl}
+              alt=""
+              className="h-full w-full object-contain p-2"
             />
-            <path
-              d="M24 18 L34 36 L14 36 Z"
-              fill={color}
-            />
-          </svg>
+          ) : (
+            // Fallback: inline Atlas triangle mark.
+            <svg viewBox="0 0 48 48" className="h-9 w-9 text-white" aria-hidden="true">
+              <path d="M24 8 L42 38 L6 38 Z" fill="white" opacity="0.9" />
+              <path d="M24 18 L34 36 L14 36 Z" fill={color} />
+            </svg>
+          )}
         </div>
         {/* Soft pulse ring */}
         <div

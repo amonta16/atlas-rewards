@@ -382,12 +382,32 @@ export function DailyMysteryModal({
                 animation: "bounceIn 0.45s cubic-bezier(0.36,0.07,0.19,0.97)",
               }}
             >
-              <div className="text-5xl mb-3">
-                {prize.tier === "jackpot"
-                  ? "🎆"
-                  : prize.tier === "lucky"
-                    ? "🎉"
-                    : "✨"}
+              {/* CP-37.2: business logo replaces the generic sparkle on
+                  the reveal frame — Andrew wanted the celebration tied
+                  to the local brand. Falls back to the celebratory emoji
+                  only when the business hasn't uploaded a logo yet. */}
+              <div className="flex justify-center mb-3">
+                {business.logo_url ? (
+                  <div
+                    className="h-20 w-20 rounded-2xl bg-white flex items-center justify-center shadow-xl ring-2 overflow-hidden"
+                    style={{ borderColor: primary }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={business.logo_url}
+                      alt={business.name}
+                      className="h-full w-full object-contain p-2"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-5xl">
+                    {prize.tier === "jackpot"
+                      ? "🎆"
+                      : prize.tier === "lucky"
+                        ? "🎉"
+                        : "✨"}
+                  </div>
+                )}
               </div>
 
               <div

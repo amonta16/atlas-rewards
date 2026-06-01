@@ -57,6 +57,8 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
   const { toast } = useToast();
   const [s, setS] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
+  // CP-37.2: send-test-notification state.
+  const [testing, setTesting] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -150,6 +152,66 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* CP-37.2 — send-test-notification panel.
+          One tap fires a sample of EACH enabled notification kind to
+          the currently signed-in agency admin so Andrew can verify the
+          end-to-end pipe (DB trigger → push fanout → device) actually
+          works. Calls send_test_notification RPC. */}
+      <div className="rounded-3xl border bg-white p-5 lg:p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-1">
+          <Send className="h-4 w-4 text-emerald-500" />
+          <h3 className="font-bold">Test notifications</h3>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          Fire a sample of each enabled notification kind to your own account so you can verify the bell + push wiring. Lands as in-app rows and, if you've granted push permission, as a phone notification too.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={testing === "all"}
+            onClick={async () => {
+              setTesting("all");
+              const supabase = createClient();
+              const { data, error } = await supabase.rpc("send_test_notification", {
+                p_business_id: business.id,
+                p_kind: null,
+              });
+              setTesting(null);
+              if (error) { toast.error("Test failed — " + error.message); return; }
+              const sent = (Array.isArray(data) ? data[0]?.sent : data?.sent) ?? 0;
+              toast.success(`Test sent: ${sent} notification${sent === 1 ? "" : "s"} ✨`);
+            }}
+          >
+            {testing === "all" ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Sending all…</> : "Send one of each enabled kind"}
+          </Button>
+          {TYPES.filter(t => s[t.key]).map(t => (
+            <Button
+              key={t.key}
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={testing === t.key}
+              onClick={async () => {
+                setTesting(t.key);
+                const supabase = createClient();
+                const { error } = await supabase.rpc("send_test_notification", {
+                  p_business_id: business.id,
+                  p_kind: t.key,
+                });
+                setTesting(null);
+                if (error) { toast.error(`${t.label} failed — ` + error.message); return; }
+                toast.success(`${t.label} test fired`);
+              }}
+            >
+              {testing === t.key ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
+              {t.label}
+            </Button>
+          ))}
         </div>
       </div>
 

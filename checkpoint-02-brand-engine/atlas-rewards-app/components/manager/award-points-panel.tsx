@@ -4,6 +4,7 @@ import { ArrowLeft, Check, X, Star, Users, Calendar, MapPin, DollarSign, Sparkle
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { MemberHistoryPanel } from "@/components/manager/member-history-panel";
 import type { Business } from "@/lib/types/database";
 
 type Member = {
@@ -258,20 +259,30 @@ export function AwardPointsPanel({
               </div>
             )}
 
+            {/* CP-37.2: "By transaction" is now the dominant CTA on the
+                screen. Filled with the brand color, white text, larger
+                target, ring-2 emphasis. Andrew called out the prior
+                version: white-on-white, no contrast, didn't read as the
+                primary action front desk runs hundreds of times a day. */}
             <div className="mt-6">
               <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">By transaction</h3>
               <button onClick={() => setMode("purchase")}
-                className="mt-2 w-full rounded-2xl border bg-white p-4 flex items-center gap-3 hover:bg-zinc-50 text-left">
-                <div className="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5" />
+                className="mt-2 w-full rounded-2xl p-5 flex items-center gap-3 text-left text-white shadow-lg active:scale-[0.98] transition-transform ring-2 ring-white"
+                style={{
+                  background: `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)`,
+                  boxShadow: `0 10px 22px ${business.brand_colors.primary}33`,
+                }}
+              >
+                <div className="h-12 w-12 rounded-xl bg-white/25 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/40 shrink-0">
+                  <DollarSign className="h-6 w-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <div className="font-semibold">Purchase amount</div>
-                  <div className="text-xs text-muted-foreground">
-                    {business.point_rules.purchase_per_dollar} pt per $1 spent — enter the total on the keypad
+                  <div className="font-extrabold text-base leading-tight">Purchase amount</div>
+                  <div className="text-xs text-white/90 mt-0.5 leading-snug">
+                    {business.point_rules.purchase_per_dollar} pt per $1 spent — tap to open keypad
                   </div>
                 </div>
-                <div className="text-xs text-zinc-400">→</div>
+                <div className="text-white/80 text-xl font-bold shrink-0">→</div>
               </button>
             </div>
 
@@ -302,6 +313,15 @@ export function AwardPointsPanel({
             </div>
 
             {err && <p className="text-sm text-red-600 mt-3">{err}</p>}
+
+            {/* CP-37.2 — member history. Lives BELOW the action buttons
+                so the staff's primary path (check in → award points) is
+                always at the top of the screen, with context below. */}
+            <MemberHistoryPanel
+              businessId={business.id}
+              membershipId={member.membership_id}
+              primary={business.brand_colors.primary}
+            />
           </>
         )}
 

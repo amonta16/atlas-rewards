@@ -66,6 +66,10 @@ export function BrandedLoading({
       primary={brand?.primary}
       title={brand?.name ? `Loading ${brand.name}` : title}
       subtitle={subtitle}
+      // CP-37.2: thread the cached logo through so the tab-switch
+      // loading screen shows the business's actual logo, not the
+      // generic Atlas triangle.
+      logoUrl={brand?.logo_url ?? null}
     />
   );
 }

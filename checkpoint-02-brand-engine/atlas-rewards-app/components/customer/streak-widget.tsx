@@ -329,9 +329,12 @@ export function StreakWidget({
                         instead of a generic gift icon. */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center px-1">
                       {isMilestone && milestone!.reward_image_url ? (
-                        // Real reward photo — fills the cell. Claimed
-                        // gets a Trophy overlay so it's clear it's
-                        // already been redeemed.
+                        // CP-37.2: reward photo fills the cell, but now
+                        // overlaid with a heavier bottom scrim + the
+                        // reward NAME so a customer can read what they're
+                        // working toward without tapping. Andrew called
+                        // out the previous version: image alone, no
+                        // legible caption.
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -340,16 +343,22 @@ export function StreakWidget({
                             className="absolute inset-0 h-full w-full object-cover rounded-xl"
                             style={{ opacity: isFilled ? 1 : 0.55 }}
                           />
-                          {/* Soft scrim so the period number stays legible
-                              on top of busy product photos. */}
-                          <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/55 via-transparent to-transparent pointer-events-none" />
+                          {/* Heavier bottom scrim — needs to support
+                              two-line reward name text legibly. */}
+                          <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
                           {isClaimed && (
-                            <Trophy className="relative z-10 h-5 w-5 text-amber-300 drop-shadow-lg" />
+                            <Trophy className="absolute top-1 right-1 z-10 h-4 w-4 text-amber-300 drop-shadow-lg" />
                           )}
-                          <div
-                            className="relative z-10 text-[9px] font-extrabold tabular-nums mt-auto mb-0.5 text-white drop-shadow"
-                          >
+                          {/* Period number — small badge top-left */}
+                          <div className="absolute top-1 left-1 z-10 text-[8px] font-extrabold tabular-nums text-white/95 drop-shadow px-1 rounded bg-black/30">
                             {periodWord.charAt(0)}{n}
+                          </div>
+                          {/* Reward name caption — bottom, two lines */}
+                          <div
+                            className="absolute bottom-0.5 left-0 right-0 z-10 px-1 text-[8px] leading-[1.05] font-extrabold text-center text-white drop-shadow line-clamp-2"
+                            title={milestone!.reward_name ?? milestone!.label}
+                          >
+                            {milestone!.reward_name ?? milestone!.label}
                           </div>
                         </>
                       ) : isMilestone ? (
