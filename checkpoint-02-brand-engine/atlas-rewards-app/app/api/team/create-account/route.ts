@@ -142,6 +142,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "user exists but couldn't be located" }, { status: 500 });
     }
     userId = match.id;
+
+    // CP-37.12: previously this branch ONLY attached the role — it
+    // never wrote the new password Andrew typed in the form, so the
+    // invited admin / front-desk could never sign in (the actual
+    // password was whatever was set originally, weeks ago, by a
+    // different flow). Now we update the password + confirm the
+    // email so every re-invite produces a working sign-in.
+    try {
+      await admin.auth.admin.updateUserById(match.id, {
+        password,
+        email_confirm: true,
+        ...(fullName ? { user_metadata: { ...(match.user_metadata ?? {}), full_name: fullName } } : {}),
+      });
+    } catch (e: any) {
+      return NextResponse.json(
+        { error: `could not update password for existing user: ${e?.message ?? "unknown"}` },
+        { status: 500 },
+      );
+    }
   }
 
   // 3. Upsert the profile so name/email are populated immediately.

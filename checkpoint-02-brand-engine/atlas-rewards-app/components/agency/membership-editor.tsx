@@ -186,28 +186,12 @@ export function MembershipEditor({
         )}
       </div>
 
-      {/* ── Card art ───────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border bg-white p-6">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="h-10 w-10 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="font-semibold">Loyalty card art</h3>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Shows behind the membership card on the customer's Home screen. Recommended ~1200×800 jpg or png.
-            </p>
-          </div>
-        </div>
-        <ImageUploader
-          bucket="membership-images"
-          pathPrefix={business.id}
-          value={cfg.image_url}
-          onChange={(url) => setCfg(c => ({ ...c, image_url: url }))}
-          aspectClass="aspect-[3/2]"
-          label="Loyalty card"
-        />
-      </div>
+      {/* CP-37.12: "Loyalty card art" section removed — the customer
+          loyalty card doesn't render this background image anywhere
+          in the current customer UI, so the upload was just dead
+          weight on the agency settings page. The image_url field is
+          kept on the membership config so re-enabling later doesn't
+          require a SQL migration; we just don't surface the uploader. */}
 
       {/* ── Details ───────────────────────────────────────────────────── */}
       <div className="rounded-2xl border bg-white p-6 space-y-5">

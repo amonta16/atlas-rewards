@@ -18,8 +18,11 @@ import { RewardsManager } from "@/components/agency/rewards-manager";
 // picker pattern as automated offers.
 import { StreakConfigEditor } from "@/components/agency/streak-config-editor";
 import { BusinessInsights } from "@/components/agency/business-insights";
-import { WebhookSettings } from "@/components/agency/webhook-settings";
-import { AutomationRulesEditor } from "@/components/agency/automation-rules-editor";
+// CP-37.12: WebhookSettings + AutomationRulesEditor removed from the
+// agency Settings tab. Neither was wired to anything production-facing
+// yet — Andrew wanted them out so settings stays focused on what's
+// actually shipping. Components remain in the repo for when we bring
+// them back.
 import { BusinessDiscoveryQR } from "@/components/agency/business-discovery-qr";
 import { OffersManager } from "@/components/agency/offers-manager";
 import { AutomatedOffersManager } from "@/components/agency/automated-offers-manager";
@@ -432,8 +435,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
               {/* CP-36b: per-business notification toggles + manual
                   broadcast composer (moved here from the manager view). */}
               <NotificationSettingsPanel business={b} />
-              <WebhookSettings business={b} />
-              <AutomationRulesEditor business={b} />
+              {/* CP-37.12: WebhookSettings + AutomationRulesEditor
+                  removed from settings — kept in repo for future. */}
             </div>
           )}
         </div>
