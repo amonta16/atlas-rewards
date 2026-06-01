@@ -1,15 +1,19 @@
 /**
- * POST /api/team/create-account — CP-42
+ * POST /api/team/create-account — rewritten CP-37.15
  *
- * Admin-creates-the-account flow. Andrew's request: instead of sending
- * a token link the invitee uses to sign up, the agency admin enters
- * BOTH the email and a password, the backend creates the auth user
- * straight away, attaches the role, and returns a clean sign-in URL.
+ * Provisions a team account (agency_admin / business_manager / business_staff)
+ * via the new admin_provision_account RPC instead of the Supabase admin SDK.
  *
- * The recipient gets a link → lands on /login pre-filled with their
- * email → types the password Andrew gave them → they're in their
- * portal. No token, no expiration, no "user already registered"
- * race conditions.
+ * Why the rewrite: the SDK's createUser/updateUserById dance was producing
+ * accounts the user couldn't sign into — every "Wrong email or password"
+ * report Andrew hit. The exact root cause inside the SDK call was never
+ * isolated (suspect: password silently dropped on the existing-user
+ * update path in our SDK version). The RPC writes auth.users directly
+ * via pgcrypto — the SAME path the cp37_14 fresh-start used to reset
+ * Andrew's own account, which works reliably.
+ *
+ * The route now does almost nothing — read the body, call the RPC,
+ * build a sign-in URL. All the heavy lifting is in admin_provision_account.
  *
  * Body:
  *   {
@@ -20,12 +24,12 @@
  *     full_name?: string,
  *   }
  *
- * Returns: { ok, email, role, business_id, sign_in_url }
+ * Returns:
+ *   { ok, email, role, business_id, sign_in_url, created_new }
  *
- * Auth: caller must be agency_admin (for any role / any business) OR
- * business_manager (for business_manager + business_staff in their
- * own business). Enforced by re-querying current_app_role() before
- * we touch the admin client.
+ * Auth: caller must already be agency_admin (any role / any business)
+ * OR business_manager (business_manager + business_staff in their
+ * own business). Enforced inside the RPC.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServer } from "@/lib/supabase/server";
@@ -47,6 +51,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "invalid json" }, { status: 400 }); }
 
+  // Light client-side validation; the RPC re-validates everything.
   const email      = (body.email ?? "").trim().toLowerCase();
   const password   = body.password ?? "";
   const role       = body.role;
@@ -66,141 +71,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "business_id required for this role" }, { status: 400 });
   }
 
-  // 1. Verify the caller's role server-side.
+  // Auth check + permission gate is inside the RPC; we just need a
+  // signed-in client to invoke it (so auth.uid() resolves).
   const server = createServer();
   const { data: { user: caller } } = await server.auth.getUser();
   if (!caller) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  // current_app_role returns the caller's role for a given business.
-  // For agency_admin invites we pass null (agency-wide check).
-  const { data: roleData } = await server.rpc("current_app_role", {
+  // Call the RPC. SECURITY DEFINER means it runs with elevated
+  // privileges and can write auth.users.encrypted_password — the
+  // critical bit the SDK kept fumbling.
+  const { data, error } = await server.rpc("admin_provision_account", {
+    p_email: email,
+    p_password: password,
+    p_role: role,
     p_business_id: businessId,
+    p_full_name: fullName || null,
   });
-  const callerRole = (typeof roleData === "string"
-    ? roleData
-    : (roleData as any)?.[0]) as Role | "customer" | null;
 
-  // agency_admin can do anything. business_manager can create staff
-  // and other managers for their own business. business_staff and
-  // customers cannot create accounts.
-  const allowed =
-    callerRole === "agency_admin" ||
-    (callerRole === "business_manager"
-      && (role === "business_manager" || role === "business_staff")
-      && businessId !== null);
-
-  if (!allowed) {
-    return NextResponse.json({ error: "permission denied for this role" }, { status: 403 });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  // 2. Use the admin client to create (or find) the user.
-  const admin = createAdminClient();
-
-  // Check whether the user already exists. If yes, we don't try to
-  // reset their password — that'd hijack their account. We just
-  // attach the role.
-  let userId: string | null = null;
-  let createdNew = false;
-
-  // listUsers doesn't support email filter on every Supabase version;
-  // simplest reliable path: try createUser first, handle the
-  // "User already registered" case by looking them up.
-  try {
-    const { data: created, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,                       // skip the verification email
-      user_metadata: fullName ? { full_name: fullName } : undefined,
-    });
-    if (createErr) {
-      const msg = String(createErr.message || "").toLowerCase();
-      if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
-        // Fall through — we'll look up the existing user below.
-      } else {
-        return NextResponse.json({ error: createErr.message }, { status: 400 });
-      }
-    } else {
-      userId = created?.user?.id ?? null;
-      createdNew = true;
-    }
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "create user failed" }, { status: 500 });
+  const row = (Array.isArray(data) ? data[0] : data) as
+    { user_id: string; created_new: boolean } | null;
+  if (!row) {
+    return NextResponse.json({ error: "provisioning returned no row" }, { status: 500 });
   }
 
-  if (!userId) {
-    // Look up the existing user by email.
-    const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    if (listErr) {
-      return NextResponse.json({ error: "could not look up existing user" }, { status: 500 });
-    }
-    const match = (list?.users ?? []).find(u =>
-      (u.email ?? "").toLowerCase() === email,
-    );
-    if (!match) {
-      return NextResponse.json({ error: "user exists but couldn't be located" }, { status: 500 });
-    }
-    userId = match.id;
-
-    // CP-37.12: previously this branch ONLY attached the role — it
-    // never wrote the new password Andrew typed in the form, so the
-    // invited admin / front-desk could never sign in (the actual
-    // password was whatever was set originally, weeks ago, by a
-    // different flow). Now we update the password + confirm the
-    // email so every re-invite produces a working sign-in.
-    try {
-      await admin.auth.admin.updateUserById(match.id, {
-        password,
-        email_confirm: true,
-        ...(fullName ? { user_metadata: { ...(match.user_metadata ?? {}), full_name: fullName } } : {}),
-      });
-    } catch (e: any) {
-      return NextResponse.json(
-        { error: `could not update password for existing user: ${e?.message ?? "unknown"}` },
-        { status: 500 },
-      );
-    }
-  }
-
-  // 3. Upsert the profile so name/email are populated immediately.
-  await admin
-    .from("profiles")
-    .upsert({
-      id: userId!,
-      full_name: fullName || null,
-      email,
-    }, { onConflict: "id" });
-
-  // 4. Insert the role row (skipping if it already exists).
-  // We do this via the admin client to bypass RLS — we've already
-  // checked caller permission above.
-  const { error: roleErr } = await admin
-    .from("business_users")
-    .insert({
-      user_id: userId!,
-      business_id: role === "agency_admin" ? null : businessId,
-      role,
-    });
-  if (roleErr && !String(roleErr.message || "").includes("duplicate key")) {
-    return NextResponse.json({ error: roleErr.message }, { status: 400 });
-  }
-
-  // 5. Build the sign-in URL.
-  //
-  // CP-37.5: previously this always returned /login (the agency-admin
-  // login form), which silently locked out managers and front-desk —
-  // /login redirects to /agency on success, where non-admin users
-  // have no permission. Now:
-  //   • agency_admin    → /login              (agency surface)
-  //   • business_*      → /<slug>/login       (per-business surface)
-  // The per-business login page redirects to /<slug>/manage on success.
+  // Build the sign-in URL — same routing as CP-37.5: agency_admin
+  // lands on /login → /agency; manager / front-desk lands on
+  // /<slug>/login → /<slug>/manage (via ?next=).
   let signInUrl: URL;
   if (role === "agency_admin") {
     signInUrl = new URL("/login", req.nextUrl.origin);
     signInUrl.searchParams.set("email", email);
   } else if (businessId) {
-    // Look up the slug so we can build /<slug>/login.
+    // Need the slug for the per-business surface. Use the admin
+    // client because business_users RLS is restrictive for the
+    // caller in some configurations.
+    const admin = createAdminClient();
     const { data: biz } = await admin
       .from("businesses")
       .select("slug")
@@ -212,13 +123,8 @@ export async function POST(req: NextRequest) {
     }
     signInUrl = new URL(`/${slug}/login`, req.nextUrl.origin);
     signInUrl.searchParams.set("email", email);
-    // Redirect target after sign-in — the per-business login already
-    // routes to /<slug>/app on success, but managers/front-desk need
-    // /<slug>/manage. Pass it as ?next= so the login page honors it.
     signInUrl.searchParams.set("next", `/${slug}/manage`);
   } else {
-    // Defensive fallback — shouldn't hit this since we validated
-    // businessId for non-admin roles above.
     signInUrl = new URL("/login", req.nextUrl.origin);
     signInUrl.searchParams.set("email", email);
   }
@@ -228,7 +134,7 @@ export async function POST(req: NextRequest) {
     email,
     role,
     business_id: businessId,
-    created_new: createdNew,
+    created_new: row.created_new,
     sign_in_url: signInUrl.toString(),
   });
 }
