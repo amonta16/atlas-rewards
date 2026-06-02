@@ -74,6 +74,12 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
   const [debug, setDebug] = useState<NotifDebug | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugErr, setDebugErr] = useState<string | null>(null);
+  // CP-37.18: manual "process pending now" state — runs the same job
+  // the Vercel cron runs every minute, so Andrew can verify the auto-
+  // trigger → push pipeline without waiting (or while debugging why
+  // the cron itself isn't firing).
+  const [processing, setProcessing] = useState(false);
+  const [processResult, setProcessResult] = useState<string | null>(null);
 
   async function runDiagnostics() {
     setDebugLoading(true);
@@ -285,17 +291,53 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
         <p className="text-xs text-muted-foreground mb-4">
           Reports every link in the push chain — VAPID keys, member count, push subscribers, recent activity. Run this any time push "succeeds" but no phone lights up.
         </p>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={debugLoading}
-          onClick={runDiagnostics}
-        >
-          {debugLoading
-            ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Checking…</>
-            : <><Stethoscope className="h-3.5 w-3.5 mr-1.5" /> Run diagnostics</>}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={debugLoading}
+            onClick={runDiagnostics}
+          >
+            {debugLoading
+              ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Checking…</>
+              : <><Stethoscope className="h-3.5 w-3.5 mr-1.5" /> Run diagnostics</>}
+          </Button>
+          {/* CP-37.18 — manual cron trigger. Runs the same job Vercel
+              runs every minute. Use this any time a trigger-fired
+              notification (reward unlocked, streak break, etc.)
+              shows in the bell but no phone push arrives — it tells
+              you whether the cron path itself works. */}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={processing}
+            onClick={async () => {
+              setProcessing(true);
+              setProcessResult(null);
+              try {
+                const res = await fetch("/api/notifications/process-pending");
+                const json = await res.json();
+                if (!res.ok) throw new Error(json?.error ?? "process failed");
+                setProcessResult(
+                  `Processed ${json.processed ?? 0} pending · push sent ${json.push_sent ?? 0} (failed ${json.push_failed ?? 0})`,
+                );
+              } catch (e: any) {
+                setProcessResult(`Error: ${e?.message ?? "unknown"}`);
+              } finally {
+                setProcessing(false);
+              }
+            }}
+          >
+            {processing
+              ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Processing…</>
+              : <>⚡ Process pending pushes now</>}
+          </Button>
+        </div>
+        {processResult && (
+          <div className="mt-2 text-xs text-zinc-600 font-mono">{processResult}</div>
+        )}
 
         {debugErr && (
           <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">

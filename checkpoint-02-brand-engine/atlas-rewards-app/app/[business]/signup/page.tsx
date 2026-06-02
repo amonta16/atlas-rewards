@@ -52,7 +52,36 @@ export default function CustomerSignup() {
       password,
       options: { data: { full_name: name, phone, birthday } },
     });
-    if (error) { setErr(error.message); setLoading(false); return; }
+    if (error) {
+      // CP-37.18: if the customer already has an Atlas account from
+      // ANOTHER business in the same system, signUp errors with
+      // "User already registered." That used to dead-end them. Now we
+      // try signInWithPassword — if the password they typed matches
+      // their existing account, we sign them in and enroll them for
+      // THIS business below. If the password is wrong, surface a
+      // clearer message + magic-link rescue.
+      const msg = String(error.message || "").toLowerCase();
+      const looksLikeExisting =
+        msg.includes("already") || msg.includes("registered") || msg.includes("exists");
+      if (looksLikeExisting) {
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email, password,
+        });
+        if (signInErr) {
+          setErr(
+            "You already have an Atlas account with this email at another business. Sign in there first, or use \"Send me a sign-in link\" on the login page if you forgot the password.",
+          );
+          setLoading(false);
+          return;
+        }
+        // Sign-in worked — fall through. The enroll_member call below
+        // will attach this business to the existing account.
+      } else {
+        setErr(error.message);
+        setLoading(false);
+        return;
+      }
+    }
 
     // CP-37.1: detect "email confirmation required" — when Supabase has
     // Confirm-email enabled, signUp returns a user but NO session, and

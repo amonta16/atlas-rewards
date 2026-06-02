@@ -2,6 +2,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { ScanLine, UserSearch, History, LogOut, Gift, Tag, Newspaper, Home, Check, Shield, Lightbulb } from "lucide-react";
 import { ManagerTutorial, useTutorialAutoOpen } from "@/components/manager/manager-tutorial";
+// CP-37.18 — Install-app affordance for managers + front-desk.
+import { ManagerPwaInstall } from "@/components/manager/manager-pwa-install";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -256,8 +258,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           </div>
           {/* CP-37.5: header tutorial button. Subtle until tapped —
               walks the user through their role's features one step
-              at a time. Auto-opens on first sign-in for new accounts. */}
+              at a time. Auto-opens on first sign-in for new accounts.
+              CP-37.18: install-app affordance now sits next to it. */}
           <div className="flex items-center gap-1">
+            <ManagerPwaInstall primary={business.brand_colors.primary} />
             <Button
               variant="ghost"
               size="sm"

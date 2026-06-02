@@ -9,6 +9,11 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 // CP-42: reuse the existing Daily Spin button (the same one Andrew has
 // on Rewards) under the Featured offer on Home.
 import { DailySpinButton } from "@/components/customer/daily-spin-button";
+// CP-37.18: one-time PWA welcome / notification permission cutscene.
+// Fires when the customer opens the home-screen-installed app for the
+// first time, asks for notification permission, and registers the
+// push subscription against this business.
+import { PwaWelcomeOverlay } from "@/components/customer/pwa-welcome-overlay";
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +68,16 @@ export default async function CustomerHome({ params }: { params: { business: str
   return (
     <div className="relative">
       <OffersRevalidator businessId={business.id} />
+
+      {/* CP-37.18 — one-time PWA welcome / notification cutscene.
+          Self-hides when not in standalone mode or already onboarded. */}
+      <PwaWelcomeOverlay
+        businessId={business.id}
+        businessName={business.name}
+        logoUrl={business.logo_url ?? null}
+        primary={business.brand_colors.primary}
+        secondary={business.brand_colors.secondary ?? business.brand_colors.primary}
+      />
 
       {/* Header */}
       <div className="px-4 pt-3 pb-3 flex items-center justify-between bg-white">
