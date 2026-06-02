@@ -44,4 +44,18 @@ export default async function ManagerLayout({
               <Shield className="h-5 w-5" />
               <CardTitle>Manager access required</CardTitle>
             </div>
-            <Car
+            <CardDescription>
+              You're signed in as {user.email}, but this account isn't a manager for {business.name}.
+              Promote yourself with the SQL snippet in the CP 3 README.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/app"><Button variant="outline" className="w-full">Go to customer app instead</Button></Link>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  return <>{children}</>;
+}

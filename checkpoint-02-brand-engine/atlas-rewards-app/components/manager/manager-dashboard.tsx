@@ -571,4 +571,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         {/* CP-36b: notifications surface (composer + toggles) moved to the
             agency admin's per-business settings. The manager dashboard no
             longer carries this tab — keeps the front-desk surface focused
-            on day-to-day ops
+            on day-to-day ops. */}
+      </main>
+    </div>
+  );
+}

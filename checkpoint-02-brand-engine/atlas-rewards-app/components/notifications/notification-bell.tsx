@@ -123,3 +123,27 @@ export function NotificationBell({
         aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
       >
         {permState === "denied" ? (
+          <BellOff className="h-5 w-5 text-white/70" />
+        ) : permState === "default" ? (
+          <BellPlus className="h-5 w-5 text-white" />
+        ) : (
+          <Bell className="h-5 w-5 text-white" />
+        )}
+        {unread > 0 && (
+          <span
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-extrabold flex items-center justify-center bg-rose-500 text-white ring-2 ring-white animate-pulse"
+          >
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </button>
+      {open && (
+        <NotificationCenter
+          primary={primary}
+          permState={permState}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}

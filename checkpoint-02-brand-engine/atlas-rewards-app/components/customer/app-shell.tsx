@@ -110,3 +110,7 @@ export function CustomerAppShell({
             </Link>
           );
         })}
+      </nav>
+    </div>
+  );
+}

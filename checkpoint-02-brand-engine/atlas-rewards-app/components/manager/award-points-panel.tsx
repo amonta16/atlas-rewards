@@ -474,4 +474,152 @@ export function AwardPointsPanel({
             <div className="mt-6 grid grid-cols-3 gap-2 max-w-sm mx-auto w-full">
               {["1","2","3","4","5","6","7","8","9","","0","back"].map((k, i) => (
                 k === "" ? <div key={`sp-${i}`} /> : (
- 
+                  <button key={k} onClick={() => pressRemove(k)}
+                    className="h-16 rounded-2xl bg-white border text-2xl font-bold hover:bg-zinc-50 active:bg-zinc-100 transition flex items-center justify-center">
+                    {k === "back" ? <X className="h-5 w-5"/> : k}
+                  </button>
+                )
+              ))}
+            </div>
+
+            <div className="mt-5 max-w-sm mx-auto w-full">
+              <input
+                value={removeNote}
+                onChange={e => setRemoveNote(e.target.value)}
+                placeholder="Reason (optional) — e.g. refund, mistake"
+                maxLength={120}
+                className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
+              />
+            </div>
+
+            {err && <p className="text-sm text-red-600 mt-3 text-center">{err}</p>}
+
+            <div className="mt-auto pt-4 pb-2">
+              <Button onClick={removePoints} disabled={submitting || pointsToRemove <= 0}
+                className="w-full h-14 text-base bg-rose-600 hover:bg-rose-700 text-white">
+                {submitting ? "Removing…" : `Remove ${pointsToRemove} points`}
+              </Button>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ─────────────────── SuccessScreen (CP-30) ───────────────────
+ *
+ * Full-screen brand-color flash with check mark + big "+N" + Done.
+ * Adds a 30-second Undo button wired to the new reverse_last_award
+ * RPC for catching front-desk mistakes (typed wrong dollar amount,
+ * picked wrong quick rule, etc.). After the window closes the Undo
+ * button greys out and the only action is Done.
+ *
+ * The flash itself is an `animate-flash` scale-down on mount that
+ * makes the screen feel celebratory without being noisy.
+ */
+function SuccessScreen({
+  amount, memberName, businessId, membershipId, primary, onUndone, onDone,
+}: {
+  amount: number;
+  memberName: string;
+  businessId: string;
+  membershipId: string;
+  primary: string;
+  onUndone: () => void;
+  onDone: () => void;
+}) {
+  const [secondsLeft, setSecondsLeft] = useState(30);
+  const [undoing, setUndoing] = useState(false);
+  const [undoErr, setUndoErr] = useState<string | null>(null);
+  const [undone, setUndone] = useState(false);
+
+  useEffect(() => {
+    if (undone) return;
+    const t = setInterval(() => {
+      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [undone]);
+
+  async function undo() {
+    setUndoing(true);
+    setUndoErr(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("reverse_last_award", {
+      p_business_id: businessId,
+      p_membership_id: membershipId,
+      p_within_seconds: 60,
+    });
+    setUndoing(false);
+    if (error) {
+      setUndoErr(error.message);
+      return;
+    }
+    setUndone(true);
+    setTimeout(() => onUndone(), 900);
+  }
+
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-6 animate-flash"
+      style={{ background: primary }}
+    >
+      <div className="bg-white rounded-full h-20 w-20 flex items-center justify-center mb-6 shadow-2xl">
+        <Check className="h-10 w-10" style={{ color: primary }} />
+      </div>
+      <div className="text-white text-center">
+        <div className="text-sm uppercase tracking-widest opacity-85">
+          {/* CP-43: a negative amount means points were removed. */}
+          {undone ? "Reversed" : amount < 0 ? "Points removed" : "Points awarded"}
+        </div>
+        <div className={cn("text-7xl font-bold mt-2 transition", undone && "line-through opacity-60")}>
+          {undone ? "—" : amount < 0 ? `−${Math.abs(amount)}` : `+${amount}`}
+        </div>
+        <div className="text-base mt-2 opacity-90">
+          {amount < 0 ? "from " : "to "}{memberName}
+        </div>
+        {!undone && amount >= 0 && (
+          <div className="text-xs mt-3 opacity-75">Their app just lit up with confetti.</div>
+        )}
+      </div>
+
+      {/* Undo + Done CTA stack */}
+      <div className="mt-10 w-full max-w-xs space-y-2">
+        {!undone && (
+          <Button
+            onClick={undo}
+            disabled={undoing || secondsLeft === 0}
+            variant="outline"
+            className="w-full h-12 text-sm font-bold border-white/40 text-white bg-transparent hover:bg-white/15 hover:text-white disabled:opacity-50"
+          >
+            {undoing
+              ? "Reversing…"
+              : secondsLeft > 0
+                ? `Undo (${secondsLeft}s)`
+                : "Undo window closed"}
+          </Button>
+        )}
+        <Button
+          onClick={onDone}
+          className="w-full h-12 text-base font-bold bg-white text-zinc-900 hover:bg-zinc-100"
+        >
+          Done
+        </Button>
+        {undoErr && (
+          <p className="text-xs text-rose-100 bg-rose-900/40 rounded-lg px-3 py-2 text-center">{undoErr}</p>
+        )}
+      </div>
+
+      {/* Brand-color flash keyframe — fast scale-up then settle. */}
+      <style jsx>{`
+        @keyframes flash {
+          0%   { transform: scale(1.04); filter: brightness(1.2); }
+          60%  { transform: scale(0.995); filter: brightness(1); }
+          100% { transform: scale(1);     filter: brightness(1); }
+        }
+        :global(.animate-flash) { animation: flash 380ms ease-out; }
+      `}</style>
+    </div>
+  );
+}

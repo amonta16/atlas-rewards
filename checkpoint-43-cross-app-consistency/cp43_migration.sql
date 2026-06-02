@@ -135,4 +135,20 @@ begin
   update public.business_memberships
      set points_balance = v_new_balance,
          updated_at      = now()
-   where id =
+   where id = p_membership_id;
+
+  insert into public.points_ledger
+    (membership_id, business_id, delta, rule_type, balance_after, notes, created_by)
+  values
+    (p_membership_id, v_business_id, -v_remove, 'manual_removal',
+     v_new_balance, coalesce(p_notes, 'Manual point removal'), auth.uid())
+  returning id into v_ledger_id;
+
+  perform public.recalc_tier(p_membership_id);
+
+  return query select v_ledger_id, v_new_balance, v_remove;
+end;
+$$;
+
+grant execute on function public.manager_remove_points(uuid, integer, text)
+  to authenticated;

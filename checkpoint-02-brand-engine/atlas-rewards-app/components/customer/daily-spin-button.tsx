@@ -202,4 +202,25 @@ export function DailySpinButton({
               ) : (
                 <>
                   <Zap className="h-3 w-3" />
-      
+                  Locked
+                </>
+              )}
+            </div>
+          </div>
+          {variant === "ready" && (
+            <div className="absolute top-2 right-20 text-lg opacity-20 pointer-events-none">⭐💎🔥</div>
+          )}
+        </button>
+      </div>
+
+      {spinOpen && (
+        <DailyMysteryModal
+          business={business}
+          membershipId={membershipId}
+          checkedInToday={checkedInToday}
+          onClose={() => setSpinOpen(false)}
+        />
+      )}
+    </>
+  );
+}

@@ -748,4 +748,56 @@ function CompareRow({
             borderColor: "#10b981",
           }}
         >
-          <div className="text-[10px] font-extrabold uppercase tracking-wi
+          <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: "#047857" }}>With Atlas</div>
+          <div className="text-2xl font-black tabular-nums mt-0.5" style={{ color: "#064e3b" }}>{withVal}</div>
+        </div>
+        <div
+          className="rounded-xl p-3 border-2"
+          style={{
+            background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
+            borderColor: "#f87171",
+          }}
+        >
+          <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: "#b91c1c" }}>Without</div>
+          <div
+            className="text-2xl font-black tabular-nums mt-0.5 line-through decoration-2"
+            style={{ color: "#9ca3af", textDecorationColor: "#f87171" }}
+          >
+            {withoutVal}
+          </div>
+        </div>
+      </div>
+      {note && <p className="text-[10px] text-zinc-500 mt-2 italic">{note}</p>}
+    </div>
+  );
+}
+
+function FunnelCell({
+  n, label, tone,
+}: {
+  n: number;
+  label: string;
+  // CP-42: added Google brand tones for heavy-Google review section.
+  tone: "zinc" | "amber" | "emerald" | "google-blue" | "google-yellow" | "google-green" | "google-red";
+}) {
+  const tones = {
+    zinc:           { bg: "#f4f4f5",        border: "#e4e4e7", text: "#3f3f46",  accent: "#18181b" },
+    amber:          { bg: "#fffbeb",        border: "#fde68a", text: "#b45309",  accent: "#78350f" },
+    emerald:        { bg: "#ecfdf5",        border: "#a7f3d0", text: "#047857",  accent: "#064e3b" },
+    "google-blue":  { bg: "#4285F410",      border: "#4285F4", text: "#1a73e8",  accent: "#1a73e8" },
+    "google-yellow":{ bg: "#FBBC0418",      border: "#FBBC04", text: "#92400E",  accent: "#92400E" },
+    "google-green": { bg: "#34A85318",      border: "#34A853", text: "#15803d",  accent: "#15803d" },
+    "google-red":   { bg: "#EA433518",      border: "#EA4335", text: "#b91c1c",  accent: "#b91c1c" },
+  }[tone];
+  return (
+    <div
+      className="rounded-2xl border-2 p-4"
+      style={{ background: tones.bg, borderColor: tones.border }}
+    >
+      <div className="text-[10px] uppercase tracking-wider font-extrabold" style={{ color: tones.text }}>{label}</div>
+      <div className="text-3xl font-black tabular-nums" style={{ color: tones.accent }}>{n}</div>
+      <div className="text-[10px] opacity-80 mt-0.5" style={{ color: tones.text }}>last 30d</div>
+    </div>
+  );
+}
+

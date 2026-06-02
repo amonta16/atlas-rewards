@@ -256,4 +256,31 @@ export function OffersManager({
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3 bg-amber-50">
                 <div>
-                  <Label className="cursor-pointer flex items-center gap-1.5"><Star className="h-3 w-3 fill-
+                  <Label className="cursor-pointer flex items-center gap-1.5"><Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Featured</Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Shows in the sticky banner + featured card. Only one offer can be featured at a time.</p>
+                </div>
+                <Switch checked={editing.is_featured ?? false} onCheckedChange={(v) => setEditing({ ...editing, is_featured: v })} />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/20">
+                <Label className="cursor-pointer">Active (visible to customers)</Label>
+                <Switch checked={editing.is_active ?? true} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />
+              </div>
+            </div>
+            {saveErr && (
+              <div className="px-5 pb-2 text-xs text-rose-700 flex items-start gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>{saveErr}</span>
+              </div>
+            )}
+            <div className="p-5 border-t flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>
+              <Button className="flex-1" onClick={save} disabled={!editing.title || saving}>
+                <Save className="h-4 w-4 mr-1" /> {saving ? "Saving…" : "Save offer"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
