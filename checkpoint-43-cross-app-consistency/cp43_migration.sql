@@ -49,6 +49,10 @@ begin
       using errcode = '42501';
   end if;
 
+  -- Name resolution is intentionally exhaustive: a member's display name
+  -- can live in profiles.full_name, profiles.email, or (for accounts
+  -- created via QR/invite that never wrote a profile name) the auth.users
+  -- metadata / email. We're SECURITY DEFINER so we can read auth.users.
   return query
     select
       l.id,
@@ -59,12 +63,16 @@ begin
       l.membership_id,
       coalesce(
         nullif(btrim(p.full_name), ''),
-        p.email,
+        nullif(btrim(au.raw_user_meta_data->>'full_name'), ''),
+        nullif(btrim(au.raw_user_meta_data->>'name'), ''),
+        nullif(btrim(p.email), ''),
+        nullif(btrim(au.email), ''),
         'Guest'
       ) as customer_name
     from public.points_ledger l
     left join public.business_memberships m on m.id = l.membership_id
     left join public.profiles p             on p.id = m.user_id
+    left join auth.users au                  on au.id = m.user_id
     where l.business_id = p_business_id
     order by l.created_at desc
     limit greatest(1, least(coalesce(p_limit, 20), 100));

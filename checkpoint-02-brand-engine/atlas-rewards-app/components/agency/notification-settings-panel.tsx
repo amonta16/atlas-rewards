@@ -1,23 +1,26 @@
 "use client";
 /**
- * NotificationSettingsPanel — CP-36b
+ * NotificationSettingsPanel — CP-36b → CP-43
  *
- * Lives in the agency brand editor's Settings tab. Agency admin (or
- * business manager) toggles which notification types are allowed to fire
- * for this business. The customer's per-type preferences (set in their
- * own profile) intersect with these toggles — if either says off, no
- * notification fires.
+ * Lives in the agency brand editor's Settings tab (and on the manager
+ * dashboard since CP-43). Agency admin / manager toggles which automated
+ * notification types are allowed to fire for this business. The customer's
+ * per-type preferences intersect with these toggles — if either says off,
+ * no notification fires.
+ *
+ * CP-43: the "Test notifications" card was removed. It only ever existed to
+ * prove the push pipe worked — which it did. The real automated
+ * notifications now fire through that same proven sendPush path at their
+ * trigger points (reward unlocked, offer featured, win-back), so a separate
+ * test surface is no longer needed.
  *
  * Backed by:
  *   - get_business_notification_settings(business_id)
  *   - update_business_notification_settings(business_id, …)
- *
- * Also hosts the one-off manual-broadcast composer that used to live in
- * the manager's Notifications tab — same component, just relocated.
  */
 
 import { useEffect, useState } from "react";
-import { Bell, Flame, Gift, Tag, Calendar, AlertCircle, Star, MessageSquareHeart, Send, Loader2, Stethoscope, CheckCircle2, XCircle } from "lucide-react";
+import { Bell, Flame, Gift, Tag, Calendar, AlertCircle, Star, MessageSquareHeart, Loader2, Stethoscope, CheckCircle2, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -68,16 +71,12 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
   const { toast } = useToast();
   const [s, setS] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
-  // CP-37.2: send-test-notification state.
-  const [testing, setTesting] = useState<string | null>(null);
   // CP-37.10: notification diagnostics state.
   const [debug, setDebug] = useState<NotifDebug | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugErr, setDebugErr] = useState<string | null>(null);
-  // CP-37.18: manual "process pending now" state — runs the same job
-  // the Vercel cron runs every minute, so Andrew can verify the auto-
-  // trigger → push pipeline without waiting (or while debugging why
-  // the cron itself isn't firing).
+  // CP-37.18: manual "process pending now" state — runs the same job the
+  // Vercel cron runs, for verifying the trigger → push pipeline.
   const [processing, setProcessing] = useState(false);
   const [processResult, setProcessResult] = useState<string | null>(null);
 
@@ -191,98 +190,9 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
         </div>
       </div>
 
-      {/* CP-37.5 — send-test-notification panel.
-          Now fans the test out to EVERY enrolled member of this
-          business (same recipient set as the manual "Send to all"
-          composer) prefixed with 🧪 Test. The agency admin doesn't
-          have a customer surface to view notifications on, so we
-          deliver the test to the real customer accounts — that's
-          the only path where a test can actually be SEEN AND the
-          delivery matches the production wiring exactly. Use on a
-          test sub-account so you don't ping real members. */}
-      <div className="rounded-3xl border bg-white p-5 lg:p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-1">
-          <Send className="h-4 w-4 text-emerald-500" />
-          <h3 className="font-bold">Test notifications</h3>
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">
-          Fires a sample of each enabled kind to every enrolled member of this business — same path "Send to all" uses, with a 🧪 Test prefix. Use on a test sub-account so you don't ping real customers.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={testing === "all"}
-            onClick={async () => {
-              setTesting("all");
-              // CP-37.11: switched from the SQL RPC (which depended on the
-              // pg_net trigger that silently failed for us) to the
-              // /api/notifications/test endpoint that calls
-              // sendPushToBusiness directly — the same proven path
-              // /api/notifications/broadcast uses for "Send to all".
-              try {
-                const res = await fetch("/api/notifications/test", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ business_id: business.id, kind: null }),
-                });
-                const json = await res.json();
-                if (!res.ok) throw new Error(json?.error ?? "test failed");
-                const { kinds_fired = 0, recipients = 0, push_sent = 0, push_failed = 0 } = json;
-                toast.success(
-                  `Test sent · ${kinds_fired} kind${kinds_fired === 1 ? "" : "s"} across ${recipients} member${recipients === 1 ? "" : "s"} · push: ${push_sent} ${push_failed ? `(${push_failed} failed)` : ""} ✨`,
-                );
-              } catch (e: any) {
-                toast.error("Test failed — " + (e?.message ?? "unknown"));
-              } finally {
-                setTesting(null);
-              }
-            }}
-          >
-            {testing === "all" ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Sending all…</> : "Send one of each enabled kind"}
-          </Button>
-          {TYPES.filter(t => s[t.key]).map(t => (
-            <Button
-              key={t.key}
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={testing === t.key}
-              onClick={async () => {
-                setTesting(t.key);
-                try {
-                  const res = await fetch("/api/notifications/test", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ business_id: business.id, kind: t.key }),
-                  });
-                  const json = await res.json();
-                  if (!res.ok) throw new Error(json?.error ?? "failed");
-                  const { push_sent = 0, push_failed = 0 } = json;
-                  toast.success(
-                    `${t.label} test · push sent to ${push_sent}${push_failed ? ` (${push_failed} failed)` : ""} 🧪`,
-                  );
-                } catch (e: any) {
-                  toast.error(`${t.label} failed — ` + (e?.message ?? "unknown"));
-                } finally {
-                  setTesting(null);
-                }
-              }}
-            >
-              {testing === t.key ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
-              {t.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-
       {/* CP-37.10 — diagnostics panel. Surfaces every link in the
-          push-notification chain so the failure mode is obvious
-          instead of silent. Andrew kept seeing "test fired" toasts
-          while no push arrived — almost always because VAPID env
-          vars aren't set in Vercel OR no customer has granted push
-          permission yet. This panel makes both visible in one tap. */}
+          push-notification chain so the failure mode is obvious instead of
+          silent (VAPID env vars, push subscribers, recent activity). */}
       <div className="rounded-3xl border bg-white p-5 lg:p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-1">
           <Stethoscope className="h-4 w-4 text-indigo-500" />
@@ -303,11 +213,9 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
               ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Checking…</>
               : <><Stethoscope className="h-3.5 w-3.5 mr-1.5" /> Run diagnostics</>}
           </Button>
-          {/* CP-37.18 — manual cron trigger. Runs the same job Vercel
-              runs every minute. Use this any time a trigger-fired
-              notification (reward unlocked, streak break, etc.)
-              shows in the bell but no phone push arrives — it tells
-              you whether the cron path itself works. */}
+          {/* CP-37.18 — manual cron trigger. Runs the same job Vercel runs.
+              Use this to confirm the cron path works for the time-based
+              (scheduled) notifications. */}
           <Button
             type="button"
             size="sm"

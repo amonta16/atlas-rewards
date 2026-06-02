@@ -95,6 +95,39 @@ subscription; it was the cron cadence.
 
 *Files:* `app/api/notifications/push-now/route.ts`, `components/manager/insights-dashboard.tsx`
 
+## 11. Guest log fix — bulletproofed
+`business_recent_activity` now resolves the member name through
+`profiles.full_name` → auth.users metadata (`full_name`/`name`) →
+`profiles.email` → `auth.users.email` → "Guest", so a name shows even when
+the profile row is sparse (QR/invite signups that never wrote a profile
+name). NOTE: this only works once **both** the frontend is deployed AND
+`cp43_migration.sql` is applied — if the desk still says "Guest", one of
+those two steps is missing.
+*Files:* `cp43_migration.sql`, `app/[business]/manage/page.tsx`
+
+## 12. Test-notification feature removed
+The "Test notifications" card is gone from the settings panel and
+`/api/notifications/test` now returns 410. It only existed to prove the push
+pipe — which it did. The diagnostics panel + "Process pending now" button
+stay (useful for verifying the cron path).
+*Files:* `components/agency/notification-settings-panel.tsx`, `app/api/notifications/test/route.ts`
+
+## 13. Offer announcement rebuilt on the proven instant-push path
+Featuring an offer (toggling ⭐, or creating a new featured offer) now fires
+the "Customer offer announcement" **instantly** to every member via
+`/api/notifications/announce-offer` → in-app row + synchronous
+`sendPushToBusiness` (the exact path the test button used). Respects the
+`customer_offer_announcements` master toggle. No cron, no waiting.
+*Files:* `app/api/notifications/announce-offer/route.ts`, `components/agency/offers-manager.tsx`
+
+### Which notifications are instant vs scheduled
+- **Instant (fire at the event, proven push path):** reward unlocked, offer
+  featured, manual "We miss you". These work the moment the event happens.
+- **Scheduled (need the every-minute cron → Vercel Pro):** streak about to
+  break, gift expiring, check-in cooldown ended, birthday, auto-inactive
+  win-back. These are time-based — there's no user action to hang an instant
+  push on — so they ride the cron, which uses the same `sendPushToUsers`.
+
 ---
 
 ## Apply the SQL

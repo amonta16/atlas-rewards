@@ -50,6 +50,9 @@ export function OffersManager({
     if (!editing?.title) return;
     setSaving(true); setSaveErr(null);
     const supabase = createClient();
+    const isNew = !editing.id;
+    const willFeature = editing.is_featured ?? (offers.length === 0);
+    const willBeActive = editing.is_active ?? true;
     const { error } = await supabase.rpc("upsert_offer", {
       p_id: editing.id ?? null,
       p_business_id: business.id,
@@ -57,15 +60,21 @@ export function OffersManager({
       p_description: editing.description ?? null,
       p_image_url: editing.image_url ?? null,
       p_expires_at: editing.expires_at ?? null,
-      p_is_active: editing.is_active ?? true,
+      p_is_active: willBeActive,
       // Auto-feature the first offer for a business so the customer banner
       // always has *something* to show once they enable the Offers widget.
-      p_is_featured: editing.is_featured ?? (offers.length === 0),
+      p_is_featured: willFeature,
     });
     setSaving(false);
     if (error) {
       setSaveErr(error.message);
       return;
+    }
+    // CP-43: announce a brand-new featured offer instantly (editing an
+    // existing offer doesn't re-announce, to avoid spamming on every tweak —
+    // use the ⭐ feature toggle to re-announce an existing one).
+    if (isNew && willFeature && willBeActive) {
+      announceOffer({ id: editing.id ?? "", title: editing.title!, description: editing.description ?? null });
     }
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1800);
@@ -82,14 +91,35 @@ export function OffersManager({
     onChange?.();
   }
 
+  // CP-43: fire the "Customer offer announcement" via the proven instant
+  // push path (same one the test button used) when an offer becomes the
+  // featured one. The route respects the business's master toggle and
+  // pushes synchronously, so customers' phones light up immediately — no
+  // cron involved. Fire-and-forget so it never blocks the save.
+  function announceOffer(o: Pick<Offer, "id" | "title" | "description">) {
+    fetch("/api/notifications/announce-offer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_id: business.id,
+        offer_id: o.id,
+        title: o.title,
+        description: o.description ?? null,
+      }),
+    }).catch(() => { /* silent — in-app row is the safety net */ });
+  }
+
   async function toggleFeatured(o: Offer) {
     const supabase = createClient();
+    const becomingFeatured = !o.is_featured;
     await supabase.rpc("upsert_offer", {
       p_id: o.id, p_business_id: business.id,
       p_title: o.title, p_description: o.description, p_image_url: o.image_url,
       p_expires_at: o.expires_at,
-      p_is_active: o.is_active, p_is_featured: !o.is_featured,
+      p_is_active: o.is_active, p_is_featured: becomingFeatured,
     });
+    // Only announce when turning featured ON (not when un-featuring).
+    if (becomingFeatured && o.is_active) announceOffer(o);
     load();
     onChange?.();
   }
