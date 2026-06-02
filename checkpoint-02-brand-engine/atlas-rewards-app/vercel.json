@@ -3,7 +3,6 @@
   "crons": [
     {
       "path": "/api/notifications/process-pending",
-      "//": "Hobby plan allows at most ONE cron run per day. Daily at 12:00 UTC. Time-based notifications (streak/birthday/gift/check-in) flush once a day; instant ones (reward/offer/win-back) push synchronously and don't use this cron. Switch back to '* * * * *' after upgrading to Vercel Pro.",
       "schedule": "0 12 * * *"
     }
   ]
