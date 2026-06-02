@@ -151,6 +151,23 @@ export function InsightsDashboard({ business }: { business: Business }) {
           p_bonus_points: bonusPoints > 0 ? bonusPoints : null,
         }))
       );
+      // CP-43: send_winback writes the in-app row; this fires the INSTANT
+      // phone push via the same path the test button / "Send to all" use,
+      // so the win-back lights up phones immediately instead of waiting on
+      // the process-pending cron. Fire-and-forget — the in-app row is the
+      // safety net if push isn't configured.
+      fetch("/api/notifications/push-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business_id: business.id,
+          membership_ids: targets.map(t => t.membership_id),
+          title: "We miss you ✨",
+          body: message,
+          link_path: "/app/rewards",
+          kind: "we_miss_you",
+        }),
+      }).catch(() => { /* silent — cron will still pick up the in-app row */ });
       toast.success(
         target === "all"
           ? `Sent to ${targets.length} member${targets.length === 1 ? "" : "s"}`
@@ -196,14 +213,24 @@ export function InsightsDashboard({ business }: { business: Business }) {
 
           <div className="mt-3 flex items-end flex-wrap gap-x-6 gap-y-2">
             <div>
+              {/* CP-43: graceful fallback. When the CP-32 atlas_impact_rollup
+                  RPC isn't installed, `impact` is null — instead of an ugly
+                  "$—" + "apply the migration" placeholder, fall back to the
+                  real 30-day member revenue from business_analytics_rollup
+                  (which is always installed) with honest framing. The card
+                  never looks broken on any business. */}
               <div className="text-[12px] uppercase font-bold opacity-80 tracking-wider">
-                Atlas drove
+                {impact ? "Atlas drove" : "Member revenue"}
               </div>
               <div className="text-5xl lg:text-6xl font-black leading-none tabular-nums drop-shadow-lg">
-                {impact ? dollarsBig(impact.driven_revenue_cents) : "—"}
+                {impact
+                  ? dollarsBig(impact.driven_revenue_cents)
+                  : rollup
+                    ? dollarsBig(rollup.total_revenue_30d_cents)
+                    : "—"}
               </div>
               <div className="text-sm font-semibold opacity-90 mt-1">
-                for {business.name} this month.
+                {impact ? <>for {business.name} this month.</> : <>tracked for {business.name} this month.</>}
               </div>
             </div>
 
@@ -232,10 +259,20 @@ export function InsightsDashboard({ business }: { business: Business }) {
             </div>
           )}
 
-          {!impact && (
-            <p className="mt-4 text-[12px] opacity-90 italic">
-              Apply the CP-32 SQL migration to unlock the Atlas Impact hero — until then this card runs in preview mode.
-            </p>
+          {/* CP-43: when the impact RPC isn't installed we surface a couple
+              of real, always-available stats instead of the old "preview
+              mode / apply CP-32" note, so the hero still feels complete. */}
+          {!impact && rollup && (
+            <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <ImpactChip icon={<Users className="h-3.5 w-3.5" />} label="Members"
+                value={`${rollup.total_members}`} sub={`${rollup.new_members_30d} new in 30d`} />
+              <ImpactChip icon={<Repeat className="h-3.5 w-3.5" />} label="Repeat rate"
+                value={`${rollup.repeat_rate_pct}%`} sub={`${rollup.active_members_30d} active`} />
+              <ImpactChip icon={<Gift className="h-3.5 w-3.5" />} label="Redemptions"
+                value={`${rollup.redemptions_30d}`} sub="last 30 days" />
+              <ImpactChip icon={<Star className="h-3.5 w-3.5" />} label="Points awarded"
+                value={`${rollup.points_awarded_30d.toLocaleString()}`} sub="last 30 days" />
+            </div>
           )}
         </div>
       </div>

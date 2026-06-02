@@ -59,6 +59,42 @@ It now sits right under the "Scan to start" hero so staff can show it to walk-in
 without scrolling.
 *File:* `components/manager/manager-dashboard.tsx`
 
+## 8. Atlas Impact hero no longer shows a broken "preview mode" card
+When the CP-32 `atlas_impact_rollup` RPC isn't installed, the Insights hero
+used to render "$—" plus an italic "Apply the CP-32 SQL migration … preview
+mode" note. It now falls back to the real 30-day member revenue (from the
+always-installed `business_analytics_rollup`) with honest framing
+("Member revenue tracked"), and shows real member/repeat/redemption/points
+chips instead of the apology text. The card never looks broken again.
+*File:* `components/manager/insights-dashboard.tsx`
+
+## 9. Admin "Front desk" no longer loops through the customer preview
+Clicking Front desk from the app builder used to bounce to a login page and
+then drop you on the customer app (`/app`), needing a second click to reach
+the desk. Two fixes: the `/manage` guard now redirects to
+`/<slug>/login?next=/<slug>/manage` (so login returns to the desk), and the
+business login page auto-forwards an already-signed-in user straight to
+`?next` instead of making them re-type a password.
+*Files:* `app/[business]/manage/layout.tsx`, `app/[business]/login/page.tsx`
+
+## 10. Notifications — why tests work but automated ones didn't
+Tests and "Send to all" push **synchronously inside the request**, so they
+always reach the phone. The 8 automated types write a row and rely on the
+`/api/notifications/process-pending` **cron** (every minute) to push — and on
+Vercel's free plan that cron only runs once a day. So it was never the push
+subscription; it was the cron cadence.
+
+- **Time-based types** (streak, check-in available, gift expiry, birthday,
+  auto win-back): fixed by running the cron every minute → **upgrade Vercel to
+  Pro** (no code change) and make sure `CRON_SECRET` is set. The pipeline
+  (`list_pending_pushes` / `mark_pushed`, cp37_12) is already correct.
+- **Manual win-back** ("We miss you"): now pushes **instantly** via the new
+  `/api/notifications/push-now` route — the same path the tests use — instead
+  of waiting on the cron.
+- **Reward unlocked** already pushed instantly (CP-37.20).
+
+*Files:* `app/api/notifications/push-now/route.ts`, `components/manager/insights-dashboard.tsx`
+
 ---
 
 ## Apply the SQL
@@ -72,6 +108,17 @@ re-run). It creates:
 Both are `SECURITY DEFINER` and gated via `current_app_role`. Until this SQL is
 applied, the activity log will show "Guest" (the RPC won't exist) and the Remove
 button will error — so apply it before/with this deploy.
+
+## Make automated push actually fire (one-time setup)
+1. Apply `checkpoint-37-spin-welcome-and-notif-wiring/cp37_12_push_pending.sql`
+   if you haven't (adds `notifications.push_sent_at`, `list_pending_pushes`,
+   `mark_pushed`).
+2. Set `CRON_SECRET` in Vercel env (any random string). Vercel auto-sends it
+   on cron calls; the route requires it when set.
+3. **Upgrade Vercel to Pro** so the `vercel.json` `* * * * *` cron runs every
+   minute (Hobby throttles to daily). After this, streak / check-in / gift /
+   birthday / auto-win-back pushes ring phones within ~60s.
+4. Confirm VAPID keys are set (they already are — tests prove it).
 
 ## Verify note
 TypeScript was hand-verified via the editor (the bash/`tsc` sandbox serves

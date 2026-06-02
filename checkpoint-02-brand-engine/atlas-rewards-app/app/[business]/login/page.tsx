@@ -46,6 +46,24 @@ export default function CustomerLogin() {
     if (sp.get("confirm") === "1") setShowConfirmBanner(true);
   }, []);
 
+  // CP-43: if a session already exists (e.g. an agency admin who just
+  // clicked "Front desk" and was bounced here by the /manage guard during
+  // a cookie-refresh race), forward straight to ?next instead of making
+  // them re-type a password. This is what kills the "log in → customer
+  // preview → click again → finally the front desk" cycle.
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (cancelled || !user) return;
+      const sp = new URLSearchParams(window.location.search);
+      const next = sp.get("next");
+      router.replace(next && next.startsWith("/") ? next : "/app");
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);

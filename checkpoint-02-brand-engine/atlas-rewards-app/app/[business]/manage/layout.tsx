@@ -13,7 +13,13 @@ export default async function ManagerLayout({
 }: { children: React.ReactNode; params: { business: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // CP-43 fix: carry a ?next back to /manage so that after signing in the
+  // admin/manager lands on the FRONT DESK — not the customer app. Before
+  // this, the bare redirect("/login") dropped them on /app (the customer
+  // preview), and only a SECOND trip to /manage (now that the session
+  // cookie existed) actually reached the desk. The business-scoped path
+  // works on both the subdomain and path-based topologies.
+  if (!user) redirect(`/${params.business}/login?next=/${params.business}/manage`);
 
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
