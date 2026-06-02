@@ -24,14 +24,9 @@ import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
 // CP-42 (round 3): AtlasValueStrip moved to InsightsDashboard.
 import { TeamMembers } from "@/components/team/team-members";
-// CP-43: the FULL notification panel — master type toggles, "Send a
-// test", diagnostics AND the "Send to all members" composer — is now
-// surfaced on the manager dashboard so it's reachable on the phone,
-// exactly like it is in the agency settings tab. Andrew couldn't see
-// the master switches on mobile because only the bare broadcast
-// composer was mounted here. The panel + its RPCs already re-check
-// is_business_manager_or_admin(business_id), so it's safe on the desk.
-import { NotificationSettingsPanel } from "@/components/agency/notification-settings-panel";
+// CP-43.2: NotificationSettingsPanel removed from the manager dashboard —
+// notification types / diagnostics / send-to-all live in the agency
+// settings tab only. The desk stays focused on day-to-day ops.
 import { OffersManager } from "@/components/agency/offers-manager";
 import { AutomatedOffersManager } from "@/components/agency/automated-offers-manager";
 import { NewsManager } from "@/components/agency/news-manager";
@@ -418,12 +413,6 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               </div>
             )}
 
-            {/* CP-43 — app QR moved UP near the scanner so the front desk
-                always has their join/discovery QR within reach (it used to
-                be buried at the bottom of the tab). Show it to walk-ins so
-                they can scan and land on this business's app in one tap. */}
-            <BusinessDiscoveryQR business={business} />
-
             {/* CP-42 (round 3): customer search + recap moved BELOW the
                 scanner so the scan-to-start CTA gets the top slot. */}
             <CustomerSearch
@@ -457,16 +446,9 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 payment confirmation. Self-hides when empty. */}
             <PendingMembershipsQueue business={business} />
 
-            {/* CP-43: full notification surface on the desk — master type
-                toggles, send-test, diagnostics, and the "Send to all
-                members" composer (the panel renders the composer itself
-                at the bottom). This is the same component the agency
-                settings tab uses, so what Andrew sees on his phone now
-                matches the desktop exactly. Manager / admin only; the
-                underlying RPCs re-check is_business_manager_or_admin. */}
-            {(role === "business_manager" || role === "agency_admin") && (
-              <NotificationSettingsPanel business={business} />
-            )}
+            {/* CP-43.2: notification types / diagnostics / send-to-all
+                removed from the front desk per Andrew — those live in the
+                agency settings tab. Keeps the desk focused on day-to-day ops. */}
 
             {/* Recent activity */}
             <div className="rounded-2xl border bg-white">
@@ -512,6 +494,11 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 })}
               </div>
             </div>
+
+            {/* CP-43.2: app QR moved here — directly UNDER the activity log,
+                per Andrew. Front desk shows it to walk-ins to open/join the
+                app. */}
+            <BusinessDiscoveryQR business={business} />
           </>
         )}
 
