@@ -128,6 +128,34 @@ the "Customer offer announcement" **instantly** to every member via
   win-back. These are time-based — there's no user action to hang an instant
   push on — so they ride the cron, which uses the same `sendPushToUsers`.
 
+## 14. QR / app link no longer points to a dead "vercel.app" URL
+The discovery QR was producing `https://vercel.app/qr/<slug>` and the
+`/qr/<slug>` route redirected to a per-business **subdomain**
+(`<slug>.vercel.app`) that doesn't exist on Vercel. Both fixed:
+- `BusinessDiscoveryQR` now encodes `<liveOrigin>/qr/<slug>` using the real
+  deployment host verbatim (no subdomain stripping — that's what collapsed
+  `my-project.vercel.app` → `vercel.app`).
+- `/qr/<slug>` now redirects PATH-based to `/<slug>` on the **same host**, so
+  it works on `*.vercel.app`, custom domains, and localhost.
+
+*Files:* `components/agency/business-discovery-qr.tsx`, `app/qr/[slug]/page.tsx`
+
+## 15. Reward-unlocked now pushes instantly on self-earned points
+The `_notif_reward_unlocked` DB trigger (cp37_migration) already inserts a
+reward-unlocked row on ANY points increase — check-in, spin, referral,
+front-desk award. The phone push for self-earned crossings previously waited
+on the cron. New customer-safe route `/api/notifications/flush-mine` pushes
+the signed-in customer's own pending notifications instantly; the bell wires
+it to fire on every new notification + on app open. So earning enough for a
+reward now rings the phone without the cron (front-desk awards still also
+push instantly via award-event).
+
+*Files:* `app/api/notifications/flush-mine/route.ts`, `components/notifications/notification-bell.tsx`
+
+> Reminder: these only take effect once CP-43 is **deployed**. If the
+> "Notification types" screen still shows a "Test notifications" card, the
+> new build isn't live yet — that card was removed in CP-43.
+
 ---
 
 ## Apply the SQL

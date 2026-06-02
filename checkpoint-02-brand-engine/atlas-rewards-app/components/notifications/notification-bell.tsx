@@ -51,14 +51,29 @@ export function NotificationBell({
       if (!cancelled) setUnread(typeof data === "number" ? data : (data?.[0] ?? 0));
     };
     load();
+    // CP-43: when a new notification row lands for this customer (e.g. the
+    // reward-unlocked trigger after they earn enough points via ANY path —
+    // check-in, spin, front-desk award), immediately flush their pending
+    // pushes to their phone via the proven sendPush path. This is the
+    // cron-independent instant delivery for self-earned crossings.
+    const flushMine = () => {
+      fetch("/api/notifications/flush-mine", { method: "POST" }).catch(() => { /* silent */ });
+    };
     const ch = supabase
       .channel(`notifs-${membershipId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications" },
+        { event: "INSERT", schema: "public", table: "notifications" },
+        () => { load(); flushMine(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications" },
         load,
       )
       .subscribe();
+    // Also flush anything already pending the moment the app opens.
+    flushMine();
 
     return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [membershipId]);
