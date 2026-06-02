@@ -29,9 +29,22 @@ export async function POST(req: Request) {
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "bad json" }, { status: 400 }); }
 
-  const notificationId = body.notification_id;
+  // CP-37.19: accept TWO payload shapes —
+  //   • { notification_id }                  ← legacy pg_net trigger / manual calls
+  //   • { type, table, record, ... }         ← Supabase Database Webhook
+  //
+  // Supabase webhooks send the full row in `record`, so we can both
+  // (a) skip the lookup and use the row directly, OR (b) fall back
+  // to a re-fetch by id for safety. Re-fetch keeps the row contract
+  // consistent with what other code paths expect.
+  let notificationId: string | undefined =
+    body.notification_id ?? body?.record?.id;
+
   if (!notificationId) {
-    return NextResponse.json({ error: "notification_id required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "notification_id (or record.id from a Supabase webhook) required" },
+      { status: 400 },
+    );
   }
 
   const admin = createAdminClient();

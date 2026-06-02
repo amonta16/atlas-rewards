@@ -212,10 +212,18 @@ export function BrandEditor({ initial }: { initial: Business }) {
               <Check className="h-3 w-3"/> Saved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
-          <a href={businessUrl(rootDomain, { slug: b.slug })} target="_blank">
+          {/* CP-37.19 — link to same-host path-based URLs instead of
+              subdomain URLs. The agency admin's session cookie is set
+              on app.atlas-engine.app — it doesn't carry over to a
+              different subdomain like slug.atlas-engine.app, which
+              meant the new tab landed on the customer login first,
+              then dumped them on the customer view after sign-in.
+              Path-based same-host URLs share the session immediately
+              and land directly on /manage. */}
+          <a href={`/${b.slug}/app`} target="_blank">
             <Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1"/>Customer app</Button>
           </a>
-          <a href={businessUrl(rootDomain, { slug: b.slug, path: "/manage" })} target="_blank">
+          <a href={`/${b.slug}/manage`} target="_blank">
             <Button variant="outline" size="sm" className="border-sky-300 text-sky-700 hover:bg-sky-50">
               <User className="h-4 w-4 mr-1"/>Front desk
             </Button>

@@ -4,6 +4,9 @@ import { ScanLine, UserSearch, History, LogOut, Gift, Tag, Newspaper, Home, Chec
 import { ManagerTutorial, useTutorialAutoOpen } from "@/components/manager/manager-tutorial";
 // CP-37.18 — Install-app affordance for managers + front-desk.
 import { ManagerPwaInstall } from "@/components/manager/manager-pwa-install";
+// CP-37.19 — discovery QR. Same component the agency settings uses,
+// surfaced on the front-desk so staff can print/show it to walk-ins.
+import { BusinessDiscoveryQR } from "@/components/agency/business-discovery-qr";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -458,6 +461,14 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 primary={business.brand_colors.primary}
               />
             )}
+
+            {/* CP-37.19 — Atlas Engine discovery QR. Print-friendly card
+                front-desk staff can show / tape to the counter so
+                walk-ins can scan it and land on this business's
+                sign-up page in one tap. Same component the agency
+                settings tab uses; no permission narrowing needed
+                (front-desk seeing their own business's QR is fine). */}
+            <BusinessDiscoveryQR business={business} />
 
             {/* Recent activity */}
             <div className="rounded-2xl border bg-white">
