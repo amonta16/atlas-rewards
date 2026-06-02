@@ -24,13 +24,14 @@ import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
 // CP-42 (round 3): AtlasValueStrip moved to InsightsDashboard.
 import { TeamMembers } from "@/components/team/team-members";
-// CP-37: NotificationBroadcast restored to the front-desk tab so
-// managers can send a one-off "Send to all members" notification
-// without having to bounce into the agency settings. The composer
-// itself is scoped by business_id (managers only see their own
-// business) and the underlying broadcast_notification RPC re-checks
-// is_business_manager_or_admin, so this is safe to surface here.
-import { NotificationBroadcast } from "@/components/notifications/notification-broadcast";
+// CP-43: the FULL notification panel — master type toggles, "Send a
+// test", diagnostics AND the "Send to all members" composer — is now
+// surfaced on the manager dashboard so it's reachable on the phone,
+// exactly like it is in the agency settings tab. Andrew couldn't see
+// the master switches on mobile because only the bare broadcast
+// composer was mounted here. The panel + its RPCs already re-check
+// is_business_manager_or_admin(business_id), so it's safe on the desk.
+import { NotificationSettingsPanel } from "@/components/agency/notification-settings-panel";
 import { OffersManager } from "@/components/agency/offers-manager";
 import { AutomatedOffersManager } from "@/components/agency/automated-offers-manager";
 import { NewsManager } from "@/components/agency/news-manager";
@@ -417,6 +418,12 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               </div>
             )}
 
+            {/* CP-43 — app QR moved UP near the scanner so the front desk
+                always has their join/discovery QR within reach (it used to
+                be buried at the bottom of the tab). Show it to walk-ins so
+                they can scan and land on this business's app in one tap. */}
+            <BusinessDiscoveryQR business={business} />
+
             {/* CP-42 (round 3): customer search + recap moved BELOW the
                 scanner so the scan-to-start CTA gets the top slot. */}
             <CustomerSearch
@@ -450,25 +457,16 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 payment confirmation. Self-hides when empty. */}
             <PendingMembershipsQueue business={business} />
 
-            {/* CP-37: "Send to all members" composer, restored to the
-                front-desk surface so managers + agency admins can post a
-                one-off broadcast without leaving the desk. Scoped to
-                this business's members only — the broadcast_notification
-                RPC enforces is_business_manager_or_admin(business_id). */}
+            {/* CP-43: full notification surface on the desk — master type
+                toggles, send-test, diagnostics, and the "Send to all
+                members" composer (the panel renders the composer itself
+                at the bottom). This is the same component the agency
+                settings tab uses, so what Andrew sees on his phone now
+                matches the desktop exactly. Manager / admin only; the
+                underlying RPCs re-check is_business_manager_or_admin. */}
             {(role === "business_manager" || role === "agency_admin") && (
-              <NotificationBroadcast
-                businessId={business.id}
-                primary={business.brand_colors.primary}
-              />
+              <NotificationSettingsPanel business={business} />
             )}
-
-            {/* CP-37.19 — Atlas Engine discovery QR. Print-friendly card
-                front-desk staff can show / tape to the counter so
-                walk-ins can scan it and land on this business's
-                sign-up page in one tap. Same component the agency
-                settings tab uses; no permission narrowing needed
-                (front-desk seeing their own business's QR is fine). */}
-            <BusinessDiscoveryQR business={business} />
 
             {/* Recent activity */}
             <div className="rounded-2xl border bg-white">

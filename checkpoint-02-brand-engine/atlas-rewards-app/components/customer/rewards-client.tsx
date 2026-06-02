@@ -7,7 +7,12 @@ import { ActiveRedemptions, type ActiveRedemption } from "./active-redemptions";
 import { ReferFriendModal } from "./refer-friend-modal";
 import { ReviewSubmitModal } from "./review-submit-modal";
 import { TiltLoyaltyCard } from "./tilt-loyalty-card";
-import { DailyMysteryModal } from "./daily-mystery-modal";
+// CP-43: rewards page now shares the SAME Daily Spin component as Home
+// (was a separate inline button that only tracked check-in, so the two
+// widgets could disagree). One component = always in sync.
+import { DailySpinButton } from "./daily-spin-button";
+// CP-43: DailyMysteryModal is no longer opened directly here — DailySpinButton
+// owns the slot-machine modal now.
 import { StreakTrail } from "./streak-trail";
 import { LimitedOffersSection } from "./limited-offers-section";
 import { SavedGiftsSection } from "./saved-gifts-section";
@@ -39,8 +44,6 @@ export function RewardsClient({
   const [referOpen, setReferOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewStatus, setReviewStatus] = useState<"none" | "pending" | "verified" | "rejected">("none");
-  const [checkedInToday, setCheckedInToday] = useState(false);
-  const [spinOpen, setSpinOpen] = useState(false);
 
   // CP-35: if the customer arrived from the bottom-nav "!" badge,
   // scroll the review row into view + flash a brief ring. Triggered
@@ -82,16 +85,8 @@ export function RewardsClient({
     }
   }, [rewards]);
 
-  // Check if member checked in today (to unlock the Daily Spin)
-  useEffect(() => {
-    if (!membership?.id) return;
-    const supabase = createClient();
-    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
-    supabase.from("check_in_events")
-      .select("id").eq("membership_id", membership.id)
-      .gte("created_at", dayStart.toISOString()).limit(1)
-      .then(({ data }) => setCheckedInToday((data?.length ?? 0) > 0));
-  }, [membership?.id]);
+  // CP-43: check-in tracking for the Daily Spin moved into DailySpinButton
+  // (shared with Home) so both widgets compute the same lock state.
 
   // Load and live-watch the customer's review status
   useEffect(() => {
@@ -314,62 +309,12 @@ export function RewardsClient({
         <StreakTrail business={business} membershipId={membership.id} />
       )}
 
-      {/* Daily Spin — replaces the old mystery wrap card */}
+      {/* Daily Spin — CP-43: shared DailySpinButton (same component Home
+          uses). Manages its own check-in + mystery_reward_status state and
+          the slot-machine modal, so this widget and the Home widget always
+          show the identical locked / ready / cooldown state. */}
       {membership?.id && (
-        <div className="px-4 mt-5">
-          <button
-            onClick={() => setSpinOpen(true)}
-            className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform"
-            style={{
-              background: checkedInToday
-                ? `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)`
-                : "rgb(244 244 245)",
-            }}
-          >
-            <div className="p-4 flex items-center gap-4">
-              <div
-                className="h-14 w-14 rounded-2xl flex items-center justify-center text-3xl shrink-0"
-                style={{
-                  background: checkedInToday ? "rgba(255,255,255,0.2)" : "rgb(228 228 231)",
-                }}
-              >
-                🎰
-              </div>
-              <div className="flex-1 min-w-0">
-                <div
-                  className={`text-[11px] font-extrabold uppercase tracking-widest ${checkedInToday ? "text-white/80" : "text-zinc-400"}`}
-                >
-                  Daily Spin
-                </div>
-                <div className={`font-extrabold text-base leading-tight mt-0.5 ${checkedInToday ? "text-white" : "text-zinc-400"}`}>
-                  {checkedInToday ? "You're ready to spin!" : "Check in to unlock"}
-                </div>
-                <div className={`text-xs mt-0.5 ${checkedInToday ? "text-white/75" : "text-zinc-400"}`}>
-                  {checkedInToday ? "Tap to play your slot machine" : "Visit the shop to get your spin"}
-                </div>
-              </div>
-              <div className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${
-                checkedInToday ? "bg-white text-zinc-900" : "bg-zinc-200 text-zinc-500"
-              }`}>
-                <Zap className="h-3 w-3" />
-                {checkedInToday ? "SPIN!" : "Locked"}
-              </div>
-            </div>
-            {/* Decorative slot icons floating */}
-            {checkedInToday && (
-              <div className="absolute top-2 right-20 text-lg opacity-20 pointer-events-none">⭐💎🔥</div>
-            )}
-          </button>
-        </div>
-      )}
-
-      {spinOpen && membership?.id && (
-        <DailyMysteryModal
-          business={business}
-          membershipId={membership.id}
-          checkedInToday={checkedInToday}
-          onClose={() => setSpinOpen(false)}
-        />
+        <DailySpinButton business={business} membershipId={membership.id} />
       )}
 
       {/* Need more points? — CP-28: livelier, on-brand */}

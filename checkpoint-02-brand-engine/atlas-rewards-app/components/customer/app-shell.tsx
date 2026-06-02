@@ -72,7 +72,7 @@ export function CustomerAppShell({
       {/* CP-42: arrow-points-at-bell nudge on first visit when push
           permission is still "default". Self-dismisses after 8s or on
           tap. Stores a flag in localStorage so it never re-shows. */}
-      <EnablePushNudge primary={primary} />
+      <EnablePushNudge primary={primary} businessId={businessId ?? null} />
       <main className="flex-1 pb-20">{children}</main>
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-zinc-200 px-1 py-1.5 flex items-center justify-around z-40">
         {tabs.map(t => {

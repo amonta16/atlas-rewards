@@ -13,13 +13,23 @@
  *   • The user already has permission "granted" or "denied"
  *   • The bell isn't on the page (e.g. we're not on Home)
  *
- * Persistence: `localStorage["atlas-push-nudge-seen"] = "1"` — so the
- * nudge never re-shows once dismissed (or once permission is set).
+ * Persistence (CP-43): the "seen" flag is now keyed PER BUSINESS
+ * (`atlas-push-nudge-seen:<businessId>`). It used to be a single global
+ * key, so the very first business a customer opened got the arrow and
+ * every other business they later opened never did — which is exactly
+ * the "some businesses show the arrow, some don't" inconsistency Andrew
+ * flagged. Per-business keying matches PwaWelcomeOverlay and makes the
+ * onboarding identical across every sub-account.
+ *
+ * CP-43 also skips this nudge when running as an installed PWA
+ * (standalone): there, PwaWelcomeOverlay owns the notification ask, so
+ * the two flows no longer race. Browser tab → arrow; installed app →
+ * welcome cutscene. Deterministic everywhere.
  */
 import { useEffect, useState } from "react";
 import { Bell, ArrowUpRight } from "lucide-react";
 
-const SEEN_KEY = "atlas-push-nudge-seen";
+const SEEN_KEY_PREFIX = "atlas-push-nudge-seen";
 const ARM_DELAY_MS = 1800;   // wait for boot splash + layout to settle
 const AUTO_DISMISS_MS = 9000;
 const RETRY_FIND_MS = 250;
@@ -27,14 +37,20 @@ const MAX_FIND_TRIES = 12;
 
 type Anchor = { x: number; y: number; w: number; h: number };
 
-export function EnablePushNudge({ primary }: { primary: string }) {
+export function EnablePushNudge({ primary, businessId }: { primary: string; businessId?: string | null }) {
   const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const seenKey = `${SEEN_KEY_PREFIX}:${businessId ?? "global"}`;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!("Notification" in window)) return;
     if (Notification.permission !== "default") return;
-    try { if (window.localStorage.getItem(SEEN_KEY)) return; } catch { /* private mode */ }
+    // Installed PWA → PwaWelcomeOverlay handles the ask; don't double up.
+    const isStandalone =
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    if (isStandalone) return;
+    try { if (window.localStorage.getItem(seenKey)) return; } catch { /* private mode */ }
 
     let cancelled = false;
     let tries = 0;
@@ -58,7 +74,7 @@ export function EnablePushNudge({ primary }: { primary: string }) {
 
     const armTimer = window.setTimeout(tryLocate, ARM_DELAY_MS);
     return () => { cancelled = true; window.clearTimeout(armTimer); };
-  }, []);
+  }, [seenKey]);
 
   // Re-measure on resize / orientation change so the arrow stays
   // pointed correctly if the user rotates their phone while the
@@ -88,7 +104,7 @@ export function EnablePushNudge({ primary }: { primary: string }) {
 
   function dismiss() {
     setAnchor(null);
-    try { window.localStorage.setItem(SEEN_KEY, "1"); } catch { /* ignore */ }
+    try { window.localStorage.setItem(seenKey, "1"); } catch { /* ignore */ }
   }
 
   if (!anchor) return null;

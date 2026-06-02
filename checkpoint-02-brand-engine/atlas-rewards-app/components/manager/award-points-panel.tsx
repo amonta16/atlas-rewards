@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, X, Star, Users, Calendar, MapPin, DollarSign, Sparkles, Flame, Trophy } from "lucide-react";
+import { ArrowLeft, Check, X, Star, Users, Calendar, MapPin, DollarSign, Sparkles, Flame, Trophy, MinusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ type Member = {
   points_balance: number; tier: string; joined_at: string; visit_count: number;
 };
 
-type Mode = "menu" | "purchase";
+type Mode = "menu" | "purchase" | "remove";
 
 const QUICK_RULES: { key: keyof Business["point_rules"]; label: string; icon: React.ReactNode; tone: string }[] = [
   { key: "review",            label: "Google Review",  icon: <Star className="h-4 w-4" />,     tone: "amber" },
@@ -46,6 +46,9 @@ export function AwardPointsPanel({
 }: { business: Business; member: Member; onClose: () => void }) {
   const [mode, setMode] = useState<Mode>("menu");
   const [amount, setAmount] = useState<string>("");
+  // CP-43: whole-number points to remove (corrections / refunds / abuse).
+  const [removeAmount, setRemoveAmount] = useState<string>("");
+  const [removeNote, setRemoveNote] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -95,6 +98,36 @@ export function AwardPointsPanel({
 
   const dollars = parseFloat(amount || "0") || 0;
   const pointsToAward = Math.floor(dollars * business.point_rules.purchase_per_dollar);
+
+  // CP-43: points the staff wants to remove, capped at the member's balance.
+  const pointsToRemove = Math.min(
+    parseInt(removeAmount || "0", 10) || 0,
+    member.points_balance,
+  );
+
+  function pressRemove(digit: string) {
+    if (digit === "back") { setRemoveAmount(removeAmount.slice(0, -1)); return; }
+    const next = (removeAmount + digit).replace(/^0+(?=\d)/, "");
+    if (next.length > 7) return; // sane cap
+    setRemoveAmount(next);
+  }
+
+  async function removePoints() {
+    if (pointsToRemove <= 0) { setErr("Enter a number of points greater than 0."); return; }
+    setSubmitting(true);
+    setErr(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("manager_remove_points", {
+      p_membership_id: member.membership_id,
+      p_amount: pointsToRemove,
+      p_notes: removeNote.trim() || null,
+    });
+    setSubmitting(false);
+    if (error) { setErr(error.message); return; }
+    const removed = data?.[0]?.removed ?? pointsToRemove;
+    // SuccessScreen renders a "+N" — show the removal as a negative.
+    setSuccess(-removed);
+  }
 
   function press(digit: string) {
     if (digit === ".") {
@@ -204,10 +237,12 @@ export function AwardPointsPanel({
     <div className="min-h-screen bg-zinc-50 flex flex-col">
       <header className="bg-white border-b">
         <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={mode === "purchase" ? () => setMode("menu") : onClose}>
+          <Button variant="ghost" size="sm" onClick={mode === "menu" ? onClose : () => setMode("menu")}>
             <ArrowLeft className="h-4 w-4 mr-1"/>Back
           </Button>
-          <div className="text-sm font-bold">{mode === "purchase" ? "Award by purchase" : "Award points"}</div>
+          <div className="text-sm font-bold">
+            {mode === "purchase" ? "Award by purchase" : mode === "remove" ? "Remove points" : "Award points"}
+          </div>
           <div className="w-16" />
         </div>
       </header>
@@ -343,6 +378,28 @@ export function AwardPointsPanel({
               </div>
             </div>
 
+            {/* CP-43 — remove points. Corrections, refunds, or clawing back
+                points awarded in error / for abuse. Subtle, destructive-
+                styled entry so it doesn't compete with the earn actions. */}
+            <div className="mt-6">
+              <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Corrections</h3>
+              <button
+                onClick={() => { setRemoveAmount(""); setRemoveNote(""); setErr(null); setMode("remove"); }}
+                className="mt-2 w-full rounded-2xl border border-rose-200 bg-rose-50 p-4 flex items-center gap-3 text-left hover:bg-rose-100 transition active:scale-[0.99]"
+              >
+                <div className="h-11 w-11 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <MinusCircle className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold text-base leading-tight text-rose-900">Remove points</div>
+                  <div className="text-xs text-rose-700/80 mt-0.5 leading-snug">
+                    Deduct points from this member — fixes mistakes or reverses abuse.
+                  </div>
+                </div>
+                <div className="text-rose-400 text-xl font-bold shrink-0">→</div>
+              </button>
+            </div>
+
             {err && <p className="text-sm text-red-600 mt-3">{err}</p>}
 
             {/* CP-37.2 — member history. Lives BELOW the action buttons
@@ -388,6 +445,59 @@ export function AwardPointsPanel({
                 className="w-full h-14 text-base"
                 style={{ background: pointsToAward > 0 ? business.brand_colors.primary : undefined }}>
                 {submitting ? "Awarding…" : `Award ${pointsToAward} points`}
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* MODE: remove — integer keypad that deducts points */}
+        {mode === "remove" && (
+          <>
+            <div className="mt-6 text-center">
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">Points to remove</div>
+              <div className="text-6xl font-bold tracking-tight mt-2 text-rose-600">
+                −{removeAmount || "0"}
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                Balance {member.points_balance.toLocaleString()} →{" "}
+                <span className="font-semibold text-zinc-900">
+                  {(member.points_balance - pointsToRemove).toLocaleString()}
+                </span>
+              </div>
+              {parseInt(removeAmount || "0", 10) > member.points_balance && (
+                <div className="mt-1 text-[11px] text-amber-600 font-semibold">
+                  Capped at their balance — can't go below 0.
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 grid grid-cols-3 gap-2 max-w-sm mx-auto w-full">
+              {["1","2","3","4","5","6","7","8","9","","0","back"].map((k, i) => (
+                k === "" ? <div key={`sp-${i}`} /> : (
+                  <button key={k} onClick={() => pressRemove(k)}
+                    className="h-16 rounded-2xl bg-white border text-2xl font-bold hover:bg-zinc-50 active:bg-zinc-100 transition flex items-center justify-center">
+                    {k === "back" ? <X className="h-5 w-5"/> : k}
+                  </button>
+                )
+              ))}
+            </div>
+
+            <div className="mt-5 max-w-sm mx-auto w-full">
+              <input
+                value={removeNote}
+                onChange={e => setRemoveNote(e.target.value)}
+                placeholder="Reason (optional) — e.g. refund, mistake"
+                maxLength={120}
+                className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
+              />
+            </div>
+
+            {err && <p className="text-sm text-red-600 mt-3 text-center">{err}</p>}
+
+            <div className="mt-auto pt-4 pb-2">
+              <Button onClick={removePoints} disabled={submitting || pointsToRemove <= 0}
+                className="w-full h-14 text-base bg-rose-600 hover:bg-rose-700 text-white">
+                {submitting ? "Removing…" : `Remove ${pointsToRemove} points`}
               </Button>
             </div>
           </>
@@ -460,13 +570,16 @@ function SuccessScreen({
       </div>
       <div className="text-white text-center">
         <div className="text-sm uppercase tracking-widest opacity-85">
-          {undone ? "Reversed" : "Points awarded"}
+          {/* CP-43: a negative amount means points were removed. */}
+          {undone ? "Reversed" : amount < 0 ? "Points removed" : "Points awarded"}
         </div>
         <div className={cn("text-7xl font-bold mt-2 transition", undone && "line-through opacity-60")}>
-          {undone ? "—" : `+${amount}`}
+          {undone ? "—" : amount < 0 ? `−${Math.abs(amount)}` : `+${amount}`}
         </div>
-        <div className="text-base mt-2 opacity-90">to {memberName}</div>
-        {!undone && (
+        <div className="text-base mt-2 opacity-90">
+          {amount < 0 ? "from " : "to "}{memberName}
+        </div>
+        {!undone && amount >= 0 && (
           <div className="text-xs mt-3 opacity-75">Their app just lit up with confetti.</div>
         )}
       </div>

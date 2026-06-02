@@ -10,64 +10,29 @@ export default async function ManagerHome({ params }: { params: { business: stri
     .from("businesses").select("*").eq("slug", params.business).single();
   const business = biz as Business;
 
-  // Recent ledger entries for the activity log. CP-42: also pull the
-  // member's name so the front-desk sees WHO each transaction is for.
-  // Two-step join (ledger → memberships → profiles) avoids relying on
-  // PostgREST relationship inference which can be flaky on this table.
-  const { data: recentRaw } = await supabase
-    .from("points_ledger")
-    .select("id, delta, rule_type, notes, created_at, membership_id")
-    .eq("business_id", business.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  const membershipIds = Array.from(
-    new Set((recentRaw ?? []).map((r: any) => r.membership_id).filter(Boolean)),
-  );
-
-  // CP-37.20 — was querying `memberships` (table doesn't exist) +
-  // relying on a fragile PostgREST FK alias. Both silently failed, so
-  // EVERY ledger row fell back to "Guest". Now we do a clean two-step:
-  //   1) business_memberships → user_id per membership
-  //   2) profiles → full_name / email per user_id
-  // Then stitch the name back onto each ledger row.
-  let nameByMembership = new Map<string, string>();
-  if (membershipIds.length > 0) {
-    const { data: members } = await supabase
-      .from("business_memberships")
-      .select("id, user_id")
-      .in("id", membershipIds);
-    const userIdByMembership = new Map<string, string>();
-    const userIds: string[] = [];
-    for (const m of (members ?? []) as any[]) {
-      if (m.user_id) {
-        userIdByMembership.set(m.id, m.user_id);
-        userIds.push(m.user_id);
-      }
-    }
-    if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", Array.from(new Set(userIds)));
-      const nameByUser = new Map<string, string>();
-      for (const p of (profiles ?? []) as any[]) {
-        const name =
-          (p.full_name && String(p.full_name).trim()) ||
-          p.email ||
-          null;
-        if (name) nameByUser.set(p.id, name);
-      }
-      for (const [mid, uid] of userIdByMembership.entries()) {
-        const n = nameByUser.get(uid);
-        if (n) nameByMembership.set(mid, n);
-      }
-    }
-  }
+  // Recent ledger entries for the activity log, WITH the member's name.
+  //
+  // CP-43 — the previous client-side join (ledger → business_memberships
+  // → profiles) was silently trimmed by RLS for front-desk (business_staff)
+  // viewers: the profiles_staff_read policy only covers businesses the
+  // caller *manages*, not ones they're merely staff at, so the name lookup
+  // returned nothing and every row fell back to "Guest". We now call the
+  // SECURITY DEFINER business_recent_activity RPC, which does the join
+  // server-side (RLS-immune) and is itself gated to staff/manager/admin.
+  const { data: recentRaw } = await supabase.rpc("business_recent_activity", {
+    p_business_id: business.id,
+    p_limit: 20,
+  });
 
   const recent = (recentRaw ?? []).map((r: any) => ({
-    ...r,
-    customer_name: r.membership_id ? nameByMembership.get(r.membership_id) ?? null : null,
+    id: r.id,
+    delta: r.delta,
+    rule_type: r.rule_type,
+    notes: r.notes,
+    created_at: r.created_at,
+    membership_id: r.membership_id,
+    // The RPC already coalesces full_name -> email -> 'Guest'.
+    customer_name: r.customer_name ?? null,
   }));
 
   return <ManagerDashboard business={business} recent={recent} />;

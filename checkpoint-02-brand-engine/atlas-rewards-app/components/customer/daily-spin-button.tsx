@@ -107,17 +107,23 @@ export function DailySpinButton({
   }, [business.id, membershipId]);
 
   // Derive the three states.
-  // CP-37: if mystery_reward_status RPC returned data, prefer it as the
-  // source of truth on whether a spin is actually available right now.
-  // Otherwise fall back to "checked in today".
+  // CP-43 fix: check-in is now a HARD prerequisite for "ready", on every
+  // business. The old logic used mystery_reward_status.is_available alone
+  // whenever the RPC returned a row — so a business whose spin cooldown had
+  // elapsed showed "You're ready to spin!" even though the customer hadn't
+  // checked in yet (the yogurt-shop bug), while a business where the RPC
+  // returned no row correctly showed "Check in to unlock". Requiring
+  // checkedInToday makes the lock state identical across all sub-accounts.
+  //   • not checked in        → locked   (regardless of is_available)
+  //   • checked in + available → ready
+  //   • checked in + !available → cooldown (already spun today)
   const knownNotAvailable =
     spinStatus !== null && spinStatus.is_available === false;
   const cooldown =
     knownNotAvailable && checkedInToday && spinStatus?.next_spin_at != null;
   const ready =
-    spinStatus !== null
-      ? !!spinStatus.is_available
-      : checkedInToday;
+    checkedInToday &&
+    (spinStatus !== null ? !!spinStatus.is_available : true);
 
   const nextAt = spinStatus?.next_spin_at ? new Date(spinStatus.next_spin_at) : null;
   const msLeft = nextAt ? Math.max(0, nextAt.getTime() - Date.now()) : 0;
