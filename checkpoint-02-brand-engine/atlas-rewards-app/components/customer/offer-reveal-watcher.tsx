@@ -22,6 +22,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
+import { isBellOnboardDone } from "./enable-push-nudge";
 import { useToast } from "@/components/ui/toast";
 
 const MAX_SEEN = 50;
@@ -64,7 +65,34 @@ export function OfferRevealWatcher({
   const [active, setActive] = useState<RevealOffer | null>(null);
   // Ref-mirror of seen so the realtime callback isn't stale-closed.
   const seenRef = useRef<string[]>([]);
+  // CP-43.3: a pending reveal timer so the welcome gift waits for the bell
+  // onboarding to finish (then a short cooldown) before popping — the two
+  // never fight for the screen.
+  const revealTimer = useRef<number | null>(null);
   const { toast } = useToast();
+
+  // Queue a reveal: only pop once the bell onboarding moment is done, then
+  // after a brief cooldown so it feels like a deliberate "and now your gift"
+  // beat rather than a pile-up.
+  function queueReveal(row: RevealOffer) {
+    if (typeof window === "undefined") { setActive(row); return; }
+    if (revealTimer.current) return; // already queued
+    const COOLDOWN_MS = 900;
+    const tick = () => {
+      if (isBellOnboardDone(businessId)) {
+        revealTimer.current = window.setTimeout(() => {
+          revealTimer.current = null;
+          setActive(row);
+        }, COOLDOWN_MS);
+      } else {
+        revealTimer.current = window.setTimeout(tick, 500);
+      }
+    };
+    tick();
+  }
+
+  // Clean up any pending timer on unmount.
+  useEffect(() => () => { if (revealTimer.current) window.clearTimeout(revealTimer.current); }, []);
 
   useEffect(() => {
     seenRef.current = loadSeen(businessId);
@@ -79,7 +107,7 @@ export function OfferRevealWatcher({
       const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
       if (cancelled || !row?.id) return;
       if (!seenRef.current.includes(row.id)) {
-        setActive(row);
+        queueReveal(row);
       }
     })();
     return () => { cancelled = true; };
@@ -100,7 +128,7 @@ export function OfferRevealWatcher({
           const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
           if (!row?.id) return;
           if (!seenRef.current.includes(row.id)) {
-            setActive(row);
+            queueReveal(row);
           }
         },
       )
@@ -115,7 +143,7 @@ export function OfferRevealWatcher({
           const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
           if (!row?.id) return;
           if (!seenRef.current.includes(row.id)) {
-            setActive(row);
+            queueReveal(row);
           }
         },
       )

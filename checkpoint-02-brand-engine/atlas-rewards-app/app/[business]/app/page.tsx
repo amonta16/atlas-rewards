@@ -9,11 +9,12 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 // CP-42: reuse the existing Daily Spin button (the same one Andrew has
 // on Rewards) under the Featured offer on Home.
 import { DailySpinButton } from "@/components/customer/daily-spin-button";
-// CP-37.18: one-time PWA welcome / notification permission cutscene.
-// Fires when the customer opens the home-screen-installed app for the
-// first time, asks for notification permission, and registers the
-// push subscription against this business.
-import { PwaWelcomeOverlay } from "@/components/customer/pwa-welcome-overlay";
+// CP-43.3: mini streak teaser — shows progress to the first streak reward.
+import { StreakMini } from "@/components/customer/streak-mini";
+// CP-43.3: PwaWelcomeOverlay (the installed "welcome + enable notifications"
+// modal) was removed — it competed with the bell nudge for the notification
+// ask. The bell nudge (EnablePushNudge in the app shell) is now the single
+// notification-activation moment, and the welcome gift reveal follows it.
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -68,16 +69,6 @@ export default async function CustomerHome({ params }: { params: { business: str
   return (
     <div className="relative">
       <OffersRevalidator businessId={business.id} />
-
-      {/* CP-37.18 — one-time PWA welcome / notification cutscene.
-          Self-hides when not in standalone mode or already onboarded. */}
-      <PwaWelcomeOverlay
-        businessId={business.id}
-        businessName={business.name}
-        logoUrl={business.logo_url ?? null}
-        primary={business.brand_colors.primary}
-        secondary={business.brand_colors.secondary ?? business.brand_colors.primary}
-      />
 
       {/* Header */}
       <div className="px-4 pt-3 pb-3 flex items-center justify-between bg-white">
@@ -195,6 +186,13 @@ export default async function CustomerHome({ params }: { params: { business: str
           opens the slot-machine modal when they tap it after check-in. */}
       {mem?.id && (
         <DailySpinButton business={business} membershipId={mem.id} />
+      )}
+
+      {/* CP-43.3: mini streak teaser — "N more check-ins until <reward>".
+          Self-hides once the first reward is reached. Tapping "View more"
+          opens the same streak panel as the header flame quick-action. */}
+      {mem?.id && (
+        <StreakMini business={business} membershipId={mem.id} />
       )}
 
       {/* Top rewards */}
