@@ -181,21 +181,4 @@ export default function CustomerLogin() {
           <button
             type="button"
             onClick={sendMagicLink}
-            disabled={linkSending || !email}
-            className="w-full inline-flex items-center justify-center gap-2 text-sm font-semibold text-zinc-700 hover:text-zinc-900 disabled:opacity-50"
-          >
-            <Mail className="h-4 w-4" />
-            {linkSending ? "Sending…" : "Send me a sign-in link instead"}
-          </button>
-          <p className="text-[11px] text-zinc-500 text-center mt-1.5 leading-snug">
-            Forgot your password, or signed up via invite? Tap above — we'll email you a one-time sign-in link.
-          </p>
-        </div>
-
-        <p className="text-xs text-center text-muted-foreground mt-4">
-          New here? <Link href="/signup" className="font-semibold text-brand-primary">Create an account</Link>
-        </p>
-      </div>
-    </main>
-  );
-}
+         

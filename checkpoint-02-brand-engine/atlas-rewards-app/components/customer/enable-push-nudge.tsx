@@ -190,32 +190,4 @@ export function EnablePushNudge({ primary, businessId }: { primary: string; busi
             <Bell className="h-4 w-4" />
           </div>
           <div className="text-sm font-extrabold text-zinc-900 leading-tight">
-            Tap the bell to turn on notifications
-          </div>
-        </div>
-        <p className="text-[12px] text-zinc-600 leading-snug">
-          Get pinged when you earn points, a reward unlocks, or a new offer drops.
-        </p>
-        <div className="mt-2 text-[10px] uppercase tracking-widest font-bold text-zinc-400">
-          Tap anywhere to dismiss
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes atlas-nudge-pop {
-          0%   { opacity: 0; transform: translateY(-6px) scale(0.94); }
-          60%  { opacity: 1; transform: translateY(2px) scale(1.02); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes atlas-nudge-bob {
-          0%, 100% { transform: translate(0, 0); }
-          50%      { transform: translate(6px, -6px); }
-        }
-        @keyframes atlas-nudge-ring {
-          0%, 100% { transform: scale(1); }
-          50%      { transform: scale(1.06); }
-        }
-      `}</style>
-    </div>
-  );
-}
+            Tap the bell to tu
