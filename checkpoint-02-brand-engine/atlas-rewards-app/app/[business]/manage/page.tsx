@@ -25,18 +25,43 @@ export default async function ManagerHome({ params }: { params: { business: stri
     new Set((recentRaw ?? []).map((r: any) => r.membership_id).filter(Boolean)),
   );
 
+  // CP-37.20 — was querying `memberships` (table doesn't exist) +
+  // relying on a fragile PostgREST FK alias. Both silently failed, so
+  // EVERY ledger row fell back to "Guest". Now we do a clean two-step:
+  //   1) business_memberships → user_id per membership
+  //   2) profiles → full_name / email per user_id
+  // Then stitch the name back onto each ledger row.
   let nameByMembership = new Map<string, string>();
   if (membershipIds.length > 0) {
     const { data: members } = await supabase
-      .from("memberships")
-      .select("id, user_id, profiles:profiles!memberships_user_id_fkey(full_name, email)")
+      .from("business_memberships")
+      .select("id, user_id")
       .in("id", membershipIds);
+    const userIdByMembership = new Map<string, string>();
+    const userIds: string[] = [];
     for (const m of (members ?? []) as any[]) {
-      const name =
-        (m.profiles?.full_name && String(m.profiles.full_name).trim()) ||
-        m.profiles?.email ||
-        null;
-      if (name) nameByMembership.set(m.id, name);
+      if (m.user_id) {
+        userIdByMembership.set(m.id, m.user_id);
+        userIds.push(m.user_id);
+      }
+    }
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", Array.from(new Set(userIds)));
+      const nameByUser = new Map<string, string>();
+      for (const p of (profiles ?? []) as any[]) {
+        const name =
+          (p.full_name && String(p.full_name).trim()) ||
+          p.email ||
+          null;
+        if (name) nameByUser.set(p.id, name);
+      }
+      for (const [mid, uid] of userIdByMembership.entries()) {
+        const n = nameByUser.get(uid);
+        if (n) nameByMembership.set(mid, n);
+      }
     }
   }
 

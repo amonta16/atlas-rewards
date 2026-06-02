@@ -112,6 +112,7 @@ export function AwardPointsPanel({
     setSubmitting(true);
     setErr(null);
     const supabase = createClient();
+    const oldBalance = member.points_balance;
     const { data, error } = await supabase.rpc("quick_award", {
       p_membership_id: member.membership_id,
       p_rule_key: ruleKey,
@@ -121,6 +122,20 @@ export function AwardPointsPanel({
     if (error) { setErr(error.message); return; }
     const awarded = data?.[0]?.points_awarded ?? 0;
     setSuccess(awarded);
+
+    // CP-37.20 — same award-event fanout as the purchase flow.
+    if (awarded > 0) {
+      fetch("/api/notifications/award-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business_id: business.id,
+          membership_id: member.membership_id,
+          old_balance: oldBalance,
+          new_balance: oldBalance + awarded,
+        }),
+      }).catch(() => { /* silent */ });
+    }
   }
 
   async function awardPurchase() {
@@ -129,6 +144,7 @@ export function AwardPointsPanel({
     setErr(null);
     const supabase = createClient();
     const idempotencyKey = `purchase_${member.membership_id}_${Date.now()}`;
+    const oldBalance = member.points_balance;
     const { error } = await supabase.rpc("award_points", {
       p_membership_id: member.membership_id,
       p_delta: pointsToAward,
@@ -149,6 +165,21 @@ export function AwardPointsPanel({
       source: "manual",
       amount_cents: Math.round(dollars * 100),
     });
+
+    // CP-37.20 — fire reward_unlocked push directly via the broadcast-
+    // pattern route. Sidesteps the SQL trigger + webhook chain entirely
+    // for the most-important auto-notification. Fire-and-forget; if the
+    // route 500s we don't roll back the points award.
+    fetch("/api/notifications/award-event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        business_id: business.id,
+        membership_id: member.membership_id,
+        old_balance: oldBalance,
+        new_balance: oldBalance + pointsToAward,
+      }),
+    }).catch(() => { /* silent — in-app row is the safety net */ });
   }
 
   if (success !== null) {
