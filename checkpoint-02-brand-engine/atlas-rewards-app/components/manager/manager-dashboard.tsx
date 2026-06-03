@@ -260,7 +260,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               at a time. Auto-opens on first sign-in for new accounts.
               CP-37.18: install-app affordance now sits next to it. */}
           <div className="flex items-center gap-1">
-            <ManagerPwaInstall primary={business.brand_colors.primary} />
+            <ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} />
             <Button
               variant="ghost"
               size="sm"
@@ -361,6 +361,15 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 </div>
               </div>
             </div>
+
+            {/* CP-43.4: prominent "install on this computer" card. Self-hides
+                once the app is installed / running standalone, so it only
+                shows during first-time setup at the front desk. */}
+            <ManagerPwaInstall
+              primary={business.brand_colors.primary}
+              businessName={business.name}
+              variant="card"
+            />
 
             {/* Scanner panel */}
             {mode === "scanning" && (

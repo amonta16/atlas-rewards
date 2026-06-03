@@ -5,8 +5,16 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Business } from "@/lib/types/database";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+// CP-43.4: point the FRONT-DESK pages at the front-desk manifest (start_url
+// /manage), not the customer manifest (start_url /app). This is what makes
+// the installed desktop/taskbar app open straight to the front desk.
+export async function generateMetadata({ params }: { params: { business: string } }): Promise<Metadata> {
+  return { manifest: `/${params.business}/manage/manifest.webmanifest` };
+}
 
 export default async function ManagerLayout({
   children, params,
