@@ -361,10 +361,25 @@ export function StreakWidget({
                             {milestone!.reward_name ?? milestone!.label}
                           </div>
                         </>
+                      ) : isMilestone && !milestone!.reward_name && !milestone!.reward_image_url && !isMystery && (milestone!.points ?? 0) > 0 ? (
+                        // CP-44: a POINTS-only milestone → show the business logo
+                        // and "<points> pts" instead of a generic gift item.
+                        <>
+                          {business.logo_url ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={business.logo_url} alt="" className="h-6 w-6 rounded-md object-contain bg-white/90 p-0.5" />
+                          ) : (
+                            <span className="text-lg leading-none">⭐</span>
+                          )}
+                          <div className={`text-[10px] leading-none font-black mt-0.5 tabular-nums ${isFilled ? "text-amber-900" : "text-amber-50"}`}>
+                            {(milestone!.points ?? 0).toLocaleString()}
+                          </div>
+                          <div className={`text-[6px] font-extrabold uppercase tracking-widest ${isFilled ? "text-amber-900/80" : "text-amber-100/90"}`}>
+                            pts
+                          </div>
+                        </>
                       ) : isMilestone ? (
-                        // Reward configured but no image, OR points-only
-                        // milestone. Use the icon + label fallback from
-                        // the original CP-37 behavior.
+                        // Reward configured but no image (icon + name fallback).
                         <>
                           {isClaimed ? (
                             <Trophy className="h-5 w-5 text-amber-900 drop-shadow-lg" />
@@ -461,6 +476,10 @@ export function StreakWidget({
                             alt=""
                             className="h-full w-full object-cover"
                           />
+                        ) : (!m.reward_name && !m.mystery && (m.points ?? 0) > 0 && business.logo_url) ? (
+                          // CP-44: points-only milestone → business logo.
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={business.logo_url} alt="" className="h-full w-full object-contain bg-white p-0.5" />
                         ) : claimed ? (
                           <Trophy className="h-4 w-4 text-white" />
                         ) : m.mystery ? (
@@ -471,10 +490,9 @@ export function StreakWidget({
                       </div>
                       <div className="flex-1 text-white min-w-0">
                         <div className="text-xs font-bold leading-tight truncate">
-                          {/* CP-37.1: prefer the linked reward's name so
-                              "Free Latte" wins over a generic milestone
-                              label like "3 in a row". */}
-                          {m.reward_name ?? m.label}
+                          {/* CP-37.1: prefer the linked reward's name. CP-44:
+                              a points-only milestone reads "<n> points". */}
+                          {m.reward_name ?? (!m.mystery && (m.points ?? 0) > 0 ? `${m.points.toLocaleString()} points` : m.label)}
                         </div>
                         <div className="text-[10px] opacity-80">
                           {periodWord} {m.count} · +{m.points} pts
