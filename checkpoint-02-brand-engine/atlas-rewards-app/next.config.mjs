@@ -18,5 +18,25 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+
+  // CP-44: baseline security headers (clickjacking, MIME-sniffing, referrer
+  // leakage, HSTS). Camera (QR scanner) + microphone (owner voice memos) are
+  // allowed for same-origin; geolocation is disabled. We deliberately skip a
+  // strict Content-Security-Policy here to avoid breaking Supabase / Stripe /
+  // GHL / inline brand styles — revisit with a report-only CSP post-launch.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(), payment=(self)" },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+        ],
+      },
+    ];
+  },
 };
 export default nextConfig;

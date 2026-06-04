@@ -47,7 +47,10 @@ export function NotificationBell({
     const supabase = createClient();
     let cancelled = false;
     const load = async () => {
-      const { data } = await supabase.rpc("unread_notification_count");
+      // CP-44: scope the unread count to THIS business so a customer who
+      // belongs to multiple Atlas businesses doesn't see another business's
+      // count in this app's bell.
+      const { data } = await supabase.rpc("unread_notification_count", { p_business_id: businessId });
       if (!cancelled) setUnread(typeof data === "number" ? data : (data?.[0] ?? 0));
     };
     load();
@@ -141,6 +144,7 @@ export function NotificationBell({
         <NotificationCenter
           primary={primary}
           permState={permState}
+          businessId={businessId}
           onClose={() => setOpen(false)}
         />
       )}

@@ -8,6 +8,7 @@ import type { Business } from "@/lib/types/database";
 export type RedemptionLookup = {
   redemption_id: string; reward_id: string; membership_id: string;
   reward_name: string; reward_description: string | null; reward_type: string;
+  reward_image_url?: string | null;
   point_cost: number; status: string; code: string;
   member_name: string | null; member_email: string | null;
   created_at: string; expires_at: string | null; fulfilled_at: string | null;
@@ -84,10 +85,21 @@ export function RedemptionFulfillPanel({
 
         {/* Reward card */}
         <div className="rounded-2xl border bg-white overflow-hidden">
-          <div className="h-32 flex items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}20 0%, ${business.brand_colors.primary}40 100%)` }}>
-            <Gift className="h-12 w-12" style={{ color: business.brand_colors.primary }} />
-          </div>
+          {/* CP-44: show the actual reward photo so staff can confirm the
+              item at a glance; fall back to the brand-gradient gift icon. */}
+          {redemption.reward_image_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={redemption.reward_image_url}
+              alt={redemption.reward_name}
+              className="h-44 w-full object-cover"
+            />
+          ) : (
+            <div className="h-32 flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}20 0%, ${business.brand_colors.primary}40 100%)` }}>
+              <Gift className="h-12 w-12" style={{ color: business.brand_colors.primary }} />
+            </div>
+          )}
           <div className="p-5">
             <div className="text-[10px] uppercase tracking-widest font-bold" style={{ color: business.brand_colors.primary }}>
               {redemption.reward_type.replace(/_/g, " ")}

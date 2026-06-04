@@ -49,13 +49,16 @@ const KIND_META: Record<NotifKind, { icon: typeof Flame; tone: string; label: st
 };
 
 export function NotificationCenter({
-  primary, onClose, permState,
+  primary, onClose, permState, businessId,
 }: {
   primary: string;
   onClose: () => void;
   /** CP-42: passed from NotificationBell so we can surface a hint if
    *  the user denied push permission (iOS won't re-prompt). */
   permState?: NotificationPermission | "unsupported";
+  /** CP-44: scope the feed to this business so notifications from other
+   *  businesses the customer belongs to don't bleed into this app. */
+  businessId?: string | null;
 }) {
   const [list, setList] = useState<Notif[] | null>(null);
 
@@ -63,14 +66,14 @@ export function NotificationCenter({
     const supabase = createClient();
     let cancelled = false;
     const load = async () => {
-      const { data } = await supabase.rpc("list_notifications", { p_limit: 50 });
+      const { data } = await supabase.rpc("list_notifications", { p_limit: 50, p_business_id: businessId ?? null });
       if (!cancelled) setList((data ?? []) as Notif[]);
-      // Mark everything read once the sheet is open
-      await supabase.rpc("mark_all_notifications_read");
+      // Mark this business's notifications read once the sheet is open.
+      await supabase.rpc("mark_all_notifications_read", { p_business_id: businessId ?? null });
     };
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [businessId]);
 
   // CP-35: constrain the sheet to the customer-app phone-frame width
   // (max-w-md) so it doesn't span the whole desktop viewport. The dark
