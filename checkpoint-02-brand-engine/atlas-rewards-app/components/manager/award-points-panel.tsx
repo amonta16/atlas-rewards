@@ -54,8 +54,10 @@ export function AwardPointsPanel({
   const [err, setErr] = useState<string | null>(null);
   const [streak, setStreak] = useState<StreakSnapshot | null>(null);
   const [checkInResult, setCheckInResult] = useState<{ streak: number; milestone: string | null; mystery: boolean } | null>(null);
+  // CP-44: total $ this member has spent (front desk + manager + admin see it).
+  const [spentCents, setSpentCents] = useState<number | null>(null);
 
-  // Load the member's current streak state when the panel opens
+  // Load the member's current streak state + total spend when the panel opens
   useEffect(() => {
     const supabase = createClient();
     (async () => {
@@ -64,6 +66,10 @@ export function AwardPointsPanel({
       });
       const row = (Array.isArray(data) ? data[0] : data) as StreakSnapshot | null;
       setStreak(row);
+    })();
+    (async () => {
+      const { data } = await supabase.rpc("member_total_spent", { p_membership_id: member.membership_id });
+      setSpentCents(typeof data === "number" ? data : Number((data as any)?.[0] ?? 0));
     })();
   }, [business.id, member.membership_id]);
 
@@ -257,6 +263,13 @@ export function AwardPointsPanel({
           <div className="flex-1 min-w-0">
             <div className="font-semibold truncate">{member.full_name ?? "Unnamed member"}</div>
             <div className="text-xs text-muted-foreground truncate">{member.email ?? member.phone ?? "—"}</div>
+            {/* CP-44: lifetime spend + visits at a glance. */}
+            <div className="text-[11px] text-muted-foreground mt-0.5">
+              {member.visit_count} visit{member.visit_count === 1 ? "" : "s"}
+              {spentCents != null && spentCents > 0 && (
+                <> · <span className="font-semibold text-zinc-700">${(spentCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> spent</>
+              )}
+            </div>
           </div>
           <div className="text-right">
             <div className="text-xl font-bold" style={{ color: business.brand_colors.primary }}>

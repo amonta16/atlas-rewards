@@ -72,7 +72,7 @@ type ReviewFunnel = {
 type TopMember = {
   membership_id: string; full_name: string | null; email: string | null;
   lifetime_points: number; points_balance: number; visit_count: number;
-  last_visit_at: string | null;
+  last_visit_at: string | null; total_spent_cents?: number;
 };
 type Inactive = {
   membership_id: string; full_name: string | null; email: string | null; phone: string | null;
@@ -518,6 +518,9 @@ export function InsightsDashboard({ business }: { business: Business }) {
                   <div className="text-sm font-semibold truncate">{m.full_name ?? m.email ?? "Member"}</div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
                     {m.visit_count} visit{m.visit_count === 1 ? "" : "s"}
+                    {m.total_spent_cents != null && m.total_spent_cents > 0 && (
+                      <> · ${(m.total_spent_cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} spent</>
+                    )}
                     {m.last_visit_at && <> · last seen {new Date(m.last_visit_at).toLocaleDateString()}</>}
                   </div>
                 </div>

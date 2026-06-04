@@ -14,7 +14,7 @@ type Analytics = {
 };
 
 type DailyRow = { day: string; points_issued: number; points_redeemed: number; revenue_cents: number; transactions: number };
-type TopMember = { membership_id: string; member_name: string; member_email: string; points_balance: number; lifetime_points: number; tier: string; visit_count: number };
+type TopMember = { membership_id: string; member_name: string; member_email: string; points_balance: number; lifetime_points: number; tier: string; visit_count: number; total_spent_cents?: number };
 
 const PERIODS = [{ days: 7, label: "Last 7 days" }, { days: 30, label: "Last 30 days" }, { days: 90, label: "Last 90 days" }];
 
@@ -219,7 +219,12 @@ export function BusinessInsights({ business }: { business: Business }) {
               </div>
               <div className="text-right">
                 <div className="text-sm font-bold">{m.lifetime_points.toLocaleString()}</div>
-                <div className="text-[10px] text-muted-foreground">{m.visit_count} visits</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {m.visit_count} visits
+                  {m.total_spent_cents != null && m.total_spent_cents > 0 && (
+                    <> · ${(m.total_spent_cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} spent</>
+                  )}
+                </div>
               </div>
             </div>
           ))}
