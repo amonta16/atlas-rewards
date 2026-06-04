@@ -66,26 +66,21 @@ export function ManagerPwaInstall({
       navigator.serviceWorker.register("/sw.js").catch(() => { /* ignore */ });
     }
 
-    // Bulletproof: make sure a FRONT-DESK manifest <link> is on the page.
-    // Next's metadata didn't reliably inject one on this nested route
-    // (DevTools showed "No manifest detected"), so we add it here, deriving
-    // the path from the current URL so it resolves on apex path-based
-    // (/slug/manage) and subdomain (/manage) deployments alike. Adding the
-    // link dynamically makes Chrome re-run its installability check.
+    // Bulletproof: ensure the page's <link rel="manifest"> points at the
+    // FRONT-DESK manifest route handler (/<slug>/manage-manifest). We set
+    // the href unconditionally so any stale/wrong/404 manifest link (e.g. a
+    // customer manifest, or the old nested .webmanifest path) is replaced.
+    // Adding/replacing it dynamically makes Chrome re-run installability.
     try {
-      const existing = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
-      const base = window.location.pathname.split("/manage")[0]; // "" or "/slug"
-      const href = `${base}/manage/manifest.webmanifest`;
-      if (!existing) {
-        const link = document.createElement("link");
+      const base = window.location.pathname.split("/manage")[0] || ""; // "" or "/slug"
+      const href = `${base}/manage-manifest`;
+      let link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement("link");
         link.rel = "manifest";
-        link.href = href;
         document.head.appendChild(link);
-      } else if (!/\/manage\/manifest\.webmanifest$/.test(existing.href)) {
-        // A customer manifest (start_url /app) was linked — point it at the
-        // front-desk manifest instead so the installed app opens the desk.
-        existing.href = href;
       }
+      link.setAttribute("href", href);
     } catch { /* ignore */ }
 
     const onPrompt = (e: any) => { e.preventDefault(); setPrompt(e as DeferredPrompt); };

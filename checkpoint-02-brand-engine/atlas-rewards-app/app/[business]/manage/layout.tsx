@@ -9,11 +9,12 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
-// CP-43.4: point the FRONT-DESK pages at the front-desk manifest (start_url
-// /manage), not the customer manifest (start_url /app). This is what makes
-// the installed desktop/taskbar app open straight to the front desk.
+// CP-43.4: point the FRONT-DESK pages at the front-desk manifest so the
+// installed desktop/taskbar app opens straight to the front desk (not the
+// customer view). Served by the route handler at /<slug>/manage-manifest
+// (a nested manifest.ts metadata file 404s in Next, so we use a route).
 export async function generateMetadata({ params }: { params: { business: string } }): Promise<Metadata> {
-  return { manifest: `/${params.business}/manage/manifest.webmanifest` };
+  return { manifest: `/${params.business}/manage-manifest` };
 }
 
 export default async function ManagerLayout({
