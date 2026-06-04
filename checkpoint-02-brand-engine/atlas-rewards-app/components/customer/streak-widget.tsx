@@ -30,7 +30,8 @@ type Milestone = {
   count: number;
   label: string;
   points: number;
-  mystery?: boolean;
+  mystery?: boolean;            // LEGACY/deprecated — ignored for rendering.
+  gift_kind?: "points" | "reward";
   // CP-37.1: enrichment fields injected by get_streak_status. When the
   // milestone is configured with a linked reward (gift_kind='reward'),
   // these come back populated and we render the reward's photo inline
@@ -267,6 +268,13 @@ export function StreakWidget({
                 const isFilled   = n <= s.current_streak;
                 const isMystery  = milestone?.mystery;
                 const isMilestone = !!milestone;
+                // CP-44.1: a milestone gives a REWARD when gift_kind='reward'
+                // or it has a linked reward_id; otherwise it awards POINTS.
+                // The legacy `mystery` flag is ignored (deprecated, often left
+                // true on old milestones the agency later switched to points).
+                const isRewardGift = !!milestone &&
+                  (milestone!.gift_kind === "reward" || !!milestone!.reward_id);
+                const isPointsGift = isMilestone && !isRewardGift && (milestone!.points ?? 0) > 0;
                 const isClaimed  =
                   isMilestone && (s.claimed_milestones ?? []).includes(milestone!.count);
 
@@ -328,7 +336,7 @@ export function StreakWidget({
                         get the actual product photo on the streak path
                         instead of a generic gift icon. */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center px-1">
-                      {isMilestone && milestone!.reward_image_url ? (
+                      {isRewardGift && milestone!.reward_image_url ? (
                         // CP-37.2: reward photo fills the cell, but now
                         // overlaid with a heavier bottom scrim + the
                         // reward NAME so a customer can read what they're
@@ -361,9 +369,10 @@ export function StreakWidget({
                             {milestone!.reward_name ?? milestone!.label}
                           </div>
                         </>
-                      ) : isMilestone && !milestone!.reward_name && !milestone!.reward_image_url && !isMystery && (milestone!.points ?? 0) > 0 ? (
-                        // CP-44: a POINTS-only milestone → show the business logo
-                        // and "<points> pts" instead of a generic gift item.
+                      ) : isPointsGift ? (
+                        // CP-44.1: a POINTS milestone (gift_kind!='reward') →
+                        // show the business logo + "<points> pts" instead of a
+                        // generic gift/sparkle item.
                         <>
                           {business.logo_url ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
@@ -448,6 +457,9 @@ export function StreakWidget({
                 {milestones.map(m => {
                   const claimed = (s.claimed_milestones ?? []).includes(m.count);
                   const reached = s.current_streak >= m.count;
+                  // CP-44.1: reward vs points (ignore the legacy mystery flag).
+                  const isRewardGift = m.gift_kind === "reward" || !!m.reward_id;
+                  const isPointsGift = !isRewardGift && (m.points ?? 0) > 0;
                   return (
                     <div
                       key={m.count}
@@ -469,20 +481,20 @@ export function StreakWidget({
                         }}
                       >
                         {/* CP-37.1: prefer the linked reward's photo. */}
-                        {m.reward_image_url ? (
+                        {isRewardGift && m.reward_image_url ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={m.reward_image_url}
                             alt=""
                             className="h-full w-full object-cover"
                           />
-                        ) : (!m.reward_name && !m.mystery && (m.points ?? 0) > 0 && business.logo_url) ? (
-                          // CP-44: points-only milestone → business logo.
+                        ) : isPointsGift && business.logo_url ? (
+                          // CP-44.1: points milestone → business logo.
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img src={business.logo_url} alt="" className="h-full w-full object-contain bg-white p-0.5" />
                         ) : claimed ? (
                           <Trophy className="h-4 w-4 text-white" />
-                        ) : m.mystery ? (
+                        ) : isPointsGift ? (
                           <Sparkles className="h-4 w-4 text-white" />
                         ) : (
                           <Gift className="h-4 w-4 text-white" />
@@ -490,13 +502,11 @@ export function StreakWidget({
                       </div>
                       <div className="flex-1 text-white min-w-0">
                         <div className="text-xs font-bold leading-tight truncate">
-                          {/* CP-37.1: prefer the linked reward's name. CP-44:
-                              a points-only milestone reads "<n> points". */}
-                          {m.reward_name ?? (!m.mystery && (m.points ?? 0) > 0 ? `${m.points.toLocaleString()} points` : m.label)}
+                          {/* CP-37.1: reward → its name. CP-44.1: points → "<n> points". */}
+                          {isRewardGift ? (m.reward_name ?? m.label) : isPointsGift ? `${m.points.toLocaleString()} points` : m.label}
                         </div>
                         <div className="text-[10px] opacity-80">
                           {periodWord} {m.count} · +{m.points} pts
-                          {m.mystery && " + 🎁"}
                         </div>
                       </div>
                       {!claimed && reached && (

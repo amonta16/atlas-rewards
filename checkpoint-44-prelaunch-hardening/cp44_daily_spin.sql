@@ -27,15 +27,13 @@ declare
   v_cooldown   int;
   v_last       timestamptz;
 begin
-  select is_enabled, coalesce(cooldown_hours, 24)
-    into v_enabled, v_cooldown
+  -- CP-44.1: the spin is ALWAYS available (gated only by check-in +
+  -- cooldown). We no longer block on business_mystery_config.is_enabled —
+  -- a stale/default-false row was wrongly disabling it, and there's no UI
+  -- to flip it on. Cooldown still respects a configured cooldown_hours.
+  select coalesce(cooldown_hours, 24) into v_cooldown
     from public.business_mystery_config
    where business_id = p_business_id;
-
-  -- Only OFF when an owner explicitly set is_enabled = false.
-  if v_enabled is false then
-    is_available := false; next_spin_at := null; return next; return;
-  end if;
   v_cooldown := coalesce(v_cooldown, 24);
 
   select max(awarded_at) into v_last
@@ -97,14 +95,11 @@ begin
     raise exception 'not your membership' using errcode = '42501';
   end if;
 
-  -- 2. Enabled by default (only off if explicitly disabled).
-  select is_enabled, coalesce(cooldown_hours, 24)
-    into v_enabled, v_cooldown
+  -- 2. CP-44.1: always on — gated only by check-in + cooldown below.
+  --    (No is_enabled gate; a stale default-false config row was blocking it.)
+  select coalesce(cooldown_hours, 24) into v_cooldown
     from public.business_mystery_config
    where business_id = p_business_id;
-  if v_enabled is false then
-    raise exception 'daily spin is turned off for this business';
-  end if;
   v_cooldown := coalesce(v_cooldown, 24);
 
   -- 3. Must have checked in today.
