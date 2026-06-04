@@ -114,6 +114,18 @@ review before commercial launch — see below.)*
    configured, else an in-memory fallback so it works immediately.
    *Files:* `lib/rate-limit.ts` + those routes.
 
+10. **Daily Spin now awards points — server-side & exploit-proof.** The spin
+    used to pick the amount in client JS and call an RPC that didn't exist
+    (so it animated "+50" but awarded nothing). New `spin_daily_reward` RPC
+    picks a weighted-random prize from the agency's pool **on the server**,
+    awards it (points credited / reward dropped as a free pending redemption /
+    coupon code returned), records the spin (drives the cooldown), and enforces
+    ownership + check-in + one-per-cooldown under a row lock. The client just
+    displays what the server decided — it can't choose the amount or spin for
+    anyone else. *Files:* `cp44_daily_spin.sql`, `daily-mystery-modal.tsx`.
+    *(Configure prizes in the mystery pool; a points-kind prize awards its
+    `points_amount`.)*
+
 ### Enabling the strong rate limiter (optional, recommended)
 The limiter works out of the box (in-memory). To make it shared across regions
 and survive deploys, add a **free Upstash Redis**:
@@ -127,8 +139,8 @@ The code auto-detects them and upgrades — no code change needed.
 
 ## 🚀 To deploy this audit
 
-1. Apply **`cp44_security.sql`** AND **`cp44_loopholes.sql`** in the Supabase SQL
-   editor (both idempotent).
+1. Apply **`cp44_security.sql`**, **`cp44_loopholes.sql`**, and
+   **`cp44_daily_spin.sql`** in the Supabase SQL editor (all idempotent).
 2. Push the code (PowerShell — one line each):
    ```powershell
    git add -A

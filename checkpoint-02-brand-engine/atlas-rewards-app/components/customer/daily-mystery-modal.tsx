@@ -27,28 +27,27 @@ type Prize = {
   label: string;
   points: number;
   tier: "jackpot" | "lucky" | "nice";
+  // CP-44: server-decided prize details (the client no longer chooses these).
+  kind?: string;
+  image?: string | null;
+  coupon?: string | null;
 };
 
-function pickPrize(): Prize {
-  const rand = Math.random();
-
-  if (rand < 0.05) {
-    // 5 % → JACKPOT: three of a kind from the "premium" symbols
+// Cosmetic only: pick slot symbols that match the prize tier the SERVER
+// awarded, so the reels visually land on something sensible. The actual
+// points/prize come from spin_daily_reward — the client can't influence them.
+function symbolsForTier(tier: Prize["tier"]): [string, string, string] {
+  if (tier === "jackpot") {
     const s = ["🔥", "💎", "👑"][Math.floor(Math.random() * 3)];
-    return { symbols: [s, s, s], label: "JACKPOT!", points: 300, tier: "jackpot" };
+    return [s, s, s];
   }
-
-  if (rand < 0.20) {
-    // 15 % → LUCKY: two of a kind
+  if (tier === "lucky") {
     const s = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
     let s2 = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
     while (s2 === s) s2 = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-    return { symbols: [s, s, s2], label: "LUCKY!", points: 100, tier: "lucky" };
+    return [s, s, s2];
   }
-
-  // 80 % → NICE: three unique symbols (guaranteed all different)
-  const pool = [...SYMBOLS].sort(() => Math.random() - 0.5).slice(0, 3) as [string, string, string];
-  return { symbols: pool, label: "Nice spin!", points: 50, tier: "nice" };
+  return [...SYMBOLS].sort(() => Math.random() - 0.5).slice(0, 3) as [string, string, string];
 }
 
 // ─── component ───────────────────────────────────────────────────────────────
@@ -88,6 +87,8 @@ export function DailyMysteryModal({
   const [prize, setPrize] = useState<Prize | null>(storedPrize);
   // White-flash overlay
   const [flash, setFlash] = useState(false);
+  // CP-44: spin error (cooldown / not checked in / disabled).
+  const [err, setErr] = useState<string | null>(null);
 
   const intervals = useRef<ReturnType<typeof setInterval>[]>([]);
   const primary = business.brand_colors.primary;
@@ -95,15 +96,15 @@ export function DailyMysteryModal({
   // ── cleanup on unmount
   useEffect(() => () => intervals.current.forEach(clearInterval), []);
 
-  // ── start spinning
-  function handleSpin() {
-    if (phase !== "ready") return;
-    const p = pickPrize();
-    setPrize(p);
+  // ── start spinning (CP-44: server-authoritative)
+  async function handleSpin() {
+    if (phase !== "ready" || !membershipId) return;
+    setErr(null);
     setPhase("spinning");
     setLocked([false, false, false]);
 
-    // Start three independent intervals at slightly different speeds for realism
+    // Start the reels spinning immediately (they keep blurring while we ask
+    // the server for the real prize).
     intervals.current = [0, 1, 2].map((ri) =>
       setInterval(() => {
         setReelIdx((prev) => {
@@ -114,12 +115,50 @@ export function DailyMysteryModal({
       }, 75 + ri * 8),
     );
 
-    // Stop each reel in sequence
-    const stopTimes = [1300, 2000, 2700];
+    // Ask the server to pick + award the prize. The client cannot influence
+    // the amount, can only spin for itself, and the cooldown is enforced here.
+    const { data, error } = await createClient().rpc("spin_daily_reward", {
+      p_business_id: business.id,
+      p_membership_id: membershipId,
+    });
+
+    if (error || !data) {
+      intervals.current.forEach(clearInterval);
+      const msg = error?.message ?? "Couldn't spin — please try again.";
+      // Already spun / cooldown → show the "already spun" state.
+      if (/already spun|cooldown/i.test(msg)) {
+        localStorage.setItem(todayKey, "1");
+        setPhase("claimed");
+      } else {
+        setErr(msg);
+        setPhase("ready");
+      }
+      return;
+    }
+
+    const row = (Array.isArray(data) ? data[0] : data) as {
+      prize_name: string | null; prize_description: string | null;
+      prize_image_url: string | null; kind: string | null;
+      points_amount: number | null; coupon_code: string | null;
+    };
+    const pts = Number(row.points_amount ?? 0);
+    const tier: Prize["tier"] = pts >= 200 ? "jackpot" : pts >= 100 ? "lucky" : "nice";
+    const p: Prize = {
+      symbols: symbolsForTier(tier),
+      label: row.prize_name || (tier === "jackpot" ? "JACKPOT!" : tier === "lucky" ? "LUCKY!" : "Nice spin!"),
+      points: pts,
+      tier,
+      kind: row.kind ?? "points",
+      image: row.prize_image_url,
+      coupon: row.coupon_code,
+    };
+    setPrize(p);
+
+    // Stop each reel in sequence, landing on the server-decided symbols.
+    const stopTimes = [900, 1500, 2100];
     stopTimes.forEach((t, ri) => {
       setTimeout(() => {
         clearInterval(intervals.current[ri]);
-        // Snap to the predetermined final symbol
         const finalIdx = SYMBOLS.indexOf(p.symbols[ri]);
         setReelIdx((prev) => {
           const next = [...prev] as [number, number, number];
@@ -132,28 +171,15 @@ export function DailyMysteryModal({
           return next;
         });
 
-        // After last reel → flash → reveal
         if (ri === 2) {
           setTimeout(() => {
             setFlash(true);
             setTimeout(() => setFlash(false), 350);
             setTimeout(() => {
               setPhase("revealed");
-              // Persist claim + prize so "claimed" state can show what they won
               localStorage.setItem(todayKey, "1");
               localStorage.setItem(prizeKey, JSON.stringify(p));
-              // Award bonus points via Supabase RPC
-              if (membershipId) {
-                // Fire-and-forget; the RPC may not exist on this install,
-                // so we swallow both success + failure paths.
-                Promise.resolve(
-                  createClient().rpc("award_checkin_mystery_bonus", {
-                    p_membership_id: membershipId,
-                    p_business_id: business.id,
-                    p_points: p.points,
-                  })
-                ).catch(() => {});
-              }
+              // Points/prize were already awarded server-side — nothing to do.
             }, 200);
           }, 400);
         }
@@ -348,17 +374,20 @@ export function DailyMysteryModal({
 
           {/* READY */}
           {phase === "ready" && (
-            <button
-              onClick={handleSpin}
-              className="w-full h-16 rounded-2xl font-extrabold text-xl uppercase tracking-widest text-black transition-all active:scale-95 hover:brightness-110"
-              style={{
-                background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
-                boxShadow:
-                  "0 0 35px rgba(251,191,36,0.55), 0 8px 24px -4px rgba(245,158,11,0.45)",
-              }}
-            >
-              🎰 &nbsp;SPIN!
-            </button>
+            <>
+              <button
+                onClick={handleSpin}
+                className="w-full h-16 rounded-2xl font-extrabold text-xl uppercase tracking-widest text-black transition-all active:scale-95 hover:brightness-110"
+                style={{
+                  background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)",
+                  boxShadow:
+                    "0 0 35px rgba(251,191,36,0.55), 0 8px 24px -4px rgba(245,158,11,0.45)",
+                }}
+              >
+                🎰 &nbsp;SPIN!
+              </button>
+              {err && <p className="text-rose-300 text-xs mt-3">{err}</p>}
+            </>
           )}
 
           {/* SPINNING */}
@@ -387,16 +416,17 @@ export function DailyMysteryModal({
                   to the local brand. Falls back to the celebratory emoji
                   only when the business hasn't uploaded a logo yet. */}
               <div className="flex justify-center mb-3">
-                {business.logo_url ? (
+                {/* CP-44: prefer the won prize's own image; else business logo; else emoji. */}
+                {(prize.image || business.logo_url) ? (
                   <div
                     className="h-20 w-20 rounded-2xl bg-white flex items-center justify-center shadow-xl ring-2 overflow-hidden"
                     style={{ borderColor: primary }}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={business.logo_url}
-                      alt={business.name}
-                      className="h-full w-full object-contain p-2"
+                      src={prize.image || business.logo_url || ""}
+                      alt={prize.label}
+                      className={`h-full w-full ${prize.image ? "object-cover" : "object-contain p-2"}`}
                     />
                   </div>
                 ) : (
@@ -417,13 +447,26 @@ export function DailyMysteryModal({
                 {prize.label}
               </div>
 
-              <div className="text-white/80 text-lg font-semibold mb-1">
-                +{prize.points} bonus points
-              </div>
-
-              <div className="text-zinc-500 text-xs mb-6">
-                Added to your balance automatically
-              </div>
+              {/* CP-44: reveal copy depends on what the server awarded. */}
+              {prize.points > 0 ? (
+                <>
+                  <div className="text-white/80 text-lg font-semibold mb-1">
+                    +{prize.points} bonus points
+                  </div>
+                  <div className="text-zinc-500 text-xs mb-6">
+                    Added to your balance automatically
+                  </div>
+                </>
+              ) : prize.kind === "coupon" && prize.coupon ? (
+                <>
+                  <div className="text-white/70 text-xs uppercase tracking-widest mb-1">Your code</div>
+                  <div className="text-white text-xl font-mono font-bold tracking-[0.2em] mb-6">{prize.coupon}</div>
+                </>
+              ) : (
+                <div className="text-white/80 text-sm mb-6 px-4">
+                  Added to your rewards — show it at the counter to claim. 🎉
+                </div>
+              )}
 
               <button
                 onClick={onClose}
