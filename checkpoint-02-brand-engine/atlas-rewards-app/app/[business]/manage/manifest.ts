@@ -24,12 +24,17 @@ export default async function manifest({ params }: { params: { business: string 
   const themeColor = (data?.brand_colors as { primary?: string })?.primary ?? "#0a3d62";
   const iconUrl = (data as any)?.app_icon_url ?? data?.logo_url ?? "/icons/icon-512.png";
 
+  // CP-43.4 fix: the front desk is served PATH-based on the apex
+  // (app.atlas-engine.app/<slug>/manage), so start_url must include the
+  // business slug — "/manage" alone is a 404 on the apex and Chrome won't
+  // offer to install an app whose start_url doesn't resolve. Business-scoped
+  // start_url + id also makes each shop's front desk its own installable app.
   return {
-    id: "/manage",
+    id: `/${params.business}/manage`,
     name: `${name} — Front Desk`,
     short_name: name.length > 10 ? `${name.slice(0, 10)} Desk` : `${name} Desk`,
     description: `Front-desk app for ${name}: scan members, award points, fulfil rewards.`,
-    start_url: "/manage",
+    start_url: `/${params.business}/manage`,
     scope: "/",
     display: "standalone",
     display_override: ["standalone", "minimal-ui", "window-controls-overlay"],
