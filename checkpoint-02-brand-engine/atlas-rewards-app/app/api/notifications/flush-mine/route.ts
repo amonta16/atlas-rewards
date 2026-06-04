@@ -19,11 +19,16 @@ import { NextResponse } from "next/server";
 import { createClient as createServer } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUsers } from "@/lib/notifications/push-server";
+import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function POST() {
+export async function POST(req: Request) {
+  // CP-44: cap how often a client can flush pushes.
+  const rl = await rateLimit(clientKey(req, "flush"), 30, 60);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   const server = createServer();
   const { data: { user } } = await server.auth.getUser();
   if (!user) return NextResponse.json({ error: "not authenticated" }, { status: 401 });

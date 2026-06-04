@@ -17,11 +17,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendPushToBusiness } from "@/lib/notifications/push-server";
+import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // web-push needs the node runtime
 
 export async function POST(req: Request) {
+  // CP-44: cap "send to all members" blasts so a compromised manager
+  // account can't spam every customer repeatedly.
+  const rl = await rateLimit(clientKey(req, "broadcast"), 10, 60);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "not authenticated" }, { status: 401 });

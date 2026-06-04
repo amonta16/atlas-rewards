@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeRedirect } from "@/lib/utils";
 
 function LoginForm() {
   const router = useRouter();
@@ -68,7 +69,7 @@ function LoginForm() {
     if (typeof window !== "undefined") {
       next = new URLSearchParams(window.location.search).get("next");
     }
-    router.push(next && next.startsWith("/") ? next : "/agency");
+    router.push(safeRedirect(next, "/agency"));
     router.refresh();
   }
 
@@ -86,7 +87,7 @@ function LoginForm() {
     if (typeof window !== "undefined") {
       next = new URLSearchParams(window.location.search).get("next");
     }
-    const dest = next && next.startsWith("/") ? next : "/agency";
+    const dest = safeRedirect(next, "/agency");
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {

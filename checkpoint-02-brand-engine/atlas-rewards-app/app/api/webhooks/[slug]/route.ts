@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import crypto from "crypto";
+import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 
 /**
  * Inbound webhook endpoint.
@@ -23,6 +24,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { slug: string } }
 ) {
+  // CP-44: rate-limit the unauthenticated points webhook (per IP + business)
+  // to blunt floods / signature brute-forcing.
+  const rl = await rateLimit(clientKey(req, `wh:${params.slug}`), 60, 60);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   const rawBody = await req.text();
   const signature = req.headers.get("x-atlas-signature");
 

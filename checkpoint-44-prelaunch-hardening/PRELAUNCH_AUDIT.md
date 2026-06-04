@@ -85,13 +85,54 @@ review before commercial launch — see below.)*
 
 ---
 
+## 🔒 Round 2 — common loophole fixes & rate limiting
+
+5. **CRITICAL: unlimited self-award of points.** `award_points` was granted to
+   `authenticated` with **no staff check** — a logged-in customer could call it
+   directly via the API and give themselves unlimited points. **Fixed:** the
+   guard now allows staff to award/remove, and a customer only to **deduct from
+   their own balance** (redemption) — never to add. Every other point RPC
+   (`quick_award`, `member_checkin`, `send_winback`, `manager_remove_points`)
+   already had the guard; this was the one gap. *File:* `cp44_loopholes.sql`.
+
+6. **Redemption fraud — checked, clean.** `redeem_reward` derives the membership
+   from `auth.uid()` (no IDOR / can't redeem on someone else's account), verifies
+   the reward is active and the member has enough points, and the balance can't
+   go negative. `fulfill_redemption` is staff-only. ✔
+
+7. **Open redirect (phishing).** The `?next=` param only checked `startsWith("/")`,
+   which still allowed `//evil.com` (a protocol-relative URL that sends the user
+   off-site). **Fixed** with a `safeRedirect()` guard on both login pages.
+   *Files:* `lib/utils.ts`, both `login/page.tsx`.
+
+8. **XSS — clean.** No `dangerouslySetInnerHTML` anywhere; React escapes all
+   user-supplied text (names, reviews, offers) by default. ✔
+
+9. **Rate limiting added** on the most abusable routes — the unauthenticated
+   points **webhook** (60/min per IP+business), **flush-mine** (30/min),
+   **subscribe** (20/min), and **broadcast** (10/min). Uses Upstash Redis when
+   configured, else an in-memory fallback so it works immediately.
+   *Files:* `lib/rate-limit.ts` + those routes.
+
+### Enabling the strong rate limiter (optional, recommended)
+The limiter works out of the box (in-memory). To make it shared across regions
+and survive deploys, add a **free Upstash Redis**:
+1. Go to upstash.com → create a free Redis database.
+2. Copy its **REST URL** and **REST TOKEN**.
+3. In Vercel → your project → Settings → Environment Variables, add
+   `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, then redeploy.
+The code auto-detects them and upgrades — no code change needed.
+
+---
+
 ## 🚀 To deploy this audit
 
-1. Apply **`cp44_security.sql`** in the Supabase SQL editor (idempotent).
-2. Push the code:
-   ```
+1. Apply **`cp44_security.sql`** AND **`cp44_loopholes.sql`** in the Supabase SQL
+   editor (both idempotent).
+2. Push the code (PowerShell — one line each):
+   ```powershell
    git add -A
-   git commit -m "CP-44: pre-launch hardening — notification isolation, notification_queue RLS, reward image on scan, security headers"
+   git commit -m "CP-44: pre-launch hardening + loophole fixes + rate limiting"
    git push origin main
    ```
 

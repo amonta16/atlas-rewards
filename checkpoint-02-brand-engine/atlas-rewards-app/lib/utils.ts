@@ -6,6 +6,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Open-redirect guard for ?next= params (CP-44). Only allow same-origin
+ * absolute paths. Rejects off-site targets including protocol-relative
+ * URLs ("//evil.com") and backslash tricks ("/\\evil.com") that a plain
+ * startsWith("/") check would wrongly allow.
+ */
+export function safeRedirect(next: string | null | undefined, fallback: string): string {
+  if (next && /^\/(?![/\\])/.test(next)) return next;
+  return fallback;
+}
+
+/**
  * Build a public-facing URL for a business sub-account.
  *
  * Handles both local dev (lvh.me:3000, http) and production (https, no

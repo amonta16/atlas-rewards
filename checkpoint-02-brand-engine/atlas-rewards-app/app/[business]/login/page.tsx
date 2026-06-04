@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { safeRedirect } from "@/lib/utils";
 
 /**
  * Customer login — CP-37.1 revision.
@@ -59,7 +60,7 @@ export default function CustomerLogin() {
       if (cancelled || !user) return;
       const sp = new URLSearchParams(window.location.search);
       const next = sp.get("next");
-      router.replace(next && next.startsWith("/") ? next : "/app");
+      router.replace(safeRedirect(next, "/app"));
     })();
     return () => { cancelled = true; };
   }, [router]);
@@ -93,7 +94,7 @@ export default function CustomerLogin() {
     if (typeof window !== "undefined") {
       next = new URLSearchParams(window.location.search).get("next");
     }
-    router.push(next && next.startsWith("/") ? next : "/app");
+    router.push(safeRedirect(next, "/app"));
     router.refresh();
   }
 
@@ -115,7 +116,7 @@ export default function CustomerLogin() {
     if (typeof window !== "undefined") {
       next = new URLSearchParams(window.location.search).get("next");
     }
-    const dest = next && next.startsWith("/") ? next : "/app";
+    const dest = safeRedirect(next, "/app");
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
