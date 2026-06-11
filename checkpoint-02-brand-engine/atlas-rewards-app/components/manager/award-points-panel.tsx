@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { MemberHistoryPanel } from "@/components/manager/member-history-panel";
+import { MemberPasswordReset } from "@/components/manager/member-password-reset";
 import type { Business } from "@/lib/types/database";
 
 type Member = {
@@ -421,6 +422,14 @@ export function AwardPointsPanel({
             <MemberHistoryPanel
               businessId={business.id}
               membershipId={member.membership_id}
+              primary={business.brand_colors.primary}
+            />
+
+            {/* CP-48: front-desk account recovery — set a new password for
+                this member (current one can't be shown; it's hashed). */}
+            <MemberPasswordReset
+              userId={member.user_id}
+              email={member.email}
               primary={business.brand_colors.primary}
             />
           </>

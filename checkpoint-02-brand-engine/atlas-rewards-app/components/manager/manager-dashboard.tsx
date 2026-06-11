@@ -36,7 +36,8 @@ import { ManagerBilling } from "@/components/manager/manager-billing";
 import { InsightsDashboard } from "@/components/manager/insights-dashboard";
 import { BusinessInsights } from "@/components/agency/business-insights";
 import { MembershipBillingSetup } from "@/components/manager/membership-billing-setup";
-import { CreditCard, BarChart3, Crown } from "lucide-react";
+import { CreditCard, BarChart3, Crown, Users } from "lucide-react";
+import { MembersDirectory } from "@/components/manager/members-directory";
 import type { Business } from "@/lib/types/database";
 
 // Booking tab removed — Atlas is loyalty-only.
@@ -44,7 +45,7 @@ import type { Business } from "@/lib/types/database";
 // + per-business notification toggles now live in the agency admin's
 // business settings (NotificationSettings panel) so the entire
 // notification surface is owned by the agency, not the front desk.
-type ManagerTab = "desk" | "offers" | "news" | "insights" | "billing" | "membership" | "team";
+type ManagerTab = "desk" | "users" | "offers" | "news" | "insights" | "billing" | "membership" | "team";
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -56,6 +57,8 @@ function managerTabsFor(_business: Business, role: AppRole): { id: ManagerTab; l
   const isManager = role === "business_manager" || role === "agency_admin";
   const tabs: { id: ManagerTab; label: string; icon: React.ReactNode }[] = [
     { id: "desk", label: "Front desk", icon: <Home className="h-4 w-4" /> },
+    // CP-48: Users directory — visible to front desk too (support/debug).
+    { id: "users", label: "Users", icon: <Users className="h-4 w-4" /> },
   ];
   if (isManager) {
     tabs.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
@@ -526,6 +529,14 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 app. */}
             <BusinessDiscoveryQR business={business} />
           </>
+        )}
+
+        {tab === "users" && (
+          <MembersDirectory
+            businessId={business.id}
+            primary={business.brand_colors.primary}
+            onPick={(m) => setMember(m as Member)}
+          />
         )}
 
         {tab === "insights" && <InsightsDashboard business={business} />}
