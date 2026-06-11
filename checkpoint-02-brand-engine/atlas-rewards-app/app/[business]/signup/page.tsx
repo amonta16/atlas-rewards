@@ -93,8 +93,10 @@ export default function CustomerSignup() {
     if (signupData?.user && !signupData?.session) {
       setLoading(false);
       setErr(null);
+      // CP-45: slug-aware — on path-based access this page is /<slug>/signup,
+      // so a bare "/login" would lose the slug and 404.
       router.push(
-        `/login?email=${encodeURIComponent(email)}&confirm=1`
+        `${window.location.pathname.replace(/\/signup\/?$/, "")}/login?email=${encodeURIComponent(email)}&confirm=1`
       );
       return;
     }
@@ -168,7 +170,9 @@ export default function CustomerSignup() {
     }
 
     const total = welcomeBonus + referralBonus;
-    router.push(total > 0 ? `/app?celebrate=${total}` : "/app");
+    // CP-45: slug-aware app path (works on both subdomain and /<slug> access).
+    const appBase = `${window.location.pathname.replace(/\/signup\/?$/, "")}/app`;
+    router.push(total > 0 ? `${appBase}?celebrate=${total}` : appBase);
     router.refresh();
   }
 
@@ -238,7 +242,10 @@ export default function CustomerSignup() {
         </form>
 
         <p className="text-xs text-center text-muted-foreground mt-4">
-          Already have an account? <Link href="/login" className="font-semibold text-brand-primary">Sign in</Link>
+          {/* CP-45: slug-prefixed so the link works on path-based access too.
+              On the subdomain, middleware skips the double-prefix and routes
+              /<slug>/login to the same page. */}
+          Already have an account? <Link href={`/${params.business}/login`} className="font-semibold text-brand-primary">Sign in</Link>
         </p>
       </div>
     </main>

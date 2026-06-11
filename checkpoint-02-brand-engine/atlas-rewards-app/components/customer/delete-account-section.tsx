@@ -27,7 +27,8 @@ export function DeleteAccountSection({ business }: { business: Business }) {
     if (error) throw new Error(error.message);
     // Auth row is gone; sign out the local session anyway to clear cookies.
     await supabase.auth.signOut();
-    router.push(`/signup`);
+    // CP-45: slug-prefixed so this works on path-based access too.
+    router.push(`/${business.slug}/signup`);
     router.refresh();
   }
 

@@ -97,6 +97,14 @@ export function BrandEditor({ initial }: { initial: Business }) {
   const [b, setB] = useState<Business>(initial);
   const [tab, setTab] = useState<Tab>("brand");
   const [previewTab, setPreviewTab] = useState<PreviewTab>("home");
+  // CP-45: the mockup preview kept drifting from the real customer app
+  // (hard-coded demo values, missing newer features) and Andrew read that
+  // as "the preview is broken / not synced". Live mode frames the ACTUAL
+  // customer app, so every tab, widget toggle, and saved setting renders
+  // exactly as customers see it. Mock stays for instant unsaved color edits.
+  const [previewMode, setPreviewMode] = useState<"live" | "mock">("live");
+  // Bumped on save so the live iframe reloads with fresh settings.
+  const [liveReloadKey, setLiveReloadKey] = useState(0);
   const [saving, startSave] = useTransition();
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [previewRewards, setPreviewRewards] = useState<PreviewReward[]>([]);
@@ -180,7 +188,11 @@ export function BrandEditor({ initial }: { initial: Business }) {
           tiers: b.tiers, services: b.services,
         })
         .eq("id", b.id);
-      if (!error) setSavedAt(new Date());
+      if (!error) {
+        setSavedAt(new Date());
+        // CP-45: refresh the live preview so the saved settings show up.
+        setLiveReloadKey(k => k + 1);
+      }
       else alert("Save failed: " + error.message);
     });
   }
@@ -456,19 +468,53 @@ export function BrandEditor({ initial }: { initial: Business }) {
         {tab !== "insights" && tab !== "membership" && tab !== "settings" && tab !== "offers" && (
           <div className="lg:sticky lg:top-8 lg:self-start" style={previewStyle}>
             <div className="text-center mb-3">
-              <div className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">Live preview</div>
-              <div className="text-xs text-muted-foreground mt-1">Tap the bottom tabs to switch screens</div>
+              <div className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">
+                {previewMode === "live" ? "Live preview" : "Mockup preview"}
+              </div>
+              {/* CP-45: Live = the real customer app in a frame (always in
+                  sync, every tab works). Mockup = instant unsaved edits. */}
+              <div className="mt-2 inline-flex rounded-full bg-zinc-100 p-0.5 gap-0.5">
+                {(["live", "mock"] as const).map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPreviewMode(m)}
+                    className={cn(
+                      "px-3 py-1 rounded-full text-[11px] font-bold transition-colors",
+                      previewMode === m
+                        ? "bg-white text-zinc-900 shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {m === "live" ? "Live app" : "Mockup"}
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1.5">
+                {previewMode === "live"
+                  ? "The real customer app — refreshes when you hit Save."
+                  : "Instant preview of unsaved colors & toggles."}
+              </div>
             </div>
             <PhoneFrame>
-              <CustomerPreview
-                business={b}
-                activeTab={previewTab}
-                onTabChange={setPreviewTab}
-                rewards={previewRewards}
-                offer={previewOffer}
-                news={previewNews}
-                membershipImageUrl={b.membership_image_url}
-              />
+              {previewMode === "live" ? (
+                <iframe
+                  key={liveReloadKey}
+                  src={`/${b.slug}/app`}
+                  title="Live customer app preview"
+                  className="h-full w-full border-0 bg-white"
+                />
+              ) : (
+                <CustomerPreview
+                  business={b}
+                  activeTab={previewTab}
+                  onTabChange={setPreviewTab}
+                  rewards={previewRewards}
+                  offer={previewOffer}
+                  news={previewNews}
+                  membershipImageUrl={b.membership_image_url}
+                />
+              )}
             </PhoneFrame>
           </div>
         )}

@@ -200,7 +200,7 @@ export default async function CustomerHome({ params }: { params: { business: str
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-sm font-bold">Top rewards</h2>
-            <a href={`/app/rewards`} className="text-xs font-semibold flex items-center gap-0.5" style={{ color: business.brand_colors.primary }}>
+            <a href={`/${params.business}/app/rewards`} className="text-xs font-semibold flex items-center gap-0.5" style={{ color: business.brand_colors.primary }}>
               See all <ChevronRight className="h-3 w-3" />
             </a>
           </div>

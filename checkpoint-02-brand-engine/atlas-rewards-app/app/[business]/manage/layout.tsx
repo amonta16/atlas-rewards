@@ -59,7 +59,7 @@ export default async function ManagerLayout({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/app"><Button variant="outline" className="w-full">Go to customer app instead</Button></Link>
+            <Link href={`/${params.business}/app`}><Button variant="outline" className="w-full">Go to customer app instead</Button></Link>
           </CardContent>
         </Card>
       </main>

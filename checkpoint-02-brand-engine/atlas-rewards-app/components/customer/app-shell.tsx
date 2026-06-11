@@ -52,7 +52,15 @@ export function CustomerAppShell({
   membershipId?: string | null;
 }) {
   const pathname = usePathname();
-  const basePath = `/app`;
+  // CP-45 404 fix: the nav used a hard-coded `/app` base. That works on the
+  // installed PWA (subdomain → middleware injects the slug), but breaks
+  // path-based access — the agency preview and the "Customer app" button
+  // open /<slug>/app, where a hard `/app/rewards` link has no slug → 404.
+  // Derive the base from the CURRENT pathname instead, so links work on
+  // both the subdomain (`/app/...`) and path (`/<slug>/app/...`) forms.
+  // The regex anchors `/app` at a segment boundary so slugs like
+  // "apple-spa" can't false-match.
+  const basePath = pathname?.match(/^(.*?\/app)(\/|$)/)?.[1] ?? "/app";
   const tabs = tabsForConfig(widgetConfig);
 
   // CP-32: review nudge badge on Rewards tab.

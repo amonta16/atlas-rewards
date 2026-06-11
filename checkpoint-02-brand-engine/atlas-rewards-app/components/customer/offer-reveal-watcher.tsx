@@ -56,13 +56,21 @@ export function OfferRevealWatcher({
   businessName,
   primary,
   secondary,
+  membershipId,
 }: {
   businessId: string;
   businessName: string;
   primary: string;
   secondary?: string | null;
+  /** CP-45: lets the watcher fetch the member's own un-revealed welcome
+   *  gift (server-tracked) instead of relying on the per-device seen list. */
+  membershipId?: string | null;
 }) {
   const [active, setActive] = useState<RevealOffer | null>(null);
+  // CP-45: when the active reveal is a welcome gift, this holds the
+  // customer_saved_offers row id so dismissal can mark it revealed
+  // server-side (once per MEMBER, not per device).
+  const welcomeSavedIdRef = useRef<string | null>(null);
   // Ref-mirror of seen so the realtime callback isn't stale-closed.
   const seenRef = useRef<string[]>([]);
   // CP-43.3: a pending reveal timer so the welcome gift waits for the bell
@@ -98,11 +106,39 @@ export function OfferRevealWatcher({
     seenRef.current = loadSeen(businessId);
   }, [businessId]);
 
-  // ── try once on mount via featured_offer() so manual refreshes still pop ─
+  // ── CP-45: the member's own welcome gift takes priority over the
+  // business-wide featured offer. It's tracked server-side (revealed_at on
+  // customer_saved_offers), so it fires exactly once per MEMBER — a second
+  // test account on the same device, or a business that already has a
+  // featured offer, no longer swallows the welcome popup + voice note.
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
     (async () => {
+      // 1) Welcome gift first.
+      const { data: gift, error } = await supabase.rpc("my_unrevealed_welcome_gift", {
+        p_business_id: businessId,
+      });
+      const giftRow = (Array.isArray(gift) ? gift[0] : null) as
+        | (RevealOffer & { saved_id: string; offer_id: string; gift_reward_name?: string | null })
+        | null;
+      if (cancelled) return;
+      if (!error && giftRow?.saved_id) {
+        welcomeSavedIdRef.current = giftRow.saved_id;
+        queueReveal({
+          id: giftRow.offer_id,
+          title: giftRow.title,
+          // Reward-mode gifts: surface the reward's name when there's no body.
+          description: giftRow.description ?? (giftRow.gift_reward_name ? `Your gift: ${giftRow.gift_reward_name}` : null),
+          image_url: giftRow.image_url,
+          voice_message_url: giftRow.voice_message_url,
+          expires_at: giftRow.expires_at,
+          discount_type: giftRow.discount_type,
+          discount_value: giftRow.discount_value,
+        });
+        return;
+      }
+      // 2) Fall back to the featured offer (per-device seen list, as before).
       const { data } = await supabase.rpc("featured_offer", { p_business_id: businessId });
       const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
       if (cancelled || !row?.id) return;
@@ -111,7 +147,7 @@ export function OfferRevealWatcher({
       }
     })();
     return () => { cancelled = true; };
-  }, [businessId]);
+  }, [businessId, membershipId]);
 
   // ── realtime: new offer rows trigger the popup immediately ───────────────
   useEffect(() => {
@@ -155,6 +191,17 @@ export function OfferRevealWatcher({
     if (active?.id) {
       markSeen(businessId, active.id);
       seenRef.current = [active.id, ...seenRef.current].slice(0, MAX_SEEN);
+    }
+    // CP-45: welcome gifts are marked revealed server-side so they never
+    // replay on this OR any other device for this member.
+    if (welcomeSavedIdRef.current) {
+      const savedId = welcomeSavedIdRef.current;
+      welcomeSavedIdRef.current = null;
+      const supabase = createClient();
+      supabase.rpc("mark_welcome_gift_revealed", { p_saved_id: savedId })
+        .then(({ error }) => {
+          if (error) console.warn("[welcome reveal] mark failed:", error.message);
+        });
     }
     setActive(null);
   }

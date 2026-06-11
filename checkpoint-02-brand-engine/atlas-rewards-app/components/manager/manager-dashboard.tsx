@@ -7,7 +7,7 @@ import { ManagerPwaInstall } from "@/components/manager/manager-pwa-install";
 // CP-37.19 — discovery QR. Same component the agency settings uses,
 // surfaced on the front-desk so staff can print/show it to walk-ins.
 import { BusinessDiscoveryQR } from "@/components/agency/business-discovery-qr";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +91,7 @@ type LedgerRow = {
 
 export function ManagerDashboard({ business: initialBusiness, recent }: { business: Business; recent: LedgerRow[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [business, setBusiness] = useState<Business>(initialBusiness);
   const [tab, setTab] = useState<ManagerTab>("desk");
   const [mode, setMode] = useState<"idle" | "scanning" | "code-entry">("idle");
@@ -196,7 +197,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
+    // CP-45: slug-aware — path-based access lives at /<slug>/manage, so a
+    // bare "/login" loses the slug and 404s. Subdomain stays "/login".
+    const base = pathname?.match(/^(.*?)\/manage(\/|$)/)?.[1] ?? "";
+    router.push(`${base}/login`);
     router.refresh();
   }
 

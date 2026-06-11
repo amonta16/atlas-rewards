@@ -22,8 +22,10 @@ export default async function BusinessRootPage({ params }: { params: { business:
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // If signed in, jump straight into the app
-  if (user) redirect("/app");
+  // If signed in, jump straight into the app.
+  // CP-45: slug-prefixed so path-based access (/<slug>) doesn't lose the
+  // slug and 404. On the subdomain, middleware skips the double-prefix.
+  if (user) redirect(`/${params.business}/app`);
 
   const { data } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
@@ -60,12 +62,12 @@ export default async function BusinessRootPage({ params }: { params: { business:
           </p>
 
           <div className="mt-10 space-y-3">
-            <Link href="/signup">
+            <Link href={`/${params.business}/signup`}>
               <Button size="lg" className="w-full h-12 bg-white text-zinc-900 hover:bg-zinc-100">
                 Join the rewards program <ArrowRight className="h-4 w-4 ml-2"/>
               </Button>
             </Link>
-            <Link href="/login" className="block text-sm text-white/85 hover:text-white">
+            <Link href={`/${params.business}/login`} className="block text-sm text-white/85 hover:text-white">
               Already a member? Sign in
             </Link>
           </div>

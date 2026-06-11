@@ -14,7 +14,10 @@ export default async function CustomerAppLayout({
 }: { children: React.ReactNode; params: { business: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // CP-45: slug-prefixed so path-based access (/<slug>/app, used by the
+  // agency live preview + "Customer app" button) lands on this business's
+  // login instead of 404ing. Subdomain access also resolves correctly.
+  if (!user) redirect(`/${params.business}/login`);
 
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
@@ -64,6 +67,8 @@ export default async function CustomerAppLayout({
           businessName={business.name}
           primary={business.brand_colors.primary}
           secondary={business.brand_colors.secondary}
+          /* CP-45: per-member welcome-gift reveal (server-tracked). */
+          membershipId={membershipId}
         />
       )}
       <CustomerAppShell

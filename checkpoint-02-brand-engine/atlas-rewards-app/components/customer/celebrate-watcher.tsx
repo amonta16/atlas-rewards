@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ConfettiCelebration } from "./confetti-celebration";
 
@@ -14,6 +14,10 @@ export function CelebrateWatcher({
   businessName, primary, membershipId,
 }: { businessName: string; primary: string; membershipId: string | null }) {
   const router = useRouter();
+  const pathname = usePathname();
+  // CP-45: same slug-aware base as the app shell — a hard "/app/rewards"
+  // push 404s when the app is accessed path-based (/<slug>/app).
+  const basePath = pathname?.match(/^(.*?\/app)(\/|$)/)?.[1] ?? "/app";
   const [amount, setAmount] = useState<number | null>(null);
 
   // (a) URL param trigger
@@ -55,7 +59,7 @@ export function CelebrateWatcher({
       primary={primary}
       onDismiss={() => {
         setAmount(null);
-        router.push("/app/rewards");
+        router.push(`${basePath}/rewards`);
         router.refresh();
       }}
     />

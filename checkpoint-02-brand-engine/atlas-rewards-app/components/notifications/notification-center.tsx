@@ -18,6 +18,7 @@
  * Mark-as-read happens on open (bulk RPC mark_all_notifications_read).
  */
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   X, Flame, Star, ClipboardCheck, Sparkles, MessageSquareHeart, Gift,
   Bell, Loader2, BellOff,
@@ -61,6 +62,14 @@ export function NotificationCenter({
   businessId?: string | null;
 }) {
   const [list, setList] = useState<Notif[] | null>(null);
+  // CP-45: notification link_paths are stored slug-less ("/app/rewards").
+  // That's correct on the subdomain PWA but 404s on path-based access
+  // (/<slug>/app). When the current URL carries a slug prefix, re-prefix
+  // stored links with it so taps land inside the same app instance.
+  const pathname = usePathname();
+  const slugBase = pathname?.match(/^(.+?)\/(?:app|manage)(\/|$)/)?.[1] ?? "";
+  const resolveLink = (lp: string | null): string | null =>
+    !lp ? null : (slugBase && lp.startsWith("/app") ? `${slugBase}${lp}` : lp);
 
   useEffect(() => {
     const supabase = createClient();
@@ -156,7 +165,7 @@ export function NotificationCenter({
                 return (
                   <a
                     key={n.id}
-                    href={n.link_path ?? "#"}
+                    href={resolveLink(n.link_path) ?? "#"}
                     onClick={(e) => { if (!n.link_path) e.preventDefault(); }}
                     className={"block px-5 py-3 hover:bg-zinc-50 " + (isUnread ? "bg-zinc-50/60" : "")}
                   >

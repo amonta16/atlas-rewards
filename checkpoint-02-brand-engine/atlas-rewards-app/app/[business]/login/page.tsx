@@ -60,7 +60,11 @@ export default function CustomerLogin() {
       if (cancelled || !user) return;
       const sp = new URLSearchParams(window.location.search);
       const next = sp.get("next");
-      router.replace(safeRedirect(next, "/app"));
+      // CP-45: slug-aware default — on path-based access this page lives at
+      // /<slug>/login, so a bare "/app" default 404s. Strip "/login" from the
+      // current path to keep the slug prefix (subdomain: "/login" → "" → "/app").
+      const appBase = window.location.pathname.replace(/\/login\/?$/, "");
+      router.replace(safeRedirect(next, `${appBase}/app`));
     })();
     return () => { cancelled = true; };
   }, [router]);
@@ -91,10 +95,13 @@ export default function CustomerLogin() {
     // surface. Customer signups arrive without ?next= and still get
     // /app as the default.
     let next: string | null = null;
+    let appBase = "";
     if (typeof window !== "undefined") {
       next = new URLSearchParams(window.location.search).get("next");
+      // CP-45: keep the slug prefix on path-based access (see above).
+      appBase = window.location.pathname.replace(/\/login\/?$/, "");
     }
-    router.push(safeRedirect(next, "/app"));
+    router.push(safeRedirect(next, `${appBase}/app`));
     router.refresh();
   }
 
