@@ -457,17 +457,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               secondary={business.brand_colors.secondary}
             />
 
-            {/* CP-46/47: the full Atlas Impact dashboard + the customer
-                revenue / transactions graphs, surfaced right on the
-                front-desk landing for managers/admins. Front-desk staff
-                (business_staff) stay gated out of revenue/impact, matching
-                the role policy — they keep the daily ops recap above. */}
-            {role !== "business_staff" && (
-              <>
-                <InsightsDashboard business={business} />
-                <BusinessInsights business={business} />
-              </>
-            )}
+            {/* CP-48: insights moved OFF the front-desk tab — they live in the
+                Insights tab. The desk stays focused on day-to-day ops. */}
 
             <ReviewQueue business={business} />
 
@@ -539,7 +530,13 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           />
         )}
 
-        {tab === "insights" && <InsightsDashboard business={business} />}
+        {tab === "insights" && (
+          <div className="space-y-4">
+            <InsightsDashboard business={business} />
+            {/* CP-48: customer revenue / transactions graphs live here too. */}
+            <BusinessInsights business={business} />
+          </div>
+        )}
 
         {tab === "offers" && (
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">

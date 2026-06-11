@@ -9,9 +9,19 @@ open the same member panel you get from a QR scan — award points, see
 history, and now **reset their password**. Useful as a support/debug surface,
 especially as a stopgap until the email-based reset (CP-47) is live with SMTP.
 
+### Revision notes
+- `list_business_members` returns columns with explicit `::text` casts —
+  `profiles.email` is `citext`, which otherwise trips "structure of query
+  does not match function result type." It also returns `is_vip`
+  (`membership_payment_status = 'paid'`), shown as a gold **VIP** chip in the
+  list.
+- Insights (Atlas Impact + revenue/transactions graphs) now live **only in
+  the Insights tab**, not the Front-desk tab. The desk stays ops-focused.
+  (Front-desk staff don't have an Insights tab, so they don't see revenue.)
+
 ### Pieces
-- `list_business_members(business, limit, offset)` RPC — all members,
-  staff-gated. (`search_members` only handles typed queries / caps at 10.)
+- `list_business_members(business, limit, offset)` RPC — all members + VIP
+  flag, staff-gated. (`search_members` only handles typed queries / caps at 10.)
 - `components/manager/members-directory.tsx` — the list + client-side search.
 - New **Users** tab in `manager-dashboard.tsx`; clicking a member reuses the
   existing `AwardPointsPanel`.

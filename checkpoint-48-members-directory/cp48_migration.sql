@@ -32,7 +32,8 @@ RETURNS TABLE (
   points_balance integer,
   tier           text,
   joined_at      timestamptz,
-  visit_count    integer
+  visit_count    integer,
+  is_vip         boolean
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -41,8 +42,15 @@ BEGIN
   END IF;
 
   RETURN QUERY
-    SELECT m.id, m.user_id, p.full_name, p.email, p.phone, m.referral_code,
-           m.points_balance, m.tier, m.joined_at, m.visit_count
+    -- Explicit ::text casts because profiles.email is `citext`; without the
+    -- cast the column type won't match the declared `text` return type
+    -- ("structure of query does not match function result type").
+    -- is_vip = active PAID membership (CP-34 membership_payment_status).
+    SELECT m.id, m.user_id,
+           p.full_name::text, p.email::text, p.phone::text,
+           m.referral_code::text, m.points_balance, m.tier::text,
+           m.joined_at, m.visit_count,
+           COALESCE(m.membership_payment_status = 'paid', false)
       FROM public.business_memberships m
       JOIN public.profiles p ON p.id = m.user_id
      WHERE m.business_id = p_business_id

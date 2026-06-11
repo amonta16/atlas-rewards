@@ -8,7 +8,7 @@
  * as a debugging / support surface, especially before email reset is live.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users, ChevronRight, Loader2 } from "lucide-react";
+import { Search, Users, ChevronRight, Loader2, Crown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 
@@ -16,6 +16,7 @@ type Member = {
   membership_id: string; user_id: string; full_name: string | null;
   email: string | null; phone: string | null;
   points_balance: number; tier: string; joined_at: string; visit_count: number;
+  is_vip?: boolean;
 };
 
 export function MembersDirectory({
@@ -100,7 +101,14 @@ export function MembersDirectory({
                     {initials}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm truncate">{name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-sm truncate">{name}</span>
+                      {m.is_vip && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-full px-1.5 py-0.5 shrink-0">
+                          <Crown className="h-2.5 w-2.5" /> VIP
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-muted-foreground truncate">
                       {m.email ?? m.phone ?? "—"}
                     </div>
