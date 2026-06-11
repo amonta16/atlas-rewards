@@ -1,32 +1,31 @@
 /**
- * POST /api/team/create-account — rewritten CP-46
+ * POST /api/team/create-account — CP-46 (email + password invites)
  *
- * MAGIC-LINK INVITES. CP-46 fixes the "magic link generation failed:
- * Database error finding user" toast Andrew hit on every invite.
+ * Fixes the "Database error finding user" toast AND switches invites to a
+ * straightforward email + password the inviter can hand to the teammate.
  *
- * Root cause: the old flow created the auth.users row via a raw SQL
- * INSERT (admin_provision_account). GoTrue's generateLink() then can't
- * load that row — the raw INSERT skips the auth.identities row and
- * leaves token columns NULL, so GoTrue's scan fails ("Database error
- * finding user"). Creating the user through the Admin SDK instead
- * produces a fully GoTrue-valid row + identity, so generateLink works.
+ * Root cause of the old error: the auth.users row was created via a raw
+ * SQL INSERT (admin_provision_account), which skips the auth.identities
+ * row and leaves token columns NULL, so GoTrue can't load it. We now
+ * create the user through the Admin SDK, which produces a fully
+ * GoTrue-valid row — so password sign-in works reliably.
  *
  * Flow:
  *   1. team_invite_precheck RPC — permission gate (raises on denial, so
  *      we never create an orphan auth user) + returns the existing auth
  *      uid for this email, or NULL.
- *   2. If new: admin.auth.admin.createUser({ email, email_confirm }).
- *      If existing: admin.auth.admin.updateUserById to normalise any
- *      legacy SQL-inserted row so generateLink can load it.
+ *   2. New: admin.auth.admin.createUser({ email, password, email_confirm }).
+ *      Existing: admin.auth.admin.updateUserById to (re)set the password +
+ *      confirm the email, repairing any legacy raw-SQL row.
  *   3. attach_team_role RPC — profiles upsert + business_users insert.
- *   4. admin.auth.admin.generateLink({ type: 'magiclink', email }) mints
- *      the one-time sign-in URL. Admin copies it to the teammate.
+ *   4. Return the email + password + login URL so the inviter can share.
  *
  * Body:
- *   { email, role, business_id?, full_name? }   ← password not required
+ *   { email, role, business_id?, full_name?, password? }
+ *   password is optional — when omitted we generate a readable one.
  *
  * Returns:
- *   { ok, email, role, business_id, sign_in_url, created_new }
+ *   { ok, email, password, login_url, role, business_id, created_new }
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServer } from "@/lib/supabase/server";
@@ -37,13 +36,16 @@ export const runtime = "nodejs";
 
 type Role = "agency_admin" | "business_manager" | "business_staff";
 
-// Random throwaway password — only exists so auth.users.encrypted_password
-// is not null. Recipient never types it; they sign in via the magic link.
-function randomPassword(): string {
-  const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#$";
-  let out = "";
-  for (let i = 0; i < 32; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return out;
+// CP-46: friendly auto-generated password when the inviter doesn't set one.
+// No ambiguous characters (0/O, 1/l/I) so it's easy to read aloud / type.
+function generatePassword(): string {
+  const letters = "abcdefghjkmnpqrstuvwxyz";
+  const upper   = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const digits  = "23456789";
+  const pick = (s: string, n: number) =>
+    Array.from({ length: n }, () => s[Math.floor(Math.random() * s.length)]).join("");
+  // e.g. "Atlas-Kp7mqr" → satisfies length + a capital + digits.
+  return `Atlas-${pick(upper, 1)}${pick(letters, 3)}${pick(digits, 3)}${pick(letters, 2)}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -52,6 +54,7 @@ export async function POST(req: NextRequest) {
     role?: Role;
     business_id?: string | null;
     full_name?: string;
+    password?: string;
   };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "invalid json" }, { status: 400 }); }
@@ -60,6 +63,13 @@ export async function POST(req: NextRequest) {
   const role       = body.role;
   const businessId = body.business_id ?? null;
   const fullName   = (body.full_name ?? "").trim();
+  // CP-46: password-based invites. The inviter may set one; if blank, we
+  // generate a readable temp password and hand it back so they can share it.
+  const customPassword = (body.password ?? "").trim();
+  if (customPassword && customPassword.length < 8) {
+    return NextResponse.json({ error: "password must be at least 8 characters" }, { status: 400 });
+  }
+  const teamPassword = customPassword || generatePassword();
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
@@ -103,7 +113,7 @@ export async function POST(req: NextRequest) {
   if (!existingId) {
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,
-      password: randomPassword(),     // throwaway — recipient uses the magic link
+      password: teamPassword,         // the credential we hand back to the inviter
       email_confirm: true,            // skip the confirm-email step for invites
       user_metadata: { full_name: fullName || "" },
     });
@@ -117,11 +127,14 @@ export async function POST(req: NextRequest) {
     createdNew = true;
   } else {
     userId = existingId;
-    // Re-touch the row through GoTrue so any legacy raw-SQL-inserted user
-    // is normalised (identity + token columns) — otherwise generateLink
-    // would still fail on it.
+    // Existing account → reset the password to the new one (and confirm the
+    // email) through GoTrue so email+password sign-in works immediately,
+    // even if the row was a legacy raw-SQL insert.
     try {
-      await admin.auth.admin.updateUserById(userId, { email_confirm: true });
+      await admin.auth.admin.updateUserById(userId, {
+        password: teamPassword,
+        email_confirm: true,
+      });
     } catch { /* non-fatal — the user already exists and is usable */ }
   }
 
@@ -136,10 +149,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: roleErr.message }, { status: 403 });
   }
 
-  // ─── 4. Figure out where the recipient should land after sign-in. ──
-  // agency_admin → /agency
-  // manager / front-desk → /<slug>/manage
-  let postLoginPath = "/agency";
+  // ─── 4. Where the recipient signs in. ──
+  // agency_admin → /login ; manager / front-desk → /<slug>/login
+  // They sign in with email + password at this page.
+  let loginPath = "/login";
   if (role !== "agency_admin" && businessId) {
     const { data: biz } = await admin
       .from("businesses")
@@ -147,41 +160,17 @@ export async function POST(req: NextRequest) {
       .eq("id", businessId)
       .maybeSingle();
     const slug = (biz as any)?.slug;
-    if (!slug) {
-      return NextResponse.json({ error: "business slug not found" }, { status: 500 });
-    }
-    postLoginPath = `/${slug}/manage`;
+    if (slug) loginPath = `/${slug}/login`;
   }
-
-  // ─── 5. Mint the magic link via Supabase's generateLink. ──────
-  // type: 'magiclink' produces a one-time sign-in URL. Supabase's
-  // own auth handler verifies it and signs the user in — completely
-  // independent of our password storage. The redirectTo controls
-  // where they land after Supabase processes the link.
-  const redirectTo = `${req.nextUrl.origin}${postLoginPath}`;
-  let signInUrl: string;
-  try {
-    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: { redirectTo },
-    });
-    if (linkErr) throw linkErr;
-    signInUrl = (linkData as any)?.properties?.action_link ?? "";
-    if (!signInUrl) throw new Error("generateLink returned no action_link");
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: `magic link generation failed: ${e?.message ?? "unknown"}` },
-      { status: 500 },
-    );
-  }
+  const loginUrl = `${req.nextUrl.origin}${loginPath}`;
 
   return NextResponse.json({
     ok: true,
     email,
+    password: teamPassword,
+    login_url: loginUrl,
     role,
     business_id: businessId,
     created_new: createdNew,
-    sign_in_url: signInUrl,
   });
 }

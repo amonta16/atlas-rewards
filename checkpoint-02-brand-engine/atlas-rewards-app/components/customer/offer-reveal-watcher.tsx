@@ -99,7 +99,11 @@ export function OfferRevealWatcher({
     };
     if (typeof window === "undefined") { show(); return; }
     if (revealTimer.current) return; // already queued
-    const COOLDOWN_MS = 900;
+    // CP-46: the welcome gift gets a longer, deliberate beat so it lands
+    // AFTER the notification onboarding animation as its own moment —
+    // Andrew's "see the bell first, then later the gift pops" note. The
+    // featured-offer reveal keeps the snappier cooldown.
+    const COOLDOWN_MS = kind === "welcome" ? 3500 : 900;
     const tick = () => {
       if (isBellOnboardDone(businessId)) {
         revealTimer.current = window.setTimeout(() => {

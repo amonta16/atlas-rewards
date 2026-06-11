@@ -63,6 +63,20 @@ last-14-day check-in and points bar charts (inline SVG, live-refresh) on the
 Front-desk tab, mirroring the admin Insights visuals. Access-gated to staff of
 the business via `staffs_business`.
 
+## CP-46.1 follow-up (same checkpoint)
+- **Invites are now email + password** (Andrew's call). The route sets a
+  password (inviter-typed or auto-generated) via the Admin SDK and returns
+  `{ email, password, login_url }`; the modal shows all three with copy
+  buttons, once. Magic-link path removed. No SQL change.
+- **Full Atlas Impact dashboard on the front-desk tab**, gated to
+  `role !== 'business_staff'` (front desk keeps the daily recap, stays out of
+  revenue). Replaced the simpler bar-chart card; `desk-trend-chart.tsx` and
+  the `manager_daily_series` RPC are now unused but harmless (left in place).
+- **Welcome gift delay**: the welcome reveal now waits ~3.5s after the bell
+  notification onboarding finishes (featured offers keep the 900ms beat), so
+  the notification animation clearly plays first and the gift is its own
+  later moment.
+
 ## Note on app preview sizing
 Acknowledged — the agency live preview is now in sync with the live app, which
 is what matters. Left as-is this round.
