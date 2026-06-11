@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, MailCheck } from "lucide-react";
+import { Mail, MailCheck, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,12 +26,45 @@ import { safeRedirect } from "@/lib/utils";
  *      them a one-time sign-in link.  Resolves the wave of "I
  *      created an account but can't log in" reports.
  */
+/**
+ * CP-47: role-aware routing. A front-desk / manager / agency-admin account
+ * signing in here used to land in the CUSTOMER app (the page always
+ * defaulted to /app). Now we look up the user's roles and send anyone with
+ * a privileged role to /<slug>/manage instead. An explicit ?next= still
+ * wins (invite + /manage-guard links). Also adds a "Forgot password?" link
+ * and a front-desk heading when arriving from the manage portal.
+ */
+async function destinationAfterAuth(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  appBase: string,
+): Promise<string> {
+  if (typeof window !== "undefined") {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next) return safeRedirect(next, `${appBase}/app`);
+  }
+  // Any privileged role → front desk. Pure customers → the app.
+  const { data: roles } = await supabase
+    .from("business_users")
+    .select("role")
+    .eq("user_id", userId);
+  const privileged = (roles ?? []).some(
+    (r: { role: string }) =>
+      r.role === "agency_admin" || r.role === "business_manager" || r.role === "business_staff",
+  );
+  return `${appBase}${privileged ? "/manage" : "/app"}`;
+}
+
 export default function CustomerLogin() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // CP-47: front-desk context — true when bounced here from /manage.
+  const [staffContext, setStaffContext] = useState(false);
+  // Slug-aware base path ("" on subdomain, "/<slug>" on path access).
+  const [base, setBase] = useState("");
   // CP-37.1 — confirm-email banner shown when ?confirm=1 is set.
   const [showConfirmBanner, setShowConfirmBanner] = useState(false);
   // CP-37.1 — magic-link flow state.
@@ -45,6 +78,10 @@ export default function CustomerLogin() {
     const prefill = sp.get("email");
     if (prefill) setEmail(prefill);
     if (sp.get("confirm") === "1") setShowConfirmBanner(true);
+    // Front-desk heading when arriving from the /manage guard or ?staff=1.
+    const next = sp.get("next") ?? "";
+    if (sp.get("staff") === "1" || /\/manage(\/|$)/.test(next)) setStaffContext(true);
+    setBase(window.location.pathname.replace(/\/login\/?$/, ""));
   }, []);
 
   // CP-43: if a session already exists (e.g. an agency admin who just
@@ -58,13 +95,14 @@ export default function CustomerLogin() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (cancelled || !user) return;
-      const sp = new URLSearchParams(window.location.search);
-      const next = sp.get("next");
       // CP-45: slug-aware default — on path-based access this page lives at
       // /<slug>/login, so a bare "/app" default 404s. Strip "/login" from the
       // current path to keep the slug prefix (subdomain: "/login" → "" → "/app").
       const appBase = window.location.pathname.replace(/\/login\/?$/, "");
-      router.replace(safeRedirect(next, `${appBase}/app`));
+      // CP-47: role-aware — privileged accounts go to /manage, not /app.
+      const dest = await destinationAfterAuth(supabase, user.id, appBase);
+      if (cancelled) return;
+      router.replace(dest);
     })();
     return () => { cancelled = true; };
   }, [router]);
@@ -90,18 +128,17 @@ export default function CustomerLogin() {
       setLoading(false);
       return;
     }
-    // CP-37.5: honor ?next=/<path> so manager / front-desk invite links
-    // (which always include ?next=/<slug>/manage) land on the right
-    // surface. Customer signups arrive without ?next= and still get
-    // /app as the default.
-    let next: string | null = null;
+    // CP-47: role-aware landing. ?next= still wins (invite + /manage-guard
+    // links); otherwise privileged accounts go to /manage, customers to /app.
     let appBase = "";
     if (typeof window !== "undefined") {
-      next = new URLSearchParams(window.location.search).get("next");
-      // CP-45: keep the slug prefix on path-based access (see above).
       appBase = window.location.pathname.replace(/\/login\/?$/, "");
     }
-    router.push(safeRedirect(next, `${appBase}/app`));
+    const { data: { user } } = await supabase.auth.getUser();
+    const dest = user
+      ? await destinationAfterAuth(supabase, user.id, appBase)
+      : `${appBase}/app`;
+    router.push(dest);
     router.refresh();
   }
 
@@ -144,8 +181,19 @@ export default function CustomerLogin() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6 bg-zinc-50">
       <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-        <p className="text-sm text-muted-foreground mt-1">Sign in to check your points and rewards.</p>
+        {staffContext && (
+          <div className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
+            <Shield className="h-3 w-3" /> Front desk
+          </div>
+        )}
+        <h1 className="text-2xl font-bold tracking-tight">
+          {staffContext ? "Front desk sign-in" : "Welcome back"}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {staffContext
+            ? "Sign in to run the front desk for this business."
+            : "Sign in to check your points and rewards."}
+        </p>
 
         {showConfirmBanner && !linkSent && (
           <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-3 flex items-start gap-3">
@@ -177,7 +225,12 @@ export default function CustomerLogin() {
             <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground">Password</Label>
+              <Link href={`${base}/forgot-password`} className="text-xs font-semibold text-brand-primary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}

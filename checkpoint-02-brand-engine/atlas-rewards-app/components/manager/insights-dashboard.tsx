@@ -483,11 +483,16 @@ export function InsightsDashboard({ business }: { business: Business }) {
             sub={`${rollup?.redemptions_30d ?? 0} redemptions`}
             tone="amber"
           />
+          {/* CP-47: was rollup.inactive_60d, which also counted members who
+              NEVER visited (last_visit_at IS NULL) — so it showed e.g. "7"
+              while the win-back list below was empty. Use the actual
+              contactable win-back list length so the number always matches
+              the members you can actually act on. */}
           <StatCard
             icon={<AlertTriangle className="h-5 w-5" />}
-            label="Inactive (60d+)"
-            value={rollup?.inactive_60d ?? "—"}
-            sub="Eligible for win-back"
+            label="Win-back ready"
+            value={inactive.length}
+            sub={inactive.length === 0 ? "No lapsed members 🎉" : "Lapsed 60d+ · contactable"}
             tone="rose"
           />
         </div>

@@ -34,6 +34,7 @@ import { NewsManager } from "@/components/agency/news-manager";
 // Booking removed — Atlas is loyalty-only.
 import { ManagerBilling } from "@/components/manager/manager-billing";
 import { InsightsDashboard } from "@/components/manager/insights-dashboard";
+import { BusinessInsights } from "@/components/agency/business-insights";
 import { MembershipBillingSetup } from "@/components/manager/membership-billing-setup";
 import { CreditCard, BarChart3, Crown } from "lucide-react";
 import type { Business } from "@/lib/types/database";
@@ -453,11 +454,17 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               secondary={business.brand_colors.secondary}
             />
 
-            {/* CP-46: the full Atlas Impact dashboard, surfaced right on the
+            {/* CP-46/47: the full Atlas Impact dashboard + the customer
+                revenue / transactions graphs, surfaced right on the
                 front-desk landing for managers/admins. Front-desk staff
                 (business_staff) stay gated out of revenue/impact, matching
                 the role policy — they keep the daily ops recap above. */}
-            {role !== "business_staff" && <InsightsDashboard business={business} />}
+            {role !== "business_staff" && (
+              <>
+                <InsightsDashboard business={business} />
+                <BusinessInsights business={business} />
+              </>
+            )}
 
             <ReviewQueue business={business} />
 

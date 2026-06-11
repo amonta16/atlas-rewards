@@ -203,8 +203,17 @@ export default async function CustomerHome({ params }: { params: { business: str
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-sm font-bold">Top rewards</h2>
-            <a href={`/${params.business}/app/rewards`} className="text-xs font-semibold flex items-center gap-0.5" style={{ color: business.brand_colors.primary }}>
-              See all <ChevronRight className="h-3 w-3" />
+            {/* CP-47: make "See all" pop — a filled brand pill with a soft
+                glow so customers notice there's a full rewards catalog. */}
+            <a
+              href={`/${params.business}/app/rewards`}
+              className="inline-flex items-center gap-1 text-xs font-extrabold text-white rounded-full pl-3 pr-2 py-1.5 shadow-md active:scale-95 transition"
+              style={{
+                background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                boxShadow: `0 6px 16px -4px ${business.brand_colors.primary}88`,
+              }}
+            >
+              See all <ChevronRight className="h-3.5 w-3.5" />
             </a>
           </div>
           <div className="grid grid-cols-2 gap-2">
