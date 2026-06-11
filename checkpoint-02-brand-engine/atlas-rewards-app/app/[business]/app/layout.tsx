@@ -51,6 +51,7 @@ export default async function CustomerAppLayout({
         businessName={business.name}
         primary={business.brand_colors.primary}
         membershipId={membershipId}
+        businessId={business.id}
       />
       <PWAInstall primary={business.brand_colors.primary} businessName={business.name} />
       <FeaturedOfferBanner

@@ -167,8 +167,11 @@ export default async function CustomerHome({ params }: { params: { business: str
                 </div>
               )}
               <div className="p-4">
-                <div className="text-base font-extrabold leading-tight text-zinc-900">{offer.title}</div>
-                {offer.description && <div className="text-xs text-zinc-500 mt-1">{offer.description}</div>}
+                {/* CP-46: punchier featured-offer headline — bigger, blacker
+                    weight, tighter tracking + leading so a short promo like
+                    "10% OFF MATCHA!" reads like a real billboard line. */}
+                <div className="text-xl font-black leading-[1.05] tracking-[-0.02em] text-zinc-900">{offer.title}</div>
+                {offer.description && <div className="text-[13px] text-zinc-500 mt-1.5 leading-snug">{offer.description}</div>}
                 {offerDaysLeft !== null && (
                   <div className="mt-2 flex items-center gap-1.5 text-[11px]">
                     <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />

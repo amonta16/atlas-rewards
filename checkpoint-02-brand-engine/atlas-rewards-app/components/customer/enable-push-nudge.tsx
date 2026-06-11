@@ -21,6 +21,9 @@
  */
 import { useEffect, useState } from "react";
 import { Bell, ArrowUpRight } from "lucide-react";
+// CP-46: hold the screen while the bell spotlight is up so no other
+// overlay (confetti / welcome gift) pops over it.
+import { claimPopup, releasePopup, PopupPriority } from "@/lib/popup-coordinator";
 
 const SEEN_KEY_PREFIX = "atlas-push-nudge-seen";
 const BELL_DONE_PREFIX = "atlas-onboard-bell-done";
@@ -86,6 +89,13 @@ export function EnablePushNudge({ primary, businessId }: { primary: string; busi
     const armTimer = window.setTimeout(tryLocate, ARM_DELAY_MS);
     return () => { cancelled = true; window.clearTimeout(armTimer); };
   }, [seenKey, businessId]);
+
+  // CP-46: while the spotlight is up, own the screen via the coordinator.
+  useEffect(() => {
+    if (!anchor) return;
+    claimPopup("notifications", PopupPriority.notifications);
+    return () => releasePopup("notifications");
+  }, [anchor]);
 
   // Re-measure on resize / scroll so the spotlight stays on the bell.
   useEffect(() => {

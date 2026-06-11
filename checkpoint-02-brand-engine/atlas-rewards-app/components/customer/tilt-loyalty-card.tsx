@@ -100,7 +100,21 @@ export function TiltLoyaltyCard({
           transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
           transformStyle: "preserve-3d",
           background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 60%, ${primary} 100%)`,
-          boxShadow: `0 30px 60px -20px ${primary}66, 0 12px 24px -10px rgba(0,0,0,0.3)`,
+          // CP-46: physical "edge" so the card reads as a raised object, like
+          // Andrew's reference. Layered shadows do the work:
+          //   • inset top highlight   → light catching the top bevel
+          //   • inset bottom shadow   → the card's own thickness in shade
+          //   • thin outer ring       → a crisp machined edge line
+          //   • deep soft drop shadow → it floats above the page
+          border: "1px solid rgba(255,255,255,0.18)",
+          boxShadow: [
+            "inset 0 1.5px 1px rgba(255,255,255,0.45)",   // top bevel highlight
+            "inset 0 -10px 18px -10px rgba(0,0,0,0.55)",  // bottom inner shade (thickness)
+            "inset 0 0 0 1px rgba(255,255,255,0.10)",     // inner rim
+            `0 1px 0 1px ${primary}aa`,                    // crisp edge line
+            `0 36px 60px -22px ${primary}88`,              // brand-tinted glow
+            "0 18px 34px -16px rgba(0,0,0,0.45)",          // grounded drop shadow
+          ].join(", "),
         }}
       >
         {/* Background art (uploaded membership image, or logo watermark) */}

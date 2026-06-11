@@ -24,6 +24,9 @@ import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
 import { isBellOnboardDone } from "./enable-push-nudge";
 import { useToast } from "@/components/ui/toast";
+// CP-46: one-overlay-at-a-time so the gift reveal never lands on top of the
+// confetti or the notification spotlight.
+import { claimPopup, releasePopup, useActivePopup, PopupPriority } from "@/lib/popup-coordinator";
 
 const MAX_SEEN = 50;
 
@@ -67,6 +70,10 @@ export function OfferRevealWatcher({
   membershipId?: string | null;
 }) {
   const [active, setActive] = useState<RevealOffer | null>(null);
+  // CP-46: which coordinator slot this reveal is holding ("welcome-gift"
+  // or "featured-offer"), so we render only when we own the screen.
+  const claimIdRef = useRef<string | null>(null);
+  const screenOwner = useActivePopup();
   // CP-45: when the active reveal is a welcome gift, this holds the
   // customer_saved_offers row id so dismissal can mark it revealed
   // server-side (once per MEMBER, not per device).
@@ -82,15 +89,22 @@ export function OfferRevealWatcher({
   // Queue a reveal: only pop once the bell onboarding moment is done, then
   // after a brief cooldown so it feels like a deliberate "and now your gift"
   // beat rather than a pile-up.
-  function queueReveal(row: RevealOffer) {
-    if (typeof window === "undefined") { setActive(row); return; }
+  function queueReveal(row: RevealOffer, kind: "welcome" | "featured") {
+    const claimId = kind === "welcome" ? "welcome-gift" : "featured-offer";
+    const priority = kind === "welcome" ? PopupPriority.welcomeGift : PopupPriority.featuredOffer;
+    const show = () => {
+      claimIdRef.current = claimId;
+      claimPopup(claimId, priority);   // coordinator decides when we actually render
+      setActive(row);
+    };
+    if (typeof window === "undefined") { show(); return; }
     if (revealTimer.current) return; // already queued
     const COOLDOWN_MS = 900;
     const tick = () => {
       if (isBellOnboardDone(businessId)) {
         revealTimer.current = window.setTimeout(() => {
           revealTimer.current = null;
-          setActive(row);
+          show();
         }, COOLDOWN_MS);
       } else {
         revealTimer.current = window.setTimeout(tick, 500);
@@ -135,7 +149,7 @@ export function OfferRevealWatcher({
           expires_at: giftRow.expires_at,
           discount_type: giftRow.discount_type,
           discount_value: giftRow.discount_value,
-        });
+        }, "welcome");
         return;
       }
       // 2) Fall back to the featured offer (per-device seen list, as before).
@@ -143,7 +157,7 @@ export function OfferRevealWatcher({
       const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
       if (cancelled || !row?.id) return;
       if (!seenRef.current.includes(row.id)) {
-        queueReveal(row);
+        queueReveal(row, "featured");
       }
     })();
     return () => { cancelled = true; };
@@ -164,7 +178,7 @@ export function OfferRevealWatcher({
           const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
           if (!row?.id) return;
           if (!seenRef.current.includes(row.id)) {
-            queueReveal(row);
+            queueReveal(row, "featured");
           }
         },
       )
@@ -179,7 +193,7 @@ export function OfferRevealWatcher({
           const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
           if (!row?.id) return;
           if (!seenRef.current.includes(row.id)) {
-            queueReveal(row);
+            queueReveal(row, "featured");
           }
         },
       )
@@ -203,6 +217,11 @@ export function OfferRevealWatcher({
           if (error) console.warn("[welcome reveal] mark failed:", error.message);
         });
     }
+    // CP-46: hand the screen back so any queued reveal can take its turn.
+    if (claimIdRef.current) {
+      releasePopup(claimIdRef.current);
+      claimIdRef.current = null;
+    }
     setActive(null);
   }
 
@@ -224,7 +243,10 @@ export function OfferRevealWatcher({
     toast.success("Saved to your rewards ✨");
   }
 
-  if (!active) return null;
+  // CP-46: only render when we actually own the screen. While a
+  // higher-priority overlay (notifications, confetti) is up, we hold our
+  // claim but stay hidden, then appear the moment it releases.
+  if (!active || screenOwner !== claimIdRef.current) return null;
   return (
     <OfferRevealPopup
       offer={active}

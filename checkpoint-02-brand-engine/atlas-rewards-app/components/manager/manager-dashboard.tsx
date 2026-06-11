@@ -22,6 +22,7 @@ import { ManagerOffersPreview } from "@/components/manager/manager-offers-previe
 import { ScannerListener } from "@/components/manager/scanner-listener";
 import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
+import { DeskTrendChart } from "@/components/manager/desk-trend-chart";
 // CP-42 (round 3): AtlasValueStrip moved to InsightsDashboard.
 import { TeamMembers } from "@/components/team/team-members";
 // CP-43.2: NotificationSettingsPanel removed from the manager dashboard —
@@ -449,6 +450,13 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             <DailyRecapCard
               businessId={business.id}
               businessName={business.name}
+              primary={business.brand_colors.primary}
+              secondary={business.brand_colors.secondary}
+            />
+
+            {/* CP-46: at-a-glance trend graphs, like the admin Insights tab. */}
+            <DeskTrendChart
+              businessId={business.id}
               primary={business.brand_colors.primary}
               secondary={business.brand_colors.secondary}
             />

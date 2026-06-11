@@ -1,26 +1,29 @@
 /**
- * POST /api/team/create-account — rewritten CP-37.16
+ * POST /api/team/create-account — rewritten CP-46
  *
- * MAGIC-LINK INVITES. Andrew kept hitting "Wrong email or password"
- * with the password-based flow no matter how the underlying password
- * was written (admin SDK, direct SQL, etc). The fix is to stop using
- * passwords entirely for team invites and lean on Supabase's
- * generateLink({ type: 'magiclink' }) instead.
+ * MAGIC-LINK INVITES. CP-46 fixes the "magic link generation failed:
+ * Database error finding user" toast Andrew hit on every invite.
+ *
+ * Root cause: the old flow created the auth.users row via a raw SQL
+ * INSERT (admin_provision_account). GoTrue's generateLink() then can't
+ * load that row — the raw INSERT skips the auth.identities row and
+ * leaves token columns NULL, so GoTrue's scan fails ("Database error
+ * finding user"). Creating the user through the Admin SDK instead
+ * produces a fully GoTrue-valid row + identity, so generateLink works.
  *
  * Flow:
- *   1. admin_provision_account RPC creates / updates the auth.users
- *      row + attaches the role. We pass a throwaway random password
- *      so the row is valid — but the recipient never has to type it.
- *   2. admin.auth.admin.generateLink({ type: 'magiclink', email })
- *      mints a one-time sign-in URL via Supabase's native flow.
- *   3. Route returns that URL. Admin copies it, sends to the
- *      teammate. Teammate clicks → signed in → lands on portal.
- *
- * The recipient can set their own password later from the profile
- * page if they want. For team invites, the magic link is enough.
+ *   1. team_invite_precheck RPC — permission gate (raises on denial, so
+ *      we never create an orphan auth user) + returns the existing auth
+ *      uid for this email, or NULL.
+ *   2. If new: admin.auth.admin.createUser({ email, email_confirm }).
+ *      If existing: admin.auth.admin.updateUserById to normalise any
+ *      legacy SQL-inserted row so generateLink can load it.
+ *   3. attach_team_role RPC — profiles upsert + business_users insert.
+ *   4. admin.auth.admin.generateLink({ type: 'magiclink', email }) mints
+ *      the one-time sign-in URL. Admin copies it to the teammate.
  *
  * Body:
- *   { email, role, business_id?, full_name? }   ← password no longer required
+ *   { email, role, business_id?, full_name? }   ← password not required
  *
  * Returns:
  *   { ok, email, role, business_id, sign_in_url, created_new }
@@ -69,37 +72,73 @@ export async function POST(req: NextRequest) {
   }
 
   // Caller must be signed in. Permission gate (admin vs manager) lives
-  // inside the admin_provision_account RPC.
+  // inside the team_invite_precheck + attach_team_role RPCs.
   const server = createServer();
   const { data: { user: caller } } = await server.auth.getUser();
   if (!caller) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
-  // ─── 1. Provision the auth.users row + role via the RPC. ──────
-  // Pass a throwaway password (must satisfy the RPC's >=8 char check)
-  // so the row's encrypted_password isn't null.
-  const throwawayPassword = randomPassword();
-  const { data: provData, error: provErr } = await server.rpc("admin_provision_account", {
+  const admin = createAdminClient();
+
+  // ─── 1. Permission gate + existing-user lookup (no auth.users writes). ──
+  // The precheck RAISES if the caller isn't allowed to invite this role,
+  // so we never create an orphan auth user before the gate.
+  const { data: existingUid, error: preErr } = await server.rpc("team_invite_precheck", {
     p_email: email,
-    p_password: throwawayPassword,
+    p_role: role,
+    p_business_id: businessId,
+  });
+  if (preErr) {
+    return NextResponse.json({ error: preErr.message }, { status: 403 });
+  }
+  const existingId = (existingUid as string | null) ?? null;
+
+  // ─── 2. Create (or normalise) the auth user via the Admin SDK. ──
+  // Going through GoTrue guarantees a valid row + identity, which is what
+  // generateLink() needs. A raw SQL INSERT does not, which is what caused
+  // "Database error finding user".
+  let userId: string;
+  let createdNew = false;
+  if (!existingId) {
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      email,
+      password: randomPassword(),     // throwaway — recipient uses the magic link
+      email_confirm: true,            // skip the confirm-email step for invites
+      user_metadata: { full_name: fullName || "" },
+    });
+    if (createErr || !created?.user) {
+      return NextResponse.json(
+        { error: `could not create account: ${createErr?.message ?? "unknown"}` },
+        { status: 400 },
+      );
+    }
+    userId = created.user.id;
+    createdNew = true;
+  } else {
+    userId = existingId;
+    // Re-touch the row through GoTrue so any legacy raw-SQL-inserted user
+    // is normalised (identity + token columns) — otherwise generateLink
+    // would still fail on it.
+    try {
+      await admin.auth.admin.updateUserById(userId, { email_confirm: true });
+    } catch { /* non-fatal — the user already exists and is usable */ }
+  }
+
+  // ─── 3. Wire the profile + role (permission re-checked inside). ──
+  const { error: roleErr } = await server.rpc("attach_team_role", {
+    p_user_id: userId,
     p_role: role,
     p_business_id: businessId,
     p_full_name: fullName || null,
   });
-  if (provErr) {
-    return NextResponse.json({ error: provErr.message }, { status: 400 });
-  }
-  const provRow = (Array.isArray(provData) ? provData[0] : provData) as
-    { user_id: string; created_new: boolean } | null;
-  if (!provRow) {
-    return NextResponse.json({ error: "provisioning returned no row" }, { status: 500 });
+  if (roleErr) {
+    return NextResponse.json({ error: roleErr.message }, { status: 403 });
   }
 
-  // ─── 2. Figure out where the recipient should land after sign-in. ──
+  // ─── 4. Figure out where the recipient should land after sign-in. ──
   // agency_admin → /agency
   // manager / front-desk → /<slug>/manage
-  const admin = createAdminClient();
   let postLoginPath = "/agency";
   if (role !== "agency_admin" && businessId) {
     const { data: biz } = await admin
@@ -114,7 +153,7 @@ export async function POST(req: NextRequest) {
     postLoginPath = `/${slug}/manage`;
   }
 
-  // ─── 3. Mint the magic link via Supabase's generateLink. ──────
+  // ─── 5. Mint the magic link via Supabase's generateLink. ──────
   // type: 'magiclink' produces a one-time sign-in URL. Supabase's
   // own auth handler verifies it and signs the user in — completely
   // independent of our password storage. The redirectTo controls
@@ -142,7 +181,7 @@ export async function POST(req: NextRequest) {
     email,
     role,
     business_id: businessId,
-    created_new: provRow.created_new,
+    created_new: createdNew,
     sign_in_url: signInUrl,
   });
 }

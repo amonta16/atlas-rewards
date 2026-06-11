@@ -24,9 +24,12 @@ export default function CustomerSignup() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  // CP-42: birthday is now REQUIRED on signup so businesses can run
-  // automated Birthday offers from day one. Format: YYYY-MM-DD.
-  const [birthday, setBirthday] = useState("");
+  // CP-46: birthday captures MONTH + DAY only — we don't care what year
+  // the customer was born. Stored as a real date (sentinel year 2000) so
+  // the Birthday automated offer, which matches on month/day, keeps working.
+  const [bMonth, setBMonth] = useState("");  // "01".."12"
+  const [bDay, setBDay] = useState("");      // "01".."31"
+  const birthday = bMonth && bDay ? `2000-${bMonth}-${bDay}` : "";
   // CP-36b: notification consent. Defaults to ON (opt-out model). Customer
   // can also flip individual types off later in their Profile tab.
   const [notifyConsent, setNotifyConsent] = useState(true);
@@ -40,10 +43,16 @@ export default function CustomerSignup() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // CP-42: enforce required fields client-side. Birthday format check
-    // is loose — the <input type="date"> already enforces YYYY-MM-DD.
-    if (!name.trim()) { setErr("Please enter your name."); return; }
-    if (!birthday)    { setErr("Please enter your birthday."); return; }
+    // CP-46: every field is required and validated before we hit Supabase,
+    // so we never create a half-filled account.
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+    const phoneDigits = phone.replace(/\D/g, "");
+    if (!name.trim())            { setErr("Please enter your name."); return; }
+    if (!emailOk)                { setErr("Please enter a valid email address."); return; }
+    if (phoneDigits.length < 10) { setErr("Please enter a valid phone number."); return; }
+    if (!bMonth || !bDay)        { setErr("Please pick your birthday month and day."); return; }
+    if (!isValidMonthDay(bMonth, bDay)) { setErr("That day doesn't exist for the month you picked."); return; }
+    if (password.length < 6)     { setErr("Password must be at least 6 characters."); return; }
     setLoading(true);
     setErr(null);
     const supabase = createClient();
@@ -197,20 +206,38 @@ export default function CustomerSignup() {
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <Field label="Your name"><Input value={name} onChange={e => setName(e.target.value)} required /></Field>
           <Field label="Email"><Input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></Field>
-          <Field label="Phone"><Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" /></Field>
-          {/* CP-42: birthday is required — powers Birthday automated offers
-              from day one. set-once: once saved, the customer can't change
-              it later (enforced server-side by the CP-28 trigger). */}
+          <Field label="Phone"><Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" required /></Field>
+          {/* CP-46: birthday is MONTH + DAY only — powers Birthday automated
+              offers without asking the customer's age/year. set-once: once
+              saved, it can't be changed later (CP-28 server-side trigger). */}
           <Field label="Your birthday">
-            <Input
-              type="date"
-              value={birthday}
-              onChange={e => setBirthday(e.target.value)}
-              required
-              max={new Date().toISOString().slice(0, 10)}
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <select
+                value={bMonth}
+                onChange={e => { setBMonth(e.target.value); setBDay(""); }}
+                required
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="" disabled>Month</option>
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={String(i + 1).padStart(2, "0")}>{m}</option>
+                ))}
+              </select>
+              <select
+                value={bDay}
+                onChange={e => setBDay(e.target.value)}
+                required
+                disabled={!bMonth}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="" disabled>Day</option>
+                {Array.from({ length: bMonth ? daysInMonth(bMonth) : 31 }, (_, i) => i + 1).map(d => (
+                  <option key={d} value={String(d).padStart(2, "0")}>{d}</option>
+                ))}
+              </select>
+            </div>
             <p className="text-[10px] text-zinc-500 mt-1">
-              We use this to send you a birthday reward. Can't be changed later — pick carefully.
+              We only need the month and day to send you a birthday reward. Can't be changed later — pick carefully.
             </p>
           </Field>
           <Field label="Choose a password"><Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} /></Field>
@@ -250,6 +277,23 @@ export default function CustomerSignup() {
       </div>
     </main>
   );
+}
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// Sentinel year 2000 is a leap year, so Feb 29 is allowed.
+function daysInMonth(mm: string): number {
+  const m = parseInt(mm, 10);
+  if (!m) return 31;
+  return new Date(2000, m, 0).getDate();
+}
+
+function isValidMonthDay(mm: string, dd: string): boolean {
+  const d = parseInt(dd, 10);
+  return d >= 1 && d <= daysInMonth(mm);
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
