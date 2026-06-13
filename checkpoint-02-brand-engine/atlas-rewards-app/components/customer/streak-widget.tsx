@@ -21,7 +21,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  Flame, Gift, Sparkles, Trophy, Check, X, ChevronLeft, ChevronRight,
+  Flame, Gift, Sparkles, Trophy, Check, X, ChevronLeft, ChevronRight, Lock, CalendarDays,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Business } from "@/lib/types/database";
@@ -52,7 +52,22 @@ type StreakStatus = {
   checked_in_this_period: boolean;
   milestones: Milestone[];
   claimed_milestones: number[];
+  // CP-49: real calendar window of the CURRENT period, so the widget can
+  // tell the customer exactly which week/day they're on.
+  period_start?: string | null;
+  period_end?: string | null;
 };
+
+// CP-49: gift_kind is authoritative. A milestone is a REWARD only when
+// gift_kind === 'reward'. If gift_kind is missing (legacy rows) we fall
+// back to "has a reward_id". This stops a points milestone that still
+// carries a stale reward_id from rendering as a reward (and hiding its
+// points — the bug Andrew hit on the Starbucks D3 milestone).
+function isReward(m: Milestone): boolean {
+  if (m.gift_kind === "reward") return true;
+  if (m.gift_kind === "points") return false;
+  return !!m.reward_id;
+}
 
 // 3 columns × 3 rows = 9 cells per "page" (CP-39: was 4 rows; shrunk
 // so the whole widget fits without scrolling on phone-sized viewports,
@@ -162,6 +177,23 @@ export function StreakWidget({
     ),
   );
 
+  // CP-49: real calendar window of the current period, so "which week am I
+  // on?" is answerable at a glance.
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const fmtWeekday = (d: Date) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const periodStartD = s.period_start ? new Date(s.period_start) : null;
+  const periodEndExclusive = s.period_end ? new Date(s.period_end) : null; // start of NEXT period
+  const periodEndInclusive = periodEndExclusive ? new Date(periodEndExclusive.getTime() - 86_400_000) : null;
+  const lastD = s.last_checkin_at ? new Date(s.last_checkin_at) : null;
+  const windowLabel =
+    periodStartD && periodEndInclusive
+      ? s.period_type === "monthly"
+        ? periodStartD.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+        : s.period_type === "weekly"
+          ? `${fmt(periodStartD)} – ${fmt(periodEndInclusive)}`
+          : periodStartD.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })
+      : null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pointer-events-none">
       <div
@@ -233,6 +265,43 @@ export function StreakWidget({
           )}
         </div>
 
+        {/* CP-49: current-period date banner. Spells out exactly which
+            window is "live" right now + whether they've already checked in,
+            so the streak stops being a confusing row of abstract cubes. */}
+        {windowLabel && (
+          <div className="px-4 -mt-1 mb-1">
+            <div className="rounded-2xl px-3.5 py-2.5 backdrop-blur-md ring-1 ring-white/20 flex items-center gap-2.5"
+              style={{ background: "rgba(255,255,255,0.12)" }}
+            >
+              <CalendarDays className="h-4 w-4 text-white/90 shrink-0" />
+              <div className="flex-1 min-w-0 text-white">
+                <div className="text-[10px] uppercase tracking-widest font-extrabold opacity-80">
+                  This {periodWord.toLowerCase()}
+                </div>
+                <div className="text-sm font-bold leading-tight truncate">{windowLabel}</div>
+                <div className="text-[11px] opacity-85 mt-0.5">
+                  {lastD
+                    ? <>Last check-in: {fmtWeekday(lastD)}</>
+                    : <>No check-ins yet</>}
+                </div>
+              </div>
+              <span
+                className={`shrink-0 text-[10px] font-extrabold px-2 py-1 rounded-full whitespace-nowrap ${
+                  s.checked_in_this_period
+                    ? "bg-emerald-400 text-emerald-950"
+                    : "bg-white text-zinc-900"
+                }`}
+              >
+                {s.checked_in_this_period
+                  ? "✓ Checked in"
+                  : periodEndInclusive
+                    ? `Check in by ${fmt(periodEndInclusive)}`
+                    : "Check in today"}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Tray — CP-39: now 3x3 (9 cells) instead of 3x4. Smaller
             tray + tighter padding so the whole widget fits without scrolling. */}
         <div className="px-4 pb-3">
@@ -264,16 +333,17 @@ export function StreakWidget({
 
             <div className="grid grid-cols-3 gap-2.5">
               {cells.map(({ n, milestone }) => {
-                const isCurrent  = n === s.current_streak;
                 const isFilled   = n <= s.current_streak;
+                // CP-49: the cell you're working toward (next to earn) is the
+                // ACTIVE one; everything past it is LOCKED + dimmed so the
+                // path reads clearly as done → here → still locked.
+                const isNext     = n === s.current_streak + 1;
+                const isLocked   = n > s.current_streak + 1;
+                const isCurrent  = isNext;
                 const isMystery  = milestone?.mystery;
                 const isMilestone = !!milestone;
-                // CP-44.1: a milestone gives a REWARD when gift_kind='reward'
-                // or it has a linked reward_id; otherwise it awards POINTS.
-                // The legacy `mystery` flag is ignored (deprecated, often left
-                // true on old milestones the agency later switched to points).
-                const isRewardGift = !!milestone &&
-                  (milestone!.gift_kind === "reward" || !!milestone!.reward_id);
+                // CP-49: gift_kind authoritative (see isReward()).
+                const isRewardGift = !!milestone && isReward(milestone!);
                 const isPointsGift = isMilestone && !isRewardGift && (milestone!.points ?? 0) > 0;
                 const isClaimed  =
                   isMilestone && (s.claimed_milestones ?? []).includes(milestone!.count);
@@ -288,7 +358,15 @@ export function StreakWidget({
                 const goldGradient = `linear-gradient(135deg, #fffbeb 0%, #fef3c7 35%, #fbbf24 70%, #f59e0b 100%)`;
 
                 return (
-                  <div key={n} className={`relative aspect-square ${milestoneRim ? "scale-[1.12] z-10" : ""}`}>
+                  <div
+                    key={n}
+                    className={`relative aspect-square transition ${milestoneRim ? "scale-[1.12] z-10" : ""} ${
+                      // CP-49: locked (not-yet-reachable) cells read as sad +
+                      // dimmed. Milestones keep a touch more presence so the
+                      // reward is still legible behind the lock.
+                      isLocked ? (isMilestone ? "opacity-70 saturate-50" : "opacity-40 grayscale") : ""
+                    }`}
+                  >
                     {/* Cell base */}
                     <div
                       className={`absolute inset-0 rounded-xl transition-all duration-300 ${isCurrent ? "scale-110" : ""}`}
@@ -407,15 +485,21 @@ export function StreakWidget({
                           </div>
                         </>
                       ) : (
-                        // Regular (non-milestone) check-in cell — flame.
+                        // Regular (non-milestone) check-in cell.
+                        // CP-49: done → bright flame; next → flame; locked →
+                        // a small padlock so upcoming days read as "not yet".
                         <>
-                          <Flame
-                            className={`h-5 w-5 drop-shadow ${isFilled ? "" : "opacity-40"}`}
-                            style={{ color: isFilled ? "#fff7ed" : "rgba(255,255,255,0.6)" }}
-                          />
+                          {isLocked ? (
+                            <Lock className="h-4 w-4 text-white/55" />
+                          ) : (
+                            <Flame
+                              className={`h-5 w-5 drop-shadow ${isFilled ? "" : "opacity-70"}`}
+                              style={{ color: isFilled ? "#fff7ed" : "rgba(255,255,255,0.85)" }}
+                            />
+                          )}
                           <div
                             className={`text-[9px] font-extrabold tabular-nums mt-0.5 ${
-                              isFilled ? "text-white" : "text-white/55"
+                              isFilled ? "text-white" : isNext ? "text-white" : "text-white/55"
                             }`}
                           >
                             {periodWord.charAt(0)}
@@ -457,8 +541,8 @@ export function StreakWidget({
                 {milestones.map(m => {
                   const claimed = (s.claimed_milestones ?? []).includes(m.count);
                   const reached = s.current_streak >= m.count;
-                  // CP-44.1: reward vs points (ignore the legacy mystery flag).
-                  const isRewardGift = m.gift_kind === "reward" || !!m.reward_id;
+                  // CP-49: gift_kind authoritative (see isReward()).
+                  const isRewardGift = isReward(m);
                   const isPointsGift = !isRewardGift && (m.points ?? 0) > 0;
                   return (
                     <div

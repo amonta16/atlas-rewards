@@ -24,6 +24,7 @@ import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
 // CP-42 (round 3): AtlasValueStrip moved to InsightsDashboard.
 import { TeamMembers } from "@/components/team/team-members";
+import { FrontDeskPins } from "@/components/team/front-desk-pins";
 // CP-43.2: NotificationSettingsPanel removed from the manager dashboard —
 // notification types / diagnostics / send-to-all live in the agency
 // settings tab only. The desk stays focused on day-to-day ops.
@@ -583,11 +584,19 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         {tab === "billing"    && <ManagerBilling         business={business} />}
         {tab === "membership" && <MembershipBillingSetup business={business} />}
         {tab === "team"       && (role === "business_manager" || role === "agency_admin") && (
-          <TeamMembers
-            businessId={business.id}
-            callerRole={role}
-            primary={business.brand_colors.primary}
-          />
+          <div className="space-y-6">
+            <TeamMembers
+              businessId={business.id}
+              callerRole={role}
+              primary={business.brand_colors.primary}
+            />
+            {/* CP-49: PIN-based front desk management. */}
+            <FrontDeskPins
+              businessId={business.id}
+              slug={business.slug}
+              primary={business.brand_colors.primary}
+            />
+          </div>
         )}
         {/* CP-36b: notifications surface (composer + toggles) moved to the
             agency admin's per-business settings. The manager dashboard no

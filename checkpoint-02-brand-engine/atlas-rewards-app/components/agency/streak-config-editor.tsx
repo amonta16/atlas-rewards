@@ -256,7 +256,7 @@ export function StreakConfigEditor({ business }: { business: Business }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => updateMilestone(i, { gift_kind: "points" })}
+                      onClick={() => updateMilestone(i, { gift_kind: "points", reward_id: null })}
                       className={`text-xs font-bold py-1.5 rounded-full transition ${
                         giftKind === "points" ? "bg-zinc-900 text-white shadow" : "text-zinc-500"
                       }`}
@@ -290,7 +290,7 @@ export function StreakConfigEditor({ business }: { business: Business }) {
                         <Input
                           type="number" min={0}
                           value={m.points}
-                          onChange={e => updateMilestone(i, { points: Math.max(0, parseInt(e.target.value || "0", 10)), gift_kind: "points" })}
+                          onChange={e => updateMilestone(i, { points: Math.max(0, parseInt(e.target.value || "0", 10)), gift_kind: "points", reward_id: null })}
                           className="pr-16"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">

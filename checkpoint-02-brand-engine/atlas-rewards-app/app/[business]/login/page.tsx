@@ -237,6 +237,22 @@ export default function CustomerLogin() {
           <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
         </form>
 
+        {/* CP-49: front-desk staff don't use email/password — send them to
+            the branded PIN keypad. This ONLY shows in the staff context
+            (arriving from the /manage guard) so the customer-facing login
+            stays a pure customer portal with no front-desk overlay. */}
+        {staffContext && (
+          <div className="mt-4 pt-4 border-t">
+            <Link
+              href={`${base}/frontdesk`}
+              className="w-full inline-flex items-center justify-center gap-2 text-sm font-semibold rounded-lg border border-zinc-200 py-2.5 text-zinc-700 hover:bg-zinc-50"
+            >
+              <Shield className="h-4 w-4" />
+              Front desk? Enter with your PIN →
+            </Link>
+          </div>
+        )}
+
         {/* CP-37.1: one-tap rescue. */}
         <div className="mt-4 pt-4 border-t">
           <button
