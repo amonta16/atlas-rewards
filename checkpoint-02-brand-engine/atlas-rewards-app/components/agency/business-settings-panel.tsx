@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 // CP-42: pruned unused icons after removing the GHL Calendar panel.
-import { CreditCard, AlertCircle } from "lucide-react";
+import { CreditCard, AlertCircle, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+import { BaselineEditor } from "./baseline-editor";
 import type { Business } from "@/lib/types/database";
 
 type Plan = {
@@ -161,6 +162,9 @@ export function BusinessSettingsPanel({
           </Button>
         </div>
       </div>
+
+      {/* ============ PRE-ATLAS BASELINE (CP-50: editable) ============ */}
+      <BaselineEditor businessId={business.id} />
     </div>
   );
 }

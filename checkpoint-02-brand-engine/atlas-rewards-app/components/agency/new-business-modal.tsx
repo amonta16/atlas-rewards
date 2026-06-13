@@ -15,11 +15,13 @@ import { INDUSTRY_TEMPLATES, templateByValue } from "@/lib/industry-templates";
 // snapshot before going live.
 type Step = "basics" | "template" | "baseline";
 
-export function NewBusinessModal({ onClose }: { onClose: () => void }) {
+export function NewBusinessModal({ onClose, initialName }: { onClose: () => void; initialName?: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("basics");
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
+  const [name, setName] = useState(initialName ?? "");
+  const [slug, setSlug] = useState(initialName
+    ? initialName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+    : "");
   const [templateValue, setTemplateValue] = useState<string>("other");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);

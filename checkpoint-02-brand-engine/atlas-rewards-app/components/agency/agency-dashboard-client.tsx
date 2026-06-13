@@ -2,12 +2,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Building2, Users, Activity, DollarSign, Plus, ListFilter, Search, LayoutGrid, List, Trash2 } from "lucide-react";
+import { Building2, Users, Activity, Plus, Search, Trash2, KanbanSquare, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StatCard } from "@/components/ui/stat-card";
 import { NewBusinessModal } from "./new-business-modal";
-import { AgencyBillingPanel } from "./billing-panel";
+import { AgencyMetrics } from "./agency-metrics";
 import { ConfirmDeleteModal } from "@/components/ui/confirm-delete-modal";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +18,13 @@ type Rollup = {
   revenue_30d_cents: number;
 };
 
+/**
+ * Agency command center — CP-50 dark revamp.
+ *
+ * Dark navy canvas with an Atlas ocean-blue glow. Surfaces AGENCY-side
+ * metrics only (what sub-accounts pay us), big charts, and the portfolio
+ * list. Business customer-revenue is intentionally NOT shown here.
+ */
 export function AgencyDashboardClient({
   friendlyName, initialBusinesses,
 }: { friendlyName: string; initialBusinesses: Business[] }) {
@@ -27,17 +33,14 @@ export function AgencyDashboardClient({
   const [newOpen, setNewOpen] = useState(false);
   const [rollup, setRollup] = useState<Rollup | null>(null);
   const [list, setList] = useState<Business[]>(initialBusinesses);
-  // CP-40: type-DELETE-to-confirm modal for destructive business removal.
+  const [query, setQuery] = useState("");
   const [pendingDelete, setPendingDelete] = useState<Business | null>(null);
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
 
   async function performDelete(business: Business) {
     const supabase = createClient();
     const { error } = await supabase.rpc("delete_business", { p_business_id: business.id });
-    if (error) {
-      toast.error("Delete failed: " + error.message);
-      throw error;
-    }
+    if (error) { toast.error("Delete failed: " + error.message); throw error; }
     setList(prev => prev.filter(b => b.id !== business.id));
     setPendingDelete(null);
     toast.success(`${business.name} deleted`);
@@ -49,110 +52,103 @@ export function AgencyDashboardClient({
     supabase.rpc("agency_rollup").then(({ data }) => setRollup(data as Rollup | null));
   }, []);
 
-  const dollars = (cents: number) => `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const filtered = list.filter(b =>
+    !query || b.name.toLowerCase().includes(query.toLowerCase()) || b.slug.toLowerCase().includes(query.toLowerCase()));
 
   return (
-    <div>
-      <header
-        className="relative px-8 pt-10 pb-6 border-b"
-        style={{
-          background:
-            "linear-gradient(135deg, #0a3d62 0%, #1d6fa5 60%, #2a8cc4 100%)",
-        }}
-      >
-        {/* Decorative wavy accent */}
-        <div
-          className="pointer-events-none absolute -bottom-3 left-0 right-0 h-6"
-          style={{
-            background:
-              "radial-gradient(ellipse at top, rgba(255,255,255,0.25), transparent 60%)",
-          }}
-        />
-        <div className="relative flex items-start justify-between">
+    <div
+      className="min-h-screen"
+      style={{ background: "linear-gradient(180deg, #061a32 0%, #04132a 50%, #020c1c 100%)" }}
+    >
+      {/* ============ Header ============ */}
+      <header className="relative px-8 pt-10 pb-7 overflow-hidden">
+        <div className="pointer-events-none absolute -top-24 right-10 h-64 w-64 rounded-full blur-3xl opacity-30"
+          style={{ background: "#22d3ee" }} />
+        <div className="pointer-events-none absolute -top-10 -left-10 h-48 w-48 rounded-full blur-3xl opacity-20"
+          style={{ background: "#1d6fa5" }} />
+        <div className="relative flex items-start justify-between gap-4">
           <div className="text-white">
-            <div className="text-[11px] uppercase tracking-[0.25em] font-extrabold opacity-80">Atlas Engine · Agency</div>
-            <h1 className="text-4xl font-extrabold tracking-tight mt-1 drop-shadow-sm">Welcome back, {friendlyName}! 👋</h1>
-            <p className="text-sm opacity-90 mt-1">Here's what's happening with your sub-accounts today.</p>
+            <div className="text-[11px] uppercase tracking-[0.3em] font-extrabold text-sky-300/70">Atlas Engine · Command Center</div>
+            <h1 className="text-4xl font-extrabold tracking-tight mt-1 drop-shadow">Welcome back, {friendlyName}. 👋</h1>
+            <p className="text-sm text-sky-200/60 mt-1">Here's how your agency is performing today.</p>
           </div>
-          <Button className="bg-white text-zinc-900 hover:bg-zinc-100 shadow-lg" onClick={() => setNewOpen(true)}>
-            <Plus className="h-4 w-4 mr-1" /> Add Business
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/agency/pipeline">
+              <Button variant="outline" className="border-sky-400/30 bg-white/5 text-white hover:bg-white/10">
+                <KanbanSquare className="h-4 w-4 mr-1.5" /> Pipeline
+              </Button>
+            </Link>
+            <Button className="bg-sky-400 text-slate-900 hover:bg-sky-300 shadow-lg shadow-sky-500/20 font-semibold"
+              onClick={() => setNewOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Add Business
+            </Button>
+          </div>
+        </div>
+
+        {/* Portfolio mini-stats (NOT revenue) */}
+        <div className="relative mt-6 flex flex-wrap gap-2.5">
+          <Pill icon={<Building2 className="h-3.5 w-3.5" />} label="Businesses" value={rollup?.total_businesses ?? list.length} />
+          <Pill icon={<Users className="h-3.5 w-3.5" />} label="Members" value={rollup?.total_members ?? "—"} />
+          <Pill icon={<Activity className="h-3.5 w-3.5" />} label="Active (30d)" value={rollup?.active_30d ?? "—"} />
         </div>
       </header>
 
-      <div className="px-8 pt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={<Building2 className="h-5 w-5" />} label="Total Businesses"
-          value={rollup?.total_businesses ?? list.length} tone="indigo" />
-        <StatCard icon={<Users className="h-5 w-5" />}     label="Total Members"
-          value={rollup?.total_members ?? "—"} tone="cyan" />
-        <StatCard icon={<Activity className="h-5 w-5" />}  label="Active (30d)"
-          value={rollup?.active_30d ?? "—"} tone="emerald" />
-        <StatCard icon={<DollarSign className="h-5 w-5" />} label="Revenue (30d)"
-          value={rollup ? dollars(rollup.revenue_30d_cents) : "—"} tone="amber" />
-      </div>
+      {/* ============ Metrics + charts ============ */}
+      <AgencyMetrics />
 
-      {/* Agency revenue & payments — Stripe-fed MRR widget */}
-      <AgencyBillingPanel />
-
+      {/* ============ Businesses ============ */}
       <div className="px-8 py-8">
-        <div className="rounded-2xl border bg-white">
-          <div className="flex items-center justify-between p-6 border-b">
+        <div className="rounded-2xl overflow-hidden"
+          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(56,189,248,0.14)" }}>
+          <div className="flex items-center justify-between gap-3 p-5 border-b border-white/5 flex-wrap">
             <div>
-              <h2 className="font-semibold text-lg">Your Businesses</h2>
-              <p className="text-sm text-muted-foreground">Manage your client portfolio</p>
+              <h2 className="font-bold text-white">Your businesses</h2>
+              <p className="text-[12px] text-sky-200/50">Manage your client portfolio</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Search businesses…" className="pl-9 w-64" />
-              </div>
-              <Button variant="outline" size="sm"><ListFilter className="h-4 w-4 mr-1" /> Name A–Z</Button>
-              <Button variant="outline" size="icon"><List className="h-4 w-4" /></Button>
-              <Button variant="outline" size="icon"><LayoutGrid className="h-4 w-4" /></Button>
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-sky-200/40" />
+              <Input placeholder="Search businesses…" value={query} onChange={e => setQuery(e.target.value)}
+                className="pl-9 w-64 bg-white/5 border-white/10 text-white placeholder:text-sky-200/30" />
             </div>
           </div>
 
-          <div className="divide-y">
-            {list.map(b => (
-              <div key={b.id} className="flex items-center justify-between p-5 hover:bg-muted/30 transition-colors">
+          <div className="divide-y divide-white/5">
+            {filtered.map(b => (
+              <div key={b.id} className="flex items-center justify-between p-4 hover:bg-white/[0.04] transition-colors">
                 <Link href={`/agency/businesses/${b.id}`} className="flex items-center gap-4 flex-1 min-w-0">
                   {b.logo_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={b.logo_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                    <img src={b.logo_url} alt="" className="h-11 w-11 rounded-xl object-cover ring-1 ring-white/10" />
                   ) : (
-                    <div
-                      className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-                      style={{ background: b.brand_colors?.primary ?? "#6366f1" }}
-                    >
+                    <div className="h-11 w-11 rounded-xl flex items-center justify-center text-white font-bold"
+                      style={{ background: b.brand_colors?.primary ?? "#1d6fa5" }}>
                       {b.name[0]}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="font-semibold truncate">{b.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">{b.industry ?? "Uncategorized"} · <code>{b.slug}.{rootDomain}</code></div>
+                    <div className="font-semibold text-white truncate">{b.name}</div>
+                    <div className="text-[11px] text-sky-200/40 truncate">{b.industry ?? "Uncategorized"} · <code className="text-sky-300/60">{b.slug}.{rootDomain}</code></div>
                   </div>
                 </Link>
                 <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${b.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium ${b.status === "active" ? "bg-emerald-400/15 text-emerald-300" : "bg-white/5 text-sky-200/50"}`}>
                     {b.status === "active" ? "● Active" : b.status}
                   </span>
-                  {/* CP-40: explicit per-business delete. Opens a
-                      type-DELETE-to-confirm modal so nothing happens
-                      from a misclick. */}
-                  <button
-                    onClick={() => setPendingDelete(b)}
-                    className="h-8 w-8 rounded-full text-zinc-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition"
-                    aria-label={`Delete ${b.name}`}
-                    title={`Delete ${b.name}`}
-                  >
+                  <Link href={`/agency/businesses/${b.id}`}
+                    className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-sky-200/70">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </Link>
+                  <button onClick={() => setPendingDelete(b)}
+                    className="h-8 w-8 rounded-full text-sky-200/40 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition"
+                    aria-label={`Delete ${b.name}`} title={`Delete ${b.name}`}>
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
             ))}
-            {list.length === 0 && (
-              <div className="p-10 text-center text-muted-foreground">
-                No businesses yet. Click "Add Business" to create your first sub-account.
+            {filtered.length === 0 && (
+              <div className="p-10 text-center text-sky-200/50">
+                {list.length === 0 ? 'No businesses yet. Click "Add Business" to create your first sub-account.' : "No matches."}
               </div>
             )}
           </div>
@@ -161,7 +157,6 @@ export function AgencyDashboardClient({
 
       {newOpen && <NewBusinessModal onClose={() => setNewOpen(false)} />}
 
-      {/* CP-40: destructive delete-business modal */}
       {pendingDelete && (
         <ConfirmDeleteModal
           title={`Delete ${pendingDelete.name}?`}
@@ -179,6 +174,17 @@ export function AgencyDashboardClient({
           onConfirm={() => performDelete(pendingDelete)}
         />
       )}
+    </div>
+  );
+}
+
+function Pill({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full px-3.5 py-1.5"
+      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(56,189,248,0.18)" }}>
+      <span className="text-sky-300/80">{icon}</span>
+      <span className="text-sm font-bold text-white tabular-nums">{value}</span>
+      <span className="text-[11px] text-sky-200/50">{label}</span>
     </div>
   );
 }
