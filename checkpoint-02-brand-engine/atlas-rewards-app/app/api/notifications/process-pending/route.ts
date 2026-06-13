@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
         body: n.body ?? null,
         link_path: n.link_path ?? "/app",
         kind: n.kind,
-      });
+      }, n.business_id ?? null);  // CP-51: scope push to the row's business
       sent += result.sent;
       failed += result.failed;
       doneIds.push(n.id);

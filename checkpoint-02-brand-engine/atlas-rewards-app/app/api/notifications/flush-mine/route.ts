@@ -38,14 +38,14 @@ export async function POST(req: Request) {
   const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: rows } = await admin
     .from("notifications")
-    .select("id, kind, title, body, link_path")
+    .select("id, kind, title, body, link_path, business_id")
     .eq("user_id", user.id)
     .is("push_sent_at", null)
     .gte("created_at", since)
     .order("created_at", { ascending: true })
     .limit(20);
 
-  const pending = (rows ?? []) as Array<{ id: string; kind: string; title: string; body: string | null; link_path: string | null }>;
+  const pending = (rows ?? []) as Array<{ id: string; kind: string; title: string; body: string | null; link_path: string | null; business_id: string | null }>;
   if (pending.length === 0) {
     return NextResponse.json({ ok: true, pushed: 0, push_sent: 0, push_failed: 0 });
   }
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         body: n.body ?? null,
         link_path: n.link_path ?? "/app",
         kind: n.kind,
-      });
+      }, n.business_id ?? null);  // CP-51: scope push to the row's business
       sent += r.sent; failed += r.failed;
       doneIds.push(n.id);
     } catch (e) {

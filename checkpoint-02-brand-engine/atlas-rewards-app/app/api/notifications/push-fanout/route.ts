@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     body: resolved.body ?? null,
     link_path: resolved.link_path ?? "/app",
     kind: resolved.kind ?? "generic",
-  });
+  }, resolved.business_id ?? null);  // CP-51: scope push to the row's business
 
   console.log(
     `[push-fanout] notif=${resolved.id ?? "(no id)"} user=${resolved.user_id} kind=${resolved.kind} sent=${result.sent} failed=${result.failed}`,

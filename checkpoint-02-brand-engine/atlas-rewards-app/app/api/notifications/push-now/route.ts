@@ -83,7 +83,7 @@ export async function POST(req: Request) {
     body: body.body ?? null,
     link_path: body.link_path ?? "/app",
     kind: body.kind ?? "generic",
-  });
+  }, businessId);  // CP-51: scope push to this business only
 
   return NextResponse.json({ ok: true, push_sent: sent, push_failed: failed });
 }

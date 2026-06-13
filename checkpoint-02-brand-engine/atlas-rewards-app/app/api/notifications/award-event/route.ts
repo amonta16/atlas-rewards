@@ -125,7 +125,7 @@ export async function POST(req: Request) {
         body: messageBody,
         link_path: "/app/rewards",
         kind: "reward_unlocked",
-      });
+      }, business_id);  // CP-51: scope push to this business only
       pushSent += r2.sent;
     } catch (e) {
       console.warn("[award-event] push failed:", (e as any)?.message);

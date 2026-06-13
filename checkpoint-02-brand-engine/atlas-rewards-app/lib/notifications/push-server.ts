@@ -38,25 +38,15 @@ export type PushPayload = {
   kind?: string;
 };
 
+type SubRow = { id: string; endpoint: string; p256dh: string; auth: string };
+
 /**
- * Send a push to every subscription for the given user_ids.
- * Returns { sent, failed } counts. Never throws — push delivery is
- * fire-and-forget; the in-app row is the canonical delivery.
+ * Internal: send a payload to a concrete set of subscription rows.
+ * Cleans up dead (404/410) subscriptions. Never throws.
  */
-export async function sendPushToUsers(
-  userIds: string[],
-  payload: PushPayload,
-): Promise<{ sent: number; failed: number }> {
+async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: number; failed: number }> {
   if (!configureVapid()) return { sent: 0, failed: 0 };
-  if (userIds.length === 0) return { sent: 0, failed: 0 };
-
-  const admin = createAdminClient();
-  const { data: subs } = await admin
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth, user_id")
-    .in("user_id", userIds);
-
-  if (!subs?.length) return { sent: 0, failed: 0 };
+  if (!subs.length) return { sent: 0, failed: 0 };
 
   const body = JSON.stringify({
     title: payload.title,
@@ -65,8 +55,7 @@ export async function sendPushToUsers(
     kind: payload.kind ?? "generic",
   });
 
-  let sent = 0;
-  let failed = 0;
+  let sent = 0, failed = 0;
   const deadIds: string[] = [];
 
   await Promise.all(subs.map(async (s) => {
@@ -78,35 +67,66 @@ export async function sendPushToUsers(
       sent++;
     } catch (e: any) {
       failed++;
-      // 404 Not Found or 410 Gone = subscription dead; clean it up.
-      if (e?.statusCode === 404 || e?.statusCode === 410) {
-        deadIds.push(s.id);
-      } else {
-        console.warn(`[push-server] send failed for ${s.endpoint}:`, e?.message ?? e);
-      }
+      if (e?.statusCode === 404 || e?.statusCode === 410) deadIds.push(s.id);
+      else console.warn(`[push-server] send failed for ${s.endpoint}:`, e?.message ?? e);
     }
   }));
 
   if (deadIds.length) {
+    const admin = createAdminClient();
     await admin.from("push_subscriptions").delete().in("id", deadIds);
   }
-
   return { sent, failed };
 }
 
 /**
- * Fan a push out to every enrolled member of a business — mirrors
- * the audience of broadcast_notification(p_business_id) RPC.
+ * Send a push to the given user_ids — STRICTLY scoped to one business.
+ *
+ * CP-51 tenant-isolation fix: `businessId` is REQUIRED. A device's push
+ * subscription is tagged with the business it was created under, and we
+ * only ever deliver to subscriptions whose business_id MATCHES. Pass a
+ * real id for a business notification, or `null` for a root/global one
+ * (which then only reaches root-tagged subscriptions). This is what
+ * stops e.g. a new business's offer from pushing to a phone that's only
+ * subscribed to a *different* business.
+ */
+export async function sendPushToUsers(
+  userIds: string[],
+  payload: PushPayload,
+  businessId: string | null,
+): Promise<{ sent: number; failed: number }> {
+  if (userIds.length === 0) return { sent: 0, failed: 0 };
+
+  const admin = createAdminClient();
+  let q = admin
+    .from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth")
+    .in("user_id", userIds);
+  // The tenant boundary: never send a business's push to a subscription
+  // tagged for a different business (or to an untagged/global one).
+  q = businessId === null ? q.is("business_id", null) : q.eq("business_id", businessId);
+
+  const { data: subs } = await q;
+  return deliver((subs ?? []) as SubRow[], payload);
+}
+
+/**
+ * Fan a push out to a business's audience.
+ *
+ * CP-51: scoped by the subscription's OWN business_id tag — the
+ * isolation boundary — rather than by membership. A subscription only
+ * carries a business_id if the user subscribed to push from inside that
+ * business's app, so this is exactly the set of devices that opted into
+ * THIS business's notifications, and nobody else's.
  */
 export async function sendPushToBusiness(
   businessId: string,
   payload: PushPayload,
 ): Promise<{ sent: number; failed: number }> {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("business_memberships")
-    .select("user_id")
+  const { data: subs } = await admin
+    .from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth")
     .eq("business_id", businessId);
-  const ids = (data ?? []).map(r => r.user_id).filter(Boolean) as string[];
-  return sendPushToUsers(ids, payload);
+  return deliver((subs ?? []) as SubRow[], payload);
 }
