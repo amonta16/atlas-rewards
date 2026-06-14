@@ -11,12 +11,18 @@
  */
 
 export type PatternId =
-  | "none" | "geometric" | "swirls" | "circles" | "waves" | "confetti"
-  | "honeycomb" | "gradient" | "medspa" | "restaurant" | "arcade" | "logo";
+  | "none" | "gradient" | "aurora" | "blobs" | "lowpoly"
+  | "geometric" | "swirls" | "circles" | "waves" | "confetti"
+  | "honeycomb" | "medspa" | "restaurant" | "arcade" | "logo";
 
 export const PATTERN_OPTIONS: { id: PatternId; label: string; emoji: string; hint: string }[] = [
   { id: "none",       label: "No pattern",   emoji: "⬜", hint: "Plain background" },
+  // Larger, fuller "designs" (full-bleed, brand-colored).
   { id: "gradient",   label: "Brand glow",   emoji: "🎨", hint: "Soft gradient in your colors" },
+  { id: "aurora",     label: "Aurora",       emoji: "🌈", hint: "Big soft bands of color" },
+  { id: "blobs",      label: "Color blobs",  emoji: "🫧", hint: "Large flowing shapes" },
+  { id: "lowpoly",    label: "Low-poly",     emoji: "💠", hint: "Faceted gradient" },
+  // Subtle repeating textures.
   { id: "geometric",  label: "Dots",         emoji: "🔷", hint: "Neutral dots — fits anything" },
   { id: "swirls",     label: "Swirls",       emoji: "🌀", hint: "Flowing spirals" },
   { id: "circles",    label: "Rings",        emoji: "⭕", hint: "Concentric circles" },
@@ -35,6 +41,11 @@ function tile(id: PatternId, c: string): { svg: string; size: number } | null {
     case "geometric":
       return { size: 44,
         svg: `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><g fill='${c}' fill-opacity='0.22'><circle cx='6' cy='6' r='2.2'/><circle cx='28' cy='28' r='2.2'/></g><g fill='${c}' fill-opacity='0.12'><circle cx='28' cy='6' r='1.6'/><circle cx='6' cy='28' r='1.6'/></g></svg>` };
+    case "lowpoly":
+      // Faceted "diamond" triangles at varied opacity → a tileable low-poly
+      // gradient feel that stays seamless when repeated.
+      return { size: 90,
+        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><g fill='${c}'><polygon points='0,0 45,0 0,45' fill-opacity='0.07'/><polygon points='45,0 90,0 90,45' fill-opacity='0.15'/><polygon points='45,0 90,45 45,45' fill-opacity='0.11'/><polygon points='45,0 45,45 0,45' fill-opacity='0.18'/><polygon points='0,45 45,45 0,90' fill-opacity='0.13'/><polygon points='45,45 45,90 0,90' fill-opacity='0.08'/><polygon points='45,45 90,45 90,90' fill-opacity='0.18'/><polygon points='45,45 90,90 45,90' fill-opacity='0.12'/></g></svg>` };
     case "swirls":
       return { size: 80,
         svg: `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><g stroke='${c}' stroke-opacity='0.20' fill='none' stroke-width='1.6' stroke-linecap='round'><path d='M20 20 C32 20 32 36 20 36 C12 36 12 26 22 26 C28 26 28 32 24 32'/><path d='M60 60 C72 60 72 76 60 76 C52 76 52 66 62 66 C68 66 68 72 64 72'/></g></svg>` };
@@ -90,6 +101,37 @@ export function patternStyle(
         `radial-gradient(120% 90% at 12% 0%, ${primary}26 0%, transparent 45%),` +
         `radial-gradient(120% 90% at 95% 8%, ${sec}22 0%, transparent 42%),` +
         `radial-gradient(140% 120% at 50% 100%, ${acc}1f 0%, transparent 50%)`,
+      backgroundAttachment: "fixed",
+    };
+  }
+
+  // Aurora — bigger, bolder bands of brand color across the whole screen.
+  if (id === "aurora") {
+    return {
+      backgroundColor: baseTint,
+      backgroundImage:
+        `radial-gradient(80% 55% at 10% 8%, ${primary}40 0%, transparent 60%),` +
+        `radial-gradient(75% 50% at 95% 18%, ${sec}3a 0%, transparent 58%),` +
+        `radial-gradient(90% 70% at 50% 108%, ${acc}38 0%, transparent 60%),` +
+        `radial-gradient(60% 45% at 75% 70%, ${primary}26 0%, transparent 60%)`,
+      backgroundAttachment: "fixed",
+    };
+  }
+
+  // Color blobs — large flowing shapes, brand-colored (full-bleed cover).
+  if (id === "blobs") {
+    const svg =
+      `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 800' preserveAspectRatio='xMidYMid slice'>` +
+      `<path d='M-40 120 C 120 40 180 220 320 150 C 460 80 470 360 300 360 C 120 360 60 260 -40 320 Z' fill='${primary}' fill-opacity='0.16'/>` +
+      `<path d='M420 520 C 280 460 240 660 120 600 C -20 530 -10 800 180 800 C 360 800 460 660 460 600 Z' fill='${sec}' fill-opacity='0.14'/>` +
+      `<path d='M60 470 C 150 430 170 560 250 540 C 330 520 320 640 230 650 C 130 660 20 560 60 470 Z' fill='${acc}' fill-opacity='0.12'/>` +
+      `</svg>`;
+    return {
+      backgroundColor: baseTint,
+      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
       backgroundAttachment: "fixed",
     };
   }

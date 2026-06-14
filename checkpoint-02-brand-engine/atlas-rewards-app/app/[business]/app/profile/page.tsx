@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { EditableProfile } from "@/components/customer/editable-profile";
-import { HeaderActions } from "@/components/customer/header-actions";
 import { DeleteAccountSection } from "@/components/customer/delete-account-section";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -23,26 +22,7 @@ export default async function ProfileTab({ params }: { params: { business: strin
 
   return (
     <>
-      {/* CP-24: persistent header on Profile too */}
-      <div className="px-4 pt-3 pb-3 flex items-center justify-between bg-white border-b border-zinc-100">
-        {business.logo_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={business.logo_url} alt={business.name} className="h-9 max-w-[140px] object-contain" />
-        ) : (
-          <div
-            className="h-9 px-3 rounded-full flex items-center text-white text-xs font-bold max-w-[160px]"
-            style={{ background: business.brand_colors.primary }}
-          >
-            <span className="truncate">{business.name}</span>
-          </div>
-        )}
-        <HeaderActions
-          business={business}
-          membershipId={mem?.id ?? null}
-          membership={mem}
-        />
-      </div>
-
+      {/* CP-52.4: header now global (app shell) — removed the per-tab copy. */}
       <EditableProfile
         business={business}
         initial={{

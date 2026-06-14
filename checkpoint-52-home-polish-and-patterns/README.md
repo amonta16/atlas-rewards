@@ -28,6 +28,11 @@ Six changes to the customer app, plus a new design feature.
 
 > Run **`cp52_more_patterns.sql`** too (widens the allowed-pattern check for the new ids).
 
+## CP-52.5 — crash fix + bigger designs
+
+- **Fixed the Rewards (and Scan/Profile) crash.** Those tabs already drew their own logo+quick-action header, so the new *global* header mounted `HeaderActions` twice with the same membership → two realtime subscriptions collided on the same channel name and threw a client-side exception. Removed the per-tab copies; the global header (in the app shell) is now the single instance and persists across tabs.
+- **"Larger bodies" designs added:** **Aurora** (big bold bands of brand color), **Color blobs** (large flowing shapes), and **Low-poly** (faceted gradient) — all tailored to the business's brand colors, in the same Design picker. Re-run `cp52_more_patterns.sql` (it now allows these ids).
+
 ## 1. Apply the SQL (required)
 
 Supabase → SQL editor → **`cp52_migration.sql`** → Run, then **`cp52_more_patterns.sql`**. Both idempotent. They add `businesses.background_pattern` (default `none`) and allow the new pattern ids.
