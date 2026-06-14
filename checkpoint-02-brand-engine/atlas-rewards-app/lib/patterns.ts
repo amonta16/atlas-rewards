@@ -29,22 +29,22 @@ function tile(id: PatternId, color: string): { svg: string; size: number } | nul
     case "geometric":
       return {
         size: 44,
-        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><g fill='${c}' fill-opacity='0.10'><circle cx='6' cy='6' r='2'/><circle cx='28' cy='28' r='2'/></g><g fill='${c}' fill-opacity='0.05'><circle cx='28' cy='6' r='1.4'/><circle cx='6' cy='28' r='1.4'/></g></svg>`,
+        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><g fill='${c}' fill-opacity='0.22'><circle cx='6' cy='6' r='2.2'/><circle cx='28' cy='28' r='2.2'/></g><g fill='${c}' fill-opacity='0.12'><circle cx='28' cy='6' r='1.6'/><circle cx='6' cy='28' r='1.6'/></g></svg>`,
       };
     case "medspa":
       return {
         size: 70,
-        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='70' height='70'><g stroke='${c}' stroke-opacity='0.13' fill='none' stroke-width='1.4'><path d='M14 40 C14 26 26 18 34 16 C32 28 24 40 14 40 Z'/><path d='M22 30 C26 28 30 24 33 19'/><path d='M52 60 C52 50 60 44 66 43 C64 52 60 60 52 60 Z'/></g></svg>`,
+        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='70' height='70'><g stroke='${c}' stroke-opacity='0.24' fill='none' stroke-width='1.6'><path d='M14 40 C14 26 26 18 34 16 C32 28 24 40 14 40 Z'/><path d='M22 30 C26 28 30 24 33 19'/><path d='M52 60 C52 50 60 44 66 43 C64 52 60 60 52 60 Z'/></g></svg>`,
       };
     case "restaurant":
       return {
         size: 72,
-        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72'><g stroke='${c}' stroke-opacity='0.13' fill='none' stroke-width='1.4'><path d='M14 18 h14 a3 3 0 0 1 3 3 v6 a8 8 0 0 1 -8 8 h-4 a8 8 0 0 1 -8 -8 v-6 a3 3 0 0 1 3 -3 Z'/><path d='M31 22 a5 5 0 0 1 0 10'/><path d='M16 41 h12'/><path d='M50 14 v18 M54 14 v18 M58 14 v18 M54 32 v22'/><path d='M44 56 a8 8 0 0 1 16 0 Z'/></g></svg>`,
+        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72'><g stroke='${c}' stroke-opacity='0.24' fill='none' stroke-width='1.6'><path d='M14 18 h14 a3 3 0 0 1 3 3 v6 a8 8 0 0 1 -8 8 h-4 a8 8 0 0 1 -8 -8 v-6 a3 3 0 0 1 3 -3 Z'/><path d='M31 22 a5 5 0 0 1 0 10'/><path d='M16 41 h12'/><path d='M50 14 v18 M54 14 v18 M58 14 v18 M54 32 v22'/><path d='M44 56 a8 8 0 0 1 16 0 Z'/></g></svg>`,
       };
     case "arcade":
       return {
         size: 56,
-        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56'><g fill='${c}' fill-opacity='0.12'><rect x='14' y='10' width='6' height='6'/><rect x='36' y='10' width='6' height='6'/><rect x='8' y='16' width='40' height='6'/><rect x='8' y='22' width='6' height='6'/><rect x='20' y='22' width='16' height='6'/><rect x='42' y='22' width='6' height='6'/><rect x='14' y='28' width='6' height='6'/><rect x='36' y='28' width='6' height='6'/></g></svg>`,
+        svg: `<svg xmlns='http://www.w3.org/2000/svg' width='56' height='56'><g fill='${c}' fill-opacity='0.22'><rect x='14' y='10' width='6' height='6'/><rect x='36' y='10' width='6' height='6'/><rect x='8' y='16' width='40' height='6'/><rect x='8' y='22' width='6' height='6'/><rect x='20' y='22' width='16' height='6'/><rect x='42' y='22' width='6' height='6'/><rect x='14' y='28' width='6' height='6'/><rect x='36' y='28' width='6' height='6'/></g></svg>`,
       };
     default:
       return null;
@@ -63,7 +63,7 @@ export function patternStyle(
   color: string,
   logoUrl?: string | null,
 ): React.CSSProperties {
-  const baseTint = "#fbfbfc";
+  const baseTint = "#faf9f7";
   const id = (pattern ?? "none") as PatternId;
 
   if (id === "logo") {
@@ -71,8 +71,8 @@ export function patternStyle(
     return {
       backgroundColor: baseTint,
       backgroundImage:
-        `linear-gradient(rgba(255,255,255,0.92), rgba(255,255,255,0.92)), url("${logoUrl}")`,
-      backgroundSize: "auto, 84px",
+        `linear-gradient(rgba(255,255,255,0.86), rgba(255,255,255,0.86)), url("${logoUrl}")`,
+      backgroundSize: "auto, 76px",
       backgroundRepeat: "repeat",
     };
   }

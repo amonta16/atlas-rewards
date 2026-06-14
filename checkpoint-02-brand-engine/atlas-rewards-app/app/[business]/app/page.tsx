@@ -76,30 +76,8 @@ export default async function CustomerHome({ params }: { params: { business: str
     <div className="relative">
       <OffersRevalidator businessId={business.id} />
 
-      {/* Header */}
-      <div className="px-4 pt-3 pb-3 flex items-center justify-between bg-white">
-        {business.logo_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={business.logo_url} alt={business.name} className="h-9 max-w-[140px] object-contain" />
-        ) : (
-          <div
-            className="h-9 px-3 rounded-full flex items-center text-white text-xs font-bold max-w-[160px]"
-            style={{ background: business.brand_colors.primary }}
-          >
-            <span className="truncate">{business.name}</span>
-          </div>
-        )}
-        {/* Streak · Member · Mystery icons — all client-side so they stay reactive */}
-        <HeaderActions
-          business={business}
-          membershipId={mem?.id ?? null}
-          membership={mem}
-          vipEnabled={vipEnabled}
-        />
-      </div>
-
-      {/* Hero */}
-      <div className="relative h-44 overflow-hidden">
+      {/* Hero with a frosted-glass quick-action header over it (CP-52.1) */}
+      <div className="relative h-48 overflow-hidden">
         {business.hero_image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={business.hero_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -110,14 +88,38 @@ export default async function CustomerHome({ params }: { params: { business: str
           />
         )}
         <div className="absolute inset-0 bg-black/20" />
-        <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between gap-3">
-          <div>
-            <div className="text-white/85 text-[10px] font-semibold tracking-widest uppercase">{business.name}</div>
-            <h2 className="text-white text-xl font-bold leading-tight mt-1">{greeting}</h2>
+
+        {/* Frosted white glass bar: logo + quick actions. Just enough blur +
+            white veil that it reads as glass but the logo/icons stay crisp. */}
+        <div className="absolute top-0 left-0 right-0 z-20 px-4 py-2.5 flex items-center justify-between gap-2 bg-white/55 backdrop-blur-md border-b border-white/40 shadow-sm">
+          {business.logo_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={business.logo_url} alt={business.name} className="h-8 max-w-[130px] object-contain drop-shadow-sm" />
+          ) : (
+            <div
+              className="h-8 px-3 rounded-full flex items-center text-white text-xs font-bold max-w-[150px]"
+              style={{ background: business.brand_colors.primary }}
+            >
+              <span className="truncate">{business.name}</span>
+            </div>
+          )}
+          {/* Streak · Check-in · VIP — client-side so they stay reactive */}
+          <HeaderActions
+            business={business}
+            membershipId={mem?.id ?? null}
+            membership={mem}
+            vipEnabled={vipEnabled}
+          />
+        </div>
+
+        {/* Greeting — sits below the glass bar; the member card overlaps the
+            hero's bottom edge, so the greeting stays in the upper-middle. */}
+        <div className="absolute top-14 left-0 right-0 px-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-white/90 text-[10px] font-semibold tracking-widest uppercase drop-shadow">{business.name}</div>
+            <h2 className="text-white text-lg font-bold leading-tight mt-0.5 drop-shadow-md">{greeting}</h2>
           </div>
-          {/* CP-32: notification bell — unread badge + push opt-in. Only
-              shown when the customer actually has a membership (the
-              notifications RPCs need a signed-in member). */}
+          {/* CP-32: notification bell — only when the customer is a member. */}
           {mem?.id && (
             <NotificationBell
               primary={business.brand_colors.primary}

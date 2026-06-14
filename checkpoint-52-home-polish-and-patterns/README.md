@@ -18,9 +18,19 @@ Six changes to the customer app, plus a new design feature.
    Patterns are tinted with your brand color and kept very low-opacity so content stays the focus.
 6. **Preview stays in sync.** The agency phone preview defaults to a **live frame of the real app**, so all of the above show up there after you save. The instant (mock) preview also picks up the chosen pattern and the bolder banner.
 
+7. **Frosted-glass header over the hero (CP-52.1).** The logo + quick-action pills now sit on a subtle white frosted-glass bar floating over the hero image (a touch of blur + white veil, kept light so the logo and icons stay crisp), instead of a separate solid white strip above it.
+
 ## 1. Apply the SQL (required)
 
 Supabase → SQL editor → **`cp52_migration.sql`** → Run. Idempotent. It just adds `businesses.background_pattern` (default `none`).
+
+### ⚠️ If the pattern isn't showing on the live app
+
+Almost always one of these:
+
+1. **The SQL hasn't been applied.** Without the `background_pattern` column, saving a pattern in the editor silently has nothing to write to (and the app reads it as `none`). Run `cp52_migration.sql` first, then re-pick the pattern and **Save** in the brand editor.
+2. **You're looking at the installed PWA.** The home-screen app caches the shell — fully close it and reopen, or test in a normal browser tab first. A redeploy + reopen picks up the new CSS.
+3. **It was too faint.** CP-52.1 bumps the pattern opacity so it's clearly (but still gently) visible in the page margins and the gaps between cards. Patterns intentionally don't show *through* the white content cards — they frame them.
 
 ## 2. Deploy
 
