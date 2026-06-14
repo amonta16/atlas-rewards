@@ -87,6 +87,9 @@ export default async function CustomerAppLayout({
            red/orange "!" Google-review nudge badge. */
         businessId={business.id}
         membershipId={membershipId}
+        /* CP-52.2: the pattern lives on the shell wrapper (which otherwise
+           painted bg-zinc-50 over it). */
+        backgroundStyle={bgStyle}
       >
         {children}
       </CustomerAppShell>

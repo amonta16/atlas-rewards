@@ -44,12 +44,16 @@ export function CustomerAppShell({
    *  review verification. */
   businessId,
   membershipId,
+  backgroundStyle,
 }: {
   primary: string;
   widgetConfig: WidgetConfig;
   children: React.ReactNode;
   businessId?: string | null;
   membershipId?: string | null;
+  /** CP-52.2: faint background pattern. Applied HERE (not the layout) because
+   *  this shell's wrapper would otherwise paint over it with bg-zinc-50. */
+  backgroundStyle?: React.CSSProperties;
 }) {
   const pathname = usePathname();
   // CP-45 404 fix: the nav used a hard-coded `/app` base. That works on the
@@ -76,7 +80,10 @@ export function CustomerAppShell({
   const reviewTone = widgetConfig?.reviews ? reviewBadgeTone(reviewStatus) : false;
 
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50">
+    <div
+      className="min-h-screen flex flex-col"
+      style={backgroundStyle ?? { backgroundColor: "#fafafa" }}
+    >
       {/* CP-42: arrow-points-at-bell nudge on first visit when push
           permission is still "default". Self-dismisses after 8s or on
           tap. Stores a flag in localStorage so it never re-shows. */}
