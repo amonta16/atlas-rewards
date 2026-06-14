@@ -225,14 +225,6 @@ export function RewardsClient({
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-base font-bold">Rewards store</h2>
-            {/* CP-42: wired to the new categorized shop page */}
-            <a
-              href={`/${business.slug}/app/shop`}
-              className="text-xs font-semibold flex items-center gap-0.5"
-              style={{ color: business.brand_colors.primary }}
-            >
-              See more <ChevronRight className="h-3 w-3" />
-            </a>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {rewards.map(r => {
@@ -301,6 +293,21 @@ export function RewardsClient({
               </div>
             )}
           </div>
+
+          {/* CP-52.1: same high-contrast "View more rewards" button as Home —
+              goes straight to the full categorized catalog. */}
+          {rewards.length > 0 && (
+            <a
+              href={`/${business.slug}/app/shop`}
+              className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
+              style={{
+                background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                boxShadow: `0 10px 22px -8px ${business.brand_colors.primary}aa`,
+              }}
+            >
+              View more rewards <ChevronRight className="h-4 w-4" />
+            </a>
+          )}
         </div>
       )}
 

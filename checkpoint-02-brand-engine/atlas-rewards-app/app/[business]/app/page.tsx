@@ -89,9 +89,19 @@ export default async function CustomerHome({ params }: { params: { business: str
         )}
         <div className="absolute inset-0 bg-black/20" />
 
-        {/* Frosted white glass bar: logo + quick actions. Just enough blur +
-            white veil that it reads as glass but the logo/icons stay crisp. */}
-        <div className="absolute top-0 left-0 right-0 z-20 px-4 py-2.5 flex items-center justify-between gap-2 bg-white/55 backdrop-blur-md border-b border-white/40 shadow-sm">
+        {/* CP-52.1: "liquid glass" quick-action bar. White gradient that fades
+            into the hero, heavy blur + saturation so it reads as real glass,
+            a bright top highlight edge, and a soft drop shadow underneath. */}
+        <div
+          className="absolute top-0 left-0 right-0 z-20 px-4 py-2.5 flex items-center justify-between gap-2"
+          style={{
+            background: "linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.42) 65%, rgba(255,255,255,0.20) 100%)",
+            backdropFilter: "blur(16px) saturate(170%)",
+            WebkitBackdropFilter: "blur(16px) saturate(170%)",
+            borderBottom: "1px solid rgba(255,255,255,0.55)",
+            boxShadow: "inset 0 1px 0 0 rgba(255,255,255,0.9), 0 8px 22px -12px rgba(0,0,0,0.35)",
+          }}
+        >
           {business.logo_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={business.logo_url} alt={business.name} className="h-8 max-w-[130px] object-contain drop-shadow-sm" />
@@ -270,9 +280,10 @@ export default async function CustomerHome({ params }: { params: { business: str
             })}
           </div>
 
-          {/* CP-52: clear, high-contrast "View more rewards" button below the grid. */}
+          {/* CP-52.1: jump STRAIGHT to the full rewards catalog (no double-step
+              through the rewards tab). */}
           <a
-            href={`/${params.business}/app/rewards`}
+            href={`/${params.business}/app/shop`}
             className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
             style={{
               background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
