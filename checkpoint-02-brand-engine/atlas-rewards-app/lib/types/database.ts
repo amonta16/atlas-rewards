@@ -28,6 +28,8 @@ export type WidgetConfig = {
   // Communication
   push: boolean;
   sms: boolean;
+  // CP-52.6: location/map + Call-now card at the bottom of the customer home.
+  location?: boolean;
 };
 
 export type PointRules = {
@@ -64,6 +66,8 @@ export type ContactInfo = {
   email?: string;
   address?: string;
   hours?: string;
+  /** CP-52.6: Google Maps link for the home-page location card. */
+  map_url?: string;
 };
 
 export type Business = {

@@ -239,7 +239,7 @@ export function RewardsClient({
                   key={r.id}
                   onClick={() => !locked && setRedeemingReward(r)}
                   disabled={locked}
-                  className="rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 disabled:opacity-60 hover:shadow-md transition-shadow"
+                  className="rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
                 >
                   {/* CP-24: render the reward image (was hardcoded Gift icon) so
                       Rewards tab matches Home tab. Falls back to brand gradient

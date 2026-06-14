@@ -403,6 +403,49 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 </div>
               </Section>
 
+              <Section title="Location & map" subtitle="Show a map + “Call now” button at the bottom of the customer home.">
+                <div className="flex items-center justify-between rounded-xl border p-3 mb-3">
+                  <div>
+                    <div className="text-sm font-semibold">Show location card</div>
+                    <div className="text-xs text-muted-foreground">Map, address, and a Call-now button on Home.</div>
+                  </div>
+                  <Switch
+                    checked={!!b.widget_config.location}
+                    onCheckedChange={(v) => update("widget_config", { ...b.widget_config, location: v })}
+                  />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Phone number">
+                    <Input
+                      value={b.contact_info?.phone ?? ""}
+                      onChange={e => update("contact_info", { ...(b.contact_info ?? {}), phone: e.target.value })}
+                      placeholder="(555) 123-4567"
+                    />
+                  </Field>
+                  <Field label="Google Maps link">
+                    <Input
+                      value={b.contact_info?.map_url ?? ""}
+                      onChange={e => update("contact_info", { ...(b.contact_info ?? {}), map_url: e.target.value })}
+                      placeholder="https://maps.app.goo.gl/…"
+                    />
+                  </Field>
+                </div>
+                <Field label="Address (shown + used to draw the map)">
+                  <Input
+                    value={b.contact_info?.address ?? ""}
+                    onChange={e => update("contact_info", { ...(b.contact_info ?? {}), address: e.target.value })}
+                    placeholder="123 Main St, City, ST 00000"
+                  />
+                </Field>
+                <Field label="Hours (optional)">
+                  <Input
+                    value={b.contact_info?.hours ?? ""}
+                    onChange={e => update("contact_info", { ...(b.contact_info ?? {}), hours: e.target.value })}
+                    placeholder="Opens at 9:00 AM"
+                  />
+                </Field>
+              </Section>
+
               <Section title="Customer-app features" subtitle="Turn features on or off — the customer app re-shapes its tabs and Home layout to match.">
                 <WidgetToggleGroups
                   config={b.widget_config}

@@ -26,7 +26,7 @@
  * behavior (same UI as before this fix).
  */
 import { useEffect, useState } from "react";
-import { Zap, Clock } from "lucide-react";
+import { Zap, Clock, Dices } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 import type { Business } from "@/lib/types/database";
@@ -156,10 +156,12 @@ export function DailySpinButton({
           }}
         >
           <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+            className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: ready ? "rgba(255,255,255,0.2)" : "rgb(228 228 231)" }}
           >
-            {variant === "cooldown" ? <Clock className="h-5 w-5 text-zinc-500" /> : "🎰"}
+            {variant === "cooldown"
+              ? <Clock className="h-5 w-5 text-zinc-500" />
+              : <Dices className="h-6 w-6" style={{ color: ready ? "#fff" : business.brand_colors.primary }} />}
           </div>
           <div className={`text-[10px] font-extrabold uppercase tracking-widest mt-2 ${ready ? "text-white/80" : "text-zinc-400"}`}>
             Daily Spin
@@ -210,12 +212,14 @@ export function DailySpinButton({
         >
           <div className="p-4 flex items-center gap-4">
             <div
-              className="h-14 w-14 rounded-2xl flex items-center justify-center text-3xl shrink-0"
+              className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0"
               style={{
                 background: variant === "ready" ? "rgba(255,255,255,0.2)" : "rgb(228 228 231)",
               }}
             >
-              {variant === "cooldown" ? <Clock className="h-7 w-7 text-zinc-500" /> : "🎰"}
+              {variant === "cooldown"
+                ? <Clock className="h-7 w-7 text-zinc-500" />
+                : <Dices className="h-7 w-7" style={{ color: variant === "ready" ? "#fff" : business.brand_colors.primary }} />}
             </div>
             <div className="flex-1 min-w-0">
               <div

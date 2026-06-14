@@ -4,6 +4,7 @@ import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { OffersRevalidator } from "@/components/customer/offers-revalidator";
 import { WinbackBanner } from "@/components/customer/winback-banner";
 import { MembershipSection } from "@/components/customer/membership-section";
+import { LocationCard } from "@/components/customer/location-card";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 // CP-42: reuse the existing Daily Spin button (the same one Andrew has
 // on Rewards) under the Featured offer on Home.
@@ -295,6 +296,9 @@ export default async function CustomerHome({ params }: { params: { business: str
           </div>
         </div>
       )}
+
+      {/* CP-52.6: location map + Call-now card at the very bottom of Home. */}
+      {business.widget_config.location && <LocationCard business={business} />}
     </div>
   );
 }

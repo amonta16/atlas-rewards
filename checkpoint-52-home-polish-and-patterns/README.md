@@ -33,6 +33,13 @@ Six changes to the customer app, plus a new design feature.
 - **Fixed the Rewards (and Scan/Profile) crash.** Those tabs already drew their own logo+quick-action header, so the new *global* header mounted `HeaderActions` twice with the same membership → two realtime subscriptions collided on the same channel name and threw a client-side exception. Removed the per-tab copies; the global header (in the app shell) is now the single instance and persists across tabs.
 - **"Larger bodies" designs added:** **Aurora** (big bold bands of brand color), **Color blobs** (large flowing shapes), and **Low-poly** (faceted gradient) — all tailored to the business's brand colors, in the same Design picker. Re-run `cp52_more_patterns.sql` (it now allows these ids).
 
+## CP-52.6 — bleed fix, spin icon, more designs, location card
+
+- **Fixed the Rewards card bleed.** Locked reward cards used `opacity-60`, which made the whole card translucent so the background pattern showed through. Removed it — cards stay opaque (locked is still clear from the lock icon + progress bar).
+- **Daily Spin icon** is now a real **dice** icon (lucide `Dices`) instead of the 🎰 emoji, tinted to the brand color.
+- **More designs:** **Diagonal**, **Topography** (contour lines), **Bubbles**, and **Terrazzo** — all brand-colored.
+- **Location card (new builder feature).** A map + address + hours + **Call now** button at the bottom of the customer Home. Toggle it on and paste a Google Maps link + phone in the brand editor under **Design → Location & map** (address draws the map with no API key needed). No SQL — it's stored in the existing `contact_info` / `widget_config`.
+
 ## 1. Apply the SQL (required)
 
 Supabase → SQL editor → **`cp52_migration.sql`** → Run, then **`cp52_more_patterns.sql`**. Both idempotent. They add `businesses.background_pattern` (default `none`) and allow the new pattern ids.

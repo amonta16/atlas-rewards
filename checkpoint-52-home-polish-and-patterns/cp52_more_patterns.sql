@@ -12,9 +12,9 @@ alter table public.businesses
 alter table public.businesses
   add constraint businesses_background_pattern_chk
   check (background_pattern in (
-    'none','gradient','aurora','blobs','lowpoly',
-    'geometric','swirls','circles','waves','confetti',
-    'honeycomb','medspa','restaurant','arcade','logo'
+    'none','gradient','aurora','blobs','lowpoly','diagonal',
+    'geometric','swirls','circles','waves','topography','bubbles',
+    'confetti','terrazzo','honeycomb','medspa','restaurant','arcade','logo'
   ));
 
 notify pgrst, 'reload schema';
