@@ -37,9 +37,15 @@ function readCachedBrand(): CachedBrand | null {
     "agency", "admin", "api", "login", "signup", "accept-invitation",
     "qr", "_next", "favicon.ico", "manifest.json",
   ]);
-  if (RESERVED.has(slug)) return null;
   try {
-    const raw = window.localStorage.getItem(`atlas-brand-${slug}`);
+    // CP-53: prefer the per-slug cache, but fall back to the slug-agnostic
+    // "last business" key. On the installed PWA / subdomain the path is just
+    // /app/... (slug === "app"), so the per-slug lookup misses — the fallback
+    // is what keeps the loading screen on-brand there instead of Atlas blue.
+    const bySlug = RESERVED.has(slug)
+      ? null
+      : window.localStorage.getItem(`atlas-brand-${slug}`);
+    const raw = bySlug ?? window.localStorage.getItem("atlas-brand-last");
     return raw ? (JSON.parse(raw) as CachedBrand) : null;
   } catch {
     return null;

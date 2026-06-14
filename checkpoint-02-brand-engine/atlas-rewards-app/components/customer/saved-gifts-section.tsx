@@ -120,7 +120,13 @@ export function SavedGiftsSection({
     };
   }, [businessId, membershipId]);
 
-  if (!rows || rows.length === 0) return null;
+  // CP-53: a used (front-desk delivered) or expired gift disappears from the
+  // customer's view. The RPC already excludes these; this is belt-and-suspenders
+  // so it vanishes instantly without waiting for a refetch.
+  const visible = (rows ?? []).filter(
+    o => !o.fulfilled_at && !(o.expires_at && new Date(o.expires_at).getTime() <= now),
+  );
+  if (visible.length === 0) return null;
 
   return (
     <div className="px-4 mt-5">
@@ -135,7 +141,7 @@ export function SavedGiftsSection({
       </div>
 
       <div className="space-y-2.5">
-        {rows.map(o => {
+        {visible.map(o => {
           const expires = o.expires_at ? new Date(o.expires_at).getTime() : null;
           const remainMs = expires ? Math.max(0, expires - now) : null;
           const expired = remainMs != null && remainMs <= 0;
@@ -189,12 +195,9 @@ export function SavedGiftsSection({
                         <Check className="h-2.5 w-2.5" /> Used {new Date(o.fulfilled_at!).toLocaleDateString()}
                       </span>
                     ) : countdown && !expired ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white/90">
+                      <span className="inline-flex items-center gap-1 bg-white text-red-600 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
                         <Clock className="h-2.5 w-2.5" /> {countdown}
-                      </span>
-                    ) : expired ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-white/70">
-                        Expired
                       </span>
                     ) : null}
                   </div>

@@ -1,5 +1,6 @@
-import { Gift, ChevronRight, Lock, Newspaper } from "lucide-react";
+import { Gift, ChevronRight, Newspaper } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { TopRewardsGrid } from "@/components/customer/top-rewards-grid";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { OffersRevalidator } from "@/components/customer/offers-revalidator";
 import { WinbackBanner } from "@/components/customer/winback-banner";
@@ -126,14 +127,16 @@ export default async function CustomerHome({ params }: { params: { business: str
           <div
             className="relative rounded-3xl p-[3px]"
             style={{
-              background: `linear-gradient(135deg, #06b6d4 0%, ${business.brand_colors.primary} 50%, #06b6d4 100%)`,
+              // CP-53: ring now uses the business's own brand colors
+              // (was a fixed cyan that clashed with some brands).
+              background: `linear-gradient(135deg, ${business.brand_colors.secondary} 0%, ${business.brand_colors.primary} 50%, ${business.brand_colors.accent} 100%)`,
               boxShadow: `0 0 0 4px ${business.brand_colors.primary}11, 0 12px 30px -8px ${business.brand_colors.primary}55`,
             }}
           >
             {/* Tiny ⭐ FEATURED ribbon top-left */}
             <span
               className="absolute -top-2.5 left-3 z-10 inline-flex items-center gap-1 text-[9px] font-black tracking-widest uppercase px-2 py-1 rounded-full text-white shadow"
-              style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}, #06b6d4)` }}
+              style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})` }}
             >
               <Gift className="h-2.5 w-2.5" /> Featured
             </span>
@@ -155,8 +158,8 @@ export default async function CustomerHome({ params }: { params: { business: str
                 {offer.description && <div className="text-[13px] text-zinc-500 mt-1.5 leading-snug">{offer.description}</div>}
                 {offerDaysLeft !== null && (
                   <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    <span className="text-rose-600 font-bold">Expires in {offerDaysLeft} day{offerDaysLeft === 1 ? "" : "s"}</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <span className="text-red-600 font-extrabold">Expires in {offerDaysLeft} day{offerDaysLeft === 1 ? "" : "s"}</span>
                   </div>
                 )}
               </div>
@@ -183,64 +186,15 @@ export default async function CustomerHome({ params }: { params: { business: str
               See all <ChevronRight className="h-3.5 w-3.5" />
             </a>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            {topRewards.map(r => {
-              // CP-27: progress bar — how close is the customer to this reward?
-              const pct = r.point_cost > 0
-                ? Math.min(100, (points / r.point_cost) * 100)
-                : 100;
-              const unlocked = points >= r.point_cost;
-              const remaining = Math.max(0, r.point_cost - points);
-              // CP-37.3: top rewards on Home are now tappable. Tapping an
-              // unlocked card jumps to the Rewards tab with ?redeem=<id>
-              // which the rewards-client picks up and auto-opens the
-              // RedeemFlow modal. Locked cards stay inert.
-              return (
-                <a
-                  key={r.id}
-                  href={unlocked ? `/${params.business}/app/rewards?redeem=${r.id}` : `/${params.business}/app/rewards`}
-                  className="rounded-xl border bg-white overflow-hidden block shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
-                  style={unlocked ? { borderColor: `${business.brand_colors.primary}55` } : undefined}
-                >
-                  {r.image_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={r.image_url} alt={r.name} className="aspect-[4/3] w-full object-cover" />
-                  ) : (
-                    <div className="aspect-[4/3] flex items-center justify-center"
-                      style={{ background: `${business.brand_colors.primary}15` }}>
-                      <Gift className="h-8 w-8" style={{ color: business.brand_colors.primary }} />
-                    </div>
-                  )}
-                  <div className="p-2.5">
-                    <div className="inline-flex items-center gap-1 text-[10px] font-bold"
-                      style={{ color: business.brand_colors.primary }}>
-                      <Lock className="h-2.5 w-2.5" /> {r.point_cost.toLocaleString()} POINTS
-                    </div>
-                    <div className="text-xs font-bold mt-0.5">{r.name}</div>
-                    {/* CP-27: progress bar */}
-                    <div className="mt-1.5">
-                      <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{
-                            width: `${pct}%`,
-                            background: unlocked
-                              ? "linear-gradient(90deg, #10b981, #059669)"
-                              : `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
-                          }}
-                        />
-                      </div>
-                      <div className={`text-[9px] font-bold mt-0.5 tabular-nums ${unlocked ? "text-emerald-600" : "text-zinc-500"}`}>
-                        {unlocked
-                          ? "Tap to redeem ✨"
-                          : `${points.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`}
-                      </div>
-                    </div>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
+          {/* CP-53: locked rewards now open a detail popup right here on Home
+              (client component); unlocked still deep-link to the redeem flow. */}
+          <TopRewardsGrid
+            businessSlug={params.business}
+            rewards={topRewards}
+            points={points}
+            primary={business.brand_colors.primary}
+            secondary={business.brand_colors.secondary}
+          />
 
           {/* CP-52.1: jump STRAIGHT to the full rewards catalog (no double-step
               through the rewards tab). */}

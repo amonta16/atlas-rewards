@@ -165,22 +165,18 @@ function CountdownPill({ urgency, label }: { urgency: Urgency; label: string }) 
   // Solid white background with bold colored text gives the highest contrast
   // regardless of brand color. Urgent still gets the pulsing rose dot — the
   // "get to the shop" cue Andrew specifically asked for.
-  const styles: Record<Urgency, { fg: string; pulse?: boolean; icon: React.ReactNode }> = {
-    calm:    { fg: "text-emerald-700", icon: <Clock className="h-3 w-3" /> },
-    soon:    { fg: "text-amber-700",   icon: <Clock className="h-3 w-3" /> },
-    urgent:  { fg: "text-rose-700",    pulse: true, icon: <AlertTriangle className="h-3 w-3" /> },
-    expired: { fg: "text-zinc-600",    icon: <Clock className="h-3 w-3" /> },
-  };
-  const style = styles[urgency];
+  // CP-53: every expiration countdown reads bright red to create urgency,
+  // regardless of how far out it is.
+  const icon = urgency === "urgent"
+    ? <AlertTriangle className="h-3 w-3" />
+    : <Clock className="h-3 w-3" />;
 
   return (
     <span
-      className={`mt-1.5 inline-flex items-center gap-1 bg-white ${style.fg} text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm`}
+      className="mt-1.5 inline-flex items-center gap-1 bg-white text-red-600 text-[11px] font-extrabold px-2 py-0.5 rounded-full shadow-sm"
     >
-      {style.pulse && (
-        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-      )}
-      {style.icon}
+      <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+      {icon}
       {label}
     </span>
   );

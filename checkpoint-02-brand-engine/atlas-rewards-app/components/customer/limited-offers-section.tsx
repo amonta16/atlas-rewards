@@ -219,9 +219,10 @@ export function LimitedOffersSection({
                         <Mic className="h-2.5 w-2.5" /> Voice
                       </span>
                     )}
-                    {/* Countdown */}
+                    {/* Countdown — CP-53: bright red for urgency. */}
                     {countdown && !expired && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-zinc-500">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-600">
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
                         <Clock className="h-2.5 w-2.5" /> {countdown}
                       </span>
                     )}

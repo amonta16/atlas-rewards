@@ -160,9 +160,9 @@ export function FeaturedOfferBanner({
         )}
       </span>
       {daysLeft !== null && (
-        <span className="shrink-0 bg-white text-zinc-900 rounded-full pl-2 pr-2.5 py-0.5 flex items-center gap-1.5 relative shadow-sm">
-          <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-          <span className="text-[11px] font-semibold">
+        <span className="shrink-0 bg-white rounded-full pl-2 pr-2.5 py-0.5 flex items-center gap-1.5 relative shadow-sm">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-[11px] font-extrabold text-red-600">
             Expires in {daysLeft}d
           </span>
         </span>
