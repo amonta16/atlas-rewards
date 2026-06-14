@@ -1,6 +1,7 @@
 "use client";
 import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles } from "lucide-react";
 import type { Business } from "@/lib/types/database";
+import { patternStyle } from "@/lib/patterns";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
 
@@ -46,7 +47,10 @@ export function CustomerPreview({
   const bannerIsPlaceholder = !offer;
 
   return (
-    <div className="relative bg-zinc-50 min-h-full flex flex-col">
+    <div
+      className="relative min-h-full flex flex-col"
+      style={patternStyle(b.background_pattern, b.brand_colors.primary, b.logo_url)}
+    >
       {/* STICKY OFFER BANNER — visible on every tab. Matches the production
           banner in components/customer/featured-offer-banner.tsx pixel-for-pixel
           so the agency preview accurately reflects what the customer will see.
@@ -64,8 +68,8 @@ export function CustomerPreview({
           }}
         >
           <span className="truncate pr-2 flex items-center gap-1.5 relative">
-            <Tag className="h-3 w-3 shrink-0 opacity-90 drop-shadow-sm" />
-            <span className="drop-shadow-sm font-semibold">{liveOffer.title}</span>
+            <Tag className="h-3.5 w-3.5 shrink-0 opacity-95 drop-shadow-sm" />
+            <span className="drop-shadow-sm font-black tracking-tight uppercase">{liveOffer.title}</span>
           </span>
           {liveOffer.days_left !== undefined && (
             <span className="shrink-0 bg-white text-zinc-900 rounded-full pl-2 pr-2.5 py-0.5 flex items-center gap-1.5 relative shadow-sm">

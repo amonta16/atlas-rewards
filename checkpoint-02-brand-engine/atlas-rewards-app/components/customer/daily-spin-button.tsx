@@ -36,9 +36,12 @@ type SpinStatus = { is_available: boolean; next_spin_at: string | null };
 export function DailySpinButton({
   business,
   membershipId,
+  compact = false,
 }: {
   business: Business;
   membershipId: string;
+  /** CP-52: half-width vertical card for the side-by-side Home row. */
+  compact?: boolean;
 }) {
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [spinStatus, setSpinStatus] = useState<SpinStatus | null>(null);
@@ -136,6 +139,54 @@ export function DailySpinButton({
   // Visual state buckets.
   const variant: "ready" | "cooldown" | "locked" =
     ready ? "ready" : cooldown ? "cooldown" : "locked";
+
+  // CP-52: compact half-width card for the side-by-side Home row.
+  if (compact) {
+    const ready = variant === "ready";
+    return (
+      <>
+        <button
+          onClick={() => { if (ready) setSpinOpen(true); }}
+          disabled={!ready}
+          className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform disabled:cursor-default p-3 flex flex-col shadow-sm"
+          style={{
+            background: ready
+              ? `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)`
+              : "rgb(244 244 245)",
+          }}
+        >
+          <div
+            className="h-10 w-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+            style={{ background: ready ? "rgba(255,255,255,0.2)" : "rgb(228 228 231)" }}
+          >
+            {variant === "cooldown" ? <Clock className="h-5 w-5 text-zinc-500" /> : "🎰"}
+          </div>
+          <div className={`text-[10px] font-extrabold uppercase tracking-widest mt-2 ${ready ? "text-white/80" : "text-zinc-400"}`}>
+            Daily Spin
+          </div>
+          <div className={`font-extrabold text-sm leading-tight ${ready ? "text-white" : "text-zinc-500"}`}>
+            {ready ? "Spin now!" : variant === "cooldown" ? "Spun today" : "Check in to unlock"}
+          </div>
+          <div className={`text-[10px] mt-0.5 ${ready ? "text-white/75" : "text-zinc-400"}`}>
+            {ready ? "Tap to play 🎰" : variant === "cooldown" ? `Next in ${countdown}` : "Visit the shop"}
+          </div>
+          {ready && (
+            <span className="mt-2 inline-flex items-center gap-1 self-start px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-zinc-900">
+              <Zap className="h-3 w-3" /> SPIN!
+            </span>
+          )}
+        </button>
+        {spinOpen && (
+          <DailyMysteryModal
+            business={business}
+            membershipId={membershipId}
+            checkedInToday={checkedInToday}
+            onClose={() => setSpinOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <>

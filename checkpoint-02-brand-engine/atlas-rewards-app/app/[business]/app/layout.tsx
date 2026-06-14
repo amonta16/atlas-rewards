@@ -5,6 +5,7 @@ import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
 import { PWAInstall } from "@/components/customer/pwa-install";
 import { FeaturedOfferBanner } from "@/components/customer/featured-offer-banner";
 import { OfferRevealWatcher } from "@/components/customer/offer-reveal-watcher";
+import { patternStyle } from "@/lib/patterns";
 import type { Business } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -45,8 +46,15 @@ export default async function CustomerAppLayout({
     | { title: string; expires_at: string | null; voice_message_url: string | null }
     | null;
 
+  // CP-52: faint tiled background pattern (Design picker) for a warmer feel.
+  const bgStyle = patternStyle(
+    business.background_pattern,
+    business.brand_colors.primary,
+    business.logo_url,
+  );
+
   return (
-    <div className="max-w-md mx-auto bg-white min-h-screen relative">
+    <div className="max-w-md mx-auto min-h-screen relative" style={bgStyle}>
       <CelebrateWatcher
         businessName={business.name}
         primary={business.brand_colors.primary}

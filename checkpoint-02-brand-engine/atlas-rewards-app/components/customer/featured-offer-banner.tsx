@@ -93,7 +93,7 @@ export function FeaturedOfferBanner({
       // z-40 sits above the page content but below the celebration toasts (z-50).
       // CP-28: distinctive diagonal stripe pattern so the featured offer
       // header reads as a *promo* band, not just a flat color bar.
-      className="sticky top-0 z-40 px-3 py-2.5 flex items-center justify-between text-white text-[12px] font-medium shadow-sm relative overflow-hidden"
+      className="sticky top-0 z-40 px-3 py-3 flex items-center justify-between text-white text-[13px] font-bold shadow-sm relative overflow-hidden"
       style={{
         background: primary,
         backgroundImage: `repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 8px, rgba(255,255,255,0) 8px 18px)`,
@@ -102,8 +102,8 @@ export function FeaturedOfferBanner({
       aria-label={`Featured offer: ${liveOffer.title}`}
     >
       <span className="truncate pr-2 flex items-center gap-1.5 relative">
-        <Tag className="h-3 w-3 shrink-0 opacity-90 drop-shadow-sm" />
-        <span className="drop-shadow-sm font-semibold truncate">{liveOffer.title}</span>
+        <Tag className="h-3.5 w-3.5 shrink-0 opacity-95 drop-shadow-sm" />
+        <span className="drop-shadow-sm font-black tracking-tight uppercase truncate">{liveOffer.title}</span>
         {/* CP-29: voice note play button — only renders when one is attached. */}
         {liveOffer.voice_message_url && (
           <>

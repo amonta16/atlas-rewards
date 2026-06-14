@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn, hexToHsl, businessUrl } from "@/lib/utils";
 import { INDUSTRY_PRESETS, type Business } from "@/lib/types/database";
+import { PATTERN_OPTIONS, patternStyle } from "@/lib/patterns";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -186,6 +187,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           contact_info: b.contact_info, google_review_url: b.google_review_url,
           widget_config: b.widget_config, point_rules: b.point_rules,
           tiers: b.tiers, services: b.services,
+          /* CP-52: faint background pattern for the customer app. */
+          background_pattern: b.background_pattern ?? "none",
         })
         .eq("id", b.id);
       if (!error) {
@@ -367,6 +370,36 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       </div>
                     </div>
                   ))}
+                </div>
+              </Section>
+
+              <Section title="Background pattern" subtitle="A faint tiled texture behind the customer app — pick one that fits the vibe, or none.">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                  {PATTERN_OPTIONS.map(opt => {
+                    const selected = (b.background_pattern ?? "none") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("background_pattern", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-1.5 text-center transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        <div
+                          className="h-12 w-full rounded-lg border border-zinc-100 flex items-center justify-center text-lg"
+                          style={patternStyle(opt.id, b.brand_colors.primary, b.logo_url)}
+                        >
+                          {opt.id === "none" ? "" : opt.emoji}
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </Section>
 

@@ -46,10 +46,14 @@ export function HeaderActions({
   business,
   membershipId,
   membership,
+  vipEnabled = true,
 }: {
   business: Business;
   membershipId: string | null;
   membership: Membership | null;
+  /** CP-52: when the business hasn't turned on a paid membership, hide the
+   *  VIP quick-action entirely (no point teasing a product that isn't live). */
+  vipEnabled?: boolean;
 }) {
   const router = useRouter();
   const [streak, setStreak] = useState<StreakSnap | null>(null);
@@ -327,7 +331,8 @@ export function HeaderActions({
           </button>
         )}
 
-        {/* ── 👑 VIP / Membership (CP-39: label always says "VIP") ─────── */}
+        {/* ── 👑 VIP / Membership ─ CP-52: only when membership is live ── */}
+        {vipEnabled && (
         <button
           onClick={handleMemberClick}
           className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
@@ -347,6 +352,7 @@ export function HeaderActions({
             VIP
           </span>
         </button>
+        )}
       </div>
 
       {/* Mystery modal */}

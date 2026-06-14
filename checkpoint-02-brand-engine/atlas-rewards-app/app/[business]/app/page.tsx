@@ -37,18 +37,24 @@ export default async function CustomerHome({ params }: { params: { business: str
     .from("businesses").select("*").eq("slug", params.business).single();
   const business = biz as Business;
 
-  const [{ data: memRows }, { data: { user } }, { data: featured }, { data: rewards }, { data: news }] = await Promise.all([
+  const [{ data: memRows }, { data: { user } }, { data: featured }, { data: rewards }, { data: news }, { data: billing }] = await Promise.all([
     supabase.rpc("my_membership", { p_business_id: business.id }),
     supabase.auth.getUser(),
     supabase.rpc("featured_offer", { p_business_id: business.id }),
-    supabase.rpc("top_rewards_public", { p_business_id: business.id, p_limit: 2 }),
+    // CP-52: show at least 4 top rewards on Home (was 2).
+    supabase.rpc("top_rewards_public", { p_business_id: business.id, p_limit: 4 }),
     supabase.rpc("latest_news",        { p_business_id: business.id, p_limit: 3 }),
+    // CP-52: is a paid membership actually live? Gates the VIP quick-action.
+    supabase.rpc("membership_billing_public", { p_business_id: business.id }),
   ]);
 
   const mem = (memRows?.[0] ?? null) as Membership | null;
   const offer = (featured?.[0] ?? null) as FeaturedOffer | null;
   const topRewards = (rewards ?? []) as TopReward[];
   const newsPosts = (news ?? []) as NewsRow[];
+  // membership_billing_public() returns a single row with is_enabled.
+  const billingRow = (Array.isArray(billing) ? billing[0] : billing) as { is_enabled?: boolean } | null;
+  const vipEnabled = !!billingRow?.is_enabled;
 
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
   const firstName = (profile?.full_name ?? user!.email?.split("@")[0] ?? "there").split(" ")[0];
@@ -88,6 +94,7 @@ export default async function CustomerHome({ params }: { params: { business: str
           business={business}
           membershipId={mem?.id ?? null}
           membership={mem}
+          vipEnabled={vipEnabled}
         />
       </div>
 
@@ -184,20 +191,6 @@ export default async function CustomerHome({ params }: { params: { business: str
         </div>
       )}
 
-      {/* CP-42 v2: same Daily Spin button as the Rewards tab, surfaced
-          right below the Featured offer. Locked until they check in;
-          opens the slot-machine modal when they tap it after check-in. */}
-      {mem?.id && (
-        <DailySpinButton business={business} membershipId={mem.id} />
-      )}
-
-      {/* CP-43.3: mini streak teaser — "N more check-ins until <reward>".
-          Self-hides once the first reward is reached. Tapping "View more"
-          opens the same streak panel as the header flame quick-action. */}
-      {mem?.id && (
-        <StreakMini business={business} membershipId={mem.id} />
-      )}
-
       {/* Top rewards */}
       {business.widget_config.rewards_store && topRewards.length > 0 && (
         <div className="px-4 mt-5">
@@ -274,6 +267,27 @@ export default async function CustomerHome({ params }: { params: { business: str
               );
             })}
           </div>
+
+          {/* CP-52: clear, high-contrast "View more rewards" button below the grid. */}
+          <a
+            href={`/${params.business}/app/rewards`}
+            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
+            style={{
+              background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+              boxShadow: `0 10px 22px -8px ${business.brand_colors.primary}aa`,
+            }}
+          >
+            View more rewards <ChevronRight className="h-4 w-4" />
+          </a>
+        </div>
+      )}
+
+      {/* CP-52: Daily Spin + Streak now sit BELOW rewards, side by side
+          (half-width each) instead of stacked full-width above. */}
+      {mem?.id && (
+        <div className="px-4 mt-4 grid grid-cols-2 gap-3 items-stretch">
+          <DailySpinButton business={business} membershipId={mem.id} compact />
+          <StreakMini business={business} membershipId={mem.id} compact />
         </div>
       )}
 
