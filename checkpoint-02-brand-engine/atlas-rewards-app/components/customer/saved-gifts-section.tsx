@@ -131,7 +131,7 @@ export function SavedGiftsSection({
   return (
     <div className="px-4 mt-5">
       <div className="flex items-center justify-between mb-2.5">
-        <h2 className="text-base font-bold">Your saved gifts</h2>
+        <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Your saved gifts</h2>
         <span
           className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
           style={{ background: `linear-gradient(135deg, ${primary}, ${sec})` }}

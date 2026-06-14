@@ -8,23 +8,33 @@
  * touch of warmth over the plain white.
  */
 import { HeaderActions } from "./header-actions";
+import { readableTextColor } from "@/lib/patterns";
 import type { Business, Membership } from "@/lib/types/database";
 
 export function CustomerHeader({
-  business, membershipId, membership, vipEnabled,
+  business, membershipId, membership, vipEnabled, headerColor,
 }: {
   business: Business;
   membershipId: string | null;
   membership: Membership | null;
   vipEnabled: boolean;
+  /** CP-54: header bar color (null = default near-white). */
+  headerColor?: string | null;
 }) {
+  // CP-54: adapt the dotted texture + border to a light vs dark header so it
+  // stays a subtle "paper" texture either way.
+  const bg = headerColor ?? "#fcfcfd";
+  const isDark = readableTextColor(bg) === "#f4f4f5";
+  const dot = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.05)";
+  const border = isDark ? "rgba(255,255,255,0.10)" : "#e4e4e7";
   return (
     <div
-      className="px-4 pt-3 pb-3 flex items-center justify-between border-b border-zinc-100"
+      className="px-4 pt-3 pb-3 flex items-center justify-between border-b"
       style={{
-        backgroundColor: "#fcfcfd",
-        backgroundImage: "radial-gradient(rgba(15,23,42,0.05) 1px, transparent 1.5px)",
+        backgroundColor: bg,
+        backgroundImage: `radial-gradient(${dot} 1px, transparent 1.5px)`,
         backgroundSize: "13px 13px",
+        borderColor: border,
         boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
       }}
     >

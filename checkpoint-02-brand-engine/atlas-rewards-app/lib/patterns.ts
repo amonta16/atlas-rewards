@@ -94,19 +94,39 @@ function tile(id: PatternId, c: string): { svg: string; size: number } | null {
  * container. `none` → plain near-white; `gradient` → full-bleed brand mesh;
  * `logo` → faint tiled logo watermark.
  */
+/**
+ * CP-54: best on-color text (dark or light) for readable contrast against a
+ * given surface color. Used to auto-flip on-background headings when the
+ * agency picks a dark header/background.
+ */
+export function readableTextColor(hex?: string | null): string {
+  if (!hex) return "#18181b";
+  const h = hex.replace("#", "").trim();
+  const full = h.length === 3 ? h.split("").map(ch => ch + ch).join("") : h.slice(0, 6);
+  const r = parseInt(full.slice(0, 2), 16);
+  const g = parseInt(full.slice(2, 4), 16);
+  const b = parseInt(full.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return "#18181b";
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum < 0.55 ? "#f4f4f5" : "#18181b";
+}
+
 export function patternStyle(
   pattern: PatternId | string | null | undefined,
   primary: string,
   logoUrl?: string | null,
   secondary?: string | null,
   accent?: string | null,
+  baseColor?: string | null,
 ): React.CSSProperties {
-  const baseTint = "#faf9f7";
+  // CP-54: the page base color is the agency's chosen surface color when set,
+  // otherwise the faint warm tint.
+  const baseTint = baseColor || "#faf9f7";
   const id = (pattern ?? "none") as PatternId;
   const sec = secondary || primary;
   const acc = accent || secondary || primary;
 
-  if (id === "none") return { backgroundColor: "#fafafa" };
+  if (id === "none") return { backgroundColor: baseColor || "#fafafa" };
 
   if (id === "gradient") {
     return {

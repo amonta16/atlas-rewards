@@ -172,7 +172,7 @@ export default async function CustomerHome({ params }: { params: { business: str
       {business.widget_config.rewards_store && topRewards.length > 0 && (
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-sm font-bold">Top rewards</h2>
+            <h2 className="text-sm font-bold" style={{ color: "var(--surf-fg)" }}>Top rewards</h2>
             {/* CP-47: make "See all" pop — a filled brand pill with a soft
                 glow so customers notice there's a full rewards catalog. */}
             <a
@@ -231,7 +231,7 @@ export default async function CustomerHome({ params }: { params: { business: str
       {newsPosts.length > 0 && (
         <div className="px-4 mt-5 pb-4">
           <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-sm font-bold flex items-center gap-1.5"><Newspaper className="h-3.5 w-3.5" /> News &amp; updates</h2>
+            <h2 className="text-sm font-bold flex items-center gap-1.5" style={{ color: "var(--surf-fg)" }}><Newspaper className="h-3.5 w-3.5" /> News &amp; updates</h2>
           </div>
           <div className="space-y-2">
             {newsPosts.map(post => (

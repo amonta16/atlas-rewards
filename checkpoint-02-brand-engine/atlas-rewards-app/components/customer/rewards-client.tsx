@@ -176,8 +176,8 @@ export function RewardsClient({
 
   return (
     <div className="pb-4">
-      <div className="px-4 pt-4 pb-2 flex items-center justify-between bg-white">
-        <h1 className="text-2xl font-bold tracking-tight">Rewards</h1>
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--surf-fg)" }}>Rewards</h1>
       </div>
 
       {/* 3D tilt-with-device loyalty card — CP-28: cash slot removed */}
@@ -224,7 +224,7 @@ export function RewardsClient({
       {business.widget_config.rewards_store && (
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-base font-bold">Rewards store</h2>
+            <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Rewards store</h2>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {rewards.map(r => {
@@ -327,7 +327,7 @@ export function RewardsClient({
       {/* Need more points? — CP-28: livelier, on-brand */}
       <div className="px-4 mt-6">
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-base font-bold">Need more points?</h2>
+          <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Need more points?</h2>
           <span
             className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
             style={{

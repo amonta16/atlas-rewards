@@ -189,6 +189,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           tiers: b.tiers, services: b.services,
           /* CP-52: faint background pattern for the customer app. */
           background_pattern: b.background_pattern ?? "none",
+          /* CP-54: customizable header + page (surface) colors. */
+          header_color: b.header_color ?? null,
+          surface_color: b.surface_color ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -401,6 +404,45 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     );
                   })}
                 </div>
+              </Section>
+
+              <Section title="Header & background" subtitle="Pick the header bar + page color (e.g. a dark mode). Content cards stay white and headings auto-adjust, so text never blends.">
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Button type="button" variant="outline" size="sm" onClick={() => patch({ header_color: null, surface_color: null })}>
+                    ☀️ Light (default)
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => patch({ header_color: "#0f172a", surface_color: "#0b1220" })}>
+                    🌙 Dark
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => patch({ header_color: b.brand_colors.primary, surface_color: null })}>
+                    🎨 Brand header
+                  </Button>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Header color</Label>
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={b.header_color ?? "#ffffff"}
+                        onChange={e => update("header_color", e.target.value)}
+                        className="h-10 w-12 rounded border cursor-pointer" />
+                      <Input value={b.header_color ?? ""} placeholder="#ffffff (default)"
+                        onChange={e => update("header_color", e.target.value || null)} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Background color</Label>
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={b.surface_color ?? "#faf9f7"}
+                        onChange={e => update("surface_color", e.target.value)}
+                        className="h-10 w-12 rounded border cursor-pointer" />
+                      <Input value={b.surface_color ?? ""} placeholder="#ffffff (default)"
+                        onChange={e => update("surface_color", e.target.value || null)} />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Leave blank for the default light look. Any background pattern you picked above still applies on top of this color.
+                </p>
               </Section>
 
               <Section title="Location & map" subtitle="Show a map + “Call now” button at the bottom of the customer home.">

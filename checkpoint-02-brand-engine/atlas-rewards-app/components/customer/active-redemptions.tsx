@@ -87,7 +87,7 @@ export function ActiveRedemptions({
     <>
       <div className="px-4 mt-5">
         <div className="flex items-center justify-between mb-2.5">
-          <h2 className="text-base font-bold">Your active rewards</h2>
+          <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Your active rewards</h2>
           <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 inline-flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
             Use it before you lose it

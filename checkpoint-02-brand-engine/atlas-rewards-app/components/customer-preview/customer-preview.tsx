@@ -1,7 +1,7 @@
 "use client";
 import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles } from "lucide-react";
 import type { Business } from "@/lib/types/database";
-import { patternStyle } from "@/lib/patterns";
+import { patternStyle, readableTextColor } from "@/lib/patterns";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
 
@@ -49,7 +49,10 @@ export function CustomerPreview({
   return (
     <div
       className="relative min-h-full flex flex-col"
-      style={patternStyle(b.background_pattern, b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent)}
+      style={{
+        ...patternStyle(b.background_pattern, b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent, b.surface_color),
+        ["--surf-fg" as any]: readableTextColor(b.surface_color),
+      }}
     >
       {/* STICKY OFFER BANNER — visible on every tab. Matches the production
           banner in components/customer/featured-offer-banner.tsx pixel-for-pixel
@@ -85,7 +88,8 @@ export function CustomerPreview({
       {/* HEADER — CP-26: pill-shaped quick-action buttons (mirrors the
           live <HeaderActions/> component). Icon + text label. The middle
           slot is "Member" with a Star icon — not a profile button. */}
-      <div className="px-4 pt-3 pb-3 flex items-center justify-between bg-white">
+      <div className="px-4 pt-3 pb-3 flex items-center justify-between border-b border-black/5"
+        style={{ backgroundColor: b.header_color ?? "#ffffff" }}>
         <BusinessLogo business={b} />
         <div className="flex items-center gap-1.5">
           {/* Daily check-in */}

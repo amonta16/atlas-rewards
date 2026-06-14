@@ -155,7 +155,7 @@ export function LimitedOffersSection({
     <>
       <section className="px-4 mt-5">
         <div className="flex items-center gap-2 mb-2.5">
-          <h2 className="text-base font-bold">Limited offers</h2>
+          <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Limited offers</h2>
           <span
             className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
             style={{ background: `linear-gradient(135deg, ${primary}, ${sec})` }}

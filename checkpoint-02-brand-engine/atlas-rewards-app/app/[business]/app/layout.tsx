@@ -5,7 +5,7 @@ import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
 import { PWAInstall } from "@/components/customer/pwa-install";
 import { FeaturedOfferBanner } from "@/components/customer/featured-offer-banner";
 import { OfferRevealWatcher } from "@/components/customer/offer-reveal-watcher";
-import { patternStyle } from "@/lib/patterns";
+import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { CustomerHeader } from "@/components/customer/customer-header";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -55,13 +55,19 @@ export default async function CustomerAppLayout({
     | null;
 
   // CP-52: faint tiled background pattern (Design picker) for a warmer feel.
+  // CP-54: customizable surface (page) + header colors. Default light when
+  // unset. Content cards stay white; on-bg text auto-flips for contrast.
+  const surfaceColor = business.surface_color ?? null;
+  const headerColor = business.header_color ?? null;
   const bgStyle = patternStyle(
     business.background_pattern,
     business.brand_colors.primary,
     business.logo_url,
     business.brand_colors.secondary,
     business.brand_colors.accent,
+    surfaceColor,
   );
+  const surfaceFg = readableTextColor(surfaceColor);
 
   return (
     <div className="max-w-md mx-auto min-h-screen relative" style={bgStyle}>
@@ -100,6 +106,9 @@ export default async function CustomerAppLayout({
         /* CP-52.2: the pattern lives on the shell wrapper (which otherwise
            painted bg-zinc-50 over it). */
         backgroundStyle={bgStyle}
+        /* CP-54: surface text color (auto-contrast) + chrome (header/nav) color. */
+        surfaceFg={surfaceFg}
+        chromeColor={headerColor}
         /* CP-52.4: shared header (logo + quick actions) on every tab. */
         header={
           <CustomerHeader
@@ -107,6 +116,7 @@ export default async function CustomerAppLayout({
             membershipId={membershipId}
             membership={membership}
             vipEnabled={vipEnabled}
+            headerColor={headerColor}
           />
         }
       >

@@ -46,6 +46,8 @@ export function CustomerAppShell({
   membershipId,
   backgroundStyle,
   header,
+  surfaceFg,
+  chromeColor,
 }: {
   primary: string;
   widgetConfig: WidgetConfig;
@@ -57,6 +59,11 @@ export function CustomerAppShell({
   backgroundStyle?: React.CSSProperties;
   /** CP-52.4: shared top header (logo + quick actions) on every tab. */
   header?: React.ReactNode;
+  /** CP-54: auto-contrast text color for content sitting directly on the
+   *  surface (section headings). Cards keep their own explicit colors. */
+  surfaceFg?: string;
+  /** CP-54: header / bottom-nav background color (null = default white). */
+  chromeColor?: string | null;
 }) {
   const pathname = usePathname();
   // CP-45 404 fix: the nav used a hard-coded `/app` base. That works on the
@@ -85,7 +92,10 @@ export function CustomerAppShell({
   return (
     <div
       className="min-h-screen flex flex-col"
-      style={backgroundStyle ?? { backgroundColor: "#fafafa" }}
+      // CP-54: expose the auto-contrast color as a CSS var. On-background
+      // section headings opt in via color:var(--surf-fg); white content cards
+      // keep their own explicit colors, so nothing inside them can blend.
+      style={{ ...(backgroundStyle ?? { backgroundColor: "#fafafa" }), ["--surf-fg" as any]: surfaceFg ?? "#18181b" }}
     >
       {/* CP-42: arrow-points-at-bell nudge on first visit when push
           permission is still "default". Self-dismisses after 8s or on
@@ -94,7 +104,12 @@ export function CustomerAppShell({
       {/* CP-52.4: shared header across every tab. */}
       {header}
       <main className="flex-1 pb-20">{children}</main>
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-zinc-200 px-1 py-1.5 flex items-center justify-around z-40">
+      <nav
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-1 py-1.5 flex items-center justify-around z-40"
+        style={chromeColor
+          ? { background: chromeColor, borderColor: "rgba(127,127,127,0.28)" }
+          : { background: "#ffffff", borderColor: "#e4e4e7" }}
+      >
         {tabs.map(t => {
           // CP-32: red/orange "!" badge on the Rewards tab — itches the
           // user into submitting (or finishing) a Google review.
