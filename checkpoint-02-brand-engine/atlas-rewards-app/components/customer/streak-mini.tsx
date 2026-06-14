@@ -86,7 +86,7 @@ export function StreakMini({
       <>
         <button
           onClick={() => setOpen(true)}
-          className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-sm p-3 flex flex-col"
+          className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-md ring-1 ring-black/10 p-3 flex flex-col"
           style={{ background: "linear-gradient(135deg, #fb923c 0%, #ef4444 100%)" }}
         >
           <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center shrink-0">

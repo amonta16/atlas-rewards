@@ -6,7 +6,8 @@ import { PWAInstall } from "@/components/customer/pwa-install";
 import { FeaturedOfferBanner } from "@/components/customer/featured-offer-banner";
 import { OfferRevealWatcher } from "@/components/customer/offer-reveal-watcher";
 import { patternStyle } from "@/lib/patterns";
-import type { Business } from "@/lib/types/database";
+import { CustomerHeader } from "@/components/customer/customer-header";
+import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,16 @@ export default async function CustomerAppLayout({
   // Auto-enroll if not already a member
   await supabase.rpc("enroll_member", { p_user_id: user.id, p_business_id: business.id });
 
-  // Resolve the membership_id for the Realtime celebrate watcher
+  // Resolve the membership for the Realtime celebrate watcher + shared header.
   const { data: memRows } = await supabase.rpc("my_membership", { p_business_id: business.id });
-  const membershipId = (memRows?.[0]?.id as string) ?? null;
+  const membership = (memRows?.[0] ?? null) as Membership | null;
+  const membershipId = membership?.id ?? null;
+
+  // CP-52.4: is a paid membership live? Gates the VIP quick-action in the
+  // shared header (same as the Home page does).
+  const { data: billing } = await supabase.rpc("membership_billing_public", { p_business_id: business.id });
+  const billingRow = (Array.isArray(billing) ? billing[0] : billing) as { is_enabled?: boolean } | null;
+  const vipEnabled = !!billingRow?.is_enabled;
 
   // CP-21: Load featured offer once at the layout level so the sticky banner
   // persists across every tab (Home / Scan / Rewards / Profile) instead of
@@ -51,6 +59,8 @@ export default async function CustomerAppLayout({
     business.background_pattern,
     business.brand_colors.primary,
     business.logo_url,
+    business.brand_colors.secondary,
+    business.brand_colors.accent,
   );
 
   return (
@@ -90,6 +100,15 @@ export default async function CustomerAppLayout({
         /* CP-52.2: the pattern lives on the shell wrapper (which otherwise
            painted bg-zinc-50 over it). */
         backgroundStyle={bgStyle}
+        /* CP-52.4: shared header (logo + quick actions) on every tab. */
+        header={
+          <CustomerHeader
+            business={business}
+            membershipId={membershipId}
+            membership={membership}
+            vipEnabled={vipEnabled}
+          />
+        }
       >
         {children}
       </CustomerAppShell>

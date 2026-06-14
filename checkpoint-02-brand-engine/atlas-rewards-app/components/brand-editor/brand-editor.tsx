@@ -390,7 +390,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       >
                         <div
                           className="h-12 w-full rounded-lg border border-zinc-100 flex items-center justify-center text-lg"
-                          style={patternStyle(opt.id, b.brand_colors.primary, b.logo_url)}
+                          style={patternStyle(opt.id, b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent)}
                         >
                           {opt.id === "none" ? "" : opt.emoji}
                         </div>

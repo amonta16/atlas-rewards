@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { OffersRevalidator } from "@/components/customer/offers-revalidator";
 import { WinbackBanner } from "@/components/customer/winback-banner";
-import { HeaderActions } from "@/components/customer/header-actions";
 import { MembershipSection } from "@/components/customer/membership-section";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 // CP-42: reuse the existing Daily Spin button (the same one Andrew has
@@ -37,24 +36,19 @@ export default async function CustomerHome({ params }: { params: { business: str
     .from("businesses").select("*").eq("slug", params.business).single();
   const business = biz as Business;
 
-  const [{ data: memRows }, { data: { user } }, { data: featured }, { data: rewards }, { data: news }, { data: billing }] = await Promise.all([
+  const [{ data: memRows }, { data: { user } }, { data: featured }, { data: rewards }, { data: news }] = await Promise.all([
     supabase.rpc("my_membership", { p_business_id: business.id }),
     supabase.auth.getUser(),
     supabase.rpc("featured_offer", { p_business_id: business.id }),
     // CP-52: show at least 4 top rewards on Home (was 2).
     supabase.rpc("top_rewards_public", { p_business_id: business.id, p_limit: 4 }),
     supabase.rpc("latest_news",        { p_business_id: business.id, p_limit: 3 }),
-    // CP-52: is a paid membership actually live? Gates the VIP quick-action.
-    supabase.rpc("membership_billing_public", { p_business_id: business.id }),
   ]);
 
   const mem = (memRows?.[0] ?? null) as Membership | null;
   const offer = (featured?.[0] ?? null) as FeaturedOffer | null;
   const topRewards = (rewards ?? []) as TopReward[];
   const newsPosts = (news ?? []) as NewsRow[];
-  // membership_billing_public() returns a single row with is_enabled.
-  const billingRow = (Array.isArray(billing) ? billing[0] : billing) as { is_enabled?: boolean } | null;
-  const vipEnabled = !!billingRow?.is_enabled;
 
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
   const firstName = (profile?.full_name ?? user!.email?.split("@")[0] ?? "there").split(" ")[0];
@@ -76,37 +70,8 @@ export default async function CustomerHome({ params }: { params: { business: str
     <div className="relative">
       <OffersRevalidator businessId={business.id} />
 
-      {/* Header — CP-52.2: reverted to the original white bar above the hero
-          (the glass-over-hero experiment is out), with a subtle dotted "paper"
-          texture so it feels a touch warmer than flat white. */}
-      <div
-        className="px-4 pt-3 pb-3 flex items-center justify-between border-b border-zinc-100"
-        style={{
-          backgroundColor: "#fcfcfd",
-          backgroundImage: "radial-gradient(rgba(15,23,42,0.05) 1px, transparent 1.5px)",
-          backgroundSize: "13px 13px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
-        }}
-      >
-        {business.logo_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={business.logo_url} alt={business.name} className="h-9 max-w-[140px] object-contain" />
-        ) : (
-          <div
-            className="h-9 px-3 rounded-full flex items-center text-white text-xs font-bold max-w-[160px]"
-            style={{ background: business.brand_colors.primary }}
-          >
-            <span className="truncate">{business.name}</span>
-          </div>
-        )}
-        {/* Streak · Check-in · VIP — client-side so they stay reactive */}
-        <HeaderActions
-          business={business}
-          membershipId={mem?.id ?? null}
-          membership={mem}
-          vipEnabled={vipEnabled}
-        />
-      </div>
+      {/* CP-52.4: header (logo + quick actions) now lives in the app shell so
+          it appears on every tab — not just here. */}
 
       {/* Hero */}
       <div className="relative h-44 overflow-hidden">
@@ -233,7 +198,7 @@ export default async function CustomerHome({ params }: { params: { business: str
                 <a
                   key={r.id}
                   href={unlocked ? `/${params.business}/app/rewards?redeem=${r.id}` : `/${params.business}/app/rewards`}
-                  className="rounded-xl border bg-white overflow-hidden block hover:shadow-md transition-shadow"
+                  className="rounded-xl border bg-white overflow-hidden block shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
                   style={unlocked ? { borderColor: `${business.brand_colors.primary}55` } : undefined}
                 >
                   {r.image_url ? (

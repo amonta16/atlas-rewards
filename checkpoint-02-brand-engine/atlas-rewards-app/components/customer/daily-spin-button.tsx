@@ -148,7 +148,7 @@ export function DailySpinButton({
         <button
           onClick={() => { if (ready) setSpinOpen(true); }}
           disabled={!ready}
-          className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform disabled:cursor-default p-3 flex flex-col shadow-sm"
+          className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform disabled:cursor-default p-3 flex flex-col shadow-md ring-1 ring-black/[0.07]"
           style={{
             background: ready
               ? `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)`
@@ -200,7 +200,7 @@ export function DailySpinButton({
             if (variant === "ready") setSpinOpen(true);
           }}
           disabled={variant !== "ready"}
-          className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform disabled:cursor-default"
+          className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform disabled:cursor-default shadow-sm ring-1 ring-black/5"
           style={{
             background:
               variant === "ready"

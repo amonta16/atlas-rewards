@@ -20,9 +20,17 @@ Six changes to the customer app, plus a new design feature.
 
 7. **Frosted-glass header over the hero (CP-52.1).** The logo + quick-action pills now sit on a subtle white frosted-glass bar floating over the hero image (a touch of blur + white veil, kept light so the logo and icons stay crisp), instead of a separate solid white strip above it.
 
+## CP-52.4 additions
+
+- **Widgets no longer bleed into the pattern.** Reward cards, the Spin & Streak cards, and the "Need more points" rows now have a defined ring + soft shadow on a solid background (the earn rows were a faint tint that let the pattern show through). Applied on **both** Home and the Rewards tab.
+- **Header is global.** The logo + quick-action bar now lives in the app shell, so it shows on **every** tab (Home, Check-in, Rewards, Profile) — not just Home.
+- **More background patterns.** Added **Brand glow** (a soft full-bleed gradient in your brand colors), **Swirls**, **Rings**, **Waves**, **Confetti**, and **Honeycomb**, alongside the originals (Dots, Medspa, Restaurant, Arcade, Logo, None). All tint to your brand colors.
+
+> Run **`cp52_more_patterns.sql`** too (widens the allowed-pattern check for the new ids).
+
 ## 1. Apply the SQL (required)
 
-Supabase → SQL editor → **`cp52_migration.sql`** → Run. Idempotent. It just adds `businesses.background_pattern` (default `none`).
+Supabase → SQL editor → **`cp52_migration.sql`** → Run, then **`cp52_more_patterns.sql`**. Both idempotent. They add `businesses.background_pattern` (default `none`) and allow the new pattern ids.
 
 ### ⚠️ If the pattern isn't showing on the live app
 

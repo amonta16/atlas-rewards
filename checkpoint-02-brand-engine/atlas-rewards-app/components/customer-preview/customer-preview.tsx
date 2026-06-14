@@ -49,7 +49,7 @@ export function CustomerPreview({
   return (
     <div
       className="relative min-h-full flex flex-col"
-      style={patternStyle(b.background_pattern, b.brand_colors.primary, b.logo_url)}
+      style={patternStyle(b.background_pattern, b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent)}
     >
       {/* STICKY OFFER BANNER — visible on every tab. Matches the production
           banner in components/customer/featured-offer-banner.tsx pixel-for-pixel

@@ -45,6 +45,7 @@ export function CustomerAppShell({
   businessId,
   membershipId,
   backgroundStyle,
+  header,
 }: {
   primary: string;
   widgetConfig: WidgetConfig;
@@ -54,6 +55,8 @@ export function CustomerAppShell({
   /** CP-52.2: faint background pattern. Applied HERE (not the layout) because
    *  this shell's wrapper would otherwise paint over it with bg-zinc-50. */
   backgroundStyle?: React.CSSProperties;
+  /** CP-52.4: shared top header (logo + quick actions) on every tab. */
+  header?: React.ReactNode;
 }) {
   const pathname = usePathname();
   // CP-45 404 fix: the nav used a hard-coded `/app` base. That works on the
@@ -88,6 +91,8 @@ export function CustomerAppShell({
           permission is still "default". Self-dismisses after 8s or on
           tap. Stores a flag in localStorage so it never re-shows. */}
       <EnablePushNudge primary={primary} businessId={businessId ?? null} />
+      {/* CP-52.4: shared header across every tab. */}
+      {header}
       <main className="flex-1 pb-20">{children}</main>
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-zinc-200 px-1 py-1.5 flex items-center justify-around z-40">
         {tabs.map(t => {

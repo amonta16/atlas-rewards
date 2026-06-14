@@ -239,7 +239,7 @@ export function RewardsClient({
                   key={r.id}
                   onClick={() => !locked && setRedeemingReward(r)}
                   disabled={locked}
-                  className="rounded-2xl border bg-white overflow-hidden text-left disabled:opacity-60 hover:shadow-md transition-shadow"
+                  className="rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 disabled:opacity-60 hover:shadow-md transition-shadow"
                 >
                   {/* CP-24: render the reward image (was hardcoded Gift icon) so
                       Rewards tab matches Home tab. Falls back to brand gradient
@@ -494,11 +494,14 @@ function EarnRow({
 
   // CP-28: card itself gets a soft brand tint (was flat white) so the section
   // feels like one cohesive "earn zone" instead of three neutral cards.
+  // CP-52.4: solid white card (was a faint tint that let the background
+  // pattern bleed through) + a defined ring + soft shadow so the "earn"
+  // rows sit cleanly above the patterned background.
   const baseClass =
-    "flex items-center gap-3 rounded-2xl border p-3.5 transition-all";
+    "flex items-center gap-3 rounded-2xl border p-3.5 transition-all shadow-sm ring-1 ring-black/5";
   const cardStyle: React.CSSProperties = {
-    background: `linear-gradient(135deg, ${primary}08 0%, ${sec}05 100%)`,
-    borderColor: `${primary}22`,
+    background: "#ffffff",
+    borderColor: `${primary}26`,
   };
 
   if (external) {

@@ -85,8 +85,9 @@ export type Business = {
   point_rules: PointRules;
   tiers: Tier[];
   services: Service[];
-  /** CP-52: faint tiled background pattern for the customer app. */
-  background_pattern?: "none" | "geometric" | "medspa" | "restaurant" | "arcade" | "logo" | null;
+  /** CP-52: faint background pattern for the customer app. See lib/patterns.ts
+   *  PatternId for the full set (none/gradient/dots/swirls/circles/waves/… ). */
+  background_pattern?: string | null;
   status: "active" | "paused" | "archived";
   /** GHL Calendar integration (per sub-account). When set, the booking
    *  flow uses GHL's free-slots API for availability instead of our local
