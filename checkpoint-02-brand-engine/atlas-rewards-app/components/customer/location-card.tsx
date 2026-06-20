@@ -34,8 +34,13 @@ export function LocationCard({ business }: { business: Business }) {
 
   return (
     // CP-55: solid white full-width band so the map + Call-now sit on white,
-    // not the page pattern.
-    <div className="bg-white border-t border-zinc-100 mt-6 px-4 py-5">
+    // not the page pattern. CP-55.1: extra bottom padding + a negative margin
+    // that cancels the page's nav-clearance padding, so the white runs all the
+    // way down behind the bottom nav (no patterned strip in the gap).
+    <div
+      className="bg-white border-t border-zinc-100 mt-6 px-4 pt-5"
+      style={{ paddingBottom: "7rem", marginBottom: "-5rem" }}
+    >
       <div className="rounded-2xl overflow-hidden border bg-white shadow-sm ring-1 ring-black/5">
         {embedSrc ? (
           <a href={directionsUrl ?? undefined} target="_blank" rel="noopener noreferrer" className="block relative">
