@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn, hexToHsl, businessUrl } from "@/lib/utils";
 import { INDUSTRY_PRESETS, type Business } from "@/lib/types/database";
 import { PATTERN_OPTIONS, patternStyle } from "@/lib/patterns";
+import { BANNER_OPTIONS, bannerStyle } from "@/lib/banner-styles";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -192,6 +193,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           /* CP-54: customizable header + page (surface) colors. */
           header_color: b.header_color ?? null,
           surface_color: b.surface_color ?? null,
+          /* CP-56: featured-offer banner style. */
+          banner_style: b.banner_style ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -443,6 +446,34 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 <p className="text-[11px] text-muted-foreground mt-2">
                   Leave blank for the default light look. Any background pattern you picked above still applies on top of this color.
                 </p>
+              </Section>
+
+              <Section title="Offer banner style" subtitle="The promo bar pinned to the top of every customer tab. Pick a look or a seasonal theme.">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {BANNER_OPTIONS.map(opt => {
+                    const selected = (b.banner_style ?? "stripes") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("banner_style", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 overflow-hidden text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                      >
+                        <div className="h-9 flex items-center gap-1.5 px-2 text-white text-[11px] font-bold overflow-hidden"
+                          style={bannerStyle(opt.id, b.brand_colors.primary, b.brand_colors.secondary, b.brand_colors.accent)}>
+                          <Tag className="h-3 w-3 shrink-0 drop-shadow" />
+                          <span className="truncate drop-shadow">Featured offer</span>
+                        </div>
+                        <div className={cn("text-[10px] font-semibold px-2 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.emoji} {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </Section>
 
               <Section title="Location & map" subtitle="Show a map + “Call now” button at the bottom of the customer home.">

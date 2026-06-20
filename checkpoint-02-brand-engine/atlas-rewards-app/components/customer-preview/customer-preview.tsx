@@ -2,6 +2,7 @@
 import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles } from "lucide-react";
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
+import { bannerStyle } from "@/lib/banner-styles";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
 
@@ -44,7 +45,6 @@ export function CustomerPreview({
   // before they create their first offer, and the preview doesn't go blank
   // between offer-save and the next preview refetch.
   const liveOffer: PreviewOffer = offer ?? { title: "Your featured offer will appear here", days_left: 8 };
-  const bannerIsPlaceholder = !offer;
 
   return (
     <div
@@ -63,12 +63,7 @@ export function CustomerPreview({
       {w.offers && (
         <div
           className="sticky top-0 z-30 px-3 py-2.5 flex items-center justify-between text-white text-[12px] font-medium shadow-sm relative overflow-hidden"
-          style={{
-            background: b.brand_colors.primary,
-            backgroundImage: bannerIsPlaceholder
-              ? `repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 6px, rgba(255,255,255,0) 6px 12px)`
-              : `repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 8px, rgba(255,255,255,0) 8px 18px)`,
-          }}
+          style={bannerStyle(b.banner_style, b.brand_colors.primary, b.brand_colors.secondary, b.brand_colors.accent)}
         >
           <span className="truncate pr-2 flex items-center gap-1.5 relative">
             <Tag className="h-3.5 w-3.5 shrink-0 opacity-95 drop-shadow-sm" />

@@ -96,6 +96,9 @@ export type Business = {
    *  Content cards stay white; on-bg text auto-contrasts. */
   header_color?: string | null;
   surface_color?: string | null;
+  /** CP-56: sticky featured-offer banner style. See lib/banner-styles.ts
+   *  (stripes/brand/gradient/confetti/christmas/halloween/…). */
+  banner_style?: string | null;
   status: "active" | "paused" | "archived";
   /** GHL Calendar integration (per sub-account). When set, the booking
    *  flow uses GHL's free-slots API for availability instead of our local

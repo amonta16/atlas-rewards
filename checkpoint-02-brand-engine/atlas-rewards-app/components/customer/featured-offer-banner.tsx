@@ -22,6 +22,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Tag, Play, Pause } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { bannerStyle } from "@/lib/banner-styles";
 
 export type FeaturedBannerOffer = {
   title: string;
@@ -35,12 +36,19 @@ export function FeaturedOfferBanner({
   offer,
   offersEnabled,
   businessId,
+  bannerStyleId,
+  secondary,
+  accent,
 }: {
   primary: string;
   offer: FeaturedBannerOffer | null;
   offersEnabled: boolean;
   /** CP-24: needed for realtime subscription. Optional for back-compat. */
   businessId?: string;
+  /** CP-56: chosen banner style (stripes/gradient/christmas/…). */
+  bannerStyleId?: string | null;
+  secondary?: string | null;
+  accent?: string | null;
 }) {
   const [liveOffer, setLiveOffer] = useState<FeaturedBannerOffer | null>(offer);
   // CP-29: tiny inline audio player for the optional voice note. We keep one
@@ -94,10 +102,7 @@ export function FeaturedOfferBanner({
       // CP-28: distinctive diagonal stripe pattern so the featured offer
       // header reads as a *promo* band, not just a flat color bar.
       className="sticky top-0 z-40 px-3 py-3 flex items-center justify-between text-white text-[13px] font-bold shadow-sm relative overflow-hidden"
-      style={{
-        background: primary,
-        backgroundImage: `repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 8px, rgba(255,255,255,0) 8px 18px)`,
-      }}
+      style={bannerStyle(bannerStyleId, primary, secondary, accent)}
       role="status"
       aria-label={`Featured offer: ${liveOffer.title}`}
     >

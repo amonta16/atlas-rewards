@@ -83,6 +83,10 @@ export default async function CustomerAppLayout({
         offer={bannerOffer}
         offersEnabled={!!business.widget_config.offers}
         businessId={business.id}
+        /* CP-56: customizable banner style (themes, gradients, etc.). */
+        bannerStyleId={business.banner_style}
+        secondary={business.brand_colors.secondary}
+        accent={business.brand_colors.accent}
       />
       {/* CP-29.1: auto-popping offer reveal — only renders if the customer
           hasn't already seen this offer on this device. */}
