@@ -190,6 +190,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           tiers: b.tiers, services: b.services,
           /* CP-52: faint background pattern for the customer app. */
           background_pattern: b.background_pattern ?? "none",
+          /* CP-57: custom pattern tint. */
+          pattern_color: b.pattern_color ?? null,
           /* CP-54: customizable header + page (surface) colors. */
           header_color: b.header_color ?? null,
           surface_color: b.surface_color ?? null,
@@ -396,7 +398,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       >
                         <div
                           className="h-12 w-full rounded-lg border border-zinc-100 flex items-center justify-center text-lg"
-                          style={patternStyle(opt.id, b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent)}
+                          style={patternStyle(opt.id, b.pattern_color ?? b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent)}
                         >
                           {opt.id === "none" ? "" : opt.emoji}
                         </div>
@@ -407,6 +409,25 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     );
                   })}
                 </div>
+
+                {/* CP-57: pattern tint — defaults to the brand primary. */}
+                {(b.background_pattern ?? "none") !== "none" && (
+                  <div className="mt-4 flex items-center gap-3 flex-wrap">
+                    <Label className="text-xs text-muted-foreground">Pattern color</Label>
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={b.pattern_color ?? b.brand_colors.primary}
+                        onChange={e => update("pattern_color", e.target.value)}
+                        className="h-9 w-11 rounded border cursor-pointer" />
+                      <Input className="w-36" value={b.pattern_color ?? ""} placeholder="brand color (default)"
+                        onChange={e => update("pattern_color", e.target.value || null)} />
+                    </div>
+                    {b.pattern_color && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => update("pattern_color", null)}>
+                        Reset
+                      </Button>
+                    )}
+                  </div>
+                )}
               </Section>
 
               <Section title="Header & background" subtitle="Pick the header bar + page color (e.g. a dark mode). Content cards stay white and headings auto-adjust, so text never blends.">

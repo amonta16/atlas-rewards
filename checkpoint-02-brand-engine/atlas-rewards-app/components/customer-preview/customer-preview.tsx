@@ -50,7 +50,7 @@ export function CustomerPreview({
     <div
       className="relative min-h-full flex flex-col"
       style={{
-        ...patternStyle(b.background_pattern, b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent, b.surface_color),
+        ...patternStyle(b.background_pattern, b.pattern_color ?? b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent, b.surface_color),
         ["--surf-fg" as any]: readableTextColor(b.surface_color),
       }}
     >

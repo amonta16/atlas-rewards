@@ -61,7 +61,8 @@ export default async function CustomerAppLayout({
   const headerColor = business.header_color ?? null;
   const bgStyle = patternStyle(
     business.background_pattern,
-    business.brand_colors.primary,
+    // CP-57: pattern tint is customizable; defaults to the brand primary.
+    business.pattern_color ?? business.brand_colors.primary,
     business.logo_url,
     business.brand_colors.secondary,
     business.brand_colors.accent,

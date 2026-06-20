@@ -92,6 +92,8 @@ export type Business = {
   /** CP-52: faint background pattern for the customer app. See lib/patterns.ts
    *  PatternId for the full set (none/gradient/dots/swirls/circles/waves/… ). */
   background_pattern?: string | null;
+  /** CP-57: pattern tint (default = brand primary when null). */
+  pattern_color?: string | null;
   /** CP-54: customizable header + page colors (default white-ish when null).
    *  Content cards stay white; on-bg text auto-contrasts. */
   header_color?: string | null;
