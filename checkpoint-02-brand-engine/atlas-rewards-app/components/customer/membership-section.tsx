@@ -18,7 +18,7 @@
 import { useEffect, useState } from "react";
 import {
   // CP-28: Wallet removed — points-only product, no cash credit perk.
-  Crown, Sparkles, Check, ChevronRight, Lock, Zap, CalendarCheck, Tag,
+  Crown, Sparkles, Check, ChevronRight, Zap, CalendarCheck, Tag,
   // CP-42: badge / refresh icons for the active-member ribbon.
   BadgeCheck, CalendarClock,
 } from "lucide-react";
@@ -231,29 +231,12 @@ export function MembershipSection({
     );
   }
 
-  // ── Billing not enabled or not set up — show a soft "Coming soon" teaser ──
+  // ── Billing not enabled or not set up ──
+  // CP-55: when membership isn't turned on, hide the section entirely for the
+  // customer (no "coming soon" teaser). Nothing should hint at a product the
+  // business hasn't enabled.
   if (!billing || !billing.is_enabled) {
-    return (
-      <div className="px-4 mt-6" id="membership-benefits">
-        <div
-          className="rounded-3xl p-5 flex items-center gap-4"
-          style={{ background: `${primary}08`, border: `1px solid ${primary}18` }}
-        >
-          <div
-            className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0"
-            style={{ background: `${primary}15` }}
-          >
-            <Lock className="h-5 w-5" style={{ color: primary }} />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-zinc-800">Membership — coming soon</div>
-            <div className="text-xs text-zinc-500 mt-0.5">
-              Exclusive perks and rewards for loyal members. Stay tuned!
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // ── Main: non-member, billing enabled — dark exclusive join card ───────────
