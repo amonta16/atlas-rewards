@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Crown, Flame, Gift, Lock, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { readableTextColor } from "@/lib/patterns";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 import { StreakWidget } from "./streak-widget";
 import type { Business, Membership } from "@/lib/types/database";
@@ -47,6 +48,7 @@ export function HeaderActions({
   membershipId,
   membership,
   vipEnabled = true,
+  headerColor,
 }: {
   business: Business;
   membershipId: string | null;
@@ -54,6 +56,9 @@ export function HeaderActions({
   /** CP-52: when the business hasn't turned on a paid membership, hide the
    *  VIP quick-action entirely (no point teasing a product that isn't live). */
   vipEnabled?: boolean;
+  /** CP-55: the header bar color, so the pills can adapt their ring + the
+   *  translucent check-in pill stays visible on a dark/custom header. */
+  headerColor?: string | null;
 }) {
   const router = useRouter();
   const [streak, setStreak] = useState<StreakSnap | null>(null);
@@ -81,6 +86,11 @@ export function HeaderActions({
   const [streakConfigEnabled, setStreakConfigEnabled] = useState(false);
 
   const primary = business.brand_colors.primary;
+  // CP-55: adapt the pills to the (possibly dark/custom) header color so they
+  // don't bleed into it. onDark → light ring + the translucent check-in pill
+  // flips to a white treatment instead of faint-brand-on-dark (invisible).
+  const onDark = readableTextColor(headerColor ?? "#fcfcfd") === "#f4f4f5";
+  const ringCls = onDark ? "ring-white/30" : "ring-black/5";
 
   // ── CP-25: independent streak_config read — runs even without a membership
   // ─────────────────────────────────────────────────────────────────────────
@@ -256,11 +266,15 @@ export function HeaderActions({
           return (
             <button
               onClick={() => setMysteryOpen(true)}
-              className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
+              className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
               style={{
                 background: checkedInToday
                   ? `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`
-                  : `linear-gradient(135deg, ${primary}33 0%, ${primary}1a 100%)`,
+                  // CP-55: on a dark header the faint brand tint vanished — use a
+                  // translucent white pill so "Check in" stays legible.
+                  : onDark
+                    ? "rgba(255,255,255,0.18)"
+                    : `linear-gradient(135deg, ${primary}33 0%, ${primary}1a 100%)`,
               }}
               aria-label={
                 cooldown
@@ -272,11 +286,11 @@ export function HeaderActions({
             >
               <Gift
                 className="h-[13px] w-[13px] shrink-0"
-                style={{ color: checkedInToday ? "#ffffff" : primary }}
+                style={{ color: checkedInToday || onDark ? "#ffffff" : primary }}
               />
               <span
                 className="text-[10px] font-extrabold leading-none whitespace-nowrap tabular-nums"
-                style={{ color: checkedInToday ? "#ffffff" : primary }}
+                style={{ color: checkedInToday || onDark ? "#ffffff" : primary }}
               >
                 {cooldownLabel ?? "Check in"}
               </span>
@@ -299,7 +313,7 @@ export function HeaderActions({
         {streakEnabled && (
           <button
             onClick={handleStreakClick}
-            className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
+            className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
             style={{
               background: "linear-gradient(135deg, #fb923c 0%, #ef4444 100%)",
             }}
@@ -335,7 +349,7 @@ export function HeaderActions({
         {vipEnabled && (
         <button
           onClick={handleMemberClick}
-          className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ring-black/5 select-none"
+          className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
           style={{
             background: isPaid
               ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"

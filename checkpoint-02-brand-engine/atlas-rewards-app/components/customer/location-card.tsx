@@ -33,7 +33,9 @@ export function LocationCard({ business }: { business: Business }) {
     (address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}` : null);
 
   return (
-    <div className="px-4 mt-5 pb-5">
+    // CP-55: solid white full-width band so the map + Call-now sit on white,
+    // not the page pattern.
+    <div className="bg-white border-t border-zinc-100 mt-6 px-4 py-5">
       <div className="rounded-2xl overflow-hidden border bg-white shadow-sm ring-1 ring-black/5">
         {embedSrc ? (
           <a href={directionsUrl ?? undefined} target="_blank" rel="noopener noreferrer" className="block relative">

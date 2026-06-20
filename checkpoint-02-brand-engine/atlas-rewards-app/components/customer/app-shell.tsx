@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { WidgetConfig } from "@/lib/types/database";
 import { useReviewStatus, reviewBadgeTone } from "@/lib/hooks/use-review-status";
+import { readableTextColor } from "@/lib/patterns";
 // CP-42: one-time first-visit nudge pointing at the bell.
 import { EnablePushNudge } from "./enable-push-nudge";
 
@@ -77,6 +78,13 @@ export function CustomerAppShell({
   const basePath = pathname?.match(/^(.*?\/app)(\/|$)/)?.[1] ?? "/app";
   const tabs = tabsForConfig(widgetConfig);
 
+  // CP-55: adapt the bottom-nav icon/label colors to the nav (chrome) color.
+  // On a dark nav, grey buttons blend — use light text; active = white so it
+  // stays visible even when the brand primary is itself dark.
+  const navIsDark = !!chromeColor && readableTextColor(chromeColor) === "#f4f4f5";
+  const navActive = navIsDark ? "#ffffff" : primary;
+  const navInactive = navIsDark ? "rgba(255,255,255,0.62)" : "#9ca3af";
+
   // CP-32: review nudge badge on Rewards tab.
   // Visible review widget? then we care. If the business hasn't enabled
   // reviews this hook still returns "none" (no review yet) — but we only
@@ -123,7 +131,7 @@ export function CustomerAppShell({
           return (
             <Link key={t.label} href={href} className="flex flex-col items-center gap-0.5 py-1 px-2 flex-1 active:scale-95 transition-transform relative">
               <div className="relative">
-                <Icon className={cn("h-5 w-5")} style={{ color: active ? primary : "#9ca3af" }} />
+                <Icon className={cn("h-5 w-5")} style={{ color: active ? navActive : navInactive }} />
                 {showBadge && (
                   <span
                     aria-label={reviewTone === "orange" ? "Review pending verification" : "Google review available"}
@@ -141,7 +149,7 @@ export function CustomerAppShell({
                   >!</span>
                 )}
               </div>
-              <span className="text-[10px] font-semibold" style={{ color: active ? primary : "#9ca3af" }}>{t.label}</span>
+              <span className="text-[10px] font-semibold" style={{ color: active ? navActive : navInactive }}>{t.label}</span>
             </Link>
           );
         })}

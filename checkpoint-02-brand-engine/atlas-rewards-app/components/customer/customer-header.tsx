@@ -54,6 +54,7 @@ export function CustomerHeader({
         membershipId={membershipId}
         membership={membership}
         vipEnabled={vipEnabled}
+        headerColor={bg}
       />
     </div>
   );
