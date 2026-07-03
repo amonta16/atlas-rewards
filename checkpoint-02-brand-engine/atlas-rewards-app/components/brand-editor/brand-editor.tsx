@@ -11,6 +11,7 @@ import { cn, hexToHsl, businessUrl } from "@/lib/utils";
 import { INDUSTRY_PRESETS, type Business } from "@/lib/types/database";
 import { PATTERN_OPTIONS, patternStyle } from "@/lib/patterns";
 import { BANNER_OPTIONS, bannerStyle } from "@/lib/banner-styles";
+import { CARD_STYLES, BUTTON_STYLES, designVars } from "@/lib/design-styles";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -197,6 +198,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           surface_color: b.surface_color ?? null,
           /* CP-56: featured-offer banner style. */
           banner_style: b.banner_style ?? null,
+          /* CP-58: card + button design styles. */
+          card_style: b.card_style ?? null,
+          button_style: b.button_style ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -212,6 +216,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
     "--brand-primary":   hexToHsl(b.brand_colors.primary),
     "--brand-secondary": hexToHsl(b.brand_colors.secondary),
     "--brand-accent":    hexToHsl(b.brand_colors.accent),
+    // CP-58: expose the card/button tokens on the preview wrapper too, so the
+    // outlined-card ring (which reads --brand-primary) resolves correctly.
+    ...designVars(b.card_style, b.button_style),
   } as React.CSSProperties;
 
   return (
@@ -467,6 +474,78 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 <p className="text-[11px] text-muted-foreground mt-2">
                   Leave blank for the default light look. Any background pattern you picked above still applies on top of this color.
                 </p>
+              </Section>
+
+              <Section title="Card style" subtitle="How reward, stat, and offer cards look across the whole app — corners, shadow, and outline.">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  {CARD_STYLES.map(opt => {
+                    const selected = (b.card_style ?? "rounded") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("card_style", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-2 text-center transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        {/* Mini card demo — renders with this preset's real
+                            tokens so the swatch shows the actual corners/shadow. */}
+                        <div className="h-12 w-full bg-zinc-50 rounded-lg flex items-center justify-center p-2">
+                          <div
+                            className="h-full w-full bg-white flex items-center justify-center text-base"
+                            style={{
+                              ...opt.vars,
+                              ["--brand-primary" as any]: hexToHsl(b.brand_colors.primary),
+                              borderRadius: "var(--card-radius-md)",
+                              boxShadow: "var(--card-shadow)",
+                            }}
+                          >
+                            {opt.emoji}
+                          </div>
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1.5 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              <Section title="Button style" subtitle="The shape of every button and call-to-action in the customer app.">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {BUTTON_STYLES.map(opt => {
+                    const selected = (b.button_style ?? "rounded") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("button_style", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-2 text-center transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        <div className="h-12 w-full bg-zinc-50 rounded-lg flex items-center justify-center px-2">
+                          {/* Mini button demo in the brand primary color. */}
+                          <div
+                            className="h-7 px-4 flex items-center justify-center text-white text-[11px] font-bold"
+                            style={{ background: b.brand_colors.primary, borderRadius: opt.radius }}
+                          >
+                            Button
+                          </div>
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1.5 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </Section>
 
               <Section title="Offer banner style" subtitle="The promo bar pinned to the top of every customer tab. Pick a look or a seasonal theme.">

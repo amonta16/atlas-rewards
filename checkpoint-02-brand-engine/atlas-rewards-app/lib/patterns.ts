@@ -14,7 +14,31 @@ export type PatternId =
   | "none" | "gradient" | "aurora" | "blobs" | "lowpoly" | "diagonal"
   | "geometric" | "swirls" | "circles" | "waves" | "confetti"
   | "honeycomb" | "topography" | "bubbles" | "terrazzo"
-  | "medspa" | "restaurant" | "arcade" | "logo";
+  | "medspa" | "restaurant" | "arcade" | "logo"
+  // CP-58 — curated full-bleed gradient palettes (fixed colors, NOT
+  // brand-tinted). Muted behind the app's white cards so content stays
+  // readable. Give agencies a premium "wash" without hand-picking colors.
+  | "pal-sunset" | "pal-ocean" | "pal-candy" | "pal-forest"
+  | "pal-peach" | "pal-lavender" | "pal-mango" | "pal-midnight";
+
+/**
+ * CP-58 gradient palettes. Each is a soft diagonal wash of 2–3 fixed colors,
+ * muted with a translucent white veil (see patternStyle) so the white content
+ * cards on top stay readable. `dark` palettes are deep enough that the app's
+ * surface color / header should be set dark to match.
+ */
+export const GRADIENT_PALETTES: Record<
+  string, { label: string; emoji: string; stops: string[]; angle: number; dark?: boolean }
+> = {
+  "pal-sunset":   { label: "Sunset",   emoji: "🌅", stops: ["#ff9a9e", "#fad0c4", "#fbc2eb"], angle: 135 },
+  "pal-ocean":    { label: "Ocean",    emoji: "🌊", stops: ["#2193b0", "#6dd5ed"],            angle: 135 },
+  "pal-candy":    { label: "Candy",    emoji: "🍭", stops: ["#a18cd1", "#fbc2eb"],            angle: 135 },
+  "pal-forest":   { label: "Forest",   emoji: "🌲", stops: ["#134e5e", "#71b280"],            angle: 135 },
+  "pal-peach":    { label: "Peach",    emoji: "🍑", stops: ["#ffecd2", "#fcb69f"],            angle: 135 },
+  "pal-lavender": { label: "Lavender", emoji: "💜", stops: ["#c3cfe2", "#e0c3fc"],            angle: 135 },
+  "pal-mango":    { label: "Mango",    emoji: "🥭", stops: ["#ffe259", "#ffa751"],            angle: 135 },
+  "pal-midnight": { label: "Midnight", emoji: "🌌", stops: ["#0f2027", "#203a43", "#2c5364"], angle: 135, dark: true },
+};
 
 export const PATTERN_OPTIONS: { id: PatternId; label: string; emoji: string; hint: string }[] = [
   { id: "none",       label: "No pattern",   emoji: "⬜", hint: "Plain background" },
@@ -38,6 +62,15 @@ export const PATTERN_OPTIONS: { id: PatternId; label: string; emoji: string; hin
   { id: "restaurant", label: "Restaurant",   emoji: "☕", hint: "Cups & cutlery" },
   { id: "arcade",     label: "Arcade",       emoji: "👾", hint: "Retro pixels" },
   { id: "logo",       label: "Logo tile",    emoji: "🏷️", hint: "Repeats your logo, faintly" },
+  // CP-58 — curated gradient palettes (fixed colors, ready-made "looks").
+  { id: "pal-sunset",   label: "Sunset",   emoji: "🌅", hint: "Warm pink-coral wash" },
+  { id: "pal-ocean",    label: "Ocean",    emoji: "🌊", hint: "Cool blue wash" },
+  { id: "pal-candy",    label: "Candy",    emoji: "🍭", hint: "Purple-to-pink wash" },
+  { id: "pal-forest",   label: "Forest",   emoji: "🌲", hint: "Deep green wash" },
+  { id: "pal-peach",    label: "Peach",    emoji: "🍑", hint: "Soft peach wash" },
+  { id: "pal-lavender", label: "Lavender", emoji: "💜", hint: "Gentle lilac wash" },
+  { id: "pal-mango",    label: "Mango",    emoji: "🥭", hint: "Sunny yellow-orange wash" },
+  { id: "pal-midnight", label: "Midnight", emoji: "🌌", hint: "Dark navy wash (use dark mode)" },
 ];
 
 // Each tile is intentionally low-alpha. Color is injected as a hex string.
@@ -190,6 +223,27 @@ export function patternStyle(
         `linear-gradient(rgba(255,255,255,0.86), rgba(255,255,255,0.86)), url("${logoUrl}")`,
       backgroundSize: "auto, 76px",
       backgroundRepeat: "repeat",
+    };
+  }
+
+  // CP-58 — curated gradient palettes. A soft diagonal wash of fixed colors,
+  // veiled with translucent white (light palettes) so the white cards on top
+  // stay readable. Dark palettes skip the veil and stand on their own.
+  const palette = GRADIENT_PALETTES[id];
+  if (palette) {
+    const wash = `linear-gradient(${palette.angle}deg, ${palette.stops.join(", ")})`;
+    if (palette.dark) {
+      return {
+        backgroundColor: baseColor || palette.stops[0],
+        backgroundImage: wash,
+        backgroundAttachment: "fixed",
+      };
+    }
+    return {
+      backgroundColor: baseTint,
+      backgroundImage:
+        `linear-gradient(rgba(255,255,255,0.55), rgba(255,255,255,0.55)), ${wash}`,
+      backgroundAttachment: "fixed",
     };
   }
 

@@ -3,6 +3,7 @@ import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Cale
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
+import { designVars } from "@/lib/design-styles";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
 
@@ -48,10 +49,12 @@ export function CustomerPreview({
 
   return (
     <div
-      className="relative min-h-full flex flex-col"
+      className="atlas-surface relative min-h-full flex flex-col"
       style={{
         ...patternStyle(b.background_pattern, b.pattern_color ?? b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent, b.surface_color),
         ["--surf-fg" as any]: readableTextColor(b.surface_color),
+        // CP-58: card + button tokens so the mockup reflects the chosen styles.
+        ...designVars(b.card_style, b.button_style),
       }}
     >
       {/* STICKY OFFER BANNER — visible on every tab. Matches the production

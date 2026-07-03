@@ -101,6 +101,12 @@ export type Business = {
   /** CP-56: sticky featured-offer banner style. See lib/banner-styles.ts
    *  (stripes/brand/gradient/confetti/christmas/halloween/…). */
   banner_style?: string | null;
+  /** CP-58: card look (corners + shadow + outline). See lib/design-styles.ts
+   *  CardStyleId (rounded/soft/sharp/elevated/outlined). NULL = default. */
+  card_style?: string | null;
+  /** CP-58: button shape for every customer-app CTA. See lib/design-styles.ts
+   *  ButtonStyleId (rounded/pill/soft/square). NULL = default. */
+  button_style?: string | null;
   status: "active" | "paused" | "archived";
   /** GHL Calendar integration (per sub-account). When set, the booking
    *  flow uses GHL's free-slots API for availability instead of our local

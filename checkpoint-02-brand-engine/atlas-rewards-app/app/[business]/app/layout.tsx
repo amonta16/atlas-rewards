@@ -6,6 +6,7 @@ import { PWAInstall } from "@/components/customer/pwa-install";
 import { FeaturedOfferBanner } from "@/components/customer/featured-offer-banner";
 import { OfferRevealWatcher } from "@/components/customer/offer-reveal-watcher";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
+import { designVars } from "@/lib/design-styles";
 import { CustomerHeader } from "@/components/customer/customer-header";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -71,7 +72,12 @@ export default async function CustomerAppLayout({
   const surfaceFg = readableTextColor(surfaceColor);
 
   return (
-    <div className="max-w-md mx-auto min-h-screen relative" style={bgStyle}>
+    // CP-58: `atlas-surface` scopes the card-style utility remaps (globals.css)
+    // and designVars() supplies the card/button tokens for this business.
+    <div
+      className="atlas-surface max-w-md mx-auto min-h-screen relative"
+      style={{ ...bgStyle, ...designVars(business.card_style, business.button_style) }}
+    >
       <CelebrateWatcher
         businessName={business.name}
         primary={business.brand_colors.primary}
