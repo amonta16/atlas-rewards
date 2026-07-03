@@ -108,8 +108,11 @@ export type Business = {
    *  ButtonStyleId (rounded/pill/soft/square). NULL = default. */
   button_style?: string | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.
-   *  NULL = Unfiled. Manual grouping only; by-industry view needs no column. */
+   *  NULL = Unfiled. Manual grouping only; by-industry view needs no column.
+   *  CP-60 superseded by folder_id (kept for backfill only). */
   folder?: string | null;
+  /** CP-60: FK into business_folders — the folder this app lives in. NULL = Unfiled. */
+  folder_id?: string | null;
   status: "active" | "paused" | "archived";
   /** GHL Calendar integration (per sub-account). When set, the booking
    *  flow uses GHL's free-slots API for availability instead of our local
@@ -119,6 +122,17 @@ export type Business = {
   ghl_api_key?: string | null;
   created_at: string;
   updated_at: string;
+};
+
+/** CP-60: an agency-level folder that groups app sub-accounts in the Apps
+ *  command deck. Has a name and an optional cover image. */
+export type BusinessFolder = {
+  id: string;
+  name: string;
+  cover_image_url: string | null;
+  sort: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type NewsPost = {

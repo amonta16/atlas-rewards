@@ -17,7 +17,9 @@ export function ImageUploader({
   bucket:
     | "business-logos" | "business-heroes" | "reward-images"
     | "offer-images" | "news-images" | "membership-images"
-    | "booking-tag-images";
+    | "booking-tag-images"
+    // CP-60: agency folder cover art.
+    | "folder-covers";
   pathPrefix: string;
   value: string | null;
   onChange: (url: string | null) => void;

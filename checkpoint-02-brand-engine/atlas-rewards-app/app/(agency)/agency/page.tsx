@@ -1,25 +1,21 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AgencyDashboardClient } from "@/components/agency/agency-dashboard-client";
-import type { Business } from "@/lib/types/database";
+import { AppsAdminClient } from "@/components/agency/apps-admin-client";
+import type { Business, BusinessFolder } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
-export default async function AgencyDashboard() {
+/**
+ * CP-60: /agency is now the Apps command deck (folders + app tiles). The
+ * metrics/charts that used to live here moved to /agency/analytics.
+ */
+export default async function AgencyApps() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  // CP-36: redirect unauthenticated visitors instead of crashing on user!.id
   if (!user) redirect("/login");
 
-  // CP-37.9: the previous query used .maybeSingle(), which raises
-  // "JSON object requested, multiple (or no) rows returned" the
-  // moment a user has more than one agency_admin row in
-  // business_users. Andrew hit this because the various promote
-  // scripts kept INSERTing without a unique constraint to stop them,
-  // so duplicates accumulated. Switch to a tolerant `limit(1)` shape:
-  // any row at all = admin, no error possible regardless of how many
-  // duplicates exist. The SQL dedupe in cp37_9_dedupe.sql cleans up
-  // the existing duplicates so the team UI also stops showing them.
+  // CP-37.9: tolerant `limit(1)` — any agency_admin row = admin, no error even
+  // if duplicate rows exist.
   const { data: roleRows } = await supabase
     .from("business_users").select("role")
     .eq("user_id", user.id).eq("role", "agency_admin").limit(1);
@@ -33,10 +29,19 @@ export default async function AgencyDashboard() {
     );
   }
 
-  const { data: businesses } = await supabase.from("businesses").select("*").order("created_at", { ascending: false });
+  const [{ data: businesses }, { data: folders }] = await Promise.all([
+    supabase.from("businesses").select("*").order("created_at", { ascending: false }),
+    supabase.from("business_folders").select("*").order("sort", { ascending: true }).order("name", { ascending: true }),
+  ]);
 
   const firstName = (user.email?.split("@")[0] ?? "there").replace(/[\W_]+/g, " ").split(" ")[0];
   const friendlyName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
 
-  return <AgencyDashboardClient friendlyName={friendlyName} initialBusinesses={(businesses ?? []) as Business[]} />;
+  return (
+    <AppsAdminClient
+      friendlyName={friendlyName}
+      initialBusinesses={(businesses ?? []) as Business[]}
+      initialFolders={(folders ?? []) as BusinessFolder[]}
+    />
+  );
 }

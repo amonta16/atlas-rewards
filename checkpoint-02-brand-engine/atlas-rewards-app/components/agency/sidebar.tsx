@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, KanbanSquare } from "lucide-react";
+import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, KanbanSquare, BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +11,8 @@ type NavItem = { href: string; label: string; icon: React.ReactNode };
 
 const NAV: NavItem[] = [
   { href: "/agency",              label: "My Apps",     icon: <LayoutGrid className="h-4 w-4" /> },
+  // CP-60: analytics split into its own tab (was mashed onto the Apps page).
+  { href: "/agency/analytics",    label: "Analytics",   icon: <BarChart3 className="h-4 w-4" /> },
   // CP-50: prospect pipeline (CRM for leads not yet onboarded).
   { href: "/agency/pipeline",     label: "Pipeline",    icon: <KanbanSquare className="h-4 w-4" /> },
   // CP-33: White Label tab hidden from sidebar — placeholder until we
