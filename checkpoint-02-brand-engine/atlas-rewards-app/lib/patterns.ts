@@ -12,40 +12,23 @@
 
 export type PatternId =
   | "none" | "gradient" | "aurora" | "blobs" | "lowpoly" | "diagonal"
+  // CP-58.1 — flowing, full-bleed "designs" (brand-tinted, not repeating).
+  | "mesh" | "silk" | "orbs" | "waves-layered" | "hills"
   | "geometric" | "swirls" | "circles" | "waves" | "confetti"
   | "honeycomb" | "topography" | "bubbles" | "terrazzo"
-  | "medspa" | "restaurant" | "arcade" | "logo"
-  // CP-58 — curated full-bleed gradient palettes (fixed colors, NOT
-  // brand-tinted). Muted behind the app's white cards so content stays
-  // readable. Give agencies a premium "wash" without hand-picking colors.
-  | "pal-sunset" | "pal-ocean" | "pal-candy" | "pal-forest"
-  | "pal-peach" | "pal-lavender" | "pal-mango" | "pal-midnight";
-
-/**
- * CP-58 gradient palettes. Each is a soft diagonal wash of 2–3 fixed colors,
- * muted with a translucent white veil (see patternStyle) so the white content
- * cards on top stay readable. `dark` palettes are deep enough that the app's
- * surface color / header should be set dark to match.
- */
-export const GRADIENT_PALETTES: Record<
-  string, { label: string; emoji: string; stops: string[]; angle: number; dark?: boolean }
-> = {
-  "pal-sunset":   { label: "Sunset",   emoji: "🌅", stops: ["#ff9a9e", "#fad0c4", "#fbc2eb"], angle: 135 },
-  "pal-ocean":    { label: "Ocean",    emoji: "🌊", stops: ["#2193b0", "#6dd5ed"],            angle: 135 },
-  "pal-candy":    { label: "Candy",    emoji: "🍭", stops: ["#a18cd1", "#fbc2eb"],            angle: 135 },
-  "pal-forest":   { label: "Forest",   emoji: "🌲", stops: ["#134e5e", "#71b280"],            angle: 135 },
-  "pal-peach":    { label: "Peach",    emoji: "🍑", stops: ["#ffecd2", "#fcb69f"],            angle: 135 },
-  "pal-lavender": { label: "Lavender", emoji: "💜", stops: ["#c3cfe2", "#e0c3fc"],            angle: 135 },
-  "pal-mango":    { label: "Mango",    emoji: "🥭", stops: ["#ffe259", "#ffa751"],            angle: 135 },
-  "pal-midnight": { label: "Midnight", emoji: "🌌", stops: ["#0f2027", "#203a43", "#2c5364"], angle: 135, dark: true },
-};
+  | "medspa" | "restaurant" | "arcade" | "logo";
 
 export const PATTERN_OPTIONS: { id: PatternId; label: string; emoji: string; hint: string }[] = [
   { id: "none",       label: "No pattern",   emoji: "⬜", hint: "Plain background" },
-  // Larger, fuller "designs" (full-bleed, brand-colored).
+  // Larger, fuller "designs" (full-bleed, brand-colored, flowing).
   { id: "gradient",   label: "Brand glow",   emoji: "🎨", hint: "Soft gradient in your colors" },
+  { id: "mesh",       label: "Mesh",         emoji: "🔮", hint: "Rich flowing mesh of your colors" },
   { id: "aurora",     label: "Aurora",       emoji: "🌈", hint: "Big soft bands of color" },
+  { id: "silk",       label: "Silk",         emoji: "🎗️", hint: "Flowing silk ribbons" },
   { id: "blobs",      label: "Color blobs",  emoji: "🫧", hint: "Large flowing shapes" },
+  { id: "orbs",       label: "Glow orbs",    emoji: "🟣", hint: "Soft glowing orbs" },
+  { id: "waves-layered", label: "Ocean waves", emoji: "🌊", hint: "Layered waves along the bottom" },
+  { id: "hills",      label: "Rolling hills", emoji: "⛰️", hint: "Soft layered hills at the bottom" },
   { id: "lowpoly",    label: "Low-poly",     emoji: "💠", hint: "Faceted gradient" },
   { id: "diagonal",   label: "Diagonal",     emoji: "📐", hint: "Bold diagonal bands" },
   // Subtle repeating textures.
@@ -62,15 +45,6 @@ export const PATTERN_OPTIONS: { id: PatternId; label: string; emoji: string; hin
   { id: "restaurant", label: "Restaurant",   emoji: "☕", hint: "Cups & cutlery" },
   { id: "arcade",     label: "Arcade",       emoji: "👾", hint: "Retro pixels" },
   { id: "logo",       label: "Logo tile",    emoji: "🏷️", hint: "Repeats your logo, faintly" },
-  // CP-58 — curated gradient palettes (fixed colors, ready-made "looks").
-  { id: "pal-sunset",   label: "Sunset",   emoji: "🌅", hint: "Warm pink-coral wash" },
-  { id: "pal-ocean",    label: "Ocean",    emoji: "🌊", hint: "Cool blue wash" },
-  { id: "pal-candy",    label: "Candy",    emoji: "🍭", hint: "Purple-to-pink wash" },
-  { id: "pal-forest",   label: "Forest",   emoji: "🌲", hint: "Deep green wash" },
-  { id: "pal-peach",    label: "Peach",    emoji: "🍑", hint: "Soft peach wash" },
-  { id: "pal-lavender", label: "Lavender", emoji: "💜", hint: "Gentle lilac wash" },
-  { id: "pal-mango",    label: "Mango",    emoji: "🥭", hint: "Sunny yellow-orange wash" },
-  { id: "pal-midnight", label: "Midnight", emoji: "🌌", hint: "Dark navy wash (use dark mode)" },
 ];
 
 // Each tile is intentionally low-alpha. Color is injected as a hex string.
@@ -226,23 +200,83 @@ export function patternStyle(
     };
   }
 
-  // CP-58 — curated gradient palettes. A soft diagonal wash of fixed colors,
-  // veiled with translucent white (light palettes) so the white cards on top
-  // stay readable. Dark palettes skip the veil and stand on their own.
-  const palette = GRADIENT_PALETTES[id];
-  if (palette) {
-    const wash = `linear-gradient(${palette.angle}deg, ${palette.stops.join(", ")})`;
-    if (palette.dark) {
-      return {
-        backgroundColor: baseColor || palette.stops[0],
-        backgroundImage: wash,
-        backgroundAttachment: "fixed",
-      };
-    }
+  // CP-58.1 — Mesh: a richer, more saturated version of "gradient". Several
+  // large brand-colored radial fields that blend into a flowing mesh.
+  if (id === "mesh") {
     return {
       backgroundColor: baseTint,
       backgroundImage:
-        `linear-gradient(rgba(255,255,255,0.55), rgba(255,255,255,0.55)), ${wash}`,
+        `radial-gradient(90% 60% at 12% 8%, ${primary}55 0%, transparent 55%),` +
+        `radial-gradient(85% 55% at 92% 16%, ${sec}4d 0%, transparent 55%),` +
+        `radial-gradient(95% 70% at 50% 102%, ${acc}4a 0%, transparent 58%),` +
+        `radial-gradient(70% 50% at 82% 74%, ${primary}3a 0%, transparent 55%)`,
+      backgroundAttachment: "fixed",
+    };
+  }
+
+  // CP-58.1 — Glow orbs: soft circular glows scattered across the screen.
+  if (id === "orbs") {
+    return {
+      backgroundColor: baseTint,
+      backgroundImage:
+        `radial-gradient(circle at 18% 22%, ${primary}45 0, transparent 26%),` +
+        `radial-gradient(circle at 84% 30%, ${sec}3d 0, transparent 24%),` +
+        `radial-gradient(circle at 28% 80%, ${acc}40 0, transparent 26%),` +
+        `radial-gradient(circle at 78% 82%, ${primary}33 0, transparent 22%)`,
+      backgroundAttachment: "fixed",
+    };
+  }
+
+  // CP-58.1 — Silk: overlapping flowing ribbon shapes spanning the screen.
+  if (id === "silk") {
+    const svg =
+      `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 800' preserveAspectRatio='xMidYMid slice'>` +
+      `<path d='M0 110 C 120 40 280 200 400 110 L400 250 C 280 330 120 180 0 250 Z' fill='${primary}' fill-opacity='0.15'/>` +
+      `<path d='M0 300 C 140 220 260 420 400 310 L400 450 C 260 540 140 350 0 470 Z' fill='${sec}' fill-opacity='0.13'/>` +
+      `<path d='M0 520 C 120 440 300 640 400 530 L400 720 C 300 800 120 630 0 740 Z' fill='${acc}' fill-opacity='0.13'/>` +
+      `</svg>`;
+    return {
+      backgroundColor: baseTint,
+      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      backgroundAttachment: "fixed",
+    };
+  }
+
+  // CP-58.1 — Ocean waves: layered wave bands hugging the bottom of the screen.
+  if (id === "waves-layered") {
+    const svg =
+      `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 800' preserveAspectRatio='xMidYMax slice'>` +
+      `<path d='M0 560 q100 -55 200 0 t200 0 V800 H0 Z' fill='${primary}' fill-opacity='0.12'/>` +
+      `<path d='M0 630 q100 -55 200 0 t200 0 V800 H0 Z' fill='${sec}' fill-opacity='0.15'/>` +
+      `<path d='M0 700 q100 -55 200 0 t200 0 V800 H0 Z' fill='${acc}' fill-opacity='0.18'/>` +
+      `</svg>`;
+    return {
+      backgroundColor: baseTint,
+      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center bottom",
+      backgroundRepeat: "no-repeat",
+      backgroundAttachment: "fixed",
+    };
+  }
+
+  // CP-58.1 — Rolling hills: soft layered hill silhouettes at the bottom.
+  if (id === "hills") {
+    const svg =
+      `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 800' preserveAspectRatio='xMidYMax slice'>` +
+      `<path d='M0 640 C 80 580 160 600 220 640 C 300 690 360 618 400 648 V800 H0 Z' fill='${primary}' fill-opacity='0.13'/>` +
+      `<path d='M0 700 C 90 650 180 692 260 700 C 330 707 372 680 400 700 V800 H0 Z' fill='${sec}' fill-opacity='0.15'/>` +
+      `<path d='M0 750 C 100 722 200 762 300 750 C 350 744 382 754 400 750 V800 H0 Z' fill='${acc}' fill-opacity='0.18'/>` +
+      `</svg>`;
+    return {
+      backgroundColor: baseTint,
+      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center bottom",
+      backgroundRepeat: "no-repeat",
       backgroundAttachment: "fixed",
     };
   }

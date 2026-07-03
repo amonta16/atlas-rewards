@@ -107,6 +107,9 @@ export type Business = {
   /** CP-58: button shape for every customer-app CTA. See lib/design-styles.ts
    *  ButtonStyleId (rounded/pill/soft/square). NULL = default. */
   button_style?: string | null;
+  /** CP-59: admin-portal folder name for grouping in the agency dashboard.
+   *  NULL = Unfiled. Manual grouping only; by-industry view needs no column. */
+  folder?: string | null;
   status: "active" | "paused" | "archived";
   /** GHL Calendar integration (per sub-account). When set, the booking
    *  flow uses GHL's free-slots API for availability instead of our local

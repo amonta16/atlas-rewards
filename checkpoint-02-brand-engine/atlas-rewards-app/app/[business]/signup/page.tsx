@@ -56,6 +56,29 @@ export default function CustomerSignup() {
     setLoading(true);
     setErr(null);
     const supabase = createClient();
+
+    // CP-59: one account per phone. Businesses give welcome gifts for signing
+    // up, and people farm them with the same phone + a fresh email. Email is
+    // already unique (Supabase), so we gate on the PHONE here. A phone tied to
+    // an account on a DIFFERENT email = farming → block. Same email = a
+    // returning customer, which the "already registered" flow below handles.
+    try {
+      const { data: avail } = await supabase.rpc("signup_identity_available", {
+        p_email: email.trim(),
+        p_phone: phone,
+      });
+      if (avail?.phone_conflict) {
+        setErr(
+          "This phone number is already linked to an Atlas account. Sign in to that account to join this program, or use a different phone number.",
+        );
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Non-fatal: if the check can't run, fall through — the database trigger
+      // still prevents two accounts from sharing a phone.
+    }
+
     const { data: signupData, error } = await supabase.auth.signUp({
       email,
       password,
