@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Plus, Search, KanbanSquare, Folder, FolderPlus, Pencil, ArrowLeft,
-  Trash2, ArrowUpRight, Check, LayoutGrid, FolderInput,
+  Trash2, ArrowUpRight, Check, LayoutGrid, FolderInput, Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NewBusinessModal } from "./new-business-modal";
 import { FolderEditModal } from "./folder-edit-modal";
 import { ConfirmDeleteModal } from "@/components/ui/confirm-delete-modal";
+import { RequestDeleteModal } from "./request-delete-modal";
+import { DeleteRequestsPanel, type DeleteRequest } from "./delete-requests-panel";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -28,22 +30,38 @@ type Drill = null | "ALL" | "UNFILED" | { folderId: string };
  * image, and delete. Analytics moved to its own tab.
  */
 export function AppsAdminClient({
-  friendlyName, initialBusinesses, initialFolders,
+  role = "agency_admin",
+  friendlyName, initialBusinesses, initialFolders, initialDeleteRequests = [],
 }: {
+  role?: "agency_admin" | "agency_va";
   friendlyName: string;
   initialBusinesses: Business[];
   initialFolders: BusinessFolder[];
+  initialDeleteRequests?: DeleteRequest[];
 }) {
   const router = useRouter();
   const { toast } = useToast();
+  const isVa = role === "agency_va";
   const [list, setList] = useState<Business[]>(initialBusinesses);
   const [folders, setFolders] = useState<BusinessFolder[]>(initialFolders);
+  const [requests, setRequests] = useState<DeleteRequest[]>(initialDeleteRequests);
   const [query, setQuery] = useState("");
   const [drill, setDrill] = useState<Drill>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [folderModal, setFolderModal] = useState<{ folder: BusinessFolder | null } | null>(null);
+  // Admin uses the hard-delete confirm; a VA uses the request-a-delete modal.
   const [pendingDelete, setPendingDelete] = useState<Business | null>(null);
+  const [pendingRequest, setPendingRequest] = useState<Business | null>(null);
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
+
+  // Business ids that currently have a pending delete request (badge on tiles).
+  const pendingBizIds = new Set(
+    requests.filter(r => r.status === "pending" && r.business_id).map(r => r.business_id as string),
+  );
+
+  // Router: admins go straight to the confirm dialog; VAs go to the request
+  // modal instead.
+  const onDeleteClick = (b: Business) => (isVa ? setPendingRequest(b) : setPendingDelete(b));
 
   const unfiledCount = list.filter(b => !b.folder_id).length;
 
@@ -71,6 +89,48 @@ export function AppsAdminClient({
     setPendingDelete(null);
     toast.success(`${business.name} deleted`);
     router.refresh();
+  }
+
+  // CP-62: a VA files a delete request (reason required) instead of deleting.
+  async function submitDeleteRequest(business: Business, reason: string) {
+    const supabase = createClient();
+    const { error } = await supabase.rpc("request_business_delete", {
+      p_business_id: business.id,
+      p_reason: reason,
+    });
+    if (error) { toast.error("Couldn't send request: " + error.message); throw error; }
+    // Optimistically mark this business as having a pending request.
+    setRequests(prev => {
+      const rest = prev.filter(r => !(r.business_id === business.id && r.status === "pending"));
+      return [
+        {
+          id: `local-${business.id}`,
+          business_id: business.id,
+          business_name: business.name,
+          business_slug: business.slug,
+          reason,
+          status: "pending",
+          requested_by: null,
+          requested_by_email: null,
+          reviewed_by: null,
+          reviewed_at: null,
+          review_note: null,
+          created_at: new Date().toISOString(),
+        },
+        ...rest,
+      ];
+    });
+    setPendingRequest(null);
+    toast.success("Delete request sent for approval");
+  }
+
+  // CP-62: admin approved/declined a request from the panel.
+  function onRequestResolved(requestId: string, businessId: string | null, deleted: boolean) {
+    setRequests(prev => prev.map(r => (r.id === requestId ? { ...r, status: deleted ? "approved" : "rejected" } : r)));
+    if (deleted && businessId) {
+      setList(prev => prev.filter(b => b.id !== businessId));
+      router.refresh();
+    }
   }
 
   async function moveApp(business: Business, folderId: string | null) {
@@ -135,6 +195,11 @@ export function AppsAdminClient({
       </header>
 
       <div className="px-8 pb-14">
+        {/* ---- CP-62: admin's delete-request approval queue ---- */}
+        {!isVa && (
+          <DeleteRequestsPanel requests={requests} onResolved={onRequestResolved} />
+        )}
+
         {/* ---- Search across everything (skips the folder view) ---- */}
         {query ? (
           <Section title={`Search · "${query}"`}>
@@ -142,8 +207,10 @@ export function AppsAdminClient({
               apps={list.filter(searchMatch)}
               folders={folders}
               rootDomain={rootDomain}
+              isVa={isVa}
+              pendingBizIds={pendingBizIds}
               onMove={moveApp}
-              onDelete={setPendingDelete}
+              onDelete={onDeleteClick}
               onNewFolder={() => setFolderModal({ folder: null })}
             />
           </Section>
@@ -228,8 +295,10 @@ export function AppsAdminClient({
               apps={drilledApps()}
               folders={folders}
               rootDomain={rootDomain}
+              isVa={isVa}
+              pendingBizIds={pendingBizIds}
               onMove={moveApp}
-              onDelete={setPendingDelete}
+              onDelete={onDeleteClick}
               onNewFolder={() => setFolderModal({ folder: null })}
               emptyHint={drill === "UNFILED" ? "Every app is filed into a folder. 🎉" : "No apps in this folder yet — move some in with the folder button on each app."}
             />
@@ -261,6 +330,15 @@ export function AppsAdminClient({
           destructiveLabel="Delete business"
           onClose={() => setPendingDelete(null)}
           onConfirm={() => performDelete(pendingDelete)}
+        />
+      )}
+      {pendingRequest && (
+        <RequestDeleteModal
+          business={pendingRequest}
+          rootDomain={rootDomain}
+          alreadyPending={pendingBizIds.has(pendingRequest.id)}
+          onClose={() => setPendingRequest(null)}
+          onConfirm={(reason) => submitDeleteRequest(pendingRequest, reason)}
         />
       )}
     </div>
@@ -324,11 +402,13 @@ function FolderCard({
 
 /** Grid of big app tiles. */
 function AppGrid({
-  apps, folders, rootDomain, onMove, onDelete, onNewFolder, emptyHint,
+  apps, folders, rootDomain, isVa, pendingBizIds, onMove, onDelete, onNewFolder, emptyHint,
 }: {
   apps: Business[];
   folders: BusinessFolder[];
   rootDomain: string;
+  isVa?: boolean;
+  pendingBizIds?: Set<string>;
   onMove: (b: Business, folderId: string | null) => void;
   onDelete: (b: Business) => void;
   onNewFolder: () => void;
@@ -340,18 +420,22 @@ function AppGrid({
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {apps.map(b => (
-        <AppTile key={b.id} b={b} folders={folders} rootDomain={rootDomain} onMove={onMove} onDelete={onDelete} onNewFolder={onNewFolder} />
+        <AppTile key={b.id} b={b} folders={folders} rootDomain={rootDomain}
+          isVa={isVa} pending={!!pendingBizIds?.has(b.id)}
+          onMove={onMove} onDelete={onDelete} onNewFolder={onNewFolder} />
       ))}
     </div>
   );
 }
 
 function AppTile({
-  b, folders, rootDomain, onMove, onDelete, onNewFolder,
+  b, folders, rootDomain, isVa, pending, onMove, onDelete, onNewFolder,
 }: {
   b: Business;
   folders: BusinessFolder[];
   rootDomain: string;
+  isVa?: boolean;
+  pending?: boolean;
   onMove: (b: Business, folderId: string | null) => void;
   onDelete: (b: Business) => void;
   onNewFolder: () => void;
@@ -430,11 +514,19 @@ function AppTile({
           className="h-8 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-sky-100 flex items-center gap-1.5 text-[11px] font-medium">
           <ArrowUpRight className="h-3.5 w-3.5" /> Open
         </Link>
-        <button onClick={() => onDelete(b)}
-          className="h-8 w-8 ml-auto rounded-lg text-sky-200/40 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition"
-          aria-label={`Delete ${b.name}`} title={`Delete ${b.name}`}>
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {isVa && pending ? (
+          <span className="h-8 ml-auto px-2.5 rounded-lg bg-amber-400/15 text-amber-200 text-[11px] font-semibold flex items-center gap-1.5"
+            title="A delete request is awaiting admin approval">
+            <Clock className="h-3.5 w-3.5" /> Delete requested
+          </span>
+        ) : (
+          <button onClick={() => onDelete(b)}
+            className="h-8 w-8 ml-auto rounded-lg text-sky-200/40 hover:text-rose-400 hover:bg-rose-500/10 flex items-center justify-center transition"
+            aria-label={isVa ? `Request deletion of ${b.name}` : `Delete ${b.name}`}
+            title={isVa ? `Request deletion of ${b.name}` : `Delete ${b.name}`}>
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );

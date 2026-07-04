@@ -34,7 +34,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type Role = "agency_admin" | "business_manager" | "business_staff";
+type Role = "agency_admin" | "agency_va" | "business_manager" | "business_staff";
+
+// Agency-wide roles aren't scoped to a business and sign in at /login.
+const AGENCY_ROLES: Role[] = ["agency_admin", "agency_va"];
 
 // CP-46: friendly auto-generated password when the inviter doesn't set one.
 // No ambiguous characters (0/O, 1/l/I) so it's easy to read aloud / type.
@@ -74,10 +77,10 @@ export async function POST(req: NextRequest) {
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "valid email required" }, { status: 400 });
   }
-  if (!role || !["agency_admin", "business_manager", "business_staff"].includes(role)) {
+  if (!role || !["agency_admin", "agency_va", "business_manager", "business_staff"].includes(role)) {
     return NextResponse.json({ error: "invalid role" }, { status: 400 });
   }
-  if (role !== "agency_admin" && !businessId) {
+  if (!AGENCY_ROLES.includes(role) && !businessId) {
     return NextResponse.json({ error: "business_id required for this role" }, { status: 400 });
   }
 
@@ -153,7 +156,7 @@ export async function POST(req: NextRequest) {
   // agency_admin → /login ; manager / front-desk → /<slug>/login
   // They sign in with email + password at this page.
   let loginPath = "/login";
-  if (role !== "agency_admin" && businessId) {
+  if (!AGENCY_ROLES.includes(role!) && businessId) {
     const { data: biz } = await admin
       .from("businesses")
       .select("slug")

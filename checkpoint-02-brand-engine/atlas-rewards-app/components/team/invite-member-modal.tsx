@@ -12,14 +12,14 @@
  */
 
 import { useEffect, useState } from "react";
-import { X, Crown, Shield, User, Loader2, Mail, Building2, Copy, Check, KeyRound, RefreshCw } from "lucide-react";
+import { X, Crown, Shield, User, UserCog, Loader2, Mail, Building2, Copy, Check, KeyRound, RefreshCw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 
-type Role = "agency_admin" | "business_manager" | "business_staff";
+type Role = "agency_admin" | "agency_va" | "business_manager" | "business_staff";
 type BizPick = { id: string; name: string };
 
 const ROLE_DEFS: Record<Role, { label: string; description: string; icon: typeof Crown }> = {
@@ -27,6 +27,11 @@ const ROLE_DEFS: Record<Role, { label: string; description: string; icon: typeof
     label: "Agency admin",
     description: "Full access to every sub-account, billing, and the agency dashboard.",
     icon: Crown,
+  },
+  agency_va: {
+    label: "VA (assistant)",
+    description: "Can create and manage apps, but can't delete businesses or see analytics. Deletions need admin approval.",
+    icon: UserCog,
   },
   business_manager: {
     label: "Manager",
@@ -84,9 +89,12 @@ export function InviteMemberModal({
       .then(({ data }) => setBusinesses((data ?? []) as BizPick[]));
   }, [isAgencyFromAgency]);
 
+  // Agency-wide roles aren't scoped to a business.
+  const isAgencyRole = (r: Role) => r === "agency_admin" || r === "agency_va";
+
   // What roles can the caller invite?
   const allowed: Role[] = (() => {
-    if (callerRole === "agency_admin") return ["agency_admin", "business_manager", "business_staff"];
+    if (callerRole === "agency_admin") return ["agency_admin", "agency_va", "business_manager", "business_staff"];
     if (callerRole === "business_manager") return ["business_manager", "business_staff"];
     return [];
   })();
@@ -95,10 +103,10 @@ export function InviteMemberModal({
     if (!email.trim() || !email.includes("@")) {
       toast.error("Enter a valid email"); return;
     }
-    const effectiveBusinessId = role === "agency_admin"
+    const effectiveBusinessId = isAgencyRole(role)
       ? null
       : (businessId ?? (pickedBusinessId || null));
-    if (role !== "agency_admin" && !effectiveBusinessId) {
+    if (!isAgencyRole(role) && !effectiveBusinessId) {
       toast.error("Pick which business this person joins"); return;
     }
     if (password && password.trim().length < 8) {
@@ -282,7 +290,7 @@ export function InviteMemberModal({
           </div>
 
           {/* Business picker */}
-          {isAgencyFromAgency && role !== "agency_admin" && (
+          {isAgencyFromAgency && !isAgencyRole(role) && (
             <div>
               <Label className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Which business?</Label>
               <div className="relative mt-1">

@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  UserPlus, MoreVertical, Crown, Shield, User, Mail, Clock,
+  UserPlus, MoreVertical, Crown, Shield, User, UserCog, Mail, Clock,
   Loader2, RefreshCw,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -31,7 +31,7 @@ type Row = {
   user_id: string | null;
   email: string;
   full_name: string | null;
-  role: "agency_admin" | "business_manager" | "business_staff";
+  role: "agency_admin" | "agency_va" | "business_manager" | "business_staff";
   business_id: string | null;
   status: "active" | "pending" | "revoked" | "expired";
   token: string | null;
@@ -256,9 +256,11 @@ function Row({
   onRevoke?: () => void;
 }) {
   const RoleIcon = row.role === "agency_admin" ? Crown
+                  : row.role === "agency_va" ? UserCog
                   : row.role === "business_manager" ? Shield
                   : User;
   const roleLabel = row.role === "agency_admin" ? "Agency admin"
+                   : row.role === "agency_va" ? "VA"
                    : row.role === "business_manager" ? "Manager"
                    : "Front desk";
 

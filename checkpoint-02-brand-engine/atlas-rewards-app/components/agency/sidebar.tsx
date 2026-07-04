@@ -7,21 +7,22 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-type NavItem = { href: string; label: string; icon: React.ReactNode };
+type NavItem = { href: string; label: string; icon: React.ReactNode; adminOnly?: boolean };
 
 const NAV: NavItem[] = [
   { href: "/agency",              label: "My Apps",     icon: <LayoutGrid className="h-4 w-4" /> },
   // CP-60: analytics split into its own tab (was mashed onto the Apps page).
-  { href: "/agency/analytics",    label: "Analytics",   icon: <BarChart3 className="h-4 w-4" /> },
+  // CP-62: adminOnly — VAs must not see agency analytics.
+  { href: "/agency/analytics",    label: "Analytics",   icon: <BarChart3 className="h-4 w-4" />, adminOnly: true },
   // CP-50: prospect pipeline (CRM for leads not yet onboarded).
-  { href: "/agency/pipeline",     label: "Pipeline",    icon: <KanbanSquare className="h-4 w-4" /> },
+  { href: "/agency/pipeline",     label: "Pipeline",    icon: <KanbanSquare className="h-4 w-4" />, adminOnly: true },
   // CP-33: White Label tab hidden from sidebar — placeholder until we
   // actually build out the master Atlas brand splash. The route file
   // (/agency/white-label/page.tsx) is still there if we re-enable it.
   // { href: "/agency/white-label",  label: "White Label", icon: <Palette className="h-4 w-4" /> },
   // CP-31: Team management for assistant agency admins.
-  { href: "/agency/team",         label: "Team",        icon: <Shield className="h-4 w-4" /> },
-  { href: "/agency/settings",     label: "Settings",    icon: <Settings className="h-4 w-4" /> },
+  { href: "/agency/team",         label: "Team",        icon: <Shield className="h-4 w-4" />, adminOnly: true },
+  { href: "/agency/settings",     label: "Settings",    icon: <Settings className="h-4 w-4" />, adminOnly: true },
 ];
 
 /**
@@ -33,11 +34,14 @@ const NAV: NavItem[] = [
  * brand color.
  */
 export function Sidebar({
-  context, contextLabel,
-}: { context?: string; contextLabel?: string }) {
+  context, contextLabel, role = "agency_admin",
+}: { context?: string; contextLabel?: string; role?: "agency_admin" | "agency_va" }) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+
+  // CP-62: a VA only sees "My Apps"; the admin-only tabs are hidden.
+  const nav = role === "agency_va" ? NAV.filter(item => !item.adminOnly) : NAV;
 
   async function signOut() {
     const supabase = createClient();
@@ -97,7 +101,7 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="relative flex-1 px-3 mt-4 space-y-1">
-        {NAV.map(item => {
+        {nav.map(item => {
           const active = pathname === item.href || (item.href !== "/agency" && pathname.startsWith(item.href));
           return (
             <Link
