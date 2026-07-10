@@ -1,5 +1,6 @@
 -- =====================================================================
 -- CHECKPOINT 63.2 — twice-daily nudge schedule (9am & 1pm, DST-safe)
+-- (re-applied to force a fresh deploy — functionally identical, idempotent)
 -- =====================================================================
 -- Adds a timezone + a set of send-hours to the nudge config. The Vercel
 -- Cron now runs hourly and the /api/admin-app/daily-nudge route only
@@ -7,7 +8,7 @@
 -- Defaults: 9 and 13 (1pm) in America/Los_Angeles — so the crew gets two
 -- pokes a day, and DST is handled automatically (no fixed-UTC drift).
 --
--- Apply AFTER cp63_3_leaderboard.sql. Idempotent.
+-- Apply AFTER cp63_3_leaderboard.sql. Idempotent — safe to re-run anytime.
 -- =====================================================================
 
 alter table public.admin_app_config
