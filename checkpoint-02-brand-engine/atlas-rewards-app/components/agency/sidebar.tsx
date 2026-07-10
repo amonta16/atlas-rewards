@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, KanbanSquare, BarChart3 } from "lucide-react";
+import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, KanbanSquare, BarChart3, Rocket } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +22,8 @@ const NAV: NavItem[] = [
   // { href: "/agency/white-label",  label: "White Label", icon: <Palette className="h-4 w-4" /> },
   // CP-31: Team management for assistant agency admins.
   { href: "/agency/team",         label: "Team",        icon: <Shield className="h-4 w-4" />, adminOnly: true },
+  // CP-63: Atlas Command — configure the mobile Admin/Field App (reps only).
+  { href: "/agency/admin-app",    label: "Admin App",   icon: <Rocket className="h-4 w-4" />, adminOnly: true },
   { href: "/agency/settings",     label: "Settings",    icon: <Settings className="h-4 w-4" />, adminOnly: true },
 ];
 

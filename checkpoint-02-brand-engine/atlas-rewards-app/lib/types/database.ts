@@ -120,8 +120,59 @@ export type Business = {
   ghl_location_id?: string | null;
   ghl_calendar_id?: string | null;
   ghl_api_key?: string | null;
+  /** CP-63 (Admin Field App): the rep who claimed this deal for commission. */
+  claimed_by?: string | null;
+  claimed_at?: string | null;
+  /** Agreed monthly recurring revenue for this deal, in cents (rep commission base). */
+  deal_mrr_cents?: number | null;
+  /** Per-deal commission override %. NULL = use admin_app_config default. */
+  commission_pct?: number | null;
+  /** Pitch day (for the field launcher's day sorting). */
+  pitch_date?: string | null;
+  /** Sales stage for the field app. */
+  deal_stage?: "demo" | "pitched" | "won" | "lost";
   created_at: string;
   updated_at: string;
+};
+
+/** CP-63: one app as seen in the mobile Field App launcher (list_field_apps RPC). */
+export type FieldApp = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  hero_image_url: string | null;
+  brand_colors: BrandColors;
+  status: string;
+  folder_id: string | null;
+  folder_name: string | null;
+  pitch_date: string | null;
+  deal_stage: "demo" | "pitched" | "won" | "lost";
+  deal_mrr_cents: number | null;
+  commission_pct: number | null;
+  monthly_commission_cents: number;
+  claimed_by: string | null;
+  claimed_by_email: string | null;
+  claimed_by_name: string | null;
+  is_mine: boolean;
+};
+
+/** CP-63: the caller's commission summary (my_rep_earnings RPC). */
+export type RepEarnings = {
+  monthly_commission_cents: number;
+  pipeline_commission_cents: number;
+  won_count: number;
+  claimed_count: number;
+};
+
+/** CP-63: a leaderboard row (rep_leaderboard RPC). */
+export type RepLeaderRow = {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  won_count: number;
+  claimed_count: number;
+  monthly_commission_cents: number;
 };
 
 /** CP-60: an agency-level folder that groups app sub-accounts in the Apps
