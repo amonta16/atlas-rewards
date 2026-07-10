@@ -31,12 +31,6 @@ function weekdayKeyFor(tz = "America/Los_Angeles"): typeof DOW[number] {
   return DOW[idx < 0 ? 0 : idx];
 }
 
-// Current hour (0–23) in the given timezone — DST-safe.
-function hourInTz(tz: string): number {
-  const s = new Intl.DateTimeFormat("en-US", { hour: "2-digit", hourCycle: "h23", timeZone: tz }).format(new Date());
-  return parseInt(s, 10);
-}
-
 async function handle(req: Request): Promise<NextResponse> {
   const url = new URL(req.url);
   const isTest = url.searchParams.get("test") === "1";
@@ -71,20 +65,12 @@ async function handle(req: Request): Promise<NextResponse> {
   if (!cfg) return NextResponse.json({ error: "config missing" }, { status: 400 });
 
   const tz = (cfg as any).nudge_tz || "America/Los_Angeles";
-  const hours: number[] = Array.isArray((cfg as any).nudge_hours) && (cfg as any).nudge_hours.length
-    ? (cfg as any).nudge_hours
-    : [9, 13];
 
-  // Cron path respects the on/off switch + only fires at the configured
-  // send-hours (in the configured tz). The test button bypasses both.
-  if (cronOk && !isTest) {
-    if (cfg.nudges_enabled === false) {
-      return NextResponse.json({ ok: true, skipped: "nudges disabled" });
-    }
-    const nowHour = hourInTz(tz);
-    if (!hours.includes(nowHour)) {
-      return NextResponse.json({ ok: true, skipped: `not a nudge slot (hour ${nowHour} ${tz})` });
-    }
+  // The two Vercel crons (16:00 & 20:00 UTC ≈ 9am & 1pm PT) each fire once a
+  // day, so we send on every cron invocation — no hour-gate needed. We just
+  // respect the on/off switch. The test button bypasses that too.
+  if (cronOk && !isTest && cfg.nudges_enabled === false) {
+    return NextResponse.json({ ok: true, skipped: "nudges disabled" });
   }
 
   const key = weekdayKeyFor(tz);
