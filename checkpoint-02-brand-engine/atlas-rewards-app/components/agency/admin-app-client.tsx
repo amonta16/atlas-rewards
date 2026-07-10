@@ -201,7 +201,7 @@ export function AdminAppClient({
             </div>
           </div>
           <p className="text-sm text-sky-200/60 mt-1">
-            One message per weekday, sent every morning to the crew's bell + phone push. Keep 'em short and hype. 🔥
+            One message per weekday, auto-sent <b>twice a day (9am &amp; 1pm PT)</b> to the crew's bell + phone push. Keep 'em short and hype. 🔥
           </p>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2">

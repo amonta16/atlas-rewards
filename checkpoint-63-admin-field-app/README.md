@@ -117,6 +117,30 @@ Fixes/additions from field feedback:
 
 ---
 
+# CP-63.2 — twice-daily nudges + folder-drill layout ✅
+
+- **Nudges now fire twice a day, every day: 9am & 1pm PT**, on autopilot. The
+  cron runs hourly and the route only actually sends when the local hour (in
+  `nudge_tz`, default `America/Los_Angeles`) is one of `nudge_hours` (default
+  `{9,13}`). This is **DST-safe** — no fixed-UTC drift twice a year.
+- **Folder view in the Field App.** New **folder / list** toggle on the Pitch-day
+  screen. Folder view shows your **location folders as cards**; tap one to open
+  its app list (with a back button) — same drill-in feel as the desktop deck.
+  List view keeps the flat grouped layout.
+
+**Apply:** run **`cp63_4_nudge_schedule.sql`** (after `cp63_3_leaderboard.sql`),
+then redeploy so the updated `vercel.json` cron (`0 * * * *`) takes effect.
+
+> **Vercel note:** the hourly cron needs a **Vercel Pro** plan (Hobby caps crons
+> at once/day). If you're on Hobby, point an external scheduler (e.g.
+> cron-job.org) at `https://<your-domain>/api/admin-app/daily-nudge` every hour
+> with header `Authorization: Bearer <CRON_SECRET>` — same effect.
+>
+> To change the times/timezone later:
+> `update admin_app_config set nudge_hours = '{9,13}', nudge_tz = 'America/Los_Angeles' where id = 1;`
+
+---
+
 ## Coming next (Phase 3, not yet built)
 
 - Mini mobile pipeline (leads without apps yet) + installable PWA polish
@@ -138,6 +162,6 @@ git commit -m "CP-63: Atlas Command field app + nudges + notifications button, u
 git push
 ```
 
-Apply the three SQL files in order: `cp63_migration.sql` → `cp63_2_nudges.sql` → `cp63_3_leaderboard.sql`.
+Apply the SQL files in order: `cp63_migration.sql` → `cp63_2_nudges.sql` → `cp63_3_leaderboard.sql` → `cp63_4_nudge_schedule.sql`. Set `CRON_SECRET` in Vercel.
 
 Remember to set **`CRON_SECRET`** in Vercel for the daily-nudge cron.

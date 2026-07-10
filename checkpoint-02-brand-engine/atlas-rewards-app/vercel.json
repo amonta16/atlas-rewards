@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/admin-app/daily-nudge",
-      "schedule": "0 15 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }

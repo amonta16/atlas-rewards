@@ -31,6 +31,12 @@ function weekdayKeyFor(tz = "America/Los_Angeles"): typeof DOW[number] {
   return DOW[idx < 0 ? 0 : idx];
 }
 
+// Current hour (0–23) in the given timezone — DST-safe.
+function hourInTz(tz: string): number {
+  const s = new Intl.DateTimeFormat("en-US", { hour: "2-digit", hourCycle: "h23", timeZone: tz }).format(new Date());
+  return parseInt(s, 10);
+}
+
 async function handle(req: Request): Promise<NextResponse> {
   const url = new URL(req.url);
   const isTest = url.searchParams.get("test") === "1";
@@ -58,18 +64,30 @@ async function handle(req: Request): Promise<NextResponse> {
   // ── Load config + today's message. ──
   const { data: cfg } = await admin
     .from("admin_app_config")
-    .select("nudges_enabled, nudge_mon, nudge_tue, nudge_wed, nudge_thu, nudge_fri, nudge_sat, nudge_sun")
+    .select("nudges_enabled, nudge_tz, nudge_hours, nudge_mon, nudge_tue, nudge_wed, nudge_thu, nudge_fri, nudge_sat, nudge_sun")
     .eq("id", 1)
     .maybeSingle();
 
   if (!cfg) return NextResponse.json({ error: "config missing" }, { status: 400 });
 
-  // Cron path respects the on/off switch; the test button always sends.
-  if (cronOk && !isTest && cfg.nudges_enabled === false) {
-    return NextResponse.json({ ok: true, skipped: "nudges disabled" });
+  const tz = (cfg as any).nudge_tz || "America/Los_Angeles";
+  const hours: number[] = Array.isArray((cfg as any).nudge_hours) && (cfg as any).nudge_hours.length
+    ? (cfg as any).nudge_hours
+    : [9, 13];
+
+  // Cron path respects the on/off switch + only fires at the configured
+  // send-hours (in the configured tz). The test button bypasses both.
+  if (cronOk && !isTest) {
+    if (cfg.nudges_enabled === false) {
+      return NextResponse.json({ ok: true, skipped: "nudges disabled" });
+    }
+    const nowHour = hourInTz(tz);
+    if (!hours.includes(nowHour)) {
+      return NextResponse.json({ ok: true, skipped: `not a nudge slot (hour ${nowHour} ${tz})` });
+    }
   }
 
-  const key = weekdayKeyFor();
+  const key = weekdayKeyFor(tz);
   const message = ((cfg as any)[key] as string | null)?.trim();
   if (!message) return NextResponse.json({ ok: true, skipped: "no message for today" });
 

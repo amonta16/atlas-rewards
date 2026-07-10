@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Rocket, ExternalLink, Hand, Check, Loader2, Star, MapPin, CalendarDays,
   TrendingUp, X, DollarSign, RefreshCw, ArrowUpRight, Undo2, Trophy, Users, Bell,
-  LayoutGrid,
+  LayoutGrid, Folder as FolderIcon, List, ChevronRight, ArrowLeft,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
@@ -51,6 +51,8 @@ export function FieldClient({
   const [leaderboard, setLeaderboard] = useState<RepLeaderRow[]>(initialLeaderboard);
   const [team, setTeam] = useState<TeamMrrSummary>(initialTeam);
   const [filter, setFilter] = useState<"today" | "week" | "all">("all");
+  const [layout, setLayout] = useState<"folders" | "list">("folders");
+  const [openFolder, setOpenFolder] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<FieldApp | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -144,6 +146,20 @@ export function FieldClient({
     return Array.from(m.entries()).sort((x, y) => x[0].localeCompare(y[0]));
   }, [filtered]);
 
+  const renderCard = (app: FieldApp) => (
+    <AppCard
+      key={app.id}
+      app={app}
+      busy={busyId === app.id}
+      appUrl={appUrl(app.slug)}
+      onClaim={() => claim(app)}
+      onRelease={() => release(app)}
+      onEdit={() => setEditing(app)}
+    />
+  );
+
+  const openFolderApps = openFolder ? (groups.find(g => g[0] === openFolder)?.[1] ?? []) : [];
+
   return (
     <div className="min-h-screen text-white"
       style={{ background: "radial-gradient(1200px 600px at 50% -10%, #0b3a5e 0%, #061a32 40%, #030d1c 100%)" }}>
@@ -221,17 +237,33 @@ export function FieldClient({
           </button>
         </div>
 
-        {/* ===== Pitch-day filter (field view only) ===== */}
+        {/* ===== Pitch-day filter + layout (field view only) ===== */}
         {view === "field" && (
-          <div className="mt-4 flex items-center gap-2">
-            {(["today", "week", "all"] as const).map(f => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={"h-8 px-3 rounded-full text-[12px] font-bold ring-1 transition " +
-                  (filter === f ? "bg-cyan-400 text-slate-900 ring-cyan-300"
-                                : "bg-white/5 text-cyan-100/70 ring-white/10")}>
-                {f === "today" ? "Today" : f === "week" ? "This week" : "All apps"}
+          <div className="mt-4 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {(["today", "week", "all"] as const).map(f => (
+                <button key={f} onClick={() => { setFilter(f); setOpenFolder(null); }}
+                  className={"h-8 px-3 rounded-full text-[12px] font-bold ring-1 transition " +
+                    (filter === f ? "bg-cyan-400 text-slate-900 ring-cyan-300"
+                                  : "bg-white/5 text-cyan-100/70 ring-white/10")}>
+                  {f === "today" ? "Today" : f === "week" ? "This week" : "All"}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 p-1 rounded-full bg-white/5 ring-1 ring-white/10 shrink-0">
+              <button onClick={() => { setLayout("folders"); setOpenFolder(null); }}
+                className={"h-7 w-7 rounded-full flex items-center justify-center " +
+                  (layout === "folders" ? "bg-cyan-400 text-slate-900" : "text-cyan-100/60")}
+                aria-label="Folder view" title="Folders">
+                <FolderIcon className="h-3.5 w-3.5" />
               </button>
-            ))}
+              <button onClick={() => setLayout("list")}
+                className={"h-7 w-7 rounded-full flex items-center justify-center " +
+                  (layout === "list" ? "bg-cyan-400 text-slate-900" : "text-cyan-100/60")}
+                aria-label="List view" title="List">
+                <List className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </header>
@@ -240,16 +272,15 @@ export function FieldClient({
       <main className="px-5 pb-16 space-y-6">
         {view === "team" ? (
           <TeamView team={team} rows={leaderboard} myUserId={myUserId} />
-        ) : (
+        ) : groups.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-cyan-100/50 text-sm">
+            {filter === "all"
+              ? "No apps yet. Build demo apps in the web builder and file them into location folders."
+              : "No pitches scheduled for this window. Set a pitch date on an app to see it here."}
+          </div>
+        ) : layout === "list" ? (
+          /* ---- Flat list, grouped by folder ---- */
           <>
-            {groups.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-cyan-100/50 text-sm">
-                {filter === "all"
-                  ? "No apps yet. Build demo apps in the web builder and file them into location folders."
-                  : "No pitches scheduled for this window. Set a pitch date on an app to see it here."}
-              </div>
-            )}
-
             {groups.map(([location, list]) => (
               <section key={location}>
                 <div className="flex items-center gap-1.5 mb-2.5 text-cyan-300/70">
@@ -257,22 +288,42 @@ export function FieldClient({
                   <h2 className="text-[11px] uppercase tracking-[0.25em] font-extrabold">{location}</h2>
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/5 text-cyan-100/50">{list.length}</span>
                 </div>
-                <div className="space-y-3">
-                  {list.map(app => (
-                    <AppCard
-                      key={app.id}
-                      app={app}
-                      busy={busyId === app.id}
-                      appUrl={appUrl(app.slug)}
-                      onClaim={() => claim(app)}
-                      onRelease={() => release(app)}
-                      onEdit={() => setEditing(app)}
-                    />
-                  ))}
-                </div>
+                <div className="space-y-3">{list.map(renderCard)}</div>
               </section>
             ))}
           </>
+        ) : openFolder ? (
+          /* ---- Drilled into one folder ---- */
+          <div>
+            <button onClick={() => setOpenFolder(null)}
+              className="mb-4 h-9 px-3 rounded-lg bg-white/5 ring-1 ring-white/10 text-cyan-100 flex items-center gap-1.5 text-sm">
+              <ArrowLeft className="h-4 w-4" /> Folders
+            </button>
+            <div className="flex items-center gap-2 mb-3 text-cyan-300/80">
+              <MapPin className="h-4 w-4" />
+              <h2 className="text-lg font-black text-white">{openFolder}</h2>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-cyan-100/50">{openFolderApps.length}</span>
+            </div>
+            <div className="space-y-3">{openFolderApps.map(renderCard)}</div>
+          </div>
+        ) : (
+          /* ---- Folder grid (tap to open) ---- */
+          <div className="grid grid-cols-2 gap-3">
+            {groups.map(([location, list]) => (
+              <button key={location} onClick={() => setOpenFolder(location)}
+                className="relative rounded-2xl overflow-hidden ring-1 ring-white/10 hover:ring-cyan-300/50 transition text-left min-h-[7rem] p-4 flex flex-col justify-between active:scale-[0.98]"
+                style={{ background: "linear-gradient(150deg, rgba(13,58,94,0.9), rgba(3,13,28,0.95))" }}>
+                <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl opacity-30" style={{ background: "#22d3ee" }} />
+                <div className="relative h-10 w-10 rounded-xl bg-cyan-400/15 ring-1 ring-cyan-300/30 flex items-center justify-center text-cyan-200">
+                  <FolderIcon className="h-5 w-5" />
+                </div>
+                <div className="relative">
+                  <div className="font-bold text-white truncate flex items-center gap-1">{location} <ChevronRight className="h-4 w-4 text-cyan-300/60" /></div>
+                  <div className="text-[11px] text-cyan-200/50">{list.length} app{list.length === 1 ? "" : "s"}</div>
+                </div>
+              </button>
+            ))}
+          </div>
         )}
       </main>
 
