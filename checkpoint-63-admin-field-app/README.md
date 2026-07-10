@@ -88,6 +88,35 @@ in the Field App **and** a phone push. You edit one message per weekday.
 
 ---
 
+# CP-63.1 — notifications button, undo claim, in-app leaderboard ✅
+
+Fixes/additions from field feedback:
+
+- **Notifications weren't obvious.** The Field App now shows a big **"Turn on
+  notifications"** banner (like the customer apps) whenever permission isn't
+  granted, and silently re-registers the device when it is. Tapping it prompts
+  the browser + subscribes this phone. (Push still needs VAPID keys set.)
+- **Undo a claim.** A claimed-by-you app now has an explicit red **Unclaim**
+  button (was the ambiguous "Mine"). One tap releases it.
+- **Leaderboard inside the Field App.** New **Pitch day / Leaderboard** toggle at
+  the top. The Leaderboard view shows the **team's total MRR** (from won deals),
+  total commissions, apps built + sold, and every rep ranked with **apps built ·
+  apps sold · their MRR + commission**. You're highlighted.
+- **Who built the most apps.** New `businesses.created_by` (stamped on create)
+  powers an "apps built" stat alongside "apps sold". Historical apps show 0 built
+  (we can't know past creators) until new ones are made.
+- **Group MRR on desktop too** — the Admin App tab's leaderboard gained a team
+  totals row (Team MRR / Commissions / Apps built / Apps sold).
+
+**Apply:** run **`cp63_3_leaderboard.sql`** (after `cp63_2_nudges.sql`).
+
+> If push still doesn't fire after tapping the banner: confirm the VAPID env vars
+> are set (same keys the customer push uses) and that you allowed notifications in
+> the browser prompt. iOS Safari only allows web push once the site is added to
+> the Home Screen (Phase 3 makes that a proper install).
+
+---
+
 ## Coming next (Phase 3, not yet built)
 
 - Mini mobile pipeline (leads without apps yet) + installable PWA polish
@@ -105,8 +134,10 @@ locked to admins at the row level.
 ```bash
 cd "C:/Users/andre/OneDrive/Documents/Claude/Projects/Atlas Engine APP"
 git add checkpoint-63-admin-field-app "checkpoint-02-brand-engine/atlas-rewards-app"
-git commit -m "CP-63: Atlas Command field app (Phase 1) + daily motivational nudges (Phase 2)"
+git commit -m "CP-63: Atlas Command field app + nudges + notifications button, undo claim, in-app leaderboard & team MRR"
 git push
 ```
+
+Apply the three SQL files in order: `cp63_migration.sql` → `cp63_2_nudges.sql` → `cp63_3_leaderboard.sql`.
 
 Remember to set **`CRON_SECRET`** in Vercel for the daily-nudge cron.

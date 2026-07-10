@@ -165,14 +165,25 @@ export type RepEarnings = {
   claimed_count: number;
 };
 
-/** CP-63: a leaderboard row (rep_leaderboard RPC). */
+/** CP-63.1: a leaderboard row (rep_leaderboard RPC v2). */
 export type RepLeaderRow = {
   user_id: string;
   email: string | null;
   full_name: string | null;
-  won_count: number;
+  apps_created: number;
+  apps_sold: number;
   claimed_count: number;
+  sold_mrr_cents: number;
   monthly_commission_cents: number;
+};
+
+/** CP-63.1: the whole team's numbers (team_mrr_summary RPC). */
+export type TeamMrrSummary = {
+  team_mrr_cents: number;
+  team_commission_cents: number;
+  apps_created: number;
+  apps_sold: number;
+  active_reps: number;
 };
 
 /** CP-60: an agency-level folder that groups app sub-accounts in the Apps

@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
-import type { RepLeaderRow } from "@/lib/types/database";
+import type { RepLeaderRow, TeamMrrSummary } from "@/lib/types/database";
 
 type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 const DAYS: { key: DayKey; label: string }[] = [
@@ -28,7 +28,7 @@ function money(cents: number | null | undefined): string {
 }
 
 export function AdminAppClient({
-  myUserId, myEmail, initialOwnerId, ownerEmail, initialDefaultPct, initialNudges, leaderboard,
+  myUserId, myEmail, initialOwnerId, ownerEmail, initialDefaultPct, initialNudges, leaderboard, team,
 }: {
   myUserId: string;
   myEmail: string;
@@ -37,6 +37,7 @@ export function AdminAppClient({
   initialDefaultPct: number;
   initialNudges: NudgeConfig;
   leaderboard: RepLeaderRow[];
+  team: TeamMrrSummary;
 }) {
   const { toast } = useToast();
   const [ownerId, setOwnerId] = useState(initialOwnerId);
@@ -227,13 +228,22 @@ export function AdminAppClient({
           </div>
         </Card>
 
-        {/* Leaderboard */}
+        {/* Leaderboard + team MRR */}
         <Card className="lg:col-span-2">
           <CardTitle icon={<Trophy className="h-4 w-4" />}>Rep leaderboard</CardTitle>
+
+          {/* Group totals */}
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <TeamStat label="Team MRR" value={money(team.team_mrr_cents) + "/mo"} highlight />
+            <TeamStat label="Commissions" value={money(team.team_commission_cents) + "/mo"} />
+            <TeamStat label="Apps built" value={String(team.apps_created)} />
+            <TeamStat label="Apps sold" value={String(team.apps_sold)} />
+          </div>
+
           {leaderboard.length === 0 ? (
-            <p className="text-sm text-sky-200/50 mt-3">No claims yet. Reps claim deals from the field app.</p>
+            <p className="text-sm text-sky-200/50 mt-4">No stats yet. Reps build apps and claim deals from the field app.</p>
           ) : (
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-2">
               {leaderboard.map((r, i) => (
                 <div key={r.user_id} className="flex items-center gap-3 rounded-xl bg-white/5 ring-1 ring-white/10 px-3 py-2.5">
                   <div className={"h-7 w-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 " +
@@ -242,10 +252,11 @@ export function AdminAppClient({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-bold text-white truncate">{r.full_name || r.email}</div>
-                    <div className="text-[11px] text-sky-200/50">{r.won_count} won · {r.claimed_count} claimed</div>
+                    <div className="text-[11px] text-sky-200/50">{r.apps_created} built · {r.apps_sold} sold · {r.claimed_count} claimed</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-black text-cyan-200 tabular-nums">{money(r.monthly_commission_cents)}<span className="text-cyan-200/50 text-xs">/mo</span></div>
+                    <div className="text-[10px] text-sky-200/40">{money(r.sold_mrr_cents)} MRR</div>
                   </div>
                 </div>
               ))}
@@ -253,6 +264,15 @@ export function AdminAppClient({
           )}
         </Card>
       </div>
+    </div>
+  );
+}
+
+function TeamStat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className={"rounded-xl px-3 py-2.5 ring-1 " + (highlight ? "bg-cyan-400/10 ring-cyan-300/30" : "bg-white/5 ring-white/10")}>
+      <div className={"text-lg font-black tabular-nums " + (highlight ? "text-cyan-200" : "text-white")}>{value}</div>
+      <div className="text-[10px] uppercase tracking-widest text-sky-200/50 font-bold">{label}</div>
     </div>
   );
 }

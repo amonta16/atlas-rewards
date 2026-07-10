@@ -8,15 +8,17 @@
  * location folder — tap to open the customer app on the prospect's phone,
  * self-claim the deal, and set the deal terms right from the field.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Rocket, ExternalLink, Hand, Check, Loader2, Star, MapPin, CalendarDays,
-  TrendingUp, X, DollarSign, RefreshCw, ArrowUpRight,
+  TrendingUp, X, DollarSign, RefreshCw, ArrowUpRight, Undo2, Trophy, Users, Bell,
+  LayoutGrid,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { useToast } from "@/components/ui/toast";
 import { FieldNudgeBell } from "@/components/agency/field-nudge-bell";
-import type { FieldApp, RepEarnings } from "@/lib/types/database";
+import type { FieldApp, RepEarnings, RepLeaderRow, TeamMrrSummary } from "@/lib/types/database";
 
 const STAGES: { id: FieldApp["deal_stage"]; label: string; className: string }[] = [
   { id: "demo",    label: "Demo",    className: "bg-sky-400/15 text-sky-200 ring-sky-400/30" },
@@ -32,34 +34,70 @@ function money(cents: number | null | undefined): string {
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 export function FieldClient({
-  friendlyName, rootDomain, initialApps, initialEarnings,
+  friendlyName, rootDomain, myUserId, initialApps, initialEarnings, initialLeaderboard, initialTeam,
 }: {
   friendlyName: string;
   rootDomain: string;
+  myUserId: string;
   initialApps: FieldApp[];
   initialEarnings: RepEarnings;
+  initialLeaderboard: RepLeaderRow[];
+  initialTeam: TeamMrrSummary;
 }) {
   const { toast } = useToast();
+  const [view, setView] = useState<"field" | "team">("field");
   const [apps, setApps] = useState<FieldApp[]>(initialApps);
   const [earnings, setEarnings] = useState<RepEarnings>(initialEarnings);
+  const [leaderboard, setLeaderboard] = useState<RepLeaderRow[]>(initialLeaderboard);
+  const [team, setTeam] = useState<TeamMrrSummary>(initialTeam);
   const [filter, setFilter] = useState<"today" | "week" | "all">("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<FieldApp | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [pushGranted, setPushGranted] = useState(true);   // assume ok until we check
+  const [pushBusy, setPushBusy] = useState(false);
 
   const isDev = rootDomain.includes("lvh.me");
   const appUrl = (slug: string) =>
     `${isDev ? "http" : "https"}://${slug}.${rootDomain}${isDev ? ":3000" : ""}`;
 
+  // CP-63.1: mirror the customer apps — if permission is already granted,
+  // silently (re)register this device; otherwise reveal the enable banner.
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) { setPushGranted(true); return; }
+    const perm = Notification.permission;
+    setPushGranted(perm === "granted");
+    if (perm === "granted") ensurePushSubscription(null).catch(() => {});
+  }, []);
+
+  async function enableNotifications() {
+    setPushBusy(true);
+    try {
+      await ensurePushSubscription(null);
+      const granted = typeof Notification !== "undefined" && Notification.permission === "granted";
+      setPushGranted(granted);
+      if (granted) toast.success("Notifications on for this phone 🔔");
+      else toast.error("Notifications are blocked — enable them in your browser settings.");
+    } catch {
+      toast.error("Couldn't turn on notifications here");
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   async function refresh() {
     setRefreshing(true);
     const supabase = createClient();
-    const [{ data: a }, { data: e }] = await Promise.all([
+    const [{ data: a }, { data: e }, { data: lb }, { data: tm }] = await Promise.all([
       supabase.rpc("list_field_apps"),
       supabase.rpc("my_rep_earnings"),
+      supabase.rpc("rep_leaderboard"),
+      supabase.rpc("team_mrr_summary"),
     ]);
     if (a) setApps(a as FieldApp[]);
     if (e) setEarnings((Array.isArray(e) ? e[0] : e) as RepEarnings);
+    if (lb) setLeaderboard(lb as RepLeaderRow[]);
+    if (tm) setTeam((Array.isArray(tm) ? tm[0] : tm) as TeamMrrSummary);
     setRefreshing(false);
   }
 
@@ -155,51 +193,87 @@ export function FieldClient({
           </div>
         </div>
 
-        {/* ===== Pitch-day filter ===== */}
-        <div className="mt-5 flex items-center gap-2">
-          {(["today", "week", "all"] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={"h-8 px-3 rounded-full text-[12px] font-bold ring-1 transition " +
-                (filter === f ? "bg-cyan-400 text-slate-900 ring-cyan-300"
-                              : "bg-white/5 text-cyan-100/70 ring-white/10")}>
-              {f === "today" ? "Today" : f === "week" ? "This week" : "All apps"}
-            </button>
-          ))}
+        {/* ===== Notifications enable banner (like the customer apps) ===== */}
+        {!pushGranted && (
+          <button onClick={enableNotifications} disabled={pushBusy}
+            className="mt-4 w-full rounded-2xl bg-cyan-400/10 ring-1 ring-cyan-300/30 px-4 py-3 flex items-center gap-3 text-left">
+            <span className="h-9 w-9 rounded-xl bg-cyan-400/20 flex items-center justify-center text-cyan-200 shrink-0">
+              {pushBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-cyan-100">Turn on notifications</span>
+              <span className="block text-[11px] text-cyan-200/60">Get the daily nudge + deal alerts on this phone.</span>
+            </span>
+          </button>
+        )}
+
+        {/* ===== View toggle ===== */}
+        <div className="mt-5 grid grid-cols-2 gap-1 p-1 rounded-2xl bg-white/5 ring-1 ring-white/10">
+          <button onClick={() => setView("field")}
+            className={"h-9 rounded-xl text-[13px] font-bold flex items-center justify-center gap-1.5 transition " +
+              (view === "field" ? "bg-cyan-400 text-slate-900" : "text-cyan-100/70")}>
+            <LayoutGrid className="h-4 w-4" /> Pitch day
+          </button>
+          <button onClick={() => setView("team")}
+            className={"h-9 rounded-xl text-[13px] font-bold flex items-center justify-center gap-1.5 transition " +
+              (view === "team" ? "bg-cyan-400 text-slate-900" : "text-cyan-100/70")}>
+            <Trophy className="h-4 w-4" /> Leaderboard
+          </button>
         </div>
+
+        {/* ===== Pitch-day filter (field view only) ===== */}
+        {view === "field" && (
+          <div className="mt-4 flex items-center gap-2">
+            {(["today", "week", "all"] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={"h-8 px-3 rounded-full text-[12px] font-bold ring-1 transition " +
+                  (filter === f ? "bg-cyan-400 text-slate-900 ring-cyan-300"
+                                : "bg-white/5 text-cyan-100/70 ring-white/10")}>
+                {f === "today" ? "Today" : f === "week" ? "This week" : "All apps"}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* ===== Launcher ===== */}
       <main className="px-5 pb-16 space-y-6">
-        {groups.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-cyan-100/50 text-sm">
-            {filter === "all"
-              ? "No apps yet. Build demo apps in the web builder and file them into location folders."
-              : "No pitches scheduled for this window. Set a pitch date on an app to see it here."}
-          </div>
-        )}
+        {view === "team" ? (
+          <TeamView team={team} rows={leaderboard} myUserId={myUserId} />
+        ) : (
+          <>
+            {groups.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-cyan-100/50 text-sm">
+                {filter === "all"
+                  ? "No apps yet. Build demo apps in the web builder and file them into location folders."
+                  : "No pitches scheduled for this window. Set a pitch date on an app to see it here."}
+              </div>
+            )}
 
-        {groups.map(([location, list]) => (
-          <section key={location}>
-            <div className="flex items-center gap-1.5 mb-2.5 text-cyan-300/70">
-              <MapPin className="h-3.5 w-3.5" />
-              <h2 className="text-[11px] uppercase tracking-[0.25em] font-extrabold">{location}</h2>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/5 text-cyan-100/50">{list.length}</span>
-            </div>
-            <div className="space-y-3">
-              {list.map(app => (
-                <AppCard
-                  key={app.id}
-                  app={app}
-                  busy={busyId === app.id}
-                  appUrl={appUrl(app.slug)}
-                  onClaim={() => claim(app)}
-                  onRelease={() => release(app)}
-                  onEdit={() => setEditing(app)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+            {groups.map(([location, list]) => (
+              <section key={location}>
+                <div className="flex items-center gap-1.5 mb-2.5 text-cyan-300/70">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <h2 className="text-[11px] uppercase tracking-[0.25em] font-extrabold">{location}</h2>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/5 text-cyan-100/50">{list.length}</span>
+                </div>
+                <div className="space-y-3">
+                  {list.map(app => (
+                    <AppCard
+                      key={app.id}
+                      app={app}
+                      busy={busyId === app.id}
+                      appUrl={appUrl(app.slug)}
+                      onClaim={() => claim(app)}
+                      onRelease={() => release(app)}
+                      onEdit={() => setEditing(app)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </>
+        )}
       </main>
 
       {editing && (
@@ -220,6 +294,76 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl bg-white/5 ring-1 ring-white/10 py-2">
       <div className="text-sm font-extrabold tabular-nums">{value}</div>
       <div className="text-[9px] uppercase tracking-widest text-cyan-200/50 font-bold">{label}</div>
+    </div>
+  );
+}
+
+/* ---- Team / leaderboard view ---- */
+function TeamView({
+  team, rows, myUserId,
+}: {
+  team: TeamMrrSummary;
+  rows: RepLeaderRow[];
+  myUserId: string;
+}) {
+  return (
+    <div className="space-y-5">
+      {/* Group MRR hero */}
+      <div className="relative rounded-3xl p-5 overflow-hidden ring-1 ring-cyan-300/20"
+        style={{ background: "linear-gradient(160deg, rgba(8,47,73,0.9), rgba(3,13,28,0.9))" }}>
+        <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full blur-3xl opacity-40" style={{ background: "#22d3ee" }} />
+        <div className="relative">
+          <div className="flex items-center gap-1.5 text-cyan-300/70 text-[11px] font-bold uppercase tracking-widest">
+            <Users className="h-3.5 w-3.5" /> Team MRR (won deals)
+          </div>
+          <div className="mt-1 flex items-end gap-2">
+            <div className="text-4xl font-black tracking-tight tabular-nums drop-shadow-[0_0_18px_rgba(34,211,238,0.45)]">
+              {money(team.team_mrr_cents)}
+            </div>
+            <div className="text-cyan-200/60 text-sm mb-1">/mo</div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <Stat label="Apps built" value={String(team.apps_created)} />
+            <Stat label="Apps sold" value={String(team.apps_sold)} />
+            <Stat label="Commissions" value={money(team.team_commission_cents) + "/mo"} />
+          </div>
+        </div>
+      </div>
+
+      {/* Rep rows */}
+      {rows.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-cyan-100/50 text-sm">
+          No stats yet. Build apps and claim deals to climb the board.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((r, i) => {
+            const mine = r.user_id === myUserId;
+            return (
+              <div key={r.user_id}
+                className={"flex items-center gap-3 rounded-2xl px-3 py-3 ring-1 " +
+                  (mine ? "bg-cyan-400/10 ring-cyan-300/40" : "bg-white/5 ring-white/10")}>
+                <div className={"h-8 w-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 " +
+                  (i === 0 ? "bg-amber-400 text-slate-900" : i === 1 ? "bg-slate-300 text-slate-900" : i === 2 ? "bg-orange-400 text-slate-900" : "bg-white/10 text-cyan-100")}>
+                  {i + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate">
+                    {r.full_name || r.email}{mine && <span className="text-cyan-300/70 text-[11px] font-semibold"> · you</span>}
+                  </div>
+                  <div className="text-[11px] text-cyan-200/50">
+                    {r.apps_created} built · {r.apps_sold} sold
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-sm font-black text-cyan-200 tabular-nums">{money(r.monthly_commission_cents)}<span className="text-cyan-200/50 text-xs">/mo</span></div>
+                  <div className="text-[10px] text-cyan-200/40">{money(r.sold_mrr_cents)} MRR</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -293,8 +437,8 @@ function AppCard({
           </a>
           {app.is_mine ? (
             <button onClick={onRelease} disabled={busy}
-              className="h-10 rounded-xl bg-white/5 ring-1 ring-white/10 text-cyan-100/80 font-bold text-[13px] flex items-center justify-center gap-1.5">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Mine
+              className="h-10 rounded-xl bg-rose-500/10 ring-1 ring-rose-400/30 text-rose-200 font-bold text-[13px] flex items-center justify-center gap-1.5">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />} Unclaim
             </button>
           ) : (
             <button onClick={onClaim} disabled={busy || (!!app.claimed_by)}

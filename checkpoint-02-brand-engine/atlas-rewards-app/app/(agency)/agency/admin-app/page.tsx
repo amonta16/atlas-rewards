@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AdminAppClient } from "@/components/agency/admin-app-client";
-import type { RepLeaderRow } from "@/lib/types/database";
+import type { RepLeaderRow, TeamMrrSummary } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +19,14 @@ export default async function AdminAppPage() {
     .eq("user_id", user.id).eq("role", "agency_admin").limit(1);
   if (!adminRows || adminRows.length === 0) redirect("/agency");
 
-  const [{ data: config }, { data: leaderboard }] = await Promise.all([
+  const [{ data: config }, { data: leaderboard }, { data: team }] = await Promise.all([
     supabase.from("admin_app_config")
       .select("owner_user_id, default_commission_pct, nudges_enabled, nudge_hour, nudge_mon, nudge_tue, nudge_wed, nudge_thu, nudge_fri, nudge_sat, nudge_sun")
       .eq("id", 1).maybeSingle(),
     supabase.rpc("rep_leaderboard"),
+    supabase.rpc("team_mrr_summary"),
   ]);
+  const teamSummary = (Array.isArray(team) ? team[0] : team) as TeamMrrSummary | null;
 
   const c: any = config ?? {};
   const nudges = {
@@ -52,6 +54,7 @@ export default async function AdminAppPage() {
       initialDefaultPct={Number(config?.default_commission_pct ?? 30)}
       initialNudges={nudges}
       leaderboard={(leaderboard ?? []) as RepLeaderRow[]}
+      team={teamSummary ?? { team_mrr_cents: 0, team_commission_cents: 0, apps_created: 0, apps_sold: 0, active_reps: 0 }}
     />
   );
 }
