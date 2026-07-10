@@ -16,8 +16,20 @@ Everything else a VA does is identical to an admin.
 
 ## Apply the SQL
 
-Run **`cp62_migration.sql`** in the Supabase SQL editor (apply after cp60).
-It's idempotent — safe to re-run.
+Run these in the Supabase SQL editor, in order (both idempotent):
+
+1. **`cp62_migration.sql`** — the role, delete-requests, and route/invite plumbing (apply after cp60).
+2. **`cp62_1_permissions_fix.sql`** — lets VAs upload images + save memberships/rewards/offers (apply after cp62).
+
+> **CP-62.1 — why:** CP-62 opened the `businesses` table to VAs, but the rest of
+> the app-builder (memberships, rewards, offers, news, image uploads) is gated by
+> `is_business_manager()` / `staffs_business()` and an admin-only storage policy —
+> none of which knew about VAs. 62.1 widens those helpers to treat a VA like an
+> admin for per-business app data, and rebuilds the image-upload policy to include
+> VAs. **Side effect:** a VA is now manager-level on every business, so if one
+> navigates directly to a business's manager portal (`/<slug>/manage`) they could
+> see that business's insights. Consistent with "same as admin"; tell me if you
+> want that tightened.
 
 What it does:
 

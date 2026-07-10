@@ -6,6 +6,18 @@
 -- business is just setting its folder_id.
 
 -- ---------------------------------------------------------------------------
+-- 0. Fix: the CP-52.4 background_pattern CHECK constraint hard-codes an old
+--    list of pattern ids, so saving a business with a newer pattern (CP-58.1's
+--    mesh/silk/orbs/waves-layered/hills) fails with
+--    "violates check constraint businesses_background_pattern_chk".
+--    The Design picker (lib/patterns.ts PATTERN_OPTIONS) is the real source of
+--    truth for valid ids, so we just drop the constraint instead of chasing it
+--    every time we add a pattern.
+-- ---------------------------------------------------------------------------
+alter table public.businesses
+  drop constraint if exists businesses_background_pattern_chk;
+
+-- ---------------------------------------------------------------------------
 -- 1. Folders table
 -- ---------------------------------------------------------------------------
 create table if not exists public.business_folders (
