@@ -1,6 +1,6 @@
 "use client";
 /**
- * Atlas Command — Field App (CP-63, Phase 1)
+ * Atlas Command — Field App (CP-63)  [build: cp63.2-folders+twice-daily]
  *
  * A phone-first HUD for the door-sales crew. Iron-Man command-center styling:
  * deep navy, cyan glow, arc-reactor accents. Shows the rep's live commission
