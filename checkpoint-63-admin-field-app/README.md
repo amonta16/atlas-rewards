@@ -53,13 +53,45 @@ New: `app/field/page.tsx`, `app/field/field-client.tsx`,
 Changed: `components/agency/sidebar.tsx` (Admin App tab), `lib/types/database.ts`
 (claim/deal fields + FieldApp/RepEarnings/RepLeaderRow types).
 
-## Coming next (not in this checkpoint)
+---
 
-- **Phase 2** — daily motivational nudges: an editable set of 7 weekday messages
-  delivered each morning as an in-app bell notification **and** a phone push, with
-  a config editor on the Admin App tab.
-- **Phase 3** — mini mobile pipeline (leads without apps yet) + installable PWA
-  polish (manifest, offline, real "Add to Home Screen").
+# Phase 2 — Daily motivational nudges ✅
+
+A "let's build apps today" nudge for the crew each morning: an in-app bell entry
+in the Field App **and** a phone push. You edit one message per weekday.
+
+**What shipped**
+- **`cp63_2_nudges.sql`** — nudge columns on `admin_app_config` (enabled + 7
+  weekday messages, pre-seeded with hype defaults) and a new
+  `admin_notifications` table (the reps' bell feed — separate from the customer
+  `notifications` table, so nothing there is touched).
+- **Nudge bell** in the Field App header (unread badge, "turn on push for this
+  phone").
+- **Daily Motivation card** on the Admin App tab — toggle, the 7 weekday
+  messages, and **Send test to me**.
+- **Delivery**: `/api/admin-app/daily-nudge` fans the day's message to every
+  admin's bell + push. Wired to a **Vercel Cron** (added to `vercel.json`) at
+  `0 15 * * *` (≈ 8am PT — change the schedule to taste).
+
+**Apply / configure**
+1. Run **`cp63_2_nudges.sql`** in Supabase (after `cp63_migration.sql`).
+2. Set the env var **`CRON_SECRET`** (any long random string) in Vercel — the
+   cron route rejects calls without `Authorization: Bearer $CRON_SECRET`. This is
+   the same secret the existing `process-pending` cron already uses.
+3. Reps open `/field` → bell → **Turn on push for this phone** (grants the
+   browser notification permission + saves their device).
+4. Edit messages in **Admin App → Daily motivation**, hit **Send test to me** to
+   preview.
+
+> Push needs VAPID keys (the same ones the customer push already uses). If they're
+> not set, the bell still works and push is silently skipped.
+
+---
+
+## Coming next (Phase 3, not yet built)
+
+- Mini mobile pipeline (leads without apps yet) + installable PWA polish
+  (manifest, offline, real "Add to Home Screen").
 
 ## Note / open question
 
@@ -73,6 +105,8 @@ locked to admins at the row level.
 ```bash
 cd "C:/Users/andre/OneDrive/Documents/Claude/Projects/Atlas Engine APP"
 git add checkpoint-63-admin-field-app "checkpoint-02-brand-engine/atlas-rewards-app"
-git commit -m "CP-63 Phase 1: Atlas Command field app — pitch launcher, self-claim, deal MRR + 30% commissions, rep leaderboard"
+git commit -m "CP-63: Atlas Command field app (Phase 1) + daily motivational nudges (Phase 2)"
 git push
 ```
+
+Remember to set **`CRON_SECRET`** in Vercel for the daily-nudge cron.

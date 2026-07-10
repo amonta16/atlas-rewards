@@ -20,9 +20,21 @@ export default async function AdminAppPage() {
   if (!adminRows || adminRows.length === 0) redirect("/agency");
 
   const [{ data: config }, { data: leaderboard }] = await Promise.all([
-    supabase.from("admin_app_config").select("owner_user_id, default_commission_pct").eq("id", 1).maybeSingle(),
+    supabase.from("admin_app_config")
+      .select("owner_user_id, default_commission_pct, nudges_enabled, nudge_hour, nudge_mon, nudge_tue, nudge_wed, nudge_thu, nudge_fri, nudge_sat, nudge_sun")
+      .eq("id", 1).maybeSingle(),
     supabase.rpc("rep_leaderboard"),
   ]);
+
+  const c: any = config ?? {};
+  const nudges = {
+    enabled: c.nudges_enabled ?? true,
+    hour: Number(c.nudge_hour ?? 8),
+    messages: {
+      mon: c.nudge_mon ?? "", tue: c.nudge_tue ?? "", wed: c.nudge_wed ?? "",
+      thu: c.nudge_thu ?? "", fri: c.nudge_fri ?? "", sat: c.nudge_sat ?? "", sun: c.nudge_sun ?? "",
+    },
+  };
 
   const ownerId = (config?.owner_user_id as string | null) ?? null;
   let ownerEmail: string | null = null;
@@ -38,6 +50,7 @@ export default async function AdminAppPage() {
       initialOwnerId={ownerId}
       ownerEmail={ownerEmail}
       initialDefaultPct={Number(config?.default_commission_pct ?? 30)}
+      initialNudges={nudges}
       leaderboard={(leaderboard ?? []) as RepLeaderRow[]}
     />
   );

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
+import { FieldNudgeBell } from "@/components/agency/field-nudge-bell";
 import type { FieldApp, RepEarnings } from "@/lib/types/database";
 
 const STAGES: { id: FieldApp["deal_stage"]; label: string; className: string }[] = [
@@ -120,10 +121,13 @@ export function FieldClient({
               <div className="text-sm font-bold leading-none">Field Ops</div>
             </div>
           </div>
-          <button onClick={refresh} disabled={refreshing}
-            className="h-9 w-9 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center text-cyan-200">
-            <RefreshCw className={"h-4 w-4 " + (refreshing ? "animate-spin" : "")} />
-          </button>
+          <div className="flex items-center gap-2">
+            <FieldNudgeBell />
+            <button onClick={refresh} disabled={refreshing}
+              className="h-9 w-9 rounded-xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center text-cyan-200">
+              <RefreshCw className={"h-4 w-4 " + (refreshing ? "animate-spin" : "")} />
+            </button>
+          </div>
         </div>
 
         {/* ===== My MRR hero (arc reactor) ===== */}

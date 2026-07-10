@@ -9,23 +9,33 @@
 import { useEffect, useState } from "react";
 import {
   Rocket, Smartphone, Copy, Check, Crown, Trophy, DollarSign, Loader2, ExternalLink,
+  Bell, Send,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import type { RepLeaderRow } from "@/lib/types/database";
+
+type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+const DAYS: { key: DayKey; label: string }[] = [
+  { key: "mon", label: "Monday" }, { key: "tue", label: "Tuesday" }, { key: "wed", label: "Wednesday" },
+  { key: "thu", label: "Thursday" }, { key: "fri", label: "Friday" }, { key: "sat", label: "Saturday" },
+  { key: "sun", label: "Sunday" },
+];
+type NudgeConfig = { enabled: boolean; hour: number; messages: Record<DayKey, string> };
 
 function money(cents: number | null | undefined): string {
   return "$" + Math.round((cents ?? 0) / 100).toLocaleString();
 }
 
 export function AdminAppClient({
-  myUserId, myEmail, initialOwnerId, ownerEmail, initialDefaultPct, leaderboard,
+  myUserId, myEmail, initialOwnerId, ownerEmail, initialDefaultPct, initialNudges, leaderboard,
 }: {
   myUserId: string;
   myEmail: string;
   initialOwnerId: string | null;
   ownerEmail: string | null;
   initialDefaultPct: number;
+  initialNudges: NudgeConfig;
   leaderboard: RepLeaderRow[];
 }) {
   const { toast } = useToast();
@@ -37,9 +47,43 @@ export function AdminAppClient({
   const [fieldUrl, setFieldUrl] = useState("/field");
   const [copied, setCopied] = useState(false);
 
+  // Nudges
+  const [nudges, setNudges] = useState<NudgeConfig>(initialNudges);
+  const [savingNudges, setSavingNudges] = useState(false);
+  const [testing, setTesting] = useState(false);
+
   useEffect(() => { setFieldUrl(`${window.location.origin}/field`); }, []);
 
   const iAmOwner = ownerId === myUserId || ownerId === null;
+
+  async function saveNudges() {
+    setSavingNudges(true);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("set_admin_nudges", {
+      p_enabled: nudges.enabled,
+      p_hour: nudges.hour,
+      p_mon: nudges.messages.mon, p_tue: nudges.messages.tue, p_wed: nudges.messages.wed,
+      p_thu: nudges.messages.thu, p_fri: nudges.messages.fri, p_sat: nudges.messages.sat,
+      p_sun: nudges.messages.sun,
+    });
+    setSavingNudges(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Nudges saved");
+  }
+
+  async function sendTest() {
+    setTesting(true);
+    try {
+      const res = await fetch("/api/admin-app/daily-nudge?test=1", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "failed");
+      toast.success(json.skipped ? `Skipped: ${json.skipped}` : "Test nudge sent to you 🔔");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Couldn't send test");
+    } finally {
+      setTesting(false);
+    }
+  }
 
   async function savePct() {
     setSavingPct(true);
@@ -135,6 +179,51 @@ export function AdminAppClient({
                 {savingOwner ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />} Make me owner
               </button>
             )}
+          </div>
+        </Card>
+
+        {/* Daily nudges */}
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle icon={<Bell className="h-4 w-4" />}>Daily motivation</CardTitle>
+            <div className="flex items-center gap-2">
+              <button onClick={sendTest} disabled={testing}
+                className="h-9 px-3 rounded-lg bg-white/5 ring-1 ring-white/10 text-cyan-100 font-semibold text-sm flex items-center gap-1.5">
+                {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send test to me
+              </button>
+              <label className="flex items-center gap-2 text-sm text-sky-200/70 cursor-pointer">
+                <input type="checkbox" checked={nudges.enabled} disabled={!iAmOwner}
+                  onChange={e => setNudges(n => ({ ...n, enabled: e.target.checked }))}
+                  className="h-4 w-4 accent-cyan-400" />
+                Enabled
+              </label>
+            </div>
+          </div>
+          <p className="text-sm text-sky-200/60 mt-1">
+            One message per weekday, sent every morning to the crew's bell + phone push. Keep 'em short and hype. 🔥
+          </p>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {DAYS.map(d => (
+              <div key={d.key}>
+                <label className="text-[10px] uppercase tracking-widest font-bold text-cyan-200/50">{d.label}</label>
+                <input
+                  value={nudges.messages[d.key]}
+                  disabled={!iAmOwner}
+                  onChange={e => setNudges(n => ({ ...n, messages: { ...n.messages, [d.key]: e.target.value } }))}
+                  className="mt-1 w-full h-10 rounded-lg bg-black/30 ring-1 ring-white/10 px-3 text-white text-sm placeholder:text-cyan-100/30 disabled:opacity-50"
+                  placeholder={`${d.label} message…`}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={saveNudges} disabled={savingNudges || !iAmOwner}
+              className="h-10 px-4 rounded-lg bg-cyan-400 text-slate-900 font-bold text-sm flex items-center gap-1.5 disabled:opacity-50">
+              {savingNudges ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Save messages
+            </button>
+            {!iAmOwner && <span className="text-[11px] text-amber-300/70">Only the agency owner can edit nudges.</span>}
           </div>
         </Card>
 

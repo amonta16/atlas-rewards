@@ -13,7 +13,10 @@
  * unsupported environments (Safari < 16, in-app browsers, etc.).
  */
 
-export async function ensurePushSubscription(businessId: string): Promise<void> {
+// CP-63: businessId may be null — the Field App subscribes with a null
+// (global/agency) tag so sendPushToUsers(..., null) can reach admin devices
+// without leaking a customer business's pushes to them.
+export async function ensurePushSubscription(businessId: string | null): Promise<void> {
   // Feature-check first — bail silently if anything is missing.
   if (typeof window === "undefined") return;
   if (!("serviceWorker" in navigator)) return;
