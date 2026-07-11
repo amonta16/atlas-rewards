@@ -453,6 +453,7 @@ function EditPanel({
                 value={row.custom_image_url ?? null}
                 onChange={(url) => onChange({ custom_image_url: url })}
                 aspectClass="aspect-[4/3]"
+                library={{ category: "offer", industry: business.industry }}
               />
             </div>
             <p className="text-[10px] text-zinc-500 mt-1">

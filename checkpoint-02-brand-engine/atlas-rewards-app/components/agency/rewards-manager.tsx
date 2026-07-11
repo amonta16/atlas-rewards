@@ -178,6 +178,7 @@ export function RewardsManager({ business }: { business: Business }) {
                   value={editing.image_url ?? null}
                   onChange={(url) => setEditing({ ...editing, image_url: url })}
                   aspectClass="aspect-[4/3]"
+                  library={{ category: "reward", industry: business.industry }}
                 />
               </div>
               <div className="space-y-1.5">

@@ -360,6 +360,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       onChange={(url) => update("hero_image_url", url)}
                       label="Hero"
                       aspectClass="aspect-square"
+                      library={{ category: "hero", industry: b.industry }}
                     />
                     <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">
                       Landscape photo of your space (1600×900+). Shown behind the welcome message.

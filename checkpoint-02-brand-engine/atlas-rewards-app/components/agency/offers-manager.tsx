@@ -236,6 +236,7 @@ export function OffersManager({
                   onChange={(url) => setEditing({ ...editing, image_url: url })}
                   aspectClass="aspect-video"
                   label="Offer"
+                  library={{ category: "offer", industry: business.industry }}
                 />
               </div>
               <div className="space-y-1.5">

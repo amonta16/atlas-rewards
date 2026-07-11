@@ -1,15 +1,20 @@
 "use client";
 import { useState, useRef } from "react";
-import { Upload, X, ImageIcon } from "lucide-react";
+import { Upload, X, ImageIcon, LayoutGrid } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ImageLibraryPicker } from "./image-library-picker";
+import { libraryIndustryForBusiness, type LibraryCategory } from "@/lib/image-library";
 
 /**
  * Generic image uploader for Supabase Storage.
  * Picks a file, uploads to <bucket>/<path>, returns the public URL via onChange.
+ *
+ * CP-64: pass `library` to also offer "Choose from library" — the pre-curated
+ * per-industry stock set — so building a demo never requires hunting images.
  */
 export function ImageUploader({
-  bucket, pathPrefix, value, onChange, label = "Image", aspectClass = "aspect-video",
+  bucket, pathPrefix, value, onChange, label = "Image", aspectClass = "aspect-video", library,
 }: {
   // CP-06 removed booking, but the legacy booking-tags-manager.tsx
   // component still compiles — keep "booking-tag-images" in the
@@ -25,10 +30,15 @@ export function ImageUploader({
   onChange: (url: string | null) => void;
   label?: string;
   aspectClass?: string;
+  /** CP-64: enable the pre-curated library. `category` is the slot being
+   *  edited; `industry` is the business's industry value (we map it to the
+   *  library's slug — unknown industries just open on the first niche). */
+  library?: { category: LibraryCategory; industry?: string | null };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   async function handleFile(file: File) {
     setUploading(true); setErr(null);
@@ -101,7 +111,26 @@ export function ImageUploader({
           </div>
         )}
       </div>
+      {library && (
+        <Button
+          size="sm"
+          type="button"
+          variant="outline"
+          className="w-full h-8 text-xs font-semibold"
+          onClick={() => setLibraryOpen(true)}
+        >
+          <LayoutGrid className="h-3.5 w-3.5 mr-1.5" /> Choose from library
+        </Button>
+      )}
       {err && <p className="text-sm text-red-600">{err}</p>}
+      {library && libraryOpen && (
+        <ImageLibraryPicker
+          defaultCategory={library.category}
+          defaultIndustry={libraryIndustryForBusiness(library.industry)}
+          onSelect={(url) => { onChange(url); setLibraryOpen(false); }}
+          onClose={() => setLibraryOpen(false)}
+        />
+      )}
     </div>
   );
 }
