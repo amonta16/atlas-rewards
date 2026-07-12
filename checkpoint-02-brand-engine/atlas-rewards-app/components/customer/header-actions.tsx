@@ -85,6 +85,15 @@ export function HeaderActions({
   // row (which is what get_streak_status keys off — that RPC returns
   // is_enabled:false until the first check-in).
   const [streakConfigEnabled, setStreakConfigEnabled] = useState(false);
+  // CP-65.1: red "!" nudges (same language as the Google-review badge).
+  // After a check-in: the spin pill gets a "!" until the spin is opened
+  // today, and the streak pill gets a "!" until they view their new streak
+  // progress. Seen-state lives in localStorage so it survives reloads.
+  // Default true (no badge) until we've read storage — avoids a flash.
+  const [spinNudgeSeen, setSpinNudgeSeen] = useState(true);
+  const [streakNudgeSeen, setStreakNudgeSeen] = useState(true);
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const spinSeenKey = `atlas-spin-nudge-${membershipId ?? "anon"}-${todayKey}`;
 
   const primary = business.brand_colors.primary;
   // CP-55: adapt the pills to the (possibly dark/custom) header color so they
@@ -215,6 +224,22 @@ export function HeaderActions({
   const streakCount   = streak?.current_streak ?? 0;
   // Urgent = has a streak built up but hasn't checked in yet today
   const streakUrgent  = streakEnabled && streakCount > 0 && !(streak?.checked_in_this_period ?? false);
+  // CP-65.1: streak "!" seen-state is keyed by the streak COUNT, so every new
+  // check-in re-arms the badge until they open the panel and see it add up.
+  const streakSeenKey = `atlas-streak-nudge-${membershipId ?? "anon"}-${streakCount}`;
+  useEffect(() => {
+    if (typeof window === "undefined" || !membershipId) return;
+    try {
+      setSpinNudgeSeen(window.localStorage.getItem(spinSeenKey) === "1");
+      setStreakNudgeSeen(window.localStorage.getItem(streakSeenKey) === "1");
+    } catch { /* private mode etc. — just skip the nudges */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [membershipId, spinSeenKey, streakSeenKey]);
+  // Spin reward ready = checked in today and hasn't opened the spin yet.
+  const spinNudge = checkedInToday && !spinNudgeSeen;
+  // Streak progress unseen = checked in this period, streak alive, panel not opened since.
+  const streakNudge =
+    streakEnabled && streakCount > 0 && (streak?.checked_in_this_period ?? false) && !streakNudgeSeen;
 
   // A member is "paid" if their tier carries a monthly price.
   const isPaid = !!(
@@ -238,8 +263,18 @@ export function HeaderActions({
   }
 
   function handleStreakClick() {
+    // CP-65.1: opening the panel counts as "seen" — the red "!" clears.
+    try { window.localStorage.setItem(streakSeenKey, "1"); } catch { /* ignore */ }
+    setStreakNudgeSeen(true);
     // CP-24: open the streak widget modal in place — no more navigating away.
     setStreakOpen(true);
+  }
+
+  function handleSpinClick() {
+    // CP-65.1: opening the daily spin counts as "seen" — the red "!" clears.
+    try { window.localStorage.setItem(spinSeenKey, "1"); } catch { /* ignore */ }
+    setSpinNudgeSeen(true);
+    setMysteryOpen(true);
   }
 
   // ─── render ──────────────────────────────────────────────────────────────
@@ -266,7 +301,7 @@ export function HeaderActions({
               : null;
           return (
             <button
-              onClick={() => setMysteryOpen(true)}
+              onClick={handleSpinClick}
               className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
               style={{
                 background: checkedInToday
@@ -303,7 +338,15 @@ export function HeaderActions({
                   <Lock className="h-1.5 w-1.5 text-zinc-500" />
                 </span>
               )}
-              {checkedInToday && !cooldown && (
+              {/* CP-65.1: red "!" — your check-in reward (spin) is ready.
+                  Same visual language as the Google-review nudge. Clears
+                  once the spin is opened today. */}
+              {spinNudge && (
+                <span className="absolute -top-1.5 -right-1.5 h-[16px] w-[16px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce pointer-events-none">
+                  <span className="text-[10px] font-black text-white leading-none">!</span>
+                </span>
+              )}
+              {checkedInToday && !cooldown && !spinNudge && (
                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse pointer-events-none" />
               )}
             </button>
@@ -330,8 +373,15 @@ export function HeaderActions({
               Streak
             </span>
 
+            {/* CP-65.1: red "!" — streak just grew, tap to watch it add up.
+                Clears when the panel is opened; re-arms on the next check-in. */}
+            {streakNudge && !streakUrgent && (
+              <span className="absolute -top-1.5 -right-1.5 h-[16px] w-[16px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce pointer-events-none">
+                <span className="text-[10px] font-black text-white leading-none">!</span>
+              </span>
+            )}
             {/* Count bubble — matches Andrew's mock */}
-            {streakCount > 0 && !streakUrgent && (
+            {streakCount > 0 && !streakUrgent && !streakNudge && (
               <span
                 className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] rounded-full bg-zinc-900 text-white text-[9px] font-extrabold flex items-center justify-center px-1 ring-2 ring-white leading-none"
                 style={{ lineHeight: 1 }}

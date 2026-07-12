@@ -19,7 +19,7 @@
  *  - Modal is constrained to max-w-md (phone width) so it doesn't blow
  *    up on desktop.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Flame, Gift, Sparkles, Trophy, Check, X, ChevronLeft, ChevronRight, Lock, CalendarDays,
 } from "lucide-react";
@@ -89,6 +89,14 @@ export function StreakWidget({
   // Default lands on whichever page contains the current streak so the
   // user always sees their progress on open.
   const [page, setPage] = useState(0);
+  // CP-65.1: the "streak adding up" moment. When the panel opens right after
+  // a check-in, the newest cell starts EMPTY, then pops filled ~0.5s later
+  // while the big number counts up — so the customer literally watches their
+  // streak grow. One-shot per open.
+  const celebratedRef = useRef(false);
+  const [celebrate, setCelebrate] = useState(false); // animation armed
+  const [landed, setLanded] = useState(false);       // newest cell has filled
+  const [burst, setBurst] = useState(false);         // one-shot ping ring + number pop
 
   // CP-65: themable streak. Default stays classic fire; the agency can pick
   // gold / neon / pink / blue / gray / coffee / midnight / match-my-brand
@@ -108,6 +116,12 @@ export function StreakWidget({
       if (!cancelled) {
         setS(row);
         if (row) setPage(Math.max(0, Math.floor((row.current_streak - 1) / CELLS_PER_PAGE)));
+        // CP-65.1: arm the count-up celebration once per open, only when
+        // they've actually checked in this period (there's something to add).
+        if (row?.checked_in_this_period && row.current_streak > 0 && !celebratedRef.current) {
+          celebratedRef.current = true;
+          setCelebrate(true);
+        }
       }
     };
     load();
@@ -130,6 +144,14 @@ export function StreakWidget({
       supabase.removeChannel(ch);
     };
   }, [business.id, membershipId]);
+
+  // CP-65.1: run the celebration timeline once armed.
+  useEffect(() => {
+    if (!celebrate) return;
+    const t1 = setTimeout(() => { setLanded(true); setBurst(true); }, 550);
+    const t2 = setTimeout(() => setBurst(false), 1800);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [celebrate]);
 
   const milestones = useMemo<Milestone[]>(
     () => (s ? [...(s.milestones ?? [])].sort((a, b) => a.count - b.count) : []),
@@ -163,10 +185,14 @@ export function StreakWidget({
     );
   }
 
+  // CP-65.1: the number/cells briefly show the PREVIOUS streak, then tick up —
+  // that's the whole "watch it add up" moment.
+  const displayStreak = celebrate && !landed ? Math.max(0, s.current_streak - 1) : s.current_streak;
+
   const nextMilestone = milestones.find(m => m.count > s.current_streak);
   const progressBar =
-    nextMilestone && s.current_streak > 0
-      ? Math.min(100, (s.current_streak / nextMilestone.count) * 100)
+    nextMilestone && displayStreak > 0
+      ? Math.min(100, (displayStreak / nextMilestone.count) * 100)
       : nextMilestone
         ? 0
         : 100;
@@ -232,8 +258,8 @@ export function StreakWidget({
               <div className="text-[10px] uppercase tracking-[0.2em] font-extrabold opacity-90">
                 Streak
               </div>
-              <div className="text-3xl font-extrabold leading-none tabular-nums">
-                {s.current_streak}
+              <div className={`text-3xl font-extrabold leading-none tabular-nums transition-transform duration-300 ${burst ? "scale-125" : ""}`}>
+                {displayStreak}
               </div>
               <div className="text-xs opacity-90 mt-0.5">
                 {periodWord}
@@ -250,7 +276,7 @@ export function StreakWidget({
                   Next: <strong>{nextMilestone.label}</strong>
                 </span>
                 <span>
-                  {s.current_streak} / {nextMilestone.count}
+                  {displayStreak} / {nextMilestone.count}
                 </span>
               </div>
               <div className="h-2.5 rounded-full bg-white/20 overflow-hidden ring-1 ring-white/30">
@@ -334,12 +360,14 @@ export function StreakWidget({
 
             <div className="grid grid-cols-3 gap-2.5">
               {cells.map(({ n, milestone }) => {
-                const isFilled   = n <= s.current_streak;
+                // CP-65.1: driven by displayStreak so the newest cell starts
+                // empty and pops filled during the count-up celebration.
+                const isFilled   = n <= displayStreak;
                 // CP-49: the cell you're working toward (next to earn) is the
                 // ACTIVE one; everything past it is LOCKED + dimmed so the
                 // path reads clearly as done → here → still locked.
-                const isNext     = n === s.current_streak + 1;
-                const isLocked   = n > s.current_streak + 1;
+                const isNext     = n === displayStreak + 1;
+                const isLocked   = n > displayStreak + 1;
                 const isCurrent  = isNext;
                 const isMystery  = milestone?.mystery;
                 const isMilestone = !!milestone;
@@ -402,6 +430,11 @@ export function StreakWidget({
                     {/* Pulse ring on the current cell */}
                     {isCurrent && (
                       <div className="absolute inset-0 rounded-xl ring-4 ring-yellow-200 ring-offset-2 ring-offset-transparent animate-pulse pointer-events-none" />
+                    )}
+
+                    {/* CP-65.1: one-shot burst on the cell that just filled */}
+                    {burst && n === s.current_streak && (
+                      <div className="absolute -inset-1 rounded-2xl ring-4 ring-white/80 animate-ping pointer-events-none" />
                     )}
 
                     {/* Icon + period label.

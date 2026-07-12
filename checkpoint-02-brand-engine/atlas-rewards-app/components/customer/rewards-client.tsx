@@ -214,6 +214,7 @@ export function RewardsClient({
         businessName={business.name}
         primary={business.brand_colors.primary}
         secondary={business.brand_colors.secondary}
+        cardStyle={business.offer_card_style}
       />
 
       {/* CP-42 hotfix: MysteryRewardCard removed — Andrew already has the

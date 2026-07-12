@@ -1,9 +1,10 @@
 # Checkpoint 65 — Library Uploads + Design Themes
 
-Two builder upgrades in one checkpoint: **upload your own photos into the
-Fast Pick library** (CP-64.1), and **real design flexibility** — one-click
+Builder upgrades in one checkpoint: **upload your own photos into the
+Fast Pick library** (CP-64.1), **real design flexibility** — one-click
 theme presets plus a themable streak that's no longer locked to orange
-(CP-65).
+(CP-65) — and **poppy offer cards + check-in "!" nudges + the streak
+count-up moment** (CP-65.1).
 
 ## CP-64.1 — Upload photos into the library
 
@@ -57,10 +58,35 @@ The 10 presets (each tagged with the niches it flatters):
 Presets are starting points — every individual lever below (colors, pattern,
 header, cards, buttons, banner, streak) still works exactly as before.
 
+## CP-65.1 — Poppy offer cards
+
+The customer "Limited offers" cards were locked to flat white. New **Offer
+card style** section in the brand editor with six treatments: Clean white
+(default), Brand tint, Poppy glow (bold brand ring + glow), Gradient (full
+brand gradient, white text), Midnight (dark glass), and Luxe noir (near-black
++ gold rim). Dark styles flip all card text to white automatically. Theme
+presets now set this too (Premium Noir → Luxe, Neon Arcade → Midnight,
+Sunny Scoop → Poppy glow, …).
+
+## CP-65.1 — Check-in "!" nudges + streak count-up
+
+Same visual language as the Google-review nudge:
+
+- **Spin "!"** — the moment a customer checks in, a red bouncing "!" lands
+  on the Check-in/spin pill: your reward is ready. Clears once they open the
+  daily spin that day.
+- **Streak "!"** — after a check-in, the streak pill wears a red "!" until
+  they open the panel. Re-arms automatically on every new check-in (keyed by
+  streak count).
+- **The add-up moment** — when the streak panel opens right after a
+  check-in, the newest cell starts empty, then pops filled with a burst ring
+  ~half a second later while the big number and progress bar count up — the
+  customer literally watches their streak grow.
+
 ## Apply it
 
-1. Run **`cp64_1_library_uploads.sql`** then **`cp65_streak_theme.sql`** in
-   the Supabase SQL editor (both idempotent).
+1. Run **`cp64_1_library_uploads.sql`** → **`cp65_streak_theme.sql`** →
+   **`cp65_1_offer_cards.sql`** in the Supabase SQL editor (all idempotent).
 2. Deploy / restart the app. Done — no other config.
 
 ## Files
@@ -70,6 +96,21 @@ New:
 - `checkpoint-65-design-themes/cp65_streak_theme.sql`
 - `atlas-rewards-app/lib/streak-themes.ts`
 - `atlas-rewards-app/lib/theme-presets.ts`
+
+New (CP-65.1):
+- `checkpoint-65-design-themes/cp65_1_offer_cards.sql`
+- `atlas-rewards-app/lib/offer-card-styles.ts`
+
+Changed (CP-65.1):
+- `components/customer/limited-offers-section.tsx` — themable cards +
+  white-text handling on dark styles.
+- `components/customer/rewards-client.tsx` — passes the business's offer
+  card style through.
+- `components/customer/header-actions.tsx` — red "!" nudges on spin +
+  streak pills (localStorage seen-state).
+- `components/customer/streak-widget.tsx` — count-up celebration (cell pop +
+  burst ring + number/progress tick-up).
+- `lib/theme-presets.ts` — presets set offer_card_style too.
 
 Changed:
 - `components/agency/image-library-picker.tsx` — Upload panel (niche +

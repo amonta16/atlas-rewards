@@ -37,6 +37,8 @@ export type ThemePreset = {
   button_style: string | null;
   banner_style: string | null;
   streak_theme: string;
+  /** CP-65.1: customer offer-card style (lib/offer-card-styles.ts). */
+  offer_card_style: string | null;
 };
 
 export const THEME_PRESETS: ThemePreset[] = [
@@ -49,6 +51,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "silk", pattern_color: null,
     card_style: "soft", button_style: "pill",
     banner_style: "brand", streak_theme: "brand",
+    offer_card_style: "tint",
   },
   {
     id: "blush-beauty", label: "Blush Beauty", emoji: "💅",
@@ -59,6 +62,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "bubbles", pattern_color: null,
     card_style: "soft", button_style: "pill",
     banner_style: "gradient", streak_theme: "pink",
+    offer_card_style: "tint",
   },
   {
     id: "premium-noir", label: "Premium Noir", emoji: "🖤",
@@ -69,6 +73,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "orbs", pattern_color: "#a16207",
     card_style: "elevated", button_style: "square",
     banner_style: "gold", streak_theme: "gold",
+    offer_card_style: "luxe",
   },
   {
     id: "ocean-clean", label: "Ocean Clean", emoji: "🌊",
@@ -79,6 +84,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "waves-layered", pattern_color: null,
     card_style: "rounded", button_style: "rounded",
     banner_style: "gradient", streak_theme: "blue",
+    offer_card_style: "clean",
   },
   {
     id: "forest-fresh", label: "Forest Fresh", emoji: "🍃",
@@ -89,6 +95,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "hills", pattern_color: null,
     card_style: "soft", button_style: "soft",
     banner_style: "brand", streak_theme: "neon",
+    offer_card_style: "tint",
   },
   {
     id: "espresso", label: "Espresso House", emoji: "☕",
@@ -99,6 +106,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "swirls", pattern_color: null,
     card_style: "rounded", button_style: "soft",
     banner_style: "stripes", streak_theme: "coffee",
+    offer_card_style: "tint",
   },
   {
     id: "neon-arcade", label: "Neon Arcade", emoji: "👾",
@@ -109,6 +117,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "arcade", pattern_color: "#22d3ee",
     card_style: "sharp", button_style: "square",
     banner_style: "midnight", streak_theme: "neon",
+    offer_card_style: "midnight",
   },
   {
     id: "sunny-scoop", label: "Sunny Scoop", emoji: "🍦",
@@ -119,6 +128,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "confetti", pattern_color: null,
     card_style: "soft", button_style: "pill",
     banner_style: "confetti", streak_theme: "pink",
+    offer_card_style: "pop",
   },
   {
     id: "minimal-mono", label: "Minimal Mono", emoji: "◻️",
@@ -129,6 +139,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "none", pattern_color: null,
     card_style: "sharp", button_style: "square",
     banner_style: "brand", streak_theme: "gray",
+    offer_card_style: "clean",
   },
   {
     id: "bold-appetite", label: "Bold Appetite", emoji: "🍕",
@@ -139,6 +150,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     background_pattern: "restaurant", pattern_color: null,
     card_style: "elevated", button_style: "soft",
     banner_style: "stripes", streak_theme: "fire",
+    offer_card_style: "pop",
   },
 ];
 
@@ -154,5 +166,6 @@ export function presetPatch(p: ThemePreset) {
     button_style: p.button_style,
     banner_style: p.banner_style,
     streak_theme: p.streak_theme,
+    offer_card_style: p.offer_card_style,
   };
 }

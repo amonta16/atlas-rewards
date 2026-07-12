@@ -15,6 +15,8 @@ import { CARD_STYLES, BUTTON_STYLES, designVars } from "@/lib/design-styles";
 // CP-65: one-click theme presets + themable streak.
 import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
 import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
+// CP-65.1: poppy offer-card styles.
+import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -206,6 +208,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           button_style: b.button_style ?? null,
           /* CP-65: streak surface theme. */
           streak_theme: b.streak_theme ?? null,
+          /* CP-65.1: customer offer-card style. */
+          offer_card_style: b.offer_card_style ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -611,6 +615,48 @@ export function BrandEditor({ initial }: { initial: Business }) {
                           <span className="truncate drop-shadow">Featured offer</span>
                         </div>
                         <div className={cn("text-[10px] font-semibold px-2 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.emoji} {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* CP-65.1: offer-card style — the "Limited offers" cards on the
+                  customer Rewards tab. No more locked-in flat white. */}
+              <Section title="Offer card style" subtitle="How the limited-offer cards on the customer Rewards tab look — pick a poppier treatment than plain white.">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {OFFER_CARD_STYLES.map(opt => {
+                    const selected = (b.offer_card_style ?? "clean") === opt.id;
+                    const css = offerCardStyle(opt.id, b.brand_colors.primary, b.brand_colors.secondary);
+                    const dark = opt.dark;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("offer_card_style", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-1.5 text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        {/* mini offer-card mock */}
+                        <div className="rounded-lg border overflow-hidden flex" style={css}>
+                          <div className="w-8 shrink-0" style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}30, ${b.brand_colors.secondary}15)` }} />
+                          <div className="flex-1 min-w-0 p-1.5">
+                            <div className={cn("text-[9px] font-extrabold truncate", dark ? "text-white" : "text-zinc-900")}>Free add-on</div>
+                            <div className={cn("text-[7px] truncate", dark ? "text-white/60" : "text-zinc-500")}>This week only</div>
+                            <span
+                              className="inline-block mt-0.5 text-[6px] font-extrabold px-1 py-px rounded-full text-white"
+                              style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})` }}
+                            >
+                              20% off
+                            </span>
+                          </div>
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
                           {opt.emoji} {opt.label}
                         </div>
                       </button>

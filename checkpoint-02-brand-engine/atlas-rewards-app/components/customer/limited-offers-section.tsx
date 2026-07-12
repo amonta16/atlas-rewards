@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, Gift, Mic, Play, Sparkles, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
+import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 import { useToast } from "@/components/ui/toast";
 
 type ActiveOffer = RevealOffer & {
@@ -34,11 +35,14 @@ export function LimitedOffersSection({
   businessName,
   primary,
   secondary,
+  cardStyle,
 }: {
   businessId: string;
   businessName: string;
   primary: string;
   secondary?: string | null;
+  /** CP-65.1: offer-card style id (businesses.offer_card_style). NULL = clean white. */
+  cardStyle?: string | null;
 }) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ActiveOffer[] | null>(null);
@@ -146,6 +150,9 @@ export function LimitedOffersSection({
   }
 
   const sec = secondary || primary;
+  // CP-65.1: themable offer cards — dark styles flip the text to white.
+  const cardCss = offerCardStyle(cardStyle, primary, secondary);
+  const darkCard = offerCardMeta(cardStyle).dark;
 
   // Hide the entire section when there's nothing to show — the rewards page
   // is already busy and a stub-y "no offers" card would just be noise.
@@ -174,8 +181,8 @@ export function LimitedOffersSection({
             return (
               <div
                 key={o.id}
-                className="rounded-2xl border bg-white overflow-hidden flex"
-                style={{ borderColor: `${primary}1f` }}
+                className="rounded-2xl border overflow-hidden flex"
+                style={cardCss}
               >
                 {/* Image (with brand-gradient fallback) */}
                 <div
@@ -196,9 +203,9 @@ export function LimitedOffersSection({
 
                 {/* Body */}
                 <div className="flex-1 min-w-0 p-3">
-                  <div className="text-sm font-bold leading-tight truncate">{o.title}</div>
+                  <div className={`text-sm font-bold leading-tight truncate ${darkCard ? "text-white" : "text-zinc-900"}`}>{o.title}</div>
                   {o.description && (
-                    <div className="text-[11px] text-zinc-500 mt-0.5 leading-snug line-clamp-1">{o.description}</div>
+                    <div className={`text-[11px] mt-0.5 leading-snug line-clamp-1 ${darkCard ? "text-white/65" : "text-zinc-500"}`}>{o.description}</div>
                   )}
 
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -221,13 +228,13 @@ export function LimitedOffersSection({
                     )}
                     {/* Countdown — CP-53: bright red for urgency. */}
                     {countdown && !expired && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-red-600">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold ${darkCard ? "text-red-300" : "text-red-600"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${darkCard ? "bg-red-300" : "bg-red-500"}`} />
                         <Clock className="h-2.5 w-2.5" /> {countdown}
                       </span>
                     )}
                     {expired && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-zinc-400">
+                      <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${darkCard ? "text-white/40" : "text-zinc-400"}`}>
                         Expired
                       </span>
                     )}
@@ -246,7 +253,7 @@ export function LimitedOffersSection({
                         <Check className="h-3 w-3" /> Saved to your gifts
                       </span>
                     ) : expired ? (
-                      <span className="text-[11px] font-bold text-zinc-400">Expired</span>
+                      <span className={`text-[11px] font-bold ${darkCard ? "text-white/40" : "text-zinc-400"}`}>Expired</span>
                     ) : (
                       <button
                         type="button"
@@ -263,7 +270,7 @@ export function LimitedOffersSection({
                     <button
                       type="button"
                       onClick={() => replay(o)}
-                      className="text-[10px] font-semibold text-zinc-500 hover:text-zinc-700 inline-flex items-center gap-0.5"
+                      className={`text-[10px] font-semibold inline-flex items-center gap-0.5 ${darkCard ? "text-white/60 hover:text-white" : "text-zinc-500 hover:text-zinc-700"}`}
                     >
                       <Play className="h-2.5 w-2.5 fill-current" /> Replay
                     </button>
