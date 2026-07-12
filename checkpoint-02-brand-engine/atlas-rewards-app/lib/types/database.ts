@@ -126,8 +126,12 @@ export type Business = {
   heading_style?: string | null;  // plain/bar/underline/sticker
   divider_style?: string | null;  // none/line/dots/sparkle
   cta_glow?: string | null;       // none/soft/bold
-  /** CP-68: check-in reward game (lib/reward-games.ts). NULL = slot. */
-  reward_game?: string | null;    // slot/wheel/boxes
+  /** CP-68: check-in reward game (lib/reward-games.ts).
+   *  CP-72: wheel-only — any stored value resolves to "wheel". */
+  reward_game?: string | null;
+  /** CP-73: Home points-card design preset. See lib/points-card-styles.ts
+   *  (classic/shiny/fun/sleek/simple). NULL = classic white. */
+  points_card_style?: string | null;
   /** CP-68: demo app — reward game replayable (no check-in/cooldown gates). */
   is_demo?: boolean | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.

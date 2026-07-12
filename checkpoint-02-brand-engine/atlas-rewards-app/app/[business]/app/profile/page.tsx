@@ -30,7 +30,6 @@ export default async function ProfileTab({ params }: { params: { business: strin
           full_name: profile?.full_name ?? null,
           phone: profile?.phone ?? null,
           birthday: profile?.birthday ?? null,
-          tier: mem?.tier ?? "Bronze",
           joined,
         }}
       />

@@ -11,6 +11,8 @@ import { offersLayout, rewardsLayout } from "@/lib/section-layouts";
 import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
 import { badgeCss } from "@/lib/element-styles";
 import { designVars } from "@/lib/design-styles";
+// CP-73: points-card presets mirrored in the mock.
+import { pointsCardStyle } from "@/lib/points-card-styles";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
 
@@ -204,23 +206,31 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
         </div>
       </div>
 
-      {/* Compact member card */}
-      {b.widget_config.points_card && (
+      {/* Compact member card — CP-73: mirrors the picked points-card style. */}
+      {b.widget_config.points_card && (() => {
+        const pc = pointsCardStyle(b.points_card_style, b.brand_colors.primary, b.brand_colors.secondary, b.brand_colors.accent);
+        return (
         <div className="px-4 -mt-7 relative z-10">
-          <div className="bg-white rounded-2xl shadow-lg border border-zinc-100 p-3.5 flex items-center gap-3">
-            <div className="text-2xl font-bold tracking-tight" style={{ color: b.brand_colors.primary }}>50</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold leading-tight text-zinc-900">{b.name}</div>
-              <div className="text-[10px] text-zinc-500 mt-0.5">points</div>
+          <div className="relative overflow-hidden rounded-2xl p-3.5 flex items-center gap-3" style={pc.container}>
+            {pc.shine && (
+              <div
+                className="absolute inset-0 pointer-events-none opacity-40"
+                style={{ background: "linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 62%)" }}
+              />
+            )}
+            <div className="relative text-2xl font-bold tracking-tight" style={{ color: pc.number }}>1,400</div>
+            <div className="relative flex-1 min-w-0">
+              <div className={`text-[11px] font-semibold leading-tight ${pc.dark ? "text-white" : "text-zinc-900"}`}>{b.name}</div>
+              <div className={`text-[10px] mt-0.5 ${pc.dark ? "text-white/70" : "text-zinc-500"}`}>points</div>
             </div>
-            <div className="text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
-              style={{ background: `${b.brand_colors.primary}15`, color: b.brand_colors.primary }}>
-              Not A Member
+            <div className="relative text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap" style={pc.pill}>
+              Member
             </div>
-            <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
+            <ChevronRight className={`relative h-4 w-4 shrink-0 ${pc.dark ? "text-white/60" : "text-zinc-400"}`} />
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Featured offer — CP-26 poppy glow border */}
       {b.widget_config.offers && (
@@ -574,10 +584,9 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                 <div className="text-base font-semibold">Customer</div>
                 <div className="text-[10px] opacity-75 mt-0.5">Joined 1 day ago</div>
               </div>
-              {/* CP-28: cash slot removed — points-only. */}
+              {/* CP-73: tier badge removed — quiet MEMBER mark instead. */}
               <div className="text-right shrink-0 ml-3">
-                <div className="text-[10px] opacity-75 uppercase tracking-widest font-bold">Tier</div>
-                <div className="text-lg font-extrabold leading-none mt-1">Silver</div>
+                <div className="text-[10px] opacity-75 uppercase tracking-widest font-bold">Member</div>
               </div>
             </div>
           </div>
@@ -771,7 +780,7 @@ function ProfileBody({ business: b }: { business: Business }) {
           <div className="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold">A</div>
           <div>
             <div className="font-bold">Andrew</div>
-            <div className="text-xs text-white/85">Silver member</div>
+            <div className="text-xs text-white/85">Member</div>
           </div>
         </div>
       </div>
@@ -780,7 +789,7 @@ function ProfileBody({ business: b }: { business: Business }) {
           <Row label="Email"    value="customer@example.com" />
           <Row label="Phone"    value="(555) 555-5555" />
           <Row label="Birthday" value="Set yours to earn yearly" />
-          <Row label="Tier"     value="Silver" />
+          <Row label="Member since" value="Jan 2026" />
         </div>
       </div>
     </>

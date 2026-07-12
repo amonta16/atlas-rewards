@@ -20,15 +20,14 @@ export function TiltLoyaltyCard({
   points,
   fullName,
   joinedDays,
-  tierLabel,
   membershipImageUrl,
 }: {
   business: Business;
   points: number;
   fullName: string;
   joinedDays: number;
-  tierLabel: string;
   // CP-28: cashLabel / cashValue removed — Atlas is points-only now.
+  // CP-73: tierLabel removed — Bronze/Silver/Gold tiers are gone.
   membershipImageUrl?: string | null;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -156,11 +155,10 @@ export function TiltLoyaltyCard({
                 Joined {joinedDays} day{joinedDays === 1 ? "" : "s"} ago
               </div>
             </div>
-            {/* CP-28: cash subtitle removed (points-only). The tier badge takes
-                the right slot so the card still has visual balance. */}
+            {/* CP-73: tier badge removed (tiers are gone). A quiet MEMBER
+                mark keeps the right slot balanced. */}
             <div className="text-right shrink-0 ml-3">
-              <div className="text-[10px] opacity-75 uppercase tracking-widest font-bold">Tier</div>
-              <div className="text-lg font-extrabold leading-none mt-1">{tierLabel}</div>
+              <div className="text-[10px] opacity-75 uppercase tracking-widest font-bold">Member</div>
             </div>
           </div>
         </div>

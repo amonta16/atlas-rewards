@@ -14,7 +14,7 @@ type ProfileData = {
   full_name: string | null;
   phone: string | null;
   birthday: string | null;
-  tier: string;
+  // CP-73: tier removed — Bronze/Silver/Gold tiers are gone.
   joined: string;
 };
 
@@ -89,7 +89,7 @@ export function EditableProfile({
           </div>
           <div>
             <div className="text-lg font-bold">{fullName}</div>
-            <div className="text-xs text-white/85">{initial.tier} member · Joined {initial.joined}</div>
+            <div className="text-xs text-white/85">Member · Joined {initial.joined}</div>
           </div>
         </div>
       </div>
@@ -159,7 +159,8 @@ export function EditableProfile({
             />
           )}
 
-          <Row icon={<Calendar className="h-4 w-4" />} label="Tier" value={initial.tier} />
+          {/* CP-73: Tier row removed. */}
+          <Row icon={<Calendar className="h-4 w-4" />} label="Member since" value={initial.joined} />
         </div>
 
         {savedAt && !editing && (

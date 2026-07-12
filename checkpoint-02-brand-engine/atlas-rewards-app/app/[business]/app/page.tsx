@@ -60,7 +60,7 @@ export default async function CustomerHome({ params }: { params: { business: str
 
   const greeting = business.welcome_message || `Welcome back, ${firstName}!`;
   const points = mem?.points_balance ?? 0;
-  const tier = mem?.tier ?? "Bronze";
+  // CP-73: Bronze/Silver/Gold tiers removed from the customer app.
 
   // Days-left for the in-page Featured Offer card lower down.
   // Note: the sticky offer banner that used to live here was lifted to the
@@ -113,7 +113,6 @@ export default async function CustomerHome({ params }: { params: { business: str
             business={business}
             membershipId={mem?.id ?? null}
             initialPoints={points}
-            initialTier={tier}
             isMember={!!mem}
           />
         </div>

@@ -42,7 +42,7 @@ export function RewardsClient({
   const storeLayout = rewardsLayout(business.rewards_layout);
   const initialPts = membership?.points_balance ?? 0;
   const [points, setPoints] = useState(initialPts);
-  const [tier, setTier] = useState(membership?.tier ?? "Bronze");
+  // CP-73: tier state removed — Bronze/Silver/Gold tiers are gone.
   const [displayed, setDisplayed] = useState(initialPts);
   const prevRef = useRef(initialPts);
   const [redeemingReward, setRedeemingReward] = useState<Reward | null>(null);
@@ -138,9 +138,8 @@ export function RewardsClient({
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "business_memberships", filter: `id=eq.${membership.id}` },
         (payload) => {
-          const next = payload.new as { points_balance: number; tier: string };
+          const next = payload.new as { points_balance: number };
           setPoints(next.points_balance);
-          setTier(next.tier);
         }
       )
       .subscribe();
@@ -191,7 +190,6 @@ export function RewardsClient({
         points={displayed}
         fullName={fullName}
         joinedDays={joined}
-        tierLabel={tier}
         membershipImageUrl={business.membership_image_url}
       />
 

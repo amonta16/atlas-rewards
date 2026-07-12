@@ -111,9 +111,10 @@ export function ScanClient({
           <div className="text-sm font-semibold truncate">{fullName}</div>
           <div className="text-[11px] text-zinc-500">Member since {joined}</div>
         </div>
+        {/* CP-73: tier chip → plain Member chip (tiers are gone). */}
         <div className="text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
           style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
-          {membership?.tier ?? "Bronze"}
+          Member
         </div>
       </div>
     </div>

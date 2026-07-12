@@ -1,18 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Sparkles, Plus, X, Save, Trash2, Edit2, Info, Coins, Gift, Ticket } from "lucide-react";
+import { Sparkles, Plus, X, Save, Trash2, Edit2, Info, Coins, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+// CP-73: prize photos — shown right on the wheel wedge.
+import { ImageUploader } from "./image-uploader";
 import type { Business } from "@/lib/types/database";
 
 type Prize = {
   id: string; business_id: string;
   prize_name: string; prize_description: string | null; prize_image_url: string | null;
-  kind: "points" | "reward" | "coupon";
-  points_amount: number | null; reward_id: string | null; coupon_code: string | null;
+  // CP-73: coupons removed — the wheel awards points or a free reward.
+  kind: "points" | "reward";
+  points_amount: number | null; reward_id: string | null;
   weight: number; is_active: boolean;
 };
 
@@ -28,24 +31,23 @@ type RewardOption = { id: string; name: string };
  *
  * Notes:
  *  - The old is_enabled switch is gone: the wheel has been always-on since
- *    CP-44.1 (gated only by check-in + cooldown). Only cooldown_hours from
- *    business_mystery_config is still read by the spin RPC.
+ *    CP-44.1. CP-73 also dropped the cooldown setting — spin availability
+ *    is in sync with check-in (check in today → one spin today), so there
+ *    is nothing to configure.
+ *  - CP-73: coupons removed — a prize is points or a free reward.
  *  - kind = "reward" now has a real dropdown of the business's rewards
  *    (the old UI had no way to set reward_id).
  *  - Empty pool = the built-in default wheel (50 / 100 / 300 points),
  *    called out in the empty state so owners aren't surprised.
  */
 export function MysteryPoolManager({ business }: { business: Business }) {
-  const [cooldown, setCooldown] = useState(24);
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [rewardOptions, setRewardOptions] = useState<RewardOption[]>([]);
   const [editing, setEditing] = useState<Partial<Prize> | null>(null);
 
   async function load() {
     const supabase = createClient();
-    const [{ data: c }, { data: p }, { data: r }] = await Promise.all([
-      supabase.from("business_mystery_config").select("cooldown_hours")
-        .eq("business_id", business.id).maybeSingle(),
+    const [{ data: p }, { data: r }] = await Promise.all([
       supabase.from("mystery_reward_pool").select("*")
         .eq("business_id", business.id)
         .order("weight", { ascending: false }),
@@ -53,21 +55,10 @@ export function MysteryPoolManager({ business }: { business: Business }) {
         .eq("business_id", business.id)
         .order("sort_order").order("created_at"),
     ]);
-    if (c) setCooldown(c.cooldown_hours ?? 24);
     setPrizes((p ?? []) as Prize[]);
     setRewardOptions((r ?? []) as RewardOption[]);
   }
   useEffect(() => { load(); }, [business.id]);
-
-  async function saveCooldown(hours: number) {
-    setCooldown(hours);
-    const supabase = createClient();
-    await supabase.from("business_mystery_config").upsert({
-      business_id: business.id,
-      is_enabled: true, // always-on since CP-44.1; kept for schema compat
-      cooldown_hours: hours,
-    }, { onConflict: "business_id" });
-  }
 
   async function savePrize() {
     if (!editing?.prize_name || !editing.kind) return;
@@ -82,7 +73,7 @@ export function MysteryPoolManager({ business }: { business: Business }) {
       p_kind: editing.kind,
       p_points_amount: editing.kind === "points" ? (editing.points_amount ?? 0) : null,
       p_reward_id: editing.kind === "reward" ? (editing.reward_id ?? null) : null,
-      p_coupon_code: editing.kind === "coupon" ? (editing.coupon_code ?? null) : null,
+      p_coupon_code: null, // CP-73: coupons removed
       p_weight: editing.weight ?? 10,
       p_is_active: editing.is_active ?? true,
     });
@@ -100,9 +91,9 @@ export function MysteryPoolManager({ business }: { business: Business }) {
   const totalWeight = prizes.filter(p => p.is_active).reduce((s, p) => s + p.weight, 0) || 1;
 
   const kindIcon = (kind: Prize["kind"]) =>
-    kind === "points" ? <Coins className="h-4 w-4 text-amber-500" />
-      : kind === "reward" ? <Gift className="h-4 w-4 text-violet-500" />
-        : <Ticket className="h-4 w-4 text-sky-500" />;
+    kind === "points"
+      ? <Coins className="h-4 w-4 text-amber-500" />
+      : <Gift className="h-4 w-4 text-violet-500" />;
 
   return (
     <div className="rounded-2xl border bg-white p-6">
@@ -113,30 +104,19 @@ export function MysteryPoolManager({ business }: { business: Business }) {
           </h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-prose">
             The check-in Prize Wheel shows THESE prizes on its wedges. Weight sets the odds —
-            heavier lands more often. Mix point amounts, free rewards, and coupon codes.
+            heavier lands more often. Point amounts or free rewards.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="rounded-lg bg-zinc-50 p-3">
-          <Label className="text-xs text-muted-foreground">Cooldown between spins</Label>
-          <div className="flex items-center gap-2 mt-1">
-            <Input
-              type="number" min={1} max={720}
-              value={cooldown}
-              onChange={e => saveCooldown(Math.max(1, parseInt(e.target.value || "1", 10)))}
-              className="h-9"
-            />
-            <span className="text-xs text-muted-foreground">hours</span>
-          </div>
-        </div>
-        <div className="rounded-lg bg-zinc-50 p-3 flex items-center gap-2">
-          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <div className="text-[11px] text-muted-foreground leading-snug">
-            Total active weight: <strong>{totalWeight}</strong>. A prize with weight 10 in a pool
-            totalling 100 lands roughly 10% of spins.
-          </div>
+      {/* CP-73: no cooldown setting — spins are in sync with check-ins:
+          check in today → one spin today. Nothing to configure. */}
+      <div className="rounded-lg bg-zinc-50 p-3 mb-4 flex items-center gap-2">
+        <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <div className="text-[11px] text-muted-foreground leading-snug">
+          Spins unlock with check-ins: one spin per check-in day, automatically. Total active
+          weight: <strong>{totalWeight}</strong> — a prize with weight 10 in a pool totalling 100
+          lands roughly 10% of spins.
         </div>
       </div>
 
@@ -230,7 +210,6 @@ export function MysteryPoolManager({ business }: { business: Business }) {
                   >
                     <option value="points">Points award</option>
                     <option value="reward">Free reward</option>
-                    <option value="coupon">Coupon code</option>
                   </select>
                 </div>
                 <div>
@@ -277,16 +256,23 @@ export function MysteryPoolManager({ business }: { business: Business }) {
                   )}
                 </div>
               )}
-              {editing.kind === "coupon" && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Coupon code</Label>
-                  <Input
-                    value={editing.coupon_code ?? ""}
-                    onChange={e => setEditing({ ...editing, coupon_code: e.target.value })}
-                    placeholder="WIN10"
+              {/* CP-73: prize photo — shows on the wheel wedge + the win
+                  reveal. For "Free reward" prizes this is optional; the
+                  reveal falls back to the business logo. */}
+              <div>
+                <Label className="text-xs text-muted-foreground">Prize photo (shows on the wheel)</Label>
+                <div className="mt-1">
+                  <ImageUploader
+                    bucket="reward-images"
+                    pathPrefix={`wheel/${business.id}`}
+                    value={editing.prize_image_url ?? null}
+                    onChange={(url) => setEditing({ ...editing, prize_image_url: url })}
+                    label="Prize photo"
+                    aspectClass="aspect-video"
+                    library={{ category: "reward", industry: business.industry }}
                   />
                 </div>
-              )}
+              </div>
               <div className="flex items-center justify-between rounded-lg border p-3 bg-zinc-50">
                 <Label className="cursor-pointer">Active on the wheel</Label>
                 <Switch

@@ -17,6 +17,8 @@ import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
 import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 // CP-65.1: poppy offer-card styles.
 import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
+// CP-73: Home points-card presets (classic/shiny/fun/sleek/simple).
+import { POINTS_CARD_STYLES, pointsCardStyle } from "@/lib/points-card-styles";
 // CP-66: section layout presets (rewards store + limited offers).
 import { REWARDS_LAYOUTS, OFFERS_LAYOUTS } from "@/lib/section-layouts";
 // CP-67: element pack (badges, headings, dividers, CTA glow).
@@ -230,6 +232,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           /* CP-68: reward game + demo flag. */
           reward_game: b.reward_game ?? null,
           is_demo: b.is_demo ?? false,
+          /* CP-73: Home points-card design preset. */
+          points_card_style: b.points_card_style ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -571,6 +575,48 @@ export function BrandEditor({ initial }: { initial: Business }) {
                             }}
                           >
                             {opt.emoji}
+                          </div>
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1.5 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* CP-73: Home points-card design presets. */}
+              <Section title="Points card style" subtitle="The look of the points strip on the customer Home page — shiny, fun, sleek, or keep it simple.">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  {POINTS_CARD_STYLES.map(opt => {
+                    const selected = (b.points_card_style ?? "classic") === opt.id;
+                    const pc = pointsCardStyle(opt.id, b.brand_colors.primary, b.brand_colors.secondary, b.brand_colors.accent);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("points_card_style", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-2 text-center transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        {/* Mini live swatch — real preset styles, tiny scale. */}
+                        <div className="h-12 w-full bg-zinc-100 rounded-lg flex items-center justify-center p-1.5">
+                          <div
+                            className="relative overflow-hidden h-full w-full rounded-md flex items-center gap-1.5 px-2"
+                            style={pc.container}
+                          >
+                            {pc.shine && (
+                              <div
+                                className="absolute inset-0 pointer-events-none opacity-40"
+                                style={{ background: "linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 62%)" }}
+                              />
+                            )}
+                            <span className="relative text-xs font-bold tabular-nums" style={{ color: pc.number }}>1,400</span>
+                            <span className={cn("relative text-[8px] font-semibold", pc.dark ? "text-white/70" : "text-zinc-500")}>pts</span>
                           </div>
                         </div>
                         <div className={cn("text-[10px] font-semibold mt-1.5 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>

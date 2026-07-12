@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Lock, Zap, RotateCcw } from "lucide-react";
+import { X, Lock, Zap, RotateCcw, Coins, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
@@ -29,28 +29,29 @@ type Prize = {
   points: number;
   tier: "jackpot" | "lucky" | "nice";
   // CP-44: server-decided prize details (the client no longer chooses these).
+  // CP-73: coupons removed — kinds are points | reward only.
   kind?: string;
   image?: string | null;
-  coupon?: string | null;
 };
 
 // CP-72: a wheel segment — mirrors one prize from the pool. `big` is the
 // headline text on the wedge ("50", "Free Latte"), `small` the qualifier
-// ("PTS", "REWARD", "COUPON").
+// ("PTS" / "REWARD"). CP-73: `image` shows the prize's photo on the wedge.
 type WheelSeg = {
   prizeId: string | null;
   kind: string;
   points: number | null;
   big: string;
   small: string;
+  image: string | null;
 };
 
 // Built-in fallback — matches spin_daily_reward's default pool when the
 // business hasn't configured prizes (or the RPC isn't deployed yet).
 const DEFAULT_SEGS: WheelSeg[] = [
-  { prizeId: null, kind: "points", points: 50,  big: "50",  small: "PTS" },
-  { prizeId: null, kind: "points", points: 100, big: "100", small: "PTS" },
-  { prizeId: null, kind: "points", points: 300, big: "300", small: "PTS" },
+  { prizeId: null, kind: "points", points: 50,  big: "50",  small: "PTS", image: null },
+  { prizeId: null, kind: "points", points: 100, big: "100", small: "PTS", image: null },
+  { prizeId: null, kind: "points", points: 300, big: "300", small: "PTS", image: null },
 ];
 
 const SEGMENT_COUNT = 8;
@@ -60,17 +61,20 @@ function shortLabel(name: string): string {
   return clean.length > 12 ? `${clean.slice(0, 11)}…` : clean || "Prize";
 }
 
-function toSeg(row: { id: string | null; kind: string; label: string | null; points_amount: number | null }): WheelSeg {
+function toSeg(row: { id: string | null; kind: string; label: string | null; points_amount: number | null; image_url?: string | null }): WheelSeg {
   if (row.kind === "points") {
     return {
       prizeId: row.id, kind: "points", points: row.points_amount ?? 0,
       big: String(row.points_amount ?? 0), small: "PTS",
+      image: row.image_url ?? null,
     };
   }
-  if (row.kind === "coupon") {
-    return { prizeId: row.id, kind: "coupon", points: null, big: shortLabel(row.label ?? "Coupon"), small: "COUPON" };
-  }
-  return { prizeId: row.id, kind: "reward", points: null, big: shortLabel(row.label ?? "Reward"), small: "REWARD" };
+  // CP-73: coupons are gone — anything non-points renders as a reward wedge.
+  return {
+    prizeId: row.id, kind: "reward", points: null,
+    big: shortLabel(row.label ?? "Reward"), small: "REWARD",
+    image: row.image_url ?? null,
+  };
 }
 
 // ─── component ───────────────────────────────────────────────────────────────
@@ -133,7 +137,7 @@ export function DailyMysteryModal({
       .rpc("mystery_wheel_segments", { p_business_id: business.id })
       .then(({ data, error }) => {
         if (cancelled || error) return; // RPC missing → keep defaults
-        const rows = (data ?? []) as { id: string | null; kind: string; label: string | null; points_amount: number | null }[];
+        const rows = (data ?? []) as { id: string | null; kind: string; label: string | null; points_amount: number | null; image_url?: string | null }[];
         if (rows.length > 0) setPool(rows.map(toSeg));
       });
     return () => { cancelled = true; };
@@ -222,7 +226,6 @@ export function DailyMysteryModal({
       tier,
       kind: row.kind ?? "points",
       image: row.prize_image_url,
-      coupon: row.coupon_code,
     };
     setPrize(p);
 
@@ -372,14 +375,30 @@ export function DailyMysteryModal({
                   className="absolute inset-0 pointer-events-none"
                   style={{ transform: `rotate(${i * segAngle + segAngle / 2}deg)` }}
                 >
-                  <div className="absolute top-2.5 left-1/2 -translate-x-1/2 text-center w-16">
-                    <div
-                      className={`font-black text-white drop-shadow leading-none ${
-                        s.kind === "points" ? "text-lg" : "text-[10px] leading-tight"
-                      }`}
-                    >
-                      {s.big}
-                    </div>
+                  {/* CP-73: visual wedges — prize photo for rewards, coin
+                      icon for point amounts. */}
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 text-center w-16 flex flex-col items-center">
+                    {s.kind === "points" ? (
+                      <>
+                        <Coins className="h-3.5 w-3.5 text-amber-300 drop-shadow mb-0.5" />
+                        <div className="font-black text-white drop-shadow leading-none text-base">{s.big}</div>
+                      </>
+                    ) : s.image ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={s.image}
+                          alt={s.big}
+                          className="h-7 w-7 rounded-full object-cover ring-1 ring-white/80 shadow mb-0.5"
+                        />
+                        <div className="font-black text-white drop-shadow text-[9px] leading-tight">{s.big}</div>
+                      </>
+                    ) : (
+                      <>
+                        <Gift className="h-3.5 w-3.5 text-white drop-shadow mb-0.5" />
+                        <div className="font-black text-white drop-shadow text-[9px] leading-tight">{s.big}</div>
+                      </>
+                    )}
                     <div className="text-[7px] font-extrabold tracking-[0.18em] text-white/75 mt-0.5">
                       {s.small}
                     </div>
@@ -509,6 +528,7 @@ export function DailyMysteryModal({
               </div>
 
               {/* CP-44: reveal copy depends on what the server awarded. */}
+              {/* CP-73: coupons removed — points or a free reward. */}
               {prize.points > 0 ? (
                 <>
                   <div className="text-white/80 text-lg font-semibold mb-1">
@@ -517,11 +537,6 @@ export function DailyMysteryModal({
                   <div className="text-zinc-500 text-xs mb-6">
                     Added to your balance automatically
                   </div>
-                </>
-              ) : prize.kind === "coupon" && prize.coupon ? (
-                <>
-                  <div className="text-white/70 text-xs uppercase tracking-widest mb-1">Your code</div>
-                  <div className="text-white text-xl font-mono font-bold tracking-[0.2em] mb-6">{prize.coupon}</div>
                 </>
               ) : (
                 <div className="text-white/80 text-sm mb-6 px-4">

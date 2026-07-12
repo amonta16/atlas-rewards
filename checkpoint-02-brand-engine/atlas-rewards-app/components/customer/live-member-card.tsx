@@ -2,23 +2,27 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+// CP-73: designable points card (classic/shiny/fun/sleek/simple).
+import { pointsCardStyle } from "@/lib/points-card-styles";
 import type { Business } from "@/lib/types/database";
 
 /**
- * Home-tab member card. Live-updates points_balance + tier via Supabase Realtime.
+ * Home-tab member card. Live-updates points_balance via Supabase Realtime.
  * Smoothly animates the number when it changes.
+ *
+ * CP-73: the Bronze/Silver/Gold tier label was REMOVED (Andrew's call —
+ * tiers are gone from the customer app), and the card now wears one of
+ * the points-card style presets picked in the app builder.
  */
 export function LiveMemberCard({
-  business, membershipId, initialPoints, initialTier, isMember,
+  business, membershipId, initialPoints, isMember,
 }: {
   business: Business;
   membershipId: string | null;
   initialPoints: number;
-  initialTier: string;
   isMember: boolean;
 }) {
   const [points, setPoints] = useState(initialPoints);
-  const [tier, setTier] = useState(initialTier);
   const [displayed, setDisplayed] = useState(initialPoints);
   const prevPointsRef = useRef(initialPoints);
 
@@ -32,9 +36,8 @@ export function LiveMemberCard({
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "business_memberships", filter: `id=eq.${membershipId}` },
         (payload) => {
-          const next = payload.new as { points_balance: number; tier: string };
+          const next = payload.new as { points_balance: number };
           setPoints(next.points_balance);
-          setTier(next.tier);
         }
       )
       .subscribe();
@@ -60,20 +63,38 @@ export function LiveMemberCard({
     return () => cancelAnimationFrame(raf);
   }, [points]);
 
+  const css = pointsCardStyle(
+    business.points_card_style,
+    business.brand_colors.primary,
+    business.brand_colors.secondary,
+    business.brand_colors.accent,
+  );
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-zinc-100 p-3.5 flex items-center gap-3">
-      <div className="text-2xl font-bold tracking-tight tabular-nums" style={{ color: business.brand_colors.primary }}>
+    <div
+      className="relative overflow-hidden rounded-2xl p-3.5 flex items-center gap-3"
+      style={css.container}
+    >
+      {/* CP-73: shiny preset — diagonal light sweep. */}
+      {css.shine && (
+        <div
+          className="absolute inset-0 pointer-events-none opacity-40"
+          style={{ background: "linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 62%)" }}
+        />
+      )}
+      <div className="relative text-2xl font-bold tracking-tight tabular-nums" style={{ color: css.number }}>
         {displayed.toLocaleString()}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-semibold leading-tight text-zinc-900">{business.name}</div>
-        <div className="text-[10px] text-zinc-500 mt-0.5">points · {tier}</div>
+      <div className="relative flex-1 min-w-0">
+        <div className={`text-[11px] font-semibold leading-tight ${css.dark ? "text-white" : "text-zinc-900"}`}>
+          {business.name}
+        </div>
+        <div className={`text-[10px] mt-0.5 ${css.dark ? "text-white/70" : "text-zinc-500"}`}>points</div>
       </div>
-      <div className="text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
-        style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
+      <div className="relative text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap" style={css.pill}>
         {isMember ? "Member" : "Not A Member"}
       </div>
-      <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
+      <ChevronRight className={`relative h-4 w-4 shrink-0 ${css.dark ? "text-white/60" : "text-zinc-400"}`} />
     </div>
   );
 }
