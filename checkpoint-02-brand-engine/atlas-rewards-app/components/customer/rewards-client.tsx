@@ -15,6 +15,7 @@ import { DailySpinButton } from "./daily-spin-button";
 // owns the slot-machine modal now.
 import { StreakTrail } from "./streak-trail";
 import { LimitedOffersSection } from "./limited-offers-section";
+import { rewardsLayout } from "@/lib/section-layouts";
 import { SavedGiftsSection } from "./saved-gifts-section";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -35,6 +36,8 @@ export function RewardsClient({
   initialFeaturedOffer: FeaturedOffer | null;
 }) {
   const [featuredOffer, setFeaturedOffer] = useState<FeaturedOffer | null>(initialFeaturedOffer);
+  // CP-66: rewards-store layout preset (grid / list / carousel / spotlight).
+  const storeLayout = rewardsLayout(business.rewards_layout);
   const initialPts = membership?.points_balance ?? 0;
   const [points, setPoints] = useState(initialPts);
   const [tier, setTier] = useState(membership?.tier ?? "Bronze");
@@ -215,6 +218,7 @@ export function RewardsClient({
         primary={business.brand_colors.primary}
         secondary={business.brand_colors.secondary}
         cardStyle={business.offer_card_style}
+        layout={business.offers_layout}
       />
 
       {/* CP-42 hotfix: MysteryRewardCard removed — Andrew already has the
@@ -227,20 +231,76 @@ export function RewardsClient({
           <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Rewards store</h2>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {rewards.map(r => {
+          {/* CP-66: layout presets — grid (default) / list / carousel /
+              spotlight. Structure only; the cards keep the same content. */}
+          <div
+            className={
+              storeLayout === "list"
+                ? "space-y-2.5"
+                : storeLayout === "carousel"
+                  ? "flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory"
+                  : "grid grid-cols-2 gap-3"
+            }
+          >
+            {rewards.map((r, ri) => {
               const locked = displayed < r.point_cost;
               // CP-27: progress = current points / cost, capped at 100%.
               const pct = r.point_cost > 0
                 ? Math.min(100, (displayed / r.point_cost) * 100)
                 : 100;
               const remaining = Math.max(0, r.point_cost - displayed);
+              const big = storeLayout === "spotlight" && ri === 0;
+
+              // CP-66: compact list rows — image left, slim progress, chevron.
+              if (storeLayout === "list") {
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => !locked && setRedeemingReward(r)}
+                    disabled={locked}
+                    className="w-full flex items-center gap-3 rounded-2xl border bg-white p-2.5 text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
+                  >
+                    {r.image_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={r.image_url} alt={r.name} className="h-14 w-14 rounded-xl object-cover shrink-0" />
+                    ) : (
+                      <div className="h-14 w-14 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}>
+                        <Gift className="h-6 w-6" style={{ color: business.brand_colors.primary }} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold leading-tight truncate">{r.name}</div>
+                      <div className="text-[10px] font-bold mt-0.5" style={{ color: business.brand_colors.primary }}>
+                        {r.point_cost.toLocaleString()} POINTS
+                      </div>
+                      <div className="mt-1.5 h-1 rounded-full bg-zinc-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${pct}%`,
+                            background: locked
+                              ? `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`
+                              : "linear-gradient(90deg, #10b981, #059669)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-extrabold ${locked ? "text-zinc-400" : "text-emerald-600"}`}>
+                      {locked ? `${remaining.toLocaleString()} to go` : "Redeem ✨"}
+                    </span>
+                  </button>
+                );
+              }
+
               return (
                 <button
                   key={r.id}
                   onClick={() => !locked && setRedeemingReward(r)}
                   disabled={locked}
-                  className="rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
+                  className={`rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow ${
+                    storeLayout === "carousel" ? "w-40 shrink-0 snap-start" : ""
+                  } ${big ? "col-span-2" : ""}`}
                 >
                   {/* CP-24: render the reward image (was hardcoded Gift icon) so
                       Rewards tab matches Home tab. Falls back to brand gradient
@@ -250,10 +310,10 @@ export function RewardsClient({
                     <img
                       src={r.image_url}
                       alt={r.name}
-                      className="aspect-[4/3] w-full object-cover"
+                      className={`${big ? "aspect-video" : "aspect-[4/3]"} w-full object-cover`}
                     />
                   ) : (
-                    <div className="aspect-[4/3] flex items-center justify-center"
+                    <div className={`${big ? "aspect-video" : "aspect-[4/3]"} flex items-center justify-center`}
                       style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}>
                       <Gift className="h-10 w-10" style={{ color: business.brand_colors.primary }} />
                     </div>
@@ -263,7 +323,7 @@ export function RewardsClient({
                       style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
                       <Lock className="h-2.5 w-2.5" /> {r.point_cost.toLocaleString()} POINTS
                     </div>
-                    <div className="text-sm font-bold mt-1 leading-tight">{r.name}</div>
+                    <div className={`${big ? "text-base" : "text-sm"} font-bold mt-1 leading-tight`}>{r.name}</div>
 
                     {/* CP-27: progress to this reward */}
                     <div className="mt-2">
@@ -289,7 +349,7 @@ export function RewardsClient({
               );
             })}
             {rewards.length === 0 && (
-              <div className="col-span-2 rounded-2xl border bg-white p-6 text-center text-sm text-muted-foreground">
+              <div className="col-span-2 w-full rounded-2xl border bg-white p-6 text-center text-sm text-muted-foreground">
                 No rewards yet — the agency will add some soon.
               </div>
             )}

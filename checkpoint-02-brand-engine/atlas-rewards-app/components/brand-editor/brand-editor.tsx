@@ -17,6 +17,8 @@ import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
 import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 // CP-65.1: poppy offer-card styles.
 import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
+// CP-66: section layout presets (rewards store + limited offers).
+import { REWARDS_LAYOUTS, OFFERS_LAYOUTS } from "@/lib/section-layouts";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -210,6 +212,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           streak_theme: b.streak_theme ?? null,
           /* CP-65.1: customer offer-card style. */
           offer_card_style: b.offer_card_style ?? null,
+          /* CP-66: section layout presets. */
+          rewards_layout: b.rewards_layout ?? null,
+          offers_layout: b.offers_layout ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -655,6 +660,110 @@ export function BrandEditor({ initial }: { initial: Business }) {
                               20% off
                             </span>
                           </div>
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.emoji} {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* CP-66: section layouts — the SHAPE of the two biggest
+                  customer sections. Style pickers above choose the skin;
+                  these choose the structure. */}
+              <Section title="Rewards store layout" subtitle="How the Rewards store is arranged on the customer Rewards tab.">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {REWARDS_LAYOUTS.map(opt => {
+                    const selected = (b.rewards_layout ?? "grid") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("rewards_layout", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-1.5 text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        {/* structural mini-mock */}
+                        <div className="h-12 rounded-lg bg-zinc-50 border border-zinc-100 p-1 overflow-hidden">
+                          {opt.id === "grid" && (
+                            <div className="grid grid-cols-2 gap-1 h-full">
+                              {[0,1].map(i => <div key={i} className="rounded" style={{ background: `${b.brand_colors.primary}30` }} />)}
+                            </div>
+                          )}
+                          {opt.id === "list" && (
+                            <div className="space-y-1 h-full">
+                              {[0,1,2].map(i => <div key={i} className="h-[26%] rounded" style={{ background: `${b.brand_colors.primary}30` }} />)}
+                            </div>
+                          )}
+                          {opt.id === "carousel" && (
+                            <div className="flex gap-1 h-full">
+                              {[0,1,2].map(i => <div key={i} className="w-2/5 shrink-0 rounded" style={{ background: `${b.brand_colors.primary}30` }} />)}
+                            </div>
+                          )}
+                          {opt.id === "spotlight" && (
+                            <div className="grid grid-cols-2 gap-1 h-full grid-rows-2">
+                              <div className="col-span-2 rounded" style={{ background: `${b.brand_colors.primary}45` }} />
+                              {[0,1].map(i => <div key={i} className="rounded" style={{ background: `${b.brand_colors.primary}25` }} />)}
+                            </div>
+                          )}
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.emoji} {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              <Section title="Limited offers layout" subtitle="How offer cards are arranged on the customer Rewards tab.">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {OFFERS_LAYOUTS.map(opt => {
+                    const selected = (b.offers_layout ?? "stack") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("offers_layout", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-1.5 text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        <div className="h-12 rounded-lg bg-zinc-50 border border-zinc-100 p-1 overflow-hidden">
+                          {opt.id === "stack" && (
+                            <div className="space-y-1 h-full">
+                              {[0,1].map(i => (
+                                <div key={i} className="h-[46%] rounded flex overflow-hidden">
+                                  <div className="w-1/4" style={{ background: `${b.brand_colors.primary}45` }} />
+                                  <div className="flex-1" style={{ background: `${b.brand_colors.primary}20` }} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {opt.id === "coupon" && (
+                            <div className="h-full rounded border border-dashed flex overflow-hidden" style={{ borderColor: `${b.brand_colors.primary}70` }}>
+                              <div className="w-1/4 border-r border-dashed" style={{ background: `${b.brand_colors.primary}35`, borderColor: `${b.brand_colors.primary}70` }} />
+                              <div className="flex-1" style={{ background: `${b.brand_colors.primary}15` }} />
+                            </div>
+                          )}
+                          {opt.id === "carousel" && (
+                            <div className="flex gap-1 h-full">
+                              {[0,1,2].map(i => <div key={i} className="w-2/5 shrink-0 rounded" style={{ background: `${b.brand_colors.primary}30` }} />)}
+                            </div>
+                          )}
+                          {opt.id === "billboard" && (
+                            <div className="h-full rounded overflow-hidden flex flex-col">
+                              <div className="h-2/3" style={{ background: `${b.brand_colors.primary}45` }} />
+                              <div className="flex-1" style={{ background: `${b.brand_colors.primary}15` }} />
+                            </div>
+                          )}
                         </div>
                         <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
                           {opt.emoji} {opt.label}

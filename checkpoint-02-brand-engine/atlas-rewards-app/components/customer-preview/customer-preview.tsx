@@ -4,6 +4,9 @@ import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
+// CP-65.1 + CP-66: mirror the offer-card skin + section layouts live.
+import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
+import { offersLayout, rewardsLayout } from "@/lib/section-layouts";
 import { designVars } from "@/lib/design-styles";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
@@ -570,20 +573,121 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
         </div>
       </div>
 
-      {/* Rewards grid */}
+      {/* CP-65.1 + CP-66: Limited offers mock — mirrors the picked offer-card
+          style AND offers layout live, so the design pickers give instant
+          feedback in the phone preview. */}
+      {b.widget_config.offers && (() => {
+        const cardCss = offerCardStyle(b.offer_card_style, b.brand_colors.primary, b.brand_colors.secondary);
+        const dark = offerCardMeta(b.offer_card_style).dark;
+        const ol = offersLayout(b.offers_layout);
+        const vertical = ol === "billboard" || ol === "carousel";
+        const demo = [
+          { title: "Free add-on with any visit", chip: "20% off", days: "3d left" },
+          { title: "Bring a friend — double points", chip: "+200 pts", days: "6d left" },
+        ];
+        return (
+          <div className="px-4 mt-5">
+            <div className="flex items-center gap-2 mb-2.5">
+              <h2 className="text-base font-bold">Limited offers</h2>
+              <span
+                className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
+                style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})` }}
+              >
+                <Gift className="h-2.5 w-2.5" /> Just for you
+              </span>
+            </div>
+            <div className={ol === "carousel" ? "flex gap-2.5 overflow-x-auto pb-1" : "space-y-2.5"}>
+              {demo.map((d, i) => (
+                <div
+                  key={i}
+                  className={`rounded-2xl border overflow-hidden ${vertical ? "" : "flex"} ${
+                    ol === "carousel" ? "w-44 shrink-0" : ""
+                  } ${ol === "coupon" ? "border-2 border-dashed" : ""}`}
+                  style={cardCss}
+                >
+                  <div
+                    className={`flex items-center justify-center ${
+                      vertical ? (ol === "carousel" ? "h-16 w-full" : "h-20 w-full") : "w-16 shrink-0"
+                    } ${ol === "coupon" ? "border-r-2 border-dashed" : ""}`}
+                    style={{
+                      background: `linear-gradient(135deg, ${b.brand_colors.primary}20, ${b.brand_colors.secondary}10)`,
+                      ...(ol === "coupon"
+                        ? { borderRightColor: dark ? "rgba(255,255,255,0.3)" : `${b.brand_colors.primary}40` }
+                        : {}),
+                    }}
+                  >
+                    <Gift className="h-5 w-5" style={{ color: dark ? "#ffffff" : b.brand_colors.primary }} />
+                  </div>
+                  <div className="flex-1 min-w-0 p-2.5">
+                    <div className={`text-xs font-bold leading-tight truncate ${dark ? "text-white" : "text-zinc-900"}`}>
+                      {d.title}
+                    </div>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span
+                        className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full text-white"
+                        style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})` }}
+                      >
+                        {d.chip}
+                      </span>
+                      <span className={`text-[9px] font-extrabold ${dark ? "text-red-300" : "text-red-600"}`}>
+                        ⏰ {d.days}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Rewards grid — CP-66: mirrors the picked rewards layout live. */}
       {rewards.length > 0 && (
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-base font-bold">Rewards store</h2>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {rewards.map(r => {
+          <div
+            className={
+              rewardsLayout(b.rewards_layout) === "list"
+                ? "space-y-2"
+                : rewardsLayout(b.rewards_layout) === "carousel"
+                  ? "flex gap-2.5 overflow-x-auto pb-1"
+                  : "grid grid-cols-2 gap-3"
+            }
+          >
+            {rewards.map((r, ri) => {
               const demoPoints = 1240; // matches the demo Rewards card above
               const pct = r.point_cost > 0
                 ? Math.min(100, (demoPoints / r.point_cost) * 100)
                 : 100;
+              const rl = rewardsLayout(b.rewards_layout);
+              if (rl === "list") {
+                return (
+                  <div key={r.id} className="flex items-center gap-2.5 rounded-2xl border bg-white p-2">
+                    {r.image_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={r.image_url} alt={r.name} className="h-10 w-10 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${b.brand_colors.primary}15` }}>
+                        <Gift className="h-4 w-4" style={{ color: b.brand_colors.primary }} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-bold truncate">{r.name}</div>
+                      <div className="text-[9px] font-bold" style={{ color: b.brand_colors.primary }}>{r.point_cost} POINTS</div>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+                  </div>
+                );
+              }
               return (
-                <div key={r.id} className="rounded-2xl border bg-white overflow-hidden">
+                <div
+                  key={r.id}
+                  className={`rounded-2xl border bg-white overflow-hidden ${rl === "carousel" ? "w-32 shrink-0" : ""} ${
+                    rl === "spotlight" && ri === 0 ? "col-span-2" : ""
+                  }`}
+                >
                   {r.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={r.image_url} alt={r.name} className="aspect-[4/3] w-full object-cover" />

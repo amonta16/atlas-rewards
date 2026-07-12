@@ -113,6 +113,12 @@ export type Business = {
   /** CP-65.1: customer offer-card style. See lib/offer-card-styles.ts
    *  (clean/tint/pop/gradient/midnight/luxe). NULL = clean white. */
   offer_card_style?: string | null;
+  /** CP-66: rewards store layout. See lib/section-layouts.ts
+   *  (grid/list/carousel/spotlight). NULL = grid. */
+  rewards_layout?: string | null;
+  /** CP-66: limited-offers layout. See lib/section-layouts.ts
+   *  (stack/coupon/carousel/billboard). NULL = stack. */
+  offers_layout?: string | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.
    *  NULL = Unfiled. Manual grouping only; by-industry view needs no column.
    *  CP-60 superseded by folder_id (kept for backfill only). */

@@ -1,0 +1,45 @@
+/**
+ * section-layouts.ts — CP-66
+ *
+ * Structural layout presets for the two biggest customer-app sections.
+ * Where offer_card_style / card_style pick the SKIN, these pick the SHAPE —
+ * so a demo can go from a 2-col grid to a horizontal scroller in one click,
+ * no rebuild.
+ *
+ *   rewards_layout — how the Rewards store renders:
+ *     grid (default) | list | carousel | spotlight
+ *   offers_layout — how the Limited offers render:
+ *     stack (default) | coupon | carousel | billboard
+ *
+ * NULL / unknown ids fall back to the defaults, so existing businesses are
+ * pixel-identical until a layout is chosen.
+ */
+
+export type RewardsLayoutId = "grid" | "list" | "carousel" | "spotlight";
+export type OffersLayoutId = "stack" | "coupon" | "carousel" | "billboard";
+
+export const REWARDS_LAYOUTS: {
+  id: RewardsLayoutId; label: string; emoji: string; hint: string;
+}[] = [
+  { id: "grid",      label: "Card grid",  emoji: "🔲", hint: "2-column reward cards (default)" },
+  { id: "list",      label: "Compact list", emoji: "📋", hint: "Slim rows — minimal, scannable" },
+  { id: "carousel",  label: "Carousel",   emoji: "🎠", hint: "Swipe sideways through rewards" },
+  { id: "spotlight", label: "Spotlight",  emoji: "🌟", hint: "First reward big, the rest in a grid" },
+];
+
+export const OFFERS_LAYOUTS: {
+  id: OffersLayoutId; label: string; emoji: string; hint: string;
+}[] = [
+  { id: "stack",     label: "Stacked rows", emoji: "🥞", hint: "Image-left rows (default)" },
+  { id: "coupon",    label: "Coupon",       emoji: "🎟️", hint: "Ticket-style cards with a tear line" },
+  { id: "carousel",  label: "Carousel",     emoji: "🎠", hint: "Swipe sideways through offers" },
+  { id: "billboard", label: "Billboard",    emoji: "🖼️", hint: "Big image-first promo cards" },
+];
+
+export function rewardsLayout(id: string | null | undefined): RewardsLayoutId {
+  return (REWARDS_LAYOUTS.find((l) => l.id === id)?.id ?? "grid") as RewardsLayoutId;
+}
+
+export function offersLayout(id: string | null | undefined): OffersLayoutId {
+  return (OFFERS_LAYOUTS.find((l) => l.id === id)?.id ?? "stack") as OffersLayoutId;
+}

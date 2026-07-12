@@ -23,6 +23,7 @@ import { Clock, Gift, Mic, Play, Sparkles, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
+import { offersLayout } from "@/lib/section-layouts";
 import { useToast } from "@/components/ui/toast";
 
 type ActiveOffer = RevealOffer & {
@@ -43,6 +44,8 @@ export function LimitedOffersSection({
   secondary?: string | null;
   /** CP-65.1: offer-card style id (businesses.offer_card_style). NULL = clean white. */
   cardStyle?: string | null;
+  /** CP-66: offers layout id (businesses.offers_layout). NULL = stacked rows. */
+  layout?: string | null;
 }) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ActiveOffer[] | null>(null);
@@ -153,6 +156,9 @@ export function LimitedOffersSection({
   // CP-65.1: themable offer cards — dark styles flip the text to white.
   const cardCss = offerCardStyle(cardStyle, primary, secondary);
   const darkCard = offerCardMeta(cardStyle).dark;
+  // CP-66: structural layout — stack (rows) / coupon (ticket) / carousel / billboard.
+  const olayout = offersLayout(layout);
+  const vertical = olayout === "billboard" || olayout === "carousel";
 
   // Hide the entire section when there's nothing to show — the rewards page
   // is already busy and a stub-y "no offers" card would just be noise.
@@ -171,7 +177,15 @@ export function LimitedOffersSection({
           </span>
         </div>
 
-        <div className="space-y-2.5">
+        <div
+          className={
+            olayout === "carousel"
+              ? "flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory"
+              : olayout === "stack"
+                ? "space-y-2.5"
+                : "space-y-3"
+          }
+        >
           {rows.map((o) => {
             const expires = o.expires_at ? new Date(o.expires_at).getTime() : null;
             const remainMs = expires ? Math.max(0, expires - now) : null;
@@ -181,14 +195,23 @@ export function LimitedOffersSection({
             return (
               <div
                 key={o.id}
-                className="rounded-2xl border overflow-hidden flex"
+                className={`rounded-2xl border overflow-hidden ${vertical ? "" : "flex"} ${
+                  olayout === "carousel" ? "w-56 shrink-0 snap-start" : ""
+                } ${olayout === "coupon" ? "border-2 border-dashed" : ""}`}
                 style={cardCss}
               >
                 {/* Image (with brand-gradient fallback) */}
                 <div
-                  className="w-24 shrink-0 relative"
+                  className={`relative ${
+                    vertical
+                      ? olayout === "carousel" ? "h-24 w-full" : "h-28 w-full"
+                      : "w-24 shrink-0"
+                  } ${olayout === "coupon" ? "border-r-2 border-dashed" : ""}`}
                   style={{
                     background: `linear-gradient(135deg, ${primary}15 0%, ${sec}06 100%)`,
+                    ...(olayout === "coupon"
+                      ? { borderRightColor: darkCard ? "rgba(255,255,255,0.3)" : `${primary}40` }
+                      : {}),
                   }}
                 >
                   {o.image_url ? (
