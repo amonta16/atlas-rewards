@@ -84,6 +84,9 @@ export function CustomerAppShell({
   const navIsDark = !!chromeColor && readableTextColor(chromeColor) === "#f4f4f5";
   const navActive = navIsDark ? "#ffffff" : primary;
   const navInactive = navIsDark ? "rgba(255,255,255,0.62)" : "#9ca3af";
+  // CP-69: subtle pill behind the active tab's icon so "where am I" is
+  // obvious at a glance (brand-tinted on light chrome, white-tinted on dark).
+  const navPill = navIsDark ? "rgba(255,255,255,0.16)" : `${primary}16`;
 
   // CP-32: review nudge badge on Rewards tab.
   // Visible review widget? then we care. If the business hasn't enabled
@@ -130,7 +133,11 @@ export function CustomerAppShell({
           const Icon = t.icon;
           return (
             <Link key={t.label} href={href} className="flex flex-col items-center gap-0.5 py-1 px-2 flex-1 active:scale-95 transition-transform relative">
-              <div className="relative">
+              {/* CP-69: active-tab pill — subtle tinted capsule behind the icon. */}
+              <div
+                className="relative rounded-full px-3.5 py-1 transition-colors"
+                style={active ? { background: navPill } : undefined}
+              >
                 <Icon className={cn("h-5 w-5")} style={{ color: active ? navActive : navInactive }} />
                 {showBadge && (
                   <span
@@ -149,7 +156,7 @@ export function CustomerAppShell({
                   >!</span>
                 )}
               </div>
-              <span className="text-[10px] font-semibold" style={{ color: active ? navActive : navInactive }}>{t.label}</span>
+              <span className={cn("text-[10px]", active ? "font-extrabold" : "font-semibold")} style={{ color: active ? navActive : navInactive }}>{t.label}</span>
             </Link>
           );
         })}

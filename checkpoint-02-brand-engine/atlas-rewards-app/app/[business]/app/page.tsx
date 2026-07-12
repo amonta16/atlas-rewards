@@ -1,7 +1,8 @@
-import { Gift, ChevronRight, Newspaper } from "lucide-react";
+import { Gift, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
+import { NewsSection } from "@/components/customer/news-section";
 import { TopRewardsGrid } from "@/components/customer/top-rewards-grid";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { OffersRevalidator } from "@/components/customer/offers-revalidator";
@@ -241,29 +242,9 @@ export default async function CustomerHome({ params }: { params: { business: str
         userId={user!.id}
       />
 
-      {/* News & updates */}
-      {newsPosts.length > 0 && (
-        <div className="px-4 mt-5 pb-4">
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-sm font-bold flex items-center gap-1.5" style={{ color: "var(--surf-fg)" }}><Newspaper className="h-3.5 w-3.5" /> News &amp; updates</h2>
-          </div>
-          <div className="space-y-2">
-            {newsPosts.map(post => (
-              <div key={post.id} className="rounded-xl border bg-white overflow-hidden flex">
-                {post.image_url && (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={post.image_url} alt="" className="h-16 w-16 object-cover shrink-0" />
-                )}
-                <div className="p-2.5 flex-1 min-w-0">
-                  <div className="text-xs font-bold leading-tight text-zinc-900 truncate">{post.title}</div>
-                  {post.body && <div className="text-[11px] text-zinc-500 leading-snug mt-0.5 line-clamp-2">{post.body}</div>}
-                  <div className="text-[10px] text-zinc-400 mt-1">{new Date(post.published_at).toLocaleDateString()}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* News & updates — CP-69: billboard cards + tappable detail sheet
+          (was tiny non-clickable rows). */}
+      {newsPosts.length > 0 && <NewsSection business={business} posts={newsPosts} />}
 
       {/* CP-52.6: location map + Call-now card at the very bottom of Home. */}
       {business.widget_config.location && <LocationCard business={business} />}

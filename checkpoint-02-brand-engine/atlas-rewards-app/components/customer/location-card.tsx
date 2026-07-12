@@ -39,7 +39,10 @@ export function LocationCard({ business }: { business: Business }) {
     // way down behind the bottom nav (no patterned strip in the gap).
     <div
       className="bg-white border-t border-zinc-100 mt-6 px-4 pt-5"
-      style={{ paddingBottom: "7rem", marginBottom: "-5rem" }}
+      // CP-69: was 7rem, which left a big empty white strip between the
+      // Call-now button and the bottom nav. 5.5rem still runs the white
+      // fully behind the nav (~3.75rem tall) with a tight, deliberate gap.
+      style={{ paddingBottom: "5.5rem", marginBottom: "-5rem" }}
     >
       <div className="rounded-2xl overflow-hidden border bg-white shadow-sm ring-1 ring-black/5">
         {embedSrc ? (

@@ -102,6 +102,8 @@ export function StreakWidget({
   // gold / neon / pink / blue / gray / coffee / midnight / match-my-brand
   // in the brand editor (businesses.streak_theme).
   const theme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
+  // CP-69: demo apps always get the count-up moment (and can replay it).
+  const isDemo = !!business.is_demo;
 
   useEffect(() => {
     const supabase = createClient();
@@ -118,7 +120,8 @@ export function StreakWidget({
         if (row) setPage(Math.max(0, Math.floor((row.current_streak - 1) / CELLS_PER_PAGE)));
         // CP-65.1: arm the count-up celebration once per open, only when
         // they've actually checked in this period (there's something to add).
-        if (row?.checked_in_this_period && row.current_streak > 0 && !celebratedRef.current) {
+        // CP-69: demo apps celebrate on EVERY open — the pitch moment.
+        if (row && (row.checked_in_this_period || isDemo) && row.current_streak > 0 && !celebratedRef.current) {
           celebratedRef.current = true;
           setCelebrate(true);
         }
@@ -152,6 +155,14 @@ export function StreakWidget({
     const t2 = setTimeout(() => setBurst(false), 1800);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [celebrate]);
+
+  // CP-69: demo replay — rewind the count-up and play it again.
+  function demoReplayAnimation() {
+    setCelebrate(false);
+    setLanded(false);
+    setBurst(false);
+    setTimeout(() => setCelebrate(true), 60);
+  }
 
   const milestones = useMemo<Milestone[]>(
     () => (s ? [...(s.milestones ?? [])].sort((a, b) => a.count - b.count) : []),
@@ -377,14 +388,13 @@ export function StreakWidget({
                 const isClaimed  =
                   isMilestone && (s.claimed_milestones ?? []).includes(milestone!.count);
 
-                // CP-32: milestone cells get the "heavy white + gold"
-                // treatment so the next reward stands out from regular
-                // check-in cubes. They're physically larger (scale 115),
-                // wear a gold rim, and have a permanent shimmer ring.
-                // Filled milestones (already reached but unclaimed) shine
-                // brighter still.
+                // CP-32 → CP-69: milestone cells are now WHITE with
+                // theme-colored (inverted) content — Andrew's call: white
+                // fill + colored text reads far better than gold-on-gold.
+                // They keep the larger scale, gold rim, and shimmer ring so
+                // the reward still stands out from regular check-in cubes.
                 const milestoneRim = isMilestone;
-                const goldGradient = `linear-gradient(135deg, #fffbeb 0%, #fef3c7 35%, #fbbf24 70%, #f59e0b 100%)`;
+                const milestoneFg = theme.to;
 
                 return (
                   <div
@@ -401,9 +411,9 @@ export function StreakWidget({
                       className={`absolute inset-0 rounded-xl transition-all duration-300 ${isCurrent ? "scale-110" : ""}`}
                       style={{
                         background: milestoneRim
-                          // Milestones: gold gradient regardless of filled
-                          // state — but unfilled ones go translucent.
-                          ? (isFilled ? goldGradient : "rgba(255,255,255,0.18)")
+                          // CP-69: white milestone cells — solid when reached,
+                          // slightly translucent while still upcoming.
+                          ? (isFilled ? "#ffffff" : "rgba(255,255,255,0.9)")
                           : isFilled
                             ? `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 60%, ${theme.cell[2]} 100%)`
                             : "rgba(255,255,255,0.10)",
@@ -492,10 +502,10 @@ export function StreakWidget({
                           ) : (
                             <span className="text-lg leading-none">⭐</span>
                           )}
-                          <div className={`text-[10px] leading-none font-black mt-0.5 tabular-nums ${isFilled ? "text-amber-900" : "text-amber-50"}`}>
+                          <div className="text-[10px] leading-none font-black mt-0.5 tabular-nums" style={{ color: milestoneFg }}>
                             {(milestone!.points ?? 0).toLocaleString()}
                           </div>
-                          <div className={`text-[6px] font-extrabold uppercase tracking-widest ${isFilled ? "text-amber-900/80" : "text-amber-100/90"}`}>
+                          <div className="text-[6px] font-extrabold uppercase tracking-widest" style={{ color: milestoneFg, opacity: 0.75 }}>
                             pts
                           </div>
                         </>
@@ -503,16 +513,15 @@ export function StreakWidget({
                         // Reward configured but no image (icon + name fallback).
                         <>
                           {isClaimed ? (
-                            <Trophy className="h-5 w-5 text-amber-900 drop-shadow-lg" />
+                            <Trophy className="h-5 w-5 drop-shadow-lg" style={{ color: milestoneFg }} />
                           ) : isMystery ? (
-                            <Sparkles className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
+                            <Sparkles className="h-5 w-5 drop-shadow-lg" style={{ color: milestoneFg }} />
                           ) : (
-                            <Gift className={`h-5 w-5 drop-shadow-lg ${isFilled ? "text-amber-900" : "text-amber-100"}`} />
+                            <Gift className="h-5 w-5 drop-shadow-lg" style={{ color: milestoneFg }} />
                           )}
                           <div
-                            className={`text-[8px] leading-[1.05] font-extrabold text-center mt-0.5 line-clamp-2 ${
-                              isFilled ? "text-amber-900" : "text-amber-50"
-                            }`}
+                            className="text-[8px] leading-[1.05] font-extrabold text-center mt-0.5 line-clamp-2"
+                            style={{ color: milestoneFg }}
                             title={milestone!.reward_name ?? milestone!.label}
                           >
                             {milestone!.reward_name ?? milestone!.label}
@@ -560,6 +569,16 @@ export function StreakWidget({
               })}
             </div>
           </div>
+
+          {/* CP-69: demo apps can replay the count-up moment on demand. */}
+          {isDemo && s.current_streak > 0 && (
+            <button
+              onClick={demoReplayAnimation}
+              className="mt-2 w-full h-9 rounded-xl text-[11px] font-extrabold tracking-widest uppercase text-white/85 bg-white/10 hover:bg-white/20 ring-1 ring-white/20 transition"
+            >
+              ↻ Demo: replay streak animation
+            </button>
+          )}
 
           {/* Milestone legend (compact). CP-39: capped at 28vh so it can
               scroll independently rather than forcing the whole sheet to. */}
