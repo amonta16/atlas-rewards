@@ -37,11 +37,16 @@ export default async function manifest({ params }: { params: { business: string 
     // pre-React background should match (white) for a seamless handoff.
     background_color: "#ffffff",
     theme_color: themeColor,
-    // CP-37: "any maskable" lets Android crop the icon to its preferred
+    // CP-37: "any" + "maskable" lets Android crop the icon to its preferred
     // shape (circle on Pixel, squircle on Samsung) without distortion.
+    // CP-68.1: Next's Manifest type wants ONE purpose per entry (the
+    // space-separated "any maskable" shorthand fails the type check that
+    // now gates builds), so each size gets two entries — same effect.
     icons: [
-      { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "any maskable" },
-      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any maskable" },
+      { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: iconUrl, sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: iconUrl, sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
