@@ -26,7 +26,7 @@
  * behavior (same UI as before this fix).
  */
 import { useEffect, useState } from "react";
-import { Zap, Clock, Dices } from "lucide-react";
+import { Zap, Clock, Dices, Coins } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 // CP-68: game-aware labels + demo mode.
@@ -34,6 +34,10 @@ import { rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
 
 type SpinStatus = { is_available: boolean; next_spin_at: string | null };
+// CP-71: what's up for grabs — lets the card say "Win up to 300 pts"
+// instead of an emoji. Comes from the mystery_prize_peek RPC (max active
+// point prize; 300 = the built-in default pool when none is configured).
+type PrizePeek = { max_points: number | null; has_special: boolean | null };
 
 export function DailySpinButton({
   business,
@@ -47,6 +51,9 @@ export function DailySpinButton({
 }) {
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [spinStatus, setSpinStatus] = useState<SpinStatus | null>(null);
+  // CP-71: prize teaser ("Win up to 300 pts"). Null until loaded; stays
+  // null (generic copy) if the RPC isn't deployed yet.
+  const [peek, setPeek] = useState<PrizePeek | null>(null);
   // Tick once a second so the countdown ticks visibly without remounting.
   const [, forceRerender] = useState(0);
   const [spinOpen, setSpinOpen] = useState(false);
@@ -66,6 +73,21 @@ export function DailySpinButton({
     setNudgeSeen(true);
     setSpinOpen(true);
   }
+
+  // CP-71: load the prize teaser once. Errors (RPC not deployed) are
+  // silently ignored — the card falls back to "Win points & prizes".
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .rpc("mystery_prize_peek", { p_business_id: business.id })
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        const row = (Array.isArray(data) ? data[0] : data) as PrizePeek | null;
+        setPeek(row ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [business.id]);
 
   useEffect(() => {
     if (!membershipId) return;
@@ -162,7 +184,17 @@ export function DailySpinButton({
   // Show the "!" whenever the game is playable and unseen today.
   const showNudge = variant === "ready" && !nudgeSeen;
 
+  // CP-71: the prize teaser line — real numbers instead of an emoji.
+  const winLine =
+    peek?.max_points && peek.max_points > 0
+      ? `Win up to ${peek.max_points} pts`
+      : peek?.has_special
+        ? "Prizes up for grabs"
+        : "Win points & prizes";
+
   // CP-52: compact half-width card for the side-by-side Home row.
+  // CP-71 revamp: taller, bolder — big watermark dice, headline-size copy,
+  // and a "Win up to X pts" chip (from the prize pool) instead of an emoji.
   if (compact) {
     const ready = variant === "ready";
     return (
@@ -170,34 +202,51 @@ export function DailySpinButton({
         <button
           onClick={() => { if (ready) openGame(); }}
           disabled={!ready}
-          className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform disabled:cursor-default p-3 flex flex-col shadow-md ring-1 ring-black/[0.07]"
+          className="w-full h-full min-h-[172px] rounded-3xl overflow-hidden text-left relative active:scale-[0.98] transition-transform disabled:cursor-default p-4 flex flex-col shadow-lg ring-1 ring-black/[0.07]"
           style={{
             background: ready
               ? `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)`
               : "rgb(244 244 245)",
           }}
         >
-          <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: ready ? "rgba(255,255,255,0.2)" : "rgb(228 228 231)" }}
-          >
-            {variant === "cooldown"
-              ? <Clock className="h-5 w-5 text-zinc-500" />
-              : <Dices className="h-6 w-6" style={{ color: ready ? "#fff" : business.brand_colors.primary }} />}
+          {/* watermark art */}
+          <Dices
+            className="absolute -right-4 -bottom-5 h-28 w-28 -rotate-12 pointer-events-none"
+            style={{ color: ready ? "rgba(255,255,255,0.13)" : "rgba(0,0,0,0.05)" }}
+          />
+          <div className="flex items-center justify-between">
+            <div
+              className="h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 backdrop-blur-sm"
+              style={{ background: ready ? "rgba(255,255,255,0.22)" : "rgb(228 228 231)" }}
+            >
+              {variant === "cooldown"
+                ? <Clock className="h-5 w-5 text-zinc-500" />
+                : <Dices className="h-6 w-6 drop-shadow" style={{ color: ready ? "#fff" : business.brand_colors.primary }} />}
+            </div>
+            {/* prize teaser chip */}
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-extrabold ${
+                ready ? "bg-white/20 text-white backdrop-blur-sm" : "bg-zinc-200 text-zinc-500"
+              }`}
+            >
+              <Coins className="h-3 w-3" />
+              {variant === "cooldown" ? countdown : winLine}
+            </span>
           </div>
-          <div className={`text-[10px] font-extrabold uppercase tracking-widest mt-2 ${ready ? "text-white/80" : "text-zinc-400"}`}>
+          <div className={`text-[10px] font-extrabold uppercase tracking-widest mt-3 ${ready ? "text-white/80" : "text-zinc-400"}`}>
             {gameMeta.title}
           </div>
-          <div className={`font-extrabold text-sm leading-tight ${ready ? "text-white" : "text-zinc-500"}`}>
+          <div className={`font-black text-lg leading-tight tracking-tight ${ready ? "text-white" : "text-zinc-500"}`}>
             {ready ? "Play now!" : variant === "cooldown" ? "Played today" : "Check in to unlock"}
           </div>
-          <div className={`text-[10px] mt-0.5 ${ready ? "text-white/75" : "text-zinc-400"}`}>
-            {ready ? `Tap to play ${gameMeta.emoji}` : variant === "cooldown" ? `Next in ${countdown}` : "Visit the shop"}
-          </div>
-          {ready && (
-            <span className="mt-2 inline-flex items-center gap-1 self-start px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-zinc-900">
-              <Zap className="h-3 w-3" /> PLAY!
+          {ready ? (
+            <span className="mt-auto pt-3 inline-flex items-center justify-center gap-1.5 self-stretch px-3 py-2 rounded-xl text-xs font-black bg-white text-zinc-900 shadow-md">
+              <Zap className="h-3.5 w-3.5" /> {gameMeta.cta}
             </span>
+          ) : (
+            <div className={`mt-auto pt-3 text-[11px] font-semibold ${ready ? "text-white/75" : "text-zinc-400"}`}>
+              {variant === "cooldown" ? `Next play in ${countdown}` : "Check in at the counter to unlock"}
+            </div>
           )}
           {/* CP-68: red "!" — your check-in reward is ready (same language
               as the Google-review nudge; clears when the game is opened). */}
@@ -266,8 +315,9 @@ export function DailySpinButton({
                     : "Check in to unlock"}
               </div>
               <div className={`text-xs mt-0.5 ${variant === "ready" ? "text-white/75" : "text-zinc-400"}`}>
+                {/* CP-71: real stakes instead of an emoji. */}
                 {variant === "ready"
-                  ? `Tap to play your ${gameMeta.label.toLowerCase()} ${gameMeta.emoji}`
+                  ? winLine
                   : variant === "cooldown"
                     ? `Next play in ${countdown}`
                     : "Visit the shop to get your play"}
@@ -291,8 +341,9 @@ export function DailySpinButton({
               )}
             </div>
           </div>
+          {/* CP-71: emoji sparkle strip replaced with a watermark die. */}
           {variant === "ready" && (
-            <div className="absolute top-2 right-20 text-lg opacity-20 pointer-events-none">⭐💎🔥</div>
+            <Dices className="absolute -right-3 -bottom-4 h-20 w-20 -rotate-12 text-white/10 pointer-events-none" />
           )}
           {/* CP-68: red "!" — your check-in reward is ready. (Positioned
               inside the card — the button clips overflow.) */}

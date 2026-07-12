@@ -98,46 +98,62 @@ export function StreakMini({
     return (
       <div
         key={n}
-        className={`relative flex-1 aspect-square rounded-[5px] flex items-center justify-center transition-all ${isNext ? "ring-2 ring-white/90 animate-pulse" : ""}`}
+        className={`relative flex-1 aspect-square rounded-md flex items-center justify-center transition-all ${isNext ? "ring-2 ring-white/90 animate-pulse" : ""}`}
         style={{
           background: filled
             ? "#ffffff"
             : isNext
               ? "rgba(255,255,255,0.28)"
               : "rgba(255,255,255,0.16)",
-          boxShadow: filled ? `0 2px 6px -1px ${theme.glow}` : undefined,
+          boxShadow: filled ? `0 2px 8px -1px ${theme.glow}` : undefined,
         }}
       >
         {isMilestone ? (
-          <Gift className="h-2.5 w-2.5" style={{ color: filled ? theme.to : "rgba(255,255,255,0.9)" }} />
+          <Gift className="h-3.5 w-3.5" style={{ color: filled ? theme.to : "rgba(255,255,255,0.9)" }} />
         ) : filled ? (
-          <Flame className="h-2.5 w-2.5" style={{ color: theme.to }} />
+          <Flame className="h-3.5 w-3.5" style={{ color: theme.to }} />
         ) : null}
       </div>
     );
   };
 
+  // CP-71: how far to the next reward — shown as a tiny gift chip.
+  const nextMilestone = milestones.find((m) => m.count > current) ?? null;
+  const toNext = nextMilestone ? nextMilestone.count - current : null;
+
   // CP-52: compact half-width card for the side-by-side Home row.
+  // CP-71 revamp: taller + bolder — giant numeral, watermark flame,
+  // bigger cubes, and a "N to reward" gift chip.
   if (compact) {
     return (
       <>
         <button
           onClick={() => setOpen(true)}
-          className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-md ring-1 ring-black/10 p-3 flex flex-col"
+          className="w-full h-full min-h-[172px] rounded-3xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-lg ring-1 ring-black/10 p-4 flex flex-col"
           style={{ background: streakBg }}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Flame className="h-4 w-4 text-white drop-shadow shrink-0" />
-              <span className="text-lg font-black text-white leading-none">{current}</span>
-              <span className="text-[10px] uppercase tracking-widest font-extrabold text-white/85 truncate">
+          {/* watermark art */}
+          <Flame className="absolute -right-3 -top-4 h-24 w-24 rotate-12 text-white/10 pointer-events-none" />
+          <div className="flex items-start justify-between">
+            <div className="min-w-0">
+              <div className="flex items-end gap-1.5">
+                <span className="text-4xl font-black text-white leading-none tabular-nums drop-shadow">{current}</span>
+                <Flame className="h-5 w-5 text-white drop-shadow mb-0.5 shrink-0" />
+              </div>
+              <div className="text-[10px] uppercase tracking-widest font-extrabold text-white/85 mt-1.5">
                 {word} streak
-              </span>
+              </div>
             </div>
-            <ChevronRight className="h-3.5 w-3.5 text-white/80 shrink-0" />
+            <ChevronRight className="h-4 w-4 text-white/80 shrink-0" />
           </div>
+          {/* CP-71: reward proximity chip — visuals over sentences. */}
+          {toNext !== null && (
+            <span className="mt-2 inline-flex items-center gap-1 self-start px-2 py-1 rounded-full text-[10px] font-extrabold bg-white/20 text-white backdrop-blur-sm">
+              <Gift className="h-3 w-3" /> {toNext} to reward
+            </span>
+          )}
           {/* CP-70: mini cube tray — the streak, as visuals not words. */}
-          <div className="mt-auto pt-2.5 flex gap-1">
+          <div className="mt-auto pt-3 flex gap-1.5">
             {cells.map(cube)}
           </div>
         </button>
