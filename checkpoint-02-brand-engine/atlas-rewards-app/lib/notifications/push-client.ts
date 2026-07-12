@@ -46,7 +46,9 @@ export async function ensurePushSubscription(businessId: string | null): Promise
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(key),
+      // CP-68.1: newer TS lib types generic TypedArrays over ArrayBufferLike;
+      // the value is a plain ArrayBuffer-backed Uint8Array — cast for the DOM API.
+      applicationServerKey: urlBase64ToUint8Array(key) as unknown as BufferSource,
     });
   }
 

@@ -116,7 +116,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   // CP-37.5: tutorial walkthrough state. Auto-opens once per role the
   // first time someone signs in (persisted to localStorage). Header
   // lightbulb button re-opens it any time.
-  const [autoOpen, dismissAutoOpen] = useTutorialAutoOpen(role);
+  // CP-68.1: the tutorial's Role type has no "customer" — customers get no tutorial.
+  const [autoOpen, dismissAutoOpen] = useTutorialAutoOpen(role === "customer" ? null : role);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   useEffect(() => {
     if (autoOpen) setTutorialOpen(true);
@@ -287,7 +288,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
 
       {/* CP-37.5: tutorial walkthrough overlay. */}
       <ManagerTutorial
-        role={role}
+        role={role === "customer" ? null : role}
         primary={business.brand_colors.primary}
         open={tutorialOpen}
         onClose={() => {

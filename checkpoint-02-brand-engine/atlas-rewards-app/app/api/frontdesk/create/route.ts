@@ -88,10 +88,14 @@ export async function POST(req: NextRequest) {
     p_pin: pin,
   });
   if (pinErr) {
-    await server.rpc("remove_team_member", {
-      p_user_id: userId, p_business_id: businessId, p_role: "business_staff",
-    }).catch(() => {});
-    await admin.auth.admin.deleteUser(userId).catch(() => {});
+    // Best-effort rollback — CP-68.1: PostgrestFilterBuilder is thenable but
+    // has no .catch() in its type, so wrap in try/catch instead.
+    try {
+      await server.rpc("remove_team_member", {
+        p_user_id: userId, p_business_id: businessId, p_role: "business_staff",
+      });
+    } catch { /* ignore */ }
+    try { await admin.auth.admin.deleteUser(userId); } catch { /* ignore */ }
     return NextResponse.json({ error: pinErr.message }, { status: 400 });
   }
 

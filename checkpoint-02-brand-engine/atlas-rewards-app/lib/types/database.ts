@@ -76,6 +76,8 @@ export type Business = {
   name: string;
   industry: string | null;
   logo_url: string | null;
+  /** CP-38: dedicated square PWA/home-screen icon (falls back to logo). */
+  app_icon_url?: string | null;
   hero_image_url: string | null;
   /** Background art for the loyalty card on the customer Rewards tab. */
   membership_image_url: string | null;
@@ -162,6 +164,8 @@ export type FieldApp = {
   name: string;
   slug: string;
   logo_url: string | null;
+  /** CP-38: dedicated square PWA/home-screen icon (falls back to logo). */
+  app_icon_url?: string | null;
   hero_image_url: string | null;
   brand_colors: BrandColors;
   status: string;
