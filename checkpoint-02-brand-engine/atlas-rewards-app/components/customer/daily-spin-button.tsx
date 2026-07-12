@@ -29,6 +29,8 @@ import { useEffect, useState } from "react";
 import { Zap, Clock, Dices } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DailyMysteryModal } from "./daily-mystery-modal";
+// CP-68: game-aware labels + demo mode.
+import { rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
 
 type SpinStatus = { is_available: boolean; next_spin_at: string | null };
@@ -48,6 +50,22 @@ export function DailySpinButton({
   // Tick once a second so the countdown ticks visibly without remounting.
   const [, forceRerender] = useState(0);
   const [spinOpen, setSpinOpen] = useState(false);
+  // CP-68: game meta (slot/wheel/boxes) + demo mode (always playable).
+  const gameMeta = rewardGameMeta(business.reward_game);
+  const isDemo = !!business.is_demo;
+  // CP-65.1/68: red "!" — reward ready and not yet opened today. Shares the
+  // header pill's localStorage key so both badges clear together.
+  const [nudgeSeen, setNudgeSeen] = useState(true);
+  const nudgeKey = `atlas-spin-nudge-${membershipId}-${new Date().toISOString().slice(0, 10)}`;
+  useEffect(() => {
+    if (typeof window === "undefined" || !membershipId) return;
+    try { setNudgeSeen(window.localStorage.getItem(nudgeKey) === "1"); } catch { /* ignore */ }
+  }, [membershipId, nudgeKey]);
+  function openGame() {
+    try { window.localStorage.setItem(nudgeKey, "1"); } catch { /* ignore */ }
+    setNudgeSeen(true);
+    setSpinOpen(true);
+  }
 
   useEffect(() => {
     if (!membershipId) return;
@@ -136,9 +154,13 @@ export function DailySpinButton({
   const pad = (n: number) => String(n).padStart(2, "0");
   const countdown = hh > 0 ? `${hh}:${pad(mm)}:${pad(ss)}` : `${pad(mm)}:${pad(ss)}`;
 
-  // Visual state buckets.
+  // Visual state buckets. CP-68: demo apps are ALWAYS ready — the server
+  // skips the check-in + cooldown gates for is_demo businesses, so the
+  // owner can replay the reward moment during a pitch.
   const variant: "ready" | "cooldown" | "locked" =
-    ready ? "ready" : cooldown ? "cooldown" : "locked";
+    isDemo ? "ready" : ready ? "ready" : cooldown ? "cooldown" : "locked";
+  // Show the "!" whenever the game is playable and unseen today.
+  const showNudge = variant === "ready" && !nudgeSeen;
 
   // CP-52: compact half-width card for the side-by-side Home row.
   if (compact) {
@@ -146,7 +168,7 @@ export function DailySpinButton({
     return (
       <>
         <button
-          onClick={() => { if (ready) setSpinOpen(true); }}
+          onClick={() => { if (ready) openGame(); }}
           disabled={!ready}
           className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform disabled:cursor-default p-3 flex flex-col shadow-md ring-1 ring-black/[0.07]"
           style={{
@@ -164,17 +186,24 @@ export function DailySpinButton({
               : <Dices className="h-6 w-6" style={{ color: ready ? "#fff" : business.brand_colors.primary }} />}
           </div>
           <div className={`text-[10px] font-extrabold uppercase tracking-widest mt-2 ${ready ? "text-white/80" : "text-zinc-400"}`}>
-            Daily Spin
+            {gameMeta.title}
           </div>
           <div className={`font-extrabold text-sm leading-tight ${ready ? "text-white" : "text-zinc-500"}`}>
-            {ready ? "Spin now!" : variant === "cooldown" ? "Spun today" : "Check in to unlock"}
+            {ready ? "Play now!" : variant === "cooldown" ? "Played today" : "Check in to unlock"}
           </div>
           <div className={`text-[10px] mt-0.5 ${ready ? "text-white/75" : "text-zinc-400"}`}>
-            {ready ? "Tap to play 🎰" : variant === "cooldown" ? `Next in ${countdown}` : "Visit the shop"}
+            {ready ? `Tap to play ${gameMeta.emoji}` : variant === "cooldown" ? `Next in ${countdown}` : "Visit the shop"}
           </div>
           {ready && (
             <span className="mt-2 inline-flex items-center gap-1 self-start px-2.5 py-1 rounded-full text-[11px] font-bold bg-white text-zinc-900">
-              <Zap className="h-3 w-3" /> SPIN!
+              <Zap className="h-3 w-3" /> PLAY!
+            </span>
+          )}
+          {/* CP-68: red "!" — your check-in reward is ready (same language
+              as the Google-review nudge; clears when the game is opened). */}
+          {showNudge && (
+            <span className="absolute top-1.5 right-1.5 h-[18px] w-[18px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce pointer-events-none">
+              <span className="text-[11px] font-black text-white leading-none">!</span>
             </span>
           )}
         </button>
@@ -195,11 +224,11 @@ export function DailySpinButton({
       <div className="px-4 mt-5">
         <button
           onClick={() => {
-            // Only the "ready" state actually opens the slot machine.
+            // Only the "ready" state actually opens the game.
             // Cooldown + locked are informational — tapping does nothing
             // so the customer isn't dropped into a modal that just says
             // "no spin available".
-            if (variant === "ready") setSpinOpen(true);
+            if (variant === "ready") openGame();
           }}
           disabled={variant !== "ready"}
           className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform disabled:cursor-default shadow-sm ring-1 ring-black/5"
@@ -225,23 +254,23 @@ export function DailySpinButton({
               <div
                 className={`text-[11px] font-extrabold uppercase tracking-widest ${variant === "ready" ? "text-white/80" : "text-zinc-400"}`}
               >
-                Daily Spin
+                {gameMeta.title}
               </div>
               <div
                 className={`font-extrabold text-base leading-tight mt-0.5 ${variant === "ready" ? "text-white" : "text-zinc-500"}`}
               >
                 {variant === "ready"
-                  ? "You're ready to spin!"
+                  ? "You're ready to play!"
                   : variant === "cooldown"
-                    ? "Already spun today"
+                    ? "Already played today"
                     : "Check in to unlock"}
               </div>
               <div className={`text-xs mt-0.5 ${variant === "ready" ? "text-white/75" : "text-zinc-400"}`}>
                 {variant === "ready"
-                  ? "Tap to play your slot machine"
+                  ? `Tap to play your ${gameMeta.label.toLowerCase()} ${gameMeta.emoji}`
                   : variant === "cooldown"
-                    ? `Next spin in ${countdown}`
-                    : "Visit the shop to get your spin"}
+                    ? `Next play in ${countdown}`
+                    : "Visit the shop to get your play"}
               </div>
             </div>
             <div className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${
@@ -250,7 +279,7 @@ export function DailySpinButton({
               {variant === "ready" ? (
                 <>
                   <Zap className="h-3 w-3" />
-                  SPIN!
+                  PLAY!
                 </>
               ) : variant === "cooldown" ? (
                 <span className="tabular-nums">{countdown}</span>
@@ -264,6 +293,13 @@ export function DailySpinButton({
           </div>
           {variant === "ready" && (
             <div className="absolute top-2 right-20 text-lg opacity-20 pointer-events-none">⭐💎🔥</div>
+          )}
+          {/* CP-68: red "!" — your check-in reward is ready. (Positioned
+              inside the card — the button clips overflow.) */}
+          {showNudge && (
+            <span className="absolute top-2 right-2 h-[18px] w-[18px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce pointer-events-none">
+              <span className="text-[11px] font-black text-white leading-none">!</span>
+            </span>
           )}
         </button>
       </div>

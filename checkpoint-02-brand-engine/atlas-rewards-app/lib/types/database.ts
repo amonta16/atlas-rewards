@@ -124,6 +124,10 @@ export type Business = {
   heading_style?: string | null;  // plain/bar/underline/sticker
   divider_style?: string | null;  // none/line/dots/sparkle
   cta_glow?: string | null;       // none/soft/bold
+  /** CP-68: check-in reward game (lib/reward-games.ts). NULL = slot. */
+  reward_game?: string | null;    // slot/wheel/boxes
+  /** CP-68: demo app — reward game replayable (no check-in/cooldown gates). */
+  is_demo?: boolean | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.
    *  NULL = Unfiled. Manual grouping only; by-industry view needs no column.
    *  CP-60 superseded by folder_id (kept for backfill only). */

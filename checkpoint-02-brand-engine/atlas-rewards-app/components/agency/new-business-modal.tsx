@@ -23,6 +23,11 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
     ? initialName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
     : "");
   const [templateValue, setTemplateValue] = useState<string>("other");
+  // CP-68: demo apps skip the check-in + reward-game cooldowns so the owner
+  // can replay the reward moment during a pitch. Defaults ON — most new
+  // apps here are pitch demos; flip it off in the brand editor when a deal
+  // closes and the app goes live for real customers.
+  const [isDemo, setIsDemo] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // CP-42 baseline fields
@@ -59,6 +64,10 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
     // brand editor. Silent fallback if the cp42 RPC isn't installed.
     const newBusinessId = data as string;
     if (newBusinessId) {
+      // CP-68: mark demo apps (silent fallback if cp68 SQL isn't applied yet).
+      try {
+        await supabase.from("businesses").update({ is_demo: isDemo }).eq("id", newBusinessId);
+      } catch { /* non-fatal */ }
       const revenueCents = baselineRevenue
         ? Math.round(parseFloat(baselineRevenue) * 100)
         : null;
@@ -114,6 +123,31 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
                   Customers will visit <code className="bg-muted px-1 rounded">{slug || "joes-gym"}.{rootDomain}{rootDomain.includes("lvh.me") ? ":3000" : ""}</code>
                 </p>
               </div>
+
+              {/* CP-68: demo flag — replayable check-in reward for pitches. */}
+              <button
+                type="button"
+                onClick={() => setIsDemo(v => !v)}
+                className={cn(
+                  "w-full text-left rounded-xl border-2 p-3 transition flex items-start gap-3",
+                  isDemo ? "border-indigo-400 bg-indigo-50/60" : "border-zinc-200 hover:border-zinc-300",
+                )}
+              >
+                <span className={cn(
+                  "h-5 w-5 rounded-md flex items-center justify-center shrink-0 mt-0.5",
+                  isDemo ? "bg-indigo-600 text-white" : "bg-zinc-200",
+                )}>
+                  {isDemo && <Check className="h-3.5 w-3.5" />}
+                </span>
+                <span>
+                  <span className="text-sm font-semibold block">Demo app (for pitching)</span>
+                  <span className="text-[11px] text-muted-foreground leading-snug block mt-0.5">
+                    The check-in reward game becomes replayable — no check-in or daily
+                    cooldown — so you can show the owner the reward moment as many times
+                    as you like. Turn it off in the brand editor when the deal closes.
+                  </span>
+                </span>
+              </button>
             </div>
           )}
 

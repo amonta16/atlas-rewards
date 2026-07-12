@@ -7,14 +7,15 @@ const nextConfig = {
     ],
   },
 
-  // CP-32 go-live: skip the strict TS + ESLint checks during build so we
-  // can ship without grinding through every legacy type warning. The code
-  // ITSELF still compiles fine (the `✓ Compiled successfully` line passes);
-  // this just tells Next.js to not gate the build on the type-check pass.
-  // We'll clean these up as a CP-33 follow-up.
+  // CP-68: TYPE ERRORS NOW FAIL THE BUILD. The old ignoreBuildErrors:true
+  // (a CP-32 go-live shortcut) let a real runtime bug ship to production in
+  // CP-67 — TypeScript had flagged it, but Vercel deployed anyway. If a
+  // deploy fails with type errors from here on, that's the gate doing its
+  // job: fix the error (or ask Claude to), don't flip this back.
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
+  // ESLint stays non-blocking — style warnings shouldn't stop a deploy.
   eslint: {
     ignoreDuringBuilds: true,
   },

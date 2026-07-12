@@ -14,8 +14,10 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Lock, Zap } from "lucide-react";
+import { X, Lock, Zap, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+// CP-68: multiple reward games (slot / wheel / boxes) + demo replay.
+import { rewardGame, rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
 
 // ─── symbols & prizes ────────────────────────────────────────────────────────
@@ -75,7 +77,16 @@ export function DailyMysteryModal({
 
   const alreadyClaimed = typeof window !== "undefined" && !!localStorage.getItem(todayKey);
 
+  // CP-68: which game this business plays + demo mode.
+  const game = rewardGame(business.reward_game);
+  const gameMeta = rewardGameMeta(business.reward_game);
+  const isDemo = !!business.is_demo;
+
   const [phase, setPhase] = useState<Phase>(() => {
+    // Demo apps are always playable — the server skips the check-in +
+    // cooldown gates for is_demo businesses (cp68 SQL), so the owner can
+    // watch the reward moment as many times as the pitch needs.
+    if (isDemo) return "ready";
     if (!checkedInToday) return "locked";
     if (alreadyClaimed) return "claimed";
     return "ready";
@@ -89,34 +100,77 @@ export function DailyMysteryModal({
   const [flash, setFlash] = useState(false);
   // CP-44: spin error (cooldown / not checked in / disabled).
   const [err, setErr] = useState<string | null>(null);
+  // CP-68: prize-wheel state — accumulated rotation + transition duration.
+  const [wheelRot, setWheelRot] = useState(0);
+  const [wheelMs, setWheelMs] = useState(0);
+  // CP-68: mystery-boxes state — which box is highlighted / opened.
+  const [boxFocus, setBoxFocus] = useState<number | null>(null);
+  const [boxOpen, setBoxOpen] = useState<number | null>(null);
 
   const intervals = useRef<ReturnType<typeof setInterval>[]>([]);
   const primary = business.brand_colors.primary;
 
+  // CP-68: wheel geometry — 8 segments, pointer at the top.
+  const WHEEL_SEGMENTS = ["✨", "⭐", "💎", "🎁", "🍀", "👑", "🔥", "🎯"];
+  function segmentForTier(tier: Prize["tier"]): number {
+    if (tier === "jackpot") return [2, 5][Math.floor(Math.random() * 2)];        // 💎 👑
+    if (tier === "lucky")   return [1, 3, 4][Math.floor(Math.random() * 3)];     // ⭐ 🎁 🍀
+    return [0, 6, 7][Math.floor(Math.random() * 3)];                             // ✨ 🔥 🎯
+  }
+
+  // CP-68: demo replay — wipe local claim state and re-arm the game.
+  function demoReplay() {
+    try {
+      localStorage.removeItem(todayKey);
+      localStorage.removeItem(prizeKey);
+    } catch { /* ignore */ }
+    intervals.current.forEach(clearInterval);
+    setPrize(null); setFlash(false); setErr(null);
+    setLocked([false, false, false]);
+    setReelIdx([0, 0, 0]);
+    setWheelMs(0);
+    setBoxFocus(null); setBoxOpen(null);
+    setPhase("ready");
+  }
+
   // ── cleanup on unmount
   useEffect(() => () => intervals.current.forEach(clearInterval), []);
 
-  // ── start spinning (CP-44: server-authoritative)
+  // ── start spinning (CP-44: server-authoritative; CP-68: per-game theater)
   async function handleSpin() {
     if (phase !== "ready" || !membershipId) return;
     setErr(null);
     setPhase("spinning");
-    setLocked([false, false, false]);
 
-    // Start the reels spinning immediately (they keep blurring while we ask
-    // the server for the real prize).
-    intervals.current = [0, 1, 2].map((ri) =>
-      setInterval(() => {
-        setReelIdx((prev) => {
-          const next = [...prev] as [number, number, number];
-          next[ri] = (next[ri] + 1) % SYMBOLS.length;
-          return next;
-        });
-      }, 75 + ri * 8),
-    );
+    // Kick off this game's "suspense" animation immediately — it keeps
+    // running while we ask the server for the real prize.
+    if (game === "slot") {
+      setLocked([false, false, false]);
+      intervals.current = [0, 1, 2].map((ri) =>
+        setInterval(() => {
+          setReelIdx((prev) => {
+            const next = [...prev] as [number, number, number];
+            next[ri] = (next[ri] + 1) % SYMBOLS.length;
+            return next;
+          });
+        }, 75 + ri * 8),
+      );
+    } else if (game === "wheel") {
+      // Long lazy spin while we wait; overridden with the precise landing
+      // rotation once the server answers.
+      setWheelMs(9000);
+      setWheelRot((r) => r + 1440);
+    } else {
+      // boxes: cycle the highlight across the three gift boxes.
+      setBoxOpen(null);
+      let i = 0;
+      const t = setInterval(() => { setBoxFocus(i % 3); i++; }, 150);
+      intervals.current = [t];
+    }
 
     // Ask the server to pick + award the prize. The client cannot influence
-    // the amount, can only spin for itself, and the cooldown is enforced here.
+    // the amount, can only spin for itself, and the cooldown is enforced here
+    // (both gates are skipped server-side for is_demo businesses — CP-68).
     const { data, error } = await createClient().rpc("spin_daily_reward", {
       p_business_id: business.id,
       p_membership_id: membershipId,
@@ -124,6 +178,8 @@ export function DailyMysteryModal({
 
     if (error || !data) {
       intervals.current.forEach(clearInterval);
+      setWheelMs(0);
+      setBoxFocus(null);
       const msg = error?.message ?? "Couldn't spin — please try again.";
       // Already spun / cooldown → show the "already spun" state.
       if (/already spun|cooldown/i.test(msg)) {
@@ -154,37 +210,63 @@ export function DailyMysteryModal({
     };
     setPrize(p);
 
-    // Stop each reel in sequence, landing on the server-decided symbols.
-    const stopTimes = [900, 1500, 2100];
-    stopTimes.forEach((t, ri) => {
+    // Shared landing: white flash → reveal. (Demo apps skip the localStorage
+    // claim so the game re-arms instantly on replay.)
+    const finish = () => {
+      setFlash(true);
+      setTimeout(() => setFlash(false), 350);
       setTimeout(() => {
-        clearInterval(intervals.current[ri]);
-        const finalIdx = SYMBOLS.indexOf(p.symbols[ri]);
-        setReelIdx((prev) => {
-          const next = [...prev] as [number, number, number];
-          next[ri] = finalIdx >= 0 ? finalIdx : 0;
-          return next;
-        });
-        setLocked((prev) => {
-          const next = [...prev] as [boolean, boolean, boolean];
-          next[ri] = true;
-          return next;
-        });
-
-        if (ri === 2) {
-          setTimeout(() => {
-            setFlash(true);
-            setTimeout(() => setFlash(false), 350);
-            setTimeout(() => {
-              setPhase("revealed");
-              localStorage.setItem(todayKey, "1");
-              localStorage.setItem(prizeKey, JSON.stringify(p));
-              // Points/prize were already awarded server-side — nothing to do.
-            }, 200);
-          }, 400);
+        setPhase("revealed");
+        if (!isDemo) {
+          localStorage.setItem(todayKey, "1");
+          localStorage.setItem(prizeKey, JSON.stringify(p));
         }
-      }, t);
-    });
+        // Points/prize were already awarded server-side — nothing to do.
+      }, 200);
+    };
+
+    if (game === "slot") {
+      // Stop each reel in sequence, landing on the server-decided symbols.
+      const stopTimes = [900, 1500, 2100];
+      stopTimes.forEach((t, ri) => {
+        setTimeout(() => {
+          clearInterval(intervals.current[ri]);
+          const finalIdx = SYMBOLS.indexOf(p.symbols[ri]);
+          setReelIdx((prev) => {
+            const next = [...prev] as [number, number, number];
+            next[ri] = finalIdx >= 0 ? finalIdx : 0;
+            return next;
+          });
+          setLocked((prev) => {
+            const next = [...prev] as [boolean, boolean, boolean];
+            next[ri] = true;
+            return next;
+          });
+          if (ri === 2) setTimeout(finish, 400);
+        }, t);
+      });
+    } else if (game === "wheel") {
+      // Land the pointer on a segment matching the prize tier: two more
+      // full turns, easing out onto the target.
+      const segIdx = segmentForTier(p.tier);
+      setWheelMs(3000);
+      setWheelRot((r) => {
+        const base = Math.ceil(r / 360) * 360;
+        return base + 720 + (360 - (segIdx * 45 + 22.5));
+      });
+      setTimeout(finish, 3150);
+    } else {
+      // boxes: keep shuffling briefly, settle on one, pop it open.
+      setTimeout(() => {
+        intervals.current.forEach(clearInterval);
+        const chosen = Math.floor(Math.random() * 3);
+        setBoxFocus(chosen);
+        setTimeout(() => {
+          setBoxOpen(chosen);
+          setTimeout(finish, 550);
+        }, 450);
+      }, 1500);
+    }
   }
 
   // ── prize colour palette
@@ -268,21 +350,92 @@ export function DailyMysteryModal({
 
         {/* ── neon header ── */}
         <div className="text-center mb-8 z-10 select-none">
-          <div className="text-5xl mb-2 drop-shadow-lg">🎰</div>
+          <div className="text-5xl mb-2 drop-shadow-lg">{gameMeta.emoji}</div>
           <h2
             className="text-white text-2xl font-extrabold tracking-[0.25em] uppercase"
             style={{ textShadow: `0 0 15px ${primary}, 0 0 35px ${primary}88` }}
           >
-            Daily Spin
+            {gameMeta.title}
           </h2>
           <p className="text-[11px] mt-1 tracking-widest uppercase"
             style={{ color: `${primary}cc` }}>
-            One spin per day
+            {isDemo ? "Demo mode — unlimited plays" : "One spin per day"}
           </p>
         </div>
 
+        {/* ── CP-68: prize wheel ── */}
+        {game === "wheel" && phase !== "locked" && phase !== "claimed" && (
+          <div className="relative mb-8 z-10">
+            {/* pointer */}
+            <div
+              className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 text-3xl"
+              style={{ color: "#facc15", textShadow: "0 0 10px rgba(250,204,21,0.8)" }}
+            >
+              ▼
+            </div>
+            <div
+              className="relative h-56 w-56 rounded-full"
+              style={{
+                transform: `rotate(${wheelRot}deg)`,
+                transition: wheelMs ? `transform ${wheelMs}ms cubic-bezier(0.12, 0.8, 0.22, 1)` : "none",
+                background: `conic-gradient(${WHEEL_SEGMENTS.map(
+                  (_, i) => `${i % 2 ? `${primary}cc` : "#181830"} ${i * 45}deg ${(i + 1) * 45}deg`,
+                ).join(", ")})`,
+                border: "4px solid #facc15",
+                boxShadow: `0 0 35px ${primary}55, inset 0 0 25px rgba(0,0,0,0.45)`,
+              }}
+            >
+              {WHEEL_SEGMENTS.map((s, i) => (
+                <div
+                  key={i}
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ transform: `rotate(${i * 45 + 22.5}deg)` }}
+                >
+                  <span className="absolute top-3 left-1/2 -translate-x-1/2 text-2xl drop-shadow">{s}</span>
+                </div>
+              ))}
+            </div>
+            {/* hub */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-xl shadow-xl ring-2 ring-black/10">
+                🎯
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CP-68: mystery boxes ── */}
+        {game === "boxes" && phase !== "locked" && phase !== "claimed" && (
+          <div className="flex gap-5 mb-8 z-10">
+            {[0, 1, 2].map((i) => {
+              const focused = boxFocus === i;
+              const opened = boxOpen === i;
+              return (
+                <div
+                  key={i}
+                  className="h-24 w-24 rounded-2xl flex items-center justify-center text-5xl transition-all duration-200"
+                  style={{
+                    border: focused ? "3px solid #facc15" : `3px solid ${primary}55`,
+                    background: focused ? "rgba(250,204,21,0.12)" : `${primary}12`,
+                    boxShadow: focused
+                      ? "0 0 30px rgba(250,204,21,0.45), inset 0 0 18px rgba(250,204,21,0.08)"
+                      : `0 0 12px ${primary}44, inset 0 0 8px ${primary}18`,
+                    transform: opened ? "scale(1.25)" : focused ? "scale(1.1)" : "scale(1)",
+                  }}
+                >
+                  <span style={{ display: "block", lineHeight: 1 }}>
+                    {opened
+                      ? prize?.tier === "jackpot" ? "🎆" : prize?.tier === "lucky" ? "🎉" : "✨"
+                      : "🎁"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* ── slot machine reels (hidden in locked state) ── */}
-        {phase !== "locked" && phase !== "claimed" && (
+        {game === "slot" && phase !== "locked" && phase !== "claimed" && (
           <div className="flex gap-4 mb-8 z-10">
             {([0, 1, 2] as const).map((ri) => {
               const isLocked = locked[ri];
@@ -384,7 +537,7 @@ export function DailyMysteryModal({
                     "0 0 35px rgba(251,191,36,0.55), 0 8px 24px -4px rgba(245,158,11,0.45)",
                 }}
               >
-                🎰 &nbsp;SPIN!
+                {gameMeta.emoji} &nbsp;{gameMeta.cta}
               </button>
               {err && <p className="text-rose-300 text-xs mt-3">{err}</p>}
             </>
@@ -480,6 +633,17 @@ export function DailyMysteryModal({
                 <Zap className="h-3.5 w-3.5 inline mr-1.5" />
                 Awesome — close
               </button>
+
+              {/* CP-68: demo apps replay the reward moment endlessly. */}
+              {isDemo && (
+                <button
+                  onClick={demoReplay}
+                  className="w-full h-11 mt-2 rounded-xl font-bold text-xs tracking-widest uppercase text-white/80 bg-white/10 hover:bg-white/15 transition"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 inline mr-1.5" />
+                  Demo: play again
+                </button>
+              )}
             </div>
           )}
 
@@ -512,6 +676,16 @@ export function DailyMysteryModal({
               <p className="text-zinc-500 text-xs mb-5">
                 Check in tomorrow for a fresh spin.
               </p>
+              {/* CP-68: demo apps replay the reward moment endlessly. */}
+              {isDemo && (
+                <button
+                  onClick={demoReplay}
+                  className="h-11 px-8 mb-2 rounded-xl font-bold text-xs tracking-widest uppercase text-white/80 bg-white/10 hover:bg-white/15 transition"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 inline mr-1.5" />
+                  Demo: play again
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="h-11 px-8 rounded-xl font-semibold text-sm text-white/70 bg-white/10 hover:bg-white/15 transition"

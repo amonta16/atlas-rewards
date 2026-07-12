@@ -21,6 +21,8 @@ import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
 import { REWARDS_LAYOUTS, OFFERS_LAYOUTS } from "@/lib/section-layouts";
 // CP-67: element pack (badges, headings, dividers, CTA glow).
 import { BADGE_STYLES, HEADING_STYLES, DIVIDER_STYLES, CTA_GLOWS, badgeCss } from "@/lib/element-styles";
+// CP-68: check-in reward game presets.
+import { REWARD_GAMES } from "@/lib/reward-games";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -222,6 +224,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           heading_style: b.heading_style ?? null,
           divider_style: b.divider_style ?? null,
           cta_glow: b.cta_glow ?? null,
+          /* CP-68: reward game + demo flag. */
+          reward_game: b.reward_game ?? null,
+          is_demo: b.is_demo ?? false,
         })
         .eq("id", b.id);
       if (!error) {
@@ -902,6 +907,47 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       })}
                     </div>
                   </div>
+                </div>
+              </Section>
+
+              {/* CP-68: which game plays when the check-in reward is opened. */}
+              <Section title="Check-in reward game" subtitle="The mini-game customers play after checking in. Same server-side prizes — different showmanship.">
+                <div className="grid grid-cols-3 gap-2.5">
+                  {REWARD_GAMES.map(opt => {
+                    const selected = (b.reward_game ?? "slot") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("reward_game", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-3 text-center transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        <div className="text-3xl">{opt.emoji}</div>
+                        <div className={cn("text-[11px] font-bold mt-1", selected ? "text-brand-primary" : "text-zinc-700")}>
+                          {opt.label}
+                        </div>
+                        <div className="text-[9px] text-zinc-500 mt-0.5 leading-snug">{opt.hint}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* CP-68: demo mode toggle lives next to the game it unlocks. */}
+                <div className="mt-4 rounded-xl border p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Label className="cursor-pointer text-sm font-semibold">Demo app (for pitching)</Label>
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                      Reward game becomes replayable — no check-in or cooldown. Turn OFF when
+                      this app goes live for real customers.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!!b.is_demo}
+                    onCheckedChange={(v) => update("is_demo", v)}
+                  />
                 </div>
               </Section>
 
