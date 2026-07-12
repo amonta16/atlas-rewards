@@ -1,31 +1,29 @@
 /**
- * CP-64 — Seed the demo image library. NO API KEY NEEDED.
+ * CP-64 — Seed the demo image library (Pexels edition).
  *
  * Downloads the curated shot list (scripts/image-library-manifest.mjs) from
- * Openverse (openverse.org — CC-licensed images, anonymous API, no signup),
- * uploads every photo to the `image-library` Supabase bucket, and catalogs it
- * in the `image_library` table so the builder's "Choose from library" picker
- * can browse it.
+ * Pexels, uploads every photo to the `image-library` Supabase bucket, and
+ * catalogs it in the `image_library` table so the builder's
+ * "Choose from library" picker can browse it.
  *
  * Run from the app root (checkpoint-02-brand-engine/atlas-rewards-app):
  *
- *   node scripts/seed-image-library.mjs                 # everything (~10-15 min)
+ *   node scripts/seed-image-library.mjs                 # everything (a few minutes)
  *   node scripts/seed-image-library.mjs --industry=medspa
  *   node scripts/seed-image-library.mjs --category=hero
  *   node scripts/seed-image-library.mjs --dry-run       # show the plan only
  *
- * Needs (read from .env.local — both already there):
- *   NEXT_PUBLIC_SUPABASE_URL
- *   SUPABASE_SERVICE_ROLE_KEY
+ * Needs (read from .env.local or the environment):
+ *   NEXT_PUBLIC_SUPABASE_URL      — already in .env.local
+ *   SUPABASE_SERVICE_ROLE_KEY     — already in .env.local
+ *   PEXELS_API_KEY                — free key from https://www.pexels.com/api/
  *
- * Openverse allows 20 requests/min and 200/day anonymously; this script paces
- * itself under that and SKIPS categories that are already full, so re-running
- * is cheap and idempotent. If it ever stops early on rate limits, just run it
- * again later — it picks up where it left off. Licenses are filtered to
- * commercial-use-allowed (CC0 / PD / BY / BY-SA); each image's creator +
- * license is stored in `credit` (shown on hover in the picker).
+ * Idempotent + resumable: categories that are already full are skipped, and
+ * photos already in the library are never duplicated — re-running after adding
+ * manifest queries only fetches what's new. Pexels photos are free for
+ * commercial use, no attribution required (we store credit anyway).
  *
- * Bonus — local drop-ins (no internet needed at all): put your own images in
+ * Bonus — local drop-ins: put your own images in
  *   scripts/library-local/<industry>/<category>/photo-name.jpg
  * (categories: hero | reward | offer) and they're uploaded too. Great for
  * client-specific shots or images a VA hand-picks.
@@ -49,6 +47,7 @@ if (existsSync(envPath)) {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const PEXELS_KEY = process.env.PEXELS_API_KEY;
 
 // ---------- CLI flags ----------
 const args = Object.fromEntries(
@@ -65,55 +64,48 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error("✗ Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (check .env.local).");
   process.exit(1);
 }
+if (!PEXELS_KEY && !DRY) {
+  console.error(
+    "✗ Missing PEXELS_API_KEY.\n" +
+      "  Get a free key at https://www.pexels.com/api/ (sign up → Your API Key),\n" +
+      "  then add this line to .env.local and re-run:\n" +
+      "  PEXELS_API_KEY=your-key-here"
+  );
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 const BUCKET = "image-library";
-const UA = "AtlasRewardsImageLibrarySeeder/1.0 (one-time demo-library setup)";
-const SEARCH_PACE_MS = 3300;   // ≤ ~18 searches/min — under Openverse's 20/min
-const DAILY_BUDGET = 190;      // stop before Openverse's 200/day anonymous cap
-let searchesUsed = 0;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const titleCase = (s) =>
   s.replace(/[-_]/g, " ").replace(/\s+/g, " ").trim().replace(/^\w/, (c) => c.toUpperCase());
 
-// ---------- Openverse (anonymous, keyless) ----------
-async function openverseSearch(query) {
+// ---------- Pexels ----------
+async function pexelsSearch(query, perPage) {
   const url =
-    `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}` +
-    `&license_type=commercial&category=photograph&aspect_ratio=wide` +
-    `&filter_dead=true&per_page=20`;
+    `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}` +
+    `&per_page=${perPage}&orientation=landscape&size=large`;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const res = await fetch(url, { headers: { "User-Agent": UA } });
+    const res = await fetch(url, { headers: { Authorization: PEXELS_KEY } });
     if (res.status === 429) {
-      console.warn("  … Openverse rate limit hit, waiting 65s");
-      await sleep(65000);
+      console.warn("  … Pexels rate limit hit, waiting 15s");
+      await sleep(15000);
       continue;
     }
-    if (!res.ok) throw new Error(`Openverse search failed (${res.status}) for "${query}"`);
-    searchesUsed++;
+    if (res.status === 401) {
+      throw new Error("Pexels rejected the API key (401). Double-check PEXELS_API_KEY in .env.local — no quotes, no spaces.");
+    }
+    if (!res.ok) throw new Error(`Pexels search failed (${res.status}) for "${query}"`);
     return res.json();
   }
-  throw new Error(`Openverse kept rate-limiting on "${query}" — re-run later; already-seeded images are skipped.`);
+  throw new Error(`Pexels kept rate-limiting on "${query}" — re-run in a few minutes; it resumes where it left off.`);
 }
 
 async function downloadImage(url) {
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`download failed (${res.status})`);
-  const type = res.headers.get("content-type") ?? "";
-  if (!type.startsWith("image/")) throw new Error(`not an image (${type || "unknown type"})`);
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer.length > 15 * 1024 * 1024) throw new Error("file too large (>15MB)");
-  if (buffer.length < 20 * 1024) throw new Error("file suspiciously small");
-  return { buffer, contentType: type.split(";")[0] };
-}
-
-function extFor(contentType, sourceUrl) {
-  if (contentType === "image/png") return "png";
-  if (contentType === "image/webp") return "webp";
-  if (contentType === "image/gif") return "gif";
-  if (/\.png(\?|$)/i.test(sourceUrl)) return "png";
-  return "jpg";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  return Buffer.from(await res.arrayBuffer());
 }
 
 // ---------- catalog helpers ----------
@@ -147,11 +139,11 @@ async function storeImage({ buffer, contentType, storagePath, row }) {
 
 // ---------- main ----------
 async function main() {
-  console.log(`\nAtlas image library seeder — Openverse edition (no API key) ${DRY ? "(dry run)" : ""}\n`);
+  console.log(`\nAtlas image library seeder ${DRY ? "(dry run)" : ""}\n`);
   const rows = DRY ? [] : await existingRows();
   const seen = new Set(rows.map((r) => r.storage_path));
-  const seenIds = new Set(
-    [...seen].map((p) => (p.match(/openverse-([^.]+)\./) || [])[1]).filter(Boolean)
+  const seenPhotoIds = new Set(
+    [...seen].map((p) => (p.match(/pexels-(\d+)\./) || [])[1]).filter(Boolean)
   );
   const countByCat = new Map();
   for (const r of rows) {
@@ -162,7 +154,6 @@ async function main() {
   const summary = [];
   let added = 0;
 
-  outer:
   for (const [industry, def] of Object.entries(MANIFEST)) {
     if (ONLY_INDUSTRY && industry !== ONLY_INDUSTRY) continue;
 
@@ -186,64 +177,57 @@ async function main() {
           count += n;
           continue;
         }
-        if (searchesUsed >= DAILY_BUDGET) {
-          console.warn("\n! Reached today's anonymous Openverse budget — run the script again tomorrow (or later today); it resumes automatically.");
-          summary.push({ industry, category, images: count });
-          break outer;
-        }
-
         let result;
         try {
-          result = await openverseSearch(q);
+          result = await pexelsSearch(q, Math.min(n * 3, 30));
         } catch (e) {
+          if (/401/.test(e.message)) throw e; // bad key — stop entirely, message is clear
           console.warn(`  ! search "${q}" failed: ${e.message}`);
           continue;
         }
-
         let taken = 0;
-        for (const img of result.results ?? []) {
+        for (const photo of result.photos ?? []) {
           if (taken >= n) break;
-          if (!img.url || !img.id) continue;
-          if (seenIds.has(String(img.id))) continue;            // used elsewhere already
-          if (img.width && img.width < 1000) continue;          // too small for hero use
+          const storagePath = `${industry}/${category}/pexels-${photo.id}.jpg`;
+          if (seen.has(storagePath)) { taken++; continue; }      // already seeded by this query
+          if (seenPhotoIds.has(String(photo.id))) continue;      // used elsewhere — pick a different one
+          const src = photo.src?.large2x || photo.src?.large || photo.src?.original;
+          if (!src) continue;
           try {
-            const { buffer, contentType } = await downloadImage(img.url);
-            const storagePath = `${industry}/${category}/openverse-${img.id}.${extFor(contentType, img.url)}`;
-            if (seen.has(storagePath)) { taken++; continue; }
-            const lic = [img.license?.toUpperCase(), img.license_version].filter(Boolean).join(" ");
+            const buffer = await downloadImage(src);
             await storeImage({
               buffer,
-              contentType,
+              contentType: "image/jpeg",
               storagePath,
               row: {
                 industry,
                 category,
                 title: titleCase(q),
                 tags: [...new Set([...q.toLowerCase().split(/\s+/), ...tags.map((t) => t.toLowerCase())])],
-                credit: `${img.creator || "Unknown creator"} · ${lic || "CC"} · Openverse`,
-                source_url: img.foreign_landing_url ?? null,
-                width: img.width ?? null,
-                height: img.height ?? null,
+                credit: photo.photographer ? `Photo by ${photo.photographer} · Pexels` : "Pexels",
+                source_url: photo.url ?? null,
+                width: photo.width ?? null,
+                height: photo.height ?? null,
                 is_active: true,
                 sort_order: count + taken,
               },
             });
             seen.add(storagePath);
-            seenIds.add(String(img.id));
+            seenPhotoIds.add(String(photo.id));
             taken++; added++; count++;
             process.stdout.write(`  + ${storagePath}\n`);
-          } catch {
-            // dead link / html page / giant tiff — just try the next result
+          } catch (e) {
+            console.warn(`  ! skipping one result for "${q}": ${e.message}`);
           }
         }
         if (taken < n) console.warn(`  ! "${q}" only yielded ${taken}/${n} usable photos`);
-        await sleep(SEARCH_PACE_MS);
+        await sleep(350); // stay well inside Pexels' free-tier rate limit
       }
       summary.push({ industry, category, images: count });
     }
   }
 
-  // ---------- local drop-in folder (works offline, no API at all) ----------
+  // ---------- local drop-in folder ----------
   const localRoot = path.join(process.cwd(), "scripts", "library-local");
   if (!DRY && existsSync(localRoot)) {
     for (const industry of readdirSync(localRoot)) {

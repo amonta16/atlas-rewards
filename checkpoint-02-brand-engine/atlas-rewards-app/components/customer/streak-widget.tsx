@@ -24,6 +24,7 @@ import {
   Flame, Gift, Sparkles, Trophy, Check, X, ChevronLeft, ChevronRight, Lock, CalendarDays,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = {
@@ -89,10 +90,10 @@ export function StreakWidget({
   // user always sees their progress on open.
   const [page, setPage] = useState(0);
 
-  // Always orange. Brand color stays available for the milestone medal
-  // detailing but the cube tray itself is fire-themed.
-  const FIRE_FROM = "#fb923c"; // orange-400
-  const FIRE_TO   = "#ef4444"; // red-500
+  // CP-65: themable streak. Default stays classic fire; the agency can pick
+  // gold / neon / pink / blue / gray / coffee / midnight / match-my-brand
+  // in the brand editor (businesses.streak_theme).
+  const theme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
 
   useEffect(() => {
     const supabase = createClient();
@@ -206,7 +207,7 @@ export function StreakWidget({
            (which is what was triggering the Safari in-app browser bar). */
         className="relative w-full max-w-md mt-4 mx-3 rounded-3xl pointer-events-auto overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto"
         style={{
-          background: `linear-gradient(160deg, ${FIRE_FROM} 0%, ${FIRE_TO} 100%)`,
+          background: streakGradient(theme, 160),
         }}
       >
         {/* Decorative flame doodles */}
@@ -376,7 +377,7 @@ export function StreakWidget({
                           // state — but unfilled ones go translucent.
                           ? (isFilled ? goldGradient : "rgba(255,255,255,0.18)")
                           : isFilled
-                            ? `linear-gradient(135deg, #fde047 0%, #f97316 60%, #dc2626 100%)`
+                            ? `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 60%, ${theme.cell[2]} 100%)`
                             : "rgba(255,255,255,0.10)",
                         boxShadow: milestoneRim
                           ? isFilled
@@ -384,7 +385,7 @@ export function StreakWidget({
                             ? `0 0 0 2.5px #fff, 0 8px 20px -6px rgba(245, 158, 11, 0.9), inset 0 2px 0 rgba(255,255,255,0.7)`
                             : `0 0 0 2px rgba(255, 215, 0, 0.85), inset 0 1px 0 rgba(255,255,255,0.5)`
                           : isFilled
-                            ? `0 6px 14px -6px rgba(220, 38, 38, 0.8), inset 0 1px 0 rgba(255,255,255,0.5)`
+                            ? `0 6px 14px -6px ${theme.glow}, inset 0 1px 0 rgba(255,255,255,0.5)`
                             : "inset 0 0 0 1.5px rgba(255,255,255,0.25)",
                       }}
                     />

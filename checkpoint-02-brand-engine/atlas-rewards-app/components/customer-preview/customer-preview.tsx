@@ -3,6 +3,7 @@ import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Cale
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
+import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import { designVars } from "@/lib/design-styles";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
@@ -122,7 +123,8 @@ export function CustomerPreview({
             <div
               className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full shadow-md ring-1 ring-black/5"
               style={{
-                background: "linear-gradient(135deg, #fb923c 0%, #ef4444 100%)",
+                // CP-65: preview mirrors the picked streak theme live.
+                background: streakGradient(resolveStreakTheme(b.streak_theme, b.brand_colors?.primary)),
               }}
               title="Streak"
             >

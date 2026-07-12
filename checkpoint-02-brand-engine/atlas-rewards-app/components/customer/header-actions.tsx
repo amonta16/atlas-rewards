@@ -24,6 +24,7 @@ import { AlertTriangle, Crown, Flame, Gift, Lock, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { readableTextColor } from "@/lib/patterns";
+import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 import { StreakWidget } from "./streak-widget";
 import type { Business, Membership } from "@/lib/types/database";
@@ -315,7 +316,8 @@ export function HeaderActions({
             onClick={handleStreakClick}
             className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
             style={{
-              background: "linear-gradient(135deg, #fb923c 0%, #ef4444 100%)",
+              // CP-65: themable streak chip (businesses.streak_theme).
+              background: streakGradient(resolveStreakTheme(business.streak_theme, primary)),
             }}
             aria-label={
               streakUrgent ? "Streak expiring — come in today!" : `${streakCount} day streak`

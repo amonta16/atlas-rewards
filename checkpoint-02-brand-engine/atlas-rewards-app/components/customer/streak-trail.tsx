@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Flame, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StreakWidget } from "./streak-widget";
+import { resolveStreakTheme } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = { count: number; label: string; points: number; mystery?: boolean };
@@ -29,10 +30,10 @@ export function StreakTrail({
 }) {
   const [s, setS] = useState<StreakStatus | null>(null);
   const [open, setOpen] = useState(false);
-  // CP-24: always-orange fire theme. The streak surface is "fire" — Andrew
-  // called this out — so it no longer inherits the brand's primary/secondary.
-  const FIRE_FROM = "#fb923c";
-  const FIRE_TO   = "#ef4444";
+  // CP-65: themable streak (default = classic fire; businesses.streak_theme).
+  const streakTheme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
+  const FIRE_FROM = streakTheme.from;
+  const FIRE_TO   = streakTheme.to;
 
   useEffect(() => {
     const supabase = createClient();

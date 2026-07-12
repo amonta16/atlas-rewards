@@ -11,18 +11,25 @@
  * • Hero / Rewards / Offers tabs (defaults to the slot being edited)
  * • Search box filters by title + tags
  * • Hover an image → "Use photo", or hide a dud from the library forever
+ *
+ * CP-64.1: builders can UPLOAD their own photos into the shared library —
+ * filed under a niche + section, tagged, searchable, and reusable in every
+ * future demo app. Admins and VAs can add (RLS-enforced); only admins hide.
  */
-import { useEffect, useMemo, useState } from "react";
-import { Check, EyeOff, ImageIcon, Loader2, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, EyeOff, ImageIcon, Loader2, Search, Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   LIBRARY_CATEGORIES,
+  LIBRARY_INDUSTRY_LABELS,
   libraryIndustryLabel,
   type LibraryCategory,
   type LibraryImage,
 } from "@/lib/image-library";
+
+const NEW_NICHE = "__new__";
 
 export function ImageLibraryPicker({
   defaultIndustry,
@@ -43,6 +50,16 @@ export function ImageLibraryPicker({
   const [industry, setIndustry] = useState<string | null>(defaultIndustry ?? null);
   const [category, setCategory] = useState<LibraryCategory>(defaultCategory ?? "hero");
   const [q, setQ] = useState("");
+
+  // ---- CP-64.1: upload panel state ----
+  const [showUpload, setShowUpload] = useState(false);
+  const [upIndustry, setUpIndustry] = useState<string>(defaultIndustry ?? "medspa");
+  const [upNewNiche, setUpNewNiche] = useState("");
+  const [upCategory, setUpCategory] = useState<LibraryCategory>(defaultCategory ?? "hero");
+  const [upTags, setUpTags] = useState("");
+  const [upBusy, setUpBusy] = useState(false);
+  const [upMsg, setUpMsg] = useState<string | null>(null);
+  const upFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -71,6 +88,12 @@ export function ImageLibraryPicker({
     const set = new Set(rows.map((r) => r.industry));
     return [...set].sort((a, b) => libraryIndustryLabel(a).localeCompare(libraryIndustryLabel(b)));
   }, [rows]);
+
+  /** Upload destination choices: every known label + every niche with images. */
+  const uploadIndustries = useMemo(() => {
+    const set = new Set([...Object.keys(LIBRARY_INDUSTRY_LABELS), ...industries]);
+    return [...set].sort((a, b) => libraryIndustryLabel(a).localeCompare(libraryIndustryLabel(b)));
+  }, [industries]);
 
   // Snap to a real industry once rows load (default may be null or empty).
   useEffect(() => {
@@ -105,6 +128,87 @@ export function ImageLibraryPicker({
     }
   }
 
+  // ---- CP-64.1: upload handler ----
+  async function handleUpload(files: FileList) {
+    const targetIndustry =
+      upIndustry === NEW_NICHE
+        ? upNewNiche.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+        : upIndustry;
+    if (!targetIndustry) {
+      setUpMsg("Give the new niche a name first.");
+      return;
+    }
+    setUpBusy(true);
+    setUpMsg(null);
+    const supabase = createClient();
+    const tags = [
+      ...new Set([
+        targetIndustry,
+        upCategory,
+        "custom",
+        ...upTags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean),
+      ]),
+    ];
+    let ok = 0;
+    let firstErr: string | null = null;
+
+    for (const file of Array.from(files)) {
+      try {
+        const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
+        const safe = file.name
+          .replace(/\.[^.]+$/, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 40) || "photo";
+        const storagePath = `${targetIndustry}/${upCategory}/upload-${Date.now()}-${safe}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("image-library")
+          .upload(storagePath, file, { contentType: file.type || "image/jpeg", upsert: false });
+        if (upErr) throw new Error(upErr.message);
+        const { data: { publicUrl } } = supabase.storage.from("image-library").getPublicUrl(storagePath);
+        const title = safe.replace(/-/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+        const { data: inserted, error: dbErr } = await supabase
+          .from("image_library")
+          .insert({
+            industry: targetIndustry,
+            category: upCategory,
+            title,
+            tags,
+            storage_path: storagePath,
+            public_url: publicUrl,
+            credit: "Team upload",
+            is_active: true,
+            sort_order: 0,
+          })
+          .select()
+          .single();
+        if (dbErr) throw new Error(dbErr.message);
+        if (inserted) setRows((rs) => [inserted as LibraryImage, ...rs]);
+        ok++;
+      } catch (e: any) {
+        firstErr = firstErr ?? (e?.message || "upload failed");
+      }
+    }
+
+    setUpBusy(false);
+    if (ok > 0) {
+      // Jump the browser to where the new photos landed.
+      setIndustry(targetIndustry);
+      setCategory(upCategory);
+      setQ("");
+      setShowUpload(false);
+      setUpTags("");
+      setUpNewNiche("");
+    }
+    setUpMsg(
+      firstErr
+        ? `${ok} uploaded, then hit an error: ${firstErr}${/row-level security/i.test(firstErr) ? " — run cp64_1_library_uploads.sql so admins + VAs can upload." : ""}`
+        : null
+    );
+    if (upFileRef.current) upFileRef.current.value = "";
+  }
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4">
       <div className="w-full max-w-3xl max-h-[85vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
@@ -116,14 +220,98 @@ export function ImageLibraryPicker({
               Pre-curated demo photos — pick one and it drops straight in.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="h-9 w-9 rounded-full hover:bg-zinc-100 flex items-center justify-center shrink-0"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              type="button"
+              variant={showUpload ? "default" : "outline"}
+              className="h-8 text-xs font-semibold"
+              onClick={() => { setShowUpload(v => !v); setUpMsg(null); }}
+            >
+              <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload photos
+            </Button>
+            <button
+              onClick={onClose}
+              className="h-9 w-9 rounded-full hover:bg-zinc-100 flex items-center justify-center"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
+
+        {/* CP-64.1: upload panel */}
+        {showUpload && (
+          <div className="px-5 py-3 border-b bg-zinc-50 space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className="h-8 rounded-md border border-input bg-white px-2 text-xs font-semibold"
+                value={upIndustry}
+                onChange={(e) => setUpIndustry(e.target.value)}
+              >
+                {uploadIndustries.map((slug) => (
+                  <option key={slug} value={slug}>{libraryIndustryLabel(slug)}</option>
+                ))}
+                <option value={NEW_NICHE}>＋ New niche…</option>
+              </select>
+              {upIndustry === NEW_NICHE && (
+                <Input
+                  className="h-8 w-36 text-xs"
+                  placeholder="e.g. Pet Grooming"
+                  value={upNewNiche}
+                  onChange={(e) => setUpNewNiche(e.target.value)}
+                />
+              )}
+              <div className="flex rounded-lg bg-white border p-0.5">
+                {LIBRARY_CATEGORIES.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setUpCategory(c.value)}
+                    className={`px-2.5 h-7 rounded-md text-xs font-semibold transition-colors ${
+                      c.value === upCategory ? "bg-zinc-900 text-white" : "text-zinc-500"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+              <Input
+                className="h-8 flex-1 min-w-[140px] text-xs"
+                placeholder="Tags (comma separated) — e.g. botox, luxury, close-up"
+                value={upTags}
+                onChange={(e) => setUpTags(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={upFileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => { if (e.target.files?.length) handleUpload(e.target.files); }}
+              />
+              <Button
+                size="sm"
+                type="button"
+                className="h-8 text-xs font-semibold"
+                disabled={upBusy || (upIndustry === NEW_NICHE && !upNewNiche.trim())}
+                onClick={() => upFileRef.current?.click()}
+              >
+                {upBusy ? (
+                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Uploading…</>
+                ) : (
+                  <><Upload className="h-3.5 w-3.5 mr-1.5" /> Choose files</>
+                )}
+              </Button>
+              <p className="text-[10px] text-zinc-500">
+                They're filed under this niche + section, tagged, and reusable in every future demo.
+              </p>
+            </div>
+            {upMsg && <p className="text-xs text-red-600">{upMsg}</p>}
+          </div>
+        )}
 
         {/* filters */}
         <div className="px-5 pt-3 pb-2 space-y-2.5 border-b">
@@ -185,8 +373,8 @@ export function ImageLibraryPicker({
               <ImageIcon className="h-7 w-7" />
               <span className="text-xs font-medium">
                 {rows.length === 0
-                  ? "Library is empty — run scripts/seed-image-library.mjs to fill it."
-                  : "Nothing here matches — try another tab or clear the search."}
+                  ? "Library is empty — run scripts/seed-image-library.mjs to fill it, or upload your own photos above."
+                  : "Nothing here matches — try another tab, clear the search, or upload your own."}
               </span>
             </div>
           ) : (
@@ -234,8 +422,8 @@ export function ImageLibraryPicker({
         {/* footer */}
         <div className="px-5 py-2.5 border-t flex items-center justify-between">
           <p className="text-[10px] text-zinc-400">
-            CC-licensed photos via Openverse (creator credit on hover). Add more with{" "}
-            <code className="text-zinc-500">scripts/seed-image-library.mjs</code>.
+            Photos via Pexels + your own uploads. Add more with{" "}
+            <code className="text-zinc-500">scripts/seed-image-library.mjs</code> or the Upload button.
           </p>
           <Button size="sm" variant="ghost" type="button" onClick={onClose}>
             Cancel

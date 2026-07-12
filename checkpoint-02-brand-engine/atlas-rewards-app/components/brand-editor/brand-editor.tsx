@@ -12,6 +12,9 @@ import { INDUSTRY_PRESETS, type Business } from "@/lib/types/database";
 import { PATTERN_OPTIONS, patternStyle } from "@/lib/patterns";
 import { BANNER_OPTIONS, bannerStyle } from "@/lib/banner-styles";
 import { CARD_STYLES, BUTTON_STYLES, designVars } from "@/lib/design-styles";
+// CP-65: one-click theme presets + themable streak.
+import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
+import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -201,6 +204,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           /* CP-58: card + button design styles. */
           card_style: b.card_style ?? null,
           button_style: b.button_style ?? null,
+          /* CP-65: streak surface theme. */
+          streak_theme: b.streak_theme ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -370,6 +375,43 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 <Field label="Google review URL">
                   <Input value={b.google_review_url ?? ""} onChange={e => update("google_review_url", e.target.value)} placeholder="https://g.page/…/review" />
                 </Field>
+              </Section>
+
+              {/* CP-65: one-click theme presets. Sets EVERY design lever at
+                  once (colors, header/bg, pattern, card + button shapes,
+                  banner, streak theme) — then anything can be tweaked below.
+                  Nothing saves until the Save button, so trying looks is free. */}
+              <Section title="Theme presets" subtitle="One click sets the whole look — colors, background, patterns, card & button style, and streak theme. Fine-tune anything below afterwards.">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                  {THEME_PRESETS.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => patch(presetPatch(p))}
+                      className="rounded-xl border-2 border-zinc-200 hover:border-zinc-400 overflow-hidden text-left transition group"
+                      title={p.blurb}
+                    >
+                      {/* palette strip */}
+                      <div className="h-9 flex">
+                        <div className="flex-1" style={{ background: p.brand_colors.primary }} />
+                        <div className="flex-1" style={{ background: p.brand_colors.secondary }} />
+                        <div className="flex-1" style={{ background: p.brand_colors.accent }} />
+                        <div className="flex-1 border-l border-black/5" style={{ background: p.surface_color ?? "#ffffff" }} />
+                      </div>
+                      <div className="px-2 py-1.5">
+                        <div className="text-[11px] font-extrabold text-zinc-800 truncate">
+                          {p.emoji} {p.label}
+                        </div>
+                        <div className="text-[9px] text-zinc-500 truncate">
+                          {p.greatFor.join(" · ")}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Presets are starting points — they instantly restyle the live preview on the right. Hit <strong>Save</strong> only when you like it.
+                </p>
               </Section>
 
               <Section title="Brand colors" subtitle="The customer app re-themes around these in real time.">
@@ -570,6 +612,39 @@ export function BrandEditor({ initial }: { initial: Business }) {
                         </div>
                         <div className={cn("text-[10px] font-semibold px-2 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
                           {opt.emoji} {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* CP-65: streak theme — the streak chip, Home teaser card, and
+                  full streak panel all wear this. No more locked-in orange. */}
+              <Section title="Streak theme" subtitle="The color story of the streak chip, teaser card, and streak panel. Match it to the brand or pick a vibe.">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                  {STREAK_THEMES.map(t => {
+                    const selected = (b.streak_theme ?? "fire") === t.id;
+                    const resolved = resolveStreakTheme(t.id, b.brand_colors.primary);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => update("streak_theme", t.id)}
+                        className={cn(
+                          "rounded-xl border-2 overflow-hidden text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={t.label}
+                      >
+                        <div
+                          className="h-9 flex items-center justify-center text-white text-sm"
+                          style={{ background: streakGradient(resolved) }}
+                        >
+                          {t.emoji}
+                        </div>
+                        <div className={cn("text-[10px] font-semibold px-1.5 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {t.label}
                         </div>
                       </button>
                     );

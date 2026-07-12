@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Flame, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StreakWidget } from "./streak-widget";
+import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = { count: number; label: string; points: number; reward_name?: string | null };
@@ -79,6 +80,8 @@ export function StreakMini({
     s.period_type === "monthly" ? "month" : "check-in";
   const rewardName = first.reward_name ?? first.label;
   const primary = business.brand_colors.primary;
+  // CP-65: themable streak surface (default = classic fire).
+  const streakBg = streakGradient(resolveStreakTheme(business.streak_theme, primary));
 
   // CP-52: compact half-width card for the side-by-side Home row.
   if (compact) {
@@ -87,7 +90,7 @@ export function StreakMini({
         <button
           onClick={() => setOpen(true)}
           className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-md ring-1 ring-black/10 p-3 flex flex-col"
-          style={{ background: "linear-gradient(135deg, #fb923c 0%, #ef4444 100%)" }}
+          style={{ background: streakBg }}
         >
           <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center shrink-0">
             <Flame className="h-5 w-5 text-white drop-shadow" />
@@ -119,7 +122,7 @@ export function StreakMini({
         <button
           onClick={() => setOpen(true)}
           className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform shadow-sm"
-          style={{ background: "linear-gradient(135deg, #fb923c 0%, #ef4444 100%)" }}
+          style={{ background: streakBg }}
         >
           <div className="p-3.5 flex items-center gap-3 text-white">
             <div className="h-11 w-11 rounded-2xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center shrink-0">
