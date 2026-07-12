@@ -16,6 +16,9 @@ import { DailySpinButton } from "./daily-spin-button";
 import { StreakTrail } from "./streak-trail";
 import { LimitedOffersSection } from "./limited-offers-section";
 import { rewardsLayout } from "@/lib/section-layouts";
+// CP-67: element pack — themed headings, dividers, badges.
+import { SectionDivider, SectionHeading } from "./section-elements";
+import { badgeCss } from "@/lib/element-styles";
 import { SavedGiftsSection } from "./saved-gifts-section";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -219,6 +222,8 @@ export function RewardsClient({
         secondary={business.brand_colors.secondary}
         cardStyle={business.offer_card_style}
         layout={business.offers_layout}
+        headingStyle={business.heading_style}
+        badgeStyle={business.badge_style}
       />
 
       {/* CP-42 hotfix: MysteryRewardCard removed — Andrew already has the
@@ -229,7 +234,7 @@ export function RewardsClient({
       {business.widget_config.rewards_store && (
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Rewards store</h2>
+            <SectionHeading business={business}>Rewards store</SectionHeading>
           </div>
           {/* CP-66: layout presets — grid (default) / list / carousel /
               spotlight. Structure only; the cards keep the same content. */}
@@ -385,15 +390,16 @@ export function RewardsClient({
         <DailySpinButton business={business} membershipId={membership.id} />
       )}
 
+      {/* CP-67: optional divider between the big sections */}
+      <SectionDivider business={business} />
+
       {/* Need more points? — CP-28: livelier, on-brand */}
       <div className="px-4 mt-6">
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Need more points?</h2>
+          <SectionHeading business={business}>Need more points?</SectionHeading>
           <span
-            className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
-            style={{
-              background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
-            }}
+            className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full shadow-sm"
+            style={badgeCss(business.badge_style, business.brand_colors.primary, business.brand_colors.secondary)}
           >
             <Zap className="h-2.5 w-2.5" /> Earn
           </span>

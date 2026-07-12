@@ -19,6 +19,8 @@ import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-
 import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-66: section layout presets (rewards store + limited offers).
 import { REWARDS_LAYOUTS, OFFERS_LAYOUTS } from "@/lib/section-layouts";
+// CP-67: element pack (badges, headings, dividers, CTA glow).
+import { BADGE_STYLES, HEADING_STYLES, DIVIDER_STYLES, CTA_GLOWS, badgeCss } from "@/lib/element-styles";
 import { CustomerPreview, type PreviewTab, type PreviewOffer, type PreviewReward, type PreviewNewsPost } from "@/components/customer-preview/customer-preview";
 import { PhoneFrame } from "@/components/ui/phone-frame";
 import { ImageUploader } from "@/components/agency/image-uploader";
@@ -215,6 +217,11 @@ export function BrandEditor({ initial }: { initial: Business }) {
           /* CP-66: section layout presets. */
           rewards_layout: b.rewards_layout ?? null,
           offers_layout: b.offers_layout ?? null,
+          /* CP-67: element pack. */
+          badge_style: b.badge_style ?? null,
+          heading_style: b.heading_style ?? null,
+          divider_style: b.divider_style ?? null,
+          cta_glow: b.cta_glow ?? null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -232,7 +239,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
     "--brand-accent":    hexToHsl(b.brand_colors.accent),
     // CP-58: expose the card/button tokens on the preview wrapper too, so the
     // outlined-card ring (which reads --brand-primary) resolves correctly.
-    ...designVars(b.card_style, b.button_style),
+    ...designVars(b.card_style, b.button_style, b.cta_glow, b.brand_colors.primary),
   } as React.CSSProperties;
 
   return (
@@ -771,6 +778,130 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       </button>
                     );
                   })}
+                </div>
+              </Section>
+
+              {/* CP-67: element pack — the finishing touches. */}
+              <Section title="Design elements" subtitle="The finishing touches — badge chips, section titles, dividers between sections, and a glow behind buttons.">
+                <div className="space-y-4">
+                  {/* Badges */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Badge chips ("Just for you", "20% off", "Earn")</Label>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {BADGE_STYLES.map(opt => {
+                        const selected = (b.badge_style ?? "gradient") === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => update("badge_style", opt.id)}
+                            className={cn(
+                              "rounded-lg border-2 px-2 py-1.5 transition flex items-center gap-1.5",
+                              selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                            )}
+                          >
+                            <span
+                              className="inline-flex items-center text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full shadow-sm"
+                              style={badgeCss(opt.id, b.brand_colors.primary, b.brand_colors.secondary)}
+                            >
+                              20% off
+                            </span>
+                            <span className={cn("text-[10px] font-semibold", selected ? "text-brand-primary" : "text-zinc-600")}>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* Headings */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Section titles</Label>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {HEADING_STYLES.map(opt => {
+                        const selected = (b.heading_style ?? "plain") === opt.id;
+                        const grad = `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})`;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => update("heading_style", opt.id)}
+                            className={cn(
+                              "rounded-lg border-2 px-2.5 py-1.5 transition flex items-center gap-1.5",
+                              selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                            )}
+                          >
+                            {opt.id === "sticker" ? (
+                              <span className="text-[10px] font-extrabold text-white px-1.5 py-0.5 rounded" style={{ background: grad }}>Rewards</span>
+                            ) : opt.id === "bar" ? (
+                              <span className="flex items-center gap-1 text-[10px] font-bold text-zinc-800"><span className="inline-block h-3 w-1 rounded-full" style={{ background: grad }} />Rewards</span>
+                            ) : opt.id === "underline" ? (
+                              <span className="text-[10px] font-bold text-zinc-800 inline-block">Rewards<span className="block h-[2px] w-5 rounded-full mt-0.5" style={{ background: grad }} /></span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-zinc-800">Rewards</span>
+                            )}
+                            <span className={cn("text-[10px] font-semibold", selected ? "text-brand-primary" : "text-zinc-600")}>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* Dividers */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Section dividers</Label>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {DIVIDER_STYLES.map(opt => {
+                        const selected = (b.divider_style ?? "none") === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => update("divider_style", opt.id)}
+                            className={cn(
+                              "rounded-lg border-2 px-3 py-1.5 text-[10px] font-semibold transition",
+                              selected ? "border-brand-primary ring-2 ring-brand-primary/20 text-brand-primary" : "border-zinc-200 hover:border-zinc-300 text-zinc-600",
+                            )}
+                          >
+                            {opt.emoji} {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* CTA glow */}
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Button glow (primary CTAs)</Label>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {CTA_GLOWS.map(opt => {
+                        const selected = (b.cta_glow ?? "none") === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => update("cta_glow", opt.id)}
+                            className={cn(
+                              "rounded-lg border-2 px-2 py-1.5 transition flex items-center gap-1.5",
+                              selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                            )}
+                          >
+                            <span
+                              className="text-[10px] font-extrabold text-white px-2.5 py-1 rounded-full"
+                              style={{
+                                background: `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})`,
+                                boxShadow:
+                                  opt.id === "soft"
+                                    ? `0 6px 18px -6px ${b.brand_colors.primary}99`
+                                    : opt.id === "bold"
+                                      ? `0 8px 24px -4px ${b.brand_colors.primary}cc, 0 0 0 1px ${b.brand_colors.primary}33`
+                                      : "none",
+                              }}
+                            >
+                              Claim
+                            </span>
+                            <span className={cn("text-[10px] font-semibold", selected ? "text-brand-primary" : "text-zinc-600")}>{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </Section>
 

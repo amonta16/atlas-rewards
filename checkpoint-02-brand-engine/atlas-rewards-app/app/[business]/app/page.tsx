@@ -1,5 +1,7 @@
 import { Gift, ChevronRight, Newspaper } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
+import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
 import { TopRewardsGrid } from "@/components/customer/top-rewards-grid";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { OffersRevalidator } from "@/components/customer/offers-revalidator";
@@ -140,7 +142,14 @@ export default async function CustomerHome({ params }: { params: { business: str
             >
               <Gift className="h-2.5 w-2.5" /> Featured
             </span>
-            <div className="bg-white rounded-[20px] overflow-hidden">
+            {/* CP-66.1: the featured card's inner surface now wears the same
+                offer-card style as the Limited-offers cards (was fixed white).
+                The glow ring stays — that's the "featured" signal. */}
+            {(() => {
+              const cardCss = offerCardStyle(business.offer_card_style, business.brand_colors.primary, business.brand_colors.secondary);
+              const dark = offerCardMeta(business.offer_card_style).dark;
+              return (
+            <div className="rounded-[20px] overflow-hidden" style={cardCss}>
               {offer.image_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={offer.image_url} alt={offer.title} className="h-40 w-full object-cover" />
@@ -154,25 +163,30 @@ export default async function CustomerHome({ params }: { params: { business: str
                 {/* CP-46: punchier featured-offer headline — bigger, blacker
                     weight, tighter tracking + leading so a short promo like
                     "10% OFF MATCHA!" reads like a real billboard line. */}
-                <div className="text-xl font-black leading-[1.05] tracking-[-0.02em] text-zinc-900">{offer.title}</div>
-                {offer.description && <div className="text-[13px] text-zinc-500 mt-1.5 leading-snug">{offer.description}</div>}
+                <div className={`text-xl font-black leading-[1.05] tracking-[-0.02em] ${dark ? "text-white" : "text-zinc-900"}`}>{offer.title}</div>
+                {offer.description && <div className={`text-[13px] mt-1.5 leading-snug ${dark ? "text-white/65" : "text-zinc-500"}`}>{offer.description}</div>}
                 {offerDaysLeft !== null && (
                   <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-red-600 font-extrabold">Expires in {offerDaysLeft} day{offerDaysLeft === 1 ? "" : "s"}</span>
+                    <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${dark ? "bg-red-300" : "bg-red-500"}`} />
+                    <span className={`font-extrabold ${dark ? "text-red-300" : "text-red-600"}`}>Expires in {offerDaysLeft} day{offerDaysLeft === 1 ? "" : "s"}</span>
                   </div>
                 )}
               </div>
             </div>
+              );
+            })()}
           </div>
         </div>
       )}
+
+      {/* CP-67: optional divider under the featured offer */}
+      {business.widget_config.offers && offer && <SectionDivider business={business} />}
 
       {/* Top rewards */}
       {business.widget_config.rewards_store && topRewards.length > 0 && (
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-sm font-bold" style={{ color: "var(--surf-fg)" }}>Top rewards</h2>
+            <SectionHeading business={business} className="text-sm">Top rewards</SectionHeading>
             {/* CP-47: make "See all" pop — a filled brand pill with a soft
                 glow so customers notice there's a full rewards catalog. */}
             <a

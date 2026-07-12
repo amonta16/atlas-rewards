@@ -9,7 +9,9 @@ const buttonVariants = cva(
   // (set by designVars() on the customer-app surface). Falls back to 0.375rem
   // (== rounded-md) everywhere the var isn't defined — e.g. the agency portal —
   // so nothing outside a customer app changes.
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--atlas-btn-radius,0.375rem)] text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+  // CP-67: --atlas-cta-glow adds a per-business brand glow behind primary
+  // CTAs on the customer surface. Falls back to no shadow everywhere else.
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--atlas-btn-radius,0.375rem)] shadow-[var(--atlas-cta-glow,0_0_#0000)] text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {

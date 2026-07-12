@@ -24,6 +24,8 @@
  * app) or the preview wrapper (brand editor).
  */
 
+import { ctaGlowShadow } from "@/lib/element-styles";
+
 export type CardStyleId = "rounded" | "soft" | "sharp" | "elevated" | "outlined";
 export type ButtonStyleId = "rounded" | "pill" | "soft" | "square";
 
@@ -105,6 +107,10 @@ const DEFAULT_BUTTON: ButtonStyleId = "rounded";
 export function designVars(
   cardStyle?: string | null,
   buttonStyle?: string | null,
+  /** CP-67: businesses.cta_glow (none/soft/bold) — brand glow behind CTAs. */
+  ctaGlow?: string | null,
+  /** CP-67: brand primary hex, needed to tint the CTA glow. */
+  primary?: string | null,
 ): React.CSSProperties {
   const card =
     CARD_STYLES.find(c => c.id === cardStyle) ??
@@ -116,5 +122,7 @@ export function designVars(
   return {
     ...card.vars,
     "--atlas-btn-radius": btn.radius,
+    // CP-67: consumed by ui/button.tsx and key custom CTAs. "0 0 #0000" = no glow.
+    "--atlas-cta-glow": ctaGlowShadow(ctaGlow, primary || "#6366f1"),
   } as React.CSSProperties;
 }

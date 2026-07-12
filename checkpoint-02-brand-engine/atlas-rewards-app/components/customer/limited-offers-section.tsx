@@ -24,6 +24,9 @@ import { createClient } from "@/lib/supabase/client";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 import { offersLayout } from "@/lib/section-layouts";
+// CP-67: element pack — themed heading + badges + CTA glow.
+import { HeadingByStyle } from "./section-elements";
+import { badgeCss } from "@/lib/element-styles";
 import { useToast } from "@/components/ui/toast";
 
 type ActiveOffer = RevealOffer & {
@@ -46,6 +49,9 @@ export function LimitedOffersSection({
   cardStyle?: string | null;
   /** CP-66: offers layout id (businesses.offers_layout). NULL = stacked rows. */
   layout?: string | null;
+  /** CP-67: element styles. */
+  headingStyle?: string | null;
+  badgeStyle?: string | null;
 }) {
   const { toast } = useToast();
   const [rows, setRows] = useState<ActiveOffer[] | null>(null);
@@ -168,10 +174,10 @@ export function LimitedOffersSection({
     <>
       <section className="px-4 mt-5">
         <div className="flex items-center gap-2 mb-2.5">
-          <h2 className="text-base font-bold" style={{ color: "var(--surf-fg)" }}>Limited offers</h2>
+          <HeadingByStyle styleId={headingStyle} primary={primary} secondary={secondary}>Limited offers</HeadingByStyle>
           <span
-            className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
-            style={{ background: `linear-gradient(135deg, ${primary}, ${sec})` }}
+            className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full shadow-sm"
+            style={badgeCss(badgeStyle, primary, secondary)}
           >
             <Gift className="h-2.5 w-2.5" /> Just for you
           </span>
@@ -235,8 +241,8 @@ export function LimitedOffersSection({
                     {/* Discount chip */}
                     {discount && (
                       <span
-                        className="inline-flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full text-white shadow-sm"
-                        style={{ background: `linear-gradient(135deg, ${primary}, ${sec})` }}
+                        className="inline-flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm"
+                        style={badgeCss(badgeStyle, primary, secondary)}
                       >
                         {discount}
                       </span>
@@ -282,8 +288,12 @@ export function LimitedOffersSection({
                         type="button"
                         onClick={() => claim(o)}
                         disabled={claiming === o.id}
-                        className="inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1.5 rounded-full text-white shadow-sm hover:shadow-md disabled:opacity-70 active:scale-[0.97] transition"
-                        style={{ background: `linear-gradient(135deg, ${primary}, ${sec})` }}
+                        className="inline-flex items-center gap-1 text-[11px] font-extrabold px-3 py-1.5 rounded-full text-white disabled:opacity-70 active:scale-[0.97] transition"
+                        style={{
+                          background: `linear-gradient(135deg, ${primary}, ${sec})`,
+                          // CP-67: primary CTA wears the business's CTA glow.
+                          boxShadow: "var(--atlas-cta-glow, 0 1px 2px 0 rgb(0 0 0 / 0.05))",
+                        }}
                       >
                         <Sparkles className="h-3 w-3" />
                         {claiming === o.id ? "Claiming…" : "Claim this gift"}

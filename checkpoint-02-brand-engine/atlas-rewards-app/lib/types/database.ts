@@ -119,6 +119,11 @@ export type Business = {
   /** CP-66: limited-offers layout. See lib/section-layouts.ts
    *  (stack/coupon/carousel/billboard). NULL = stack. */
   offers_layout?: string | null;
+  /** CP-67: element pack. See lib/element-styles.ts. All NULL = defaults. */
+  badge_style?: string | null;    // gradient/solid/outline/dark/glow
+  heading_style?: string | null;  // plain/bar/underline/sticker
+  divider_style?: string | null;  // none/line/dots/sparkle
+  cta_glow?: string | null;       // none/soft/bold
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.
    *  NULL = Unfiled. Manual grouping only; by-industry view needs no column.
    *  CP-60 superseded by folder_id (kept for backfill only). */

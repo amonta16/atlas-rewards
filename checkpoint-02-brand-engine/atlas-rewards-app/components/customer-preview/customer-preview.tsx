@@ -7,6 +7,9 @@ import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 // CP-65.1 + CP-66: mirror the offer-card skin + section layouts live.
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 import { offersLayout, rewardsLayout } from "@/lib/section-layouts";
+// CP-67: element pack mirrored in the mock.
+import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
+import { badgeCss } from "@/lib/element-styles";
 import { designVars } from "@/lib/design-styles";
 
 export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
@@ -58,7 +61,7 @@ export function CustomerPreview({
         ...patternStyle(b.background_pattern, b.pattern_color ?? b.brand_colors.primary, b.logo_url, b.brand_colors.secondary, b.brand_colors.accent, b.surface_color),
         ["--surf-fg" as any]: readableTextColor(b.surface_color),
         // CP-58: card + button tokens so the mockup reflects the chosen styles.
-        ...designVars(b.card_style, b.button_style),
+        ...designVars(b.card_style, b.button_style, b.cta_glow, b.brand_colors.primary),
       }}
     >
       {/* STICKY OFFER BANNER — visible on every tab. Matches the production
@@ -235,7 +238,13 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
             >
               <Gift className="h-2.5 w-2.5" /> Featured
             </span>
-            <div className="bg-white rounded-[20px] overflow-hidden">
+            {/* CP-66.1: the featured card's inner surface mirrors the picked
+                offer-card style live (was fixed white). */}
+            {(() => {
+              const cardCss = offerCardStyle(b.offer_card_style, b.brand_colors.primary, b.brand_colors.secondary);
+              const dark = offerCardMeta(b.offer_card_style).dark;
+              return (
+            <div className="rounded-[20px] overflow-hidden" style={cardCss}>
               {liveOffer.image_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={liveOffer.image_url} alt={liveOffer.title} className="h-32 w-full object-cover" />
@@ -246,16 +255,18 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
                 </div>
               )}
               <div className="p-3">
-                <div className="text-base font-extrabold leading-tight text-zinc-900">{liveOffer.title}</div>
-                {liveOffer.description && <div className="text-xs text-zinc-500 mt-1">{liveOffer.description}</div>}
+                <div className={`text-base font-extrabold leading-tight ${dark ? "text-white" : "text-zinc-900"}`}>{liveOffer.title}</div>
+                {liveOffer.description && <div className={`text-xs mt-1 ${dark ? "text-white/65" : "text-zinc-500"}`}>{liveOffer.description}</div>}
                 {liveOffer.days_left !== undefined && (
                   <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    <span className="text-rose-600 font-bold">Expires in {liveOffer.days_left} day{liveOffer.days_left === 1 ? "" : "s"}</span>
+                    <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${dark ? "bg-red-300" : "bg-rose-500"}`} />
+                    <span className={`font-bold ${dark ? "text-red-300" : "text-rose-600"}`}>Expires in {liveOffer.days_left} day{liveOffer.days_left === 1 ? "" : "s"}</span>
                   </div>
                 )}
               </div>
             </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -588,10 +599,10 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
         return (
           <div className="px-4 mt-5">
             <div className="flex items-center gap-2 mb-2.5">
-              <h2 className="text-base font-bold">Limited offers</h2>
+              <SectionHeading business={b}>Limited offers</SectionHeading>
               <span
-                className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
-                style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})` }}
+                className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full shadow-sm"
+                style={badgeCss(b.badge_style, b.brand_colors.primary, b.brand_colors.secondary)}
               >
                 <Gift className="h-2.5 w-2.5" /> Just for you
               </span>
@@ -641,11 +652,14 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
         );
       })()}
 
+      {/* CP-67: optional divider between sections (mirrored live) */}
+      <SectionDivider business={b} />
+
       {/* Rewards grid — CP-66: mirrors the picked rewards layout live. */}
       {rewards.length > 0 && (
         <div className="px-4 mt-5">
           <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-base font-bold">Rewards store</h2>
+            <SectionHeading business={b}>Rewards store</SectionHeading>
           </div>
           <div
             className={
@@ -728,12 +742,10 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
       {/* Earn rows — CP-28: matches the livelier live design */}
       <div className="px-4 mt-5">
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-base font-bold">Need more points?</h2>
+          <SectionHeading business={b}>Need more points?</SectionHeading>
           <span
-            className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full text-white shadow-sm"
-            style={{
-              background: `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})`,
-            }}
+            className="inline-flex items-center gap-0.5 text-[9px] font-black tracking-widest uppercase px-2 py-0.5 rounded-full shadow-sm"
+            style={badgeCss(b.badge_style, b.brand_colors.primary, b.brand_colors.secondary)}
           >
             <Sparkles className="h-2.5 w-2.5" /> Earn
           </span>

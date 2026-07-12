@@ -76,7 +76,7 @@ export default async function CustomerAppLayout({
     // and designVars() supplies the card/button tokens for this business.
     <div
       className="atlas-surface max-w-md mx-auto min-h-screen relative"
-      style={{ ...bgStyle, ...designVars(business.card_style, business.button_style) }}
+      style={{ ...bgStyle, ...designVars(business.card_style, business.button_style, business.cta_glow, business.brand_colors.primary) }}
     >
       <CelebrateWatcher
         businessName={business.name}
