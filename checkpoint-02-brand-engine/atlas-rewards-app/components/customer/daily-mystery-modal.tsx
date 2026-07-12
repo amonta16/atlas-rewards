@@ -1,31 +1,30 @@
 "use client";
 /**
- * DailyMysteryModal — slot-machine gambling animation.
+ * DailyMysteryModal — the check-in PRIZE WHEEL.
+ *
+ * CP-72: wheel-only. The slot machine + mystery boxes games were removed —
+ * every business plays the wheel (Andrew: "spin is suitable for every
+ * business"). The emoji segments are gone too: the wheel now shows the
+ * business's REAL prizes — point amounts, free rewards, coupons — loaded
+ * from mystery_wheel_segments (labels only; weights/odds stay server-side).
+ * Odds are configured per-prize on the builder's Rewards tab.
  *
  * Unlocked when the member has a check-in today (checked_in_today = true).
  * Claim state is persisted in localStorage (key: mystery_{businessId}_{date})
- * so it survives page refreshes but resets daily.
- *
- * Animation sequence (all timings in ms):
- *   0      → all 3 reels spinning (symbols blur past)
- *   1 300  → reel 1 locks  (thud scale pop)
- *   2 000  → reel 2 locks
- *   2 700  → reel 3 locks  → white flash → prize revealed
+ * so it survives page refreshes but resets daily. The prize itself is picked
+ * and awarded SERVER-side (spin_daily_reward) — the wheel is pure theater,
+ * and it lands on the segment matching whatever the server awarded.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { X, Lock, Zap, RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-// CP-68: multiple reward games (slot / wheel / boxes) + demo replay.
-import { rewardGame, rewardGameMeta } from "@/lib/reward-games";
+import { rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
 
-// ─── symbols & prizes ────────────────────────────────────────────────────────
-
-const SYMBOLS = ["🔥", "⭐", "💎", "🎯", "👑", "🎁", "⚡", "🍀", "🌟", "🏆"];
+// ─── prizes ──────────────────────────────────────────────────────────────────
 
 type Prize = {
-  symbols: [string, string, string];
   label: string;
   points: number;
   tier: "jackpot" | "lucky" | "nice";
@@ -35,21 +34,43 @@ type Prize = {
   coupon?: string | null;
 };
 
-// Cosmetic only: pick slot symbols that match the prize tier the SERVER
-// awarded, so the reels visually land on something sensible. The actual
-// points/prize come from spin_daily_reward — the client can't influence them.
-function symbolsForTier(tier: Prize["tier"]): [string, string, string] {
-  if (tier === "jackpot") {
-    const s = ["🔥", "💎", "👑"][Math.floor(Math.random() * 3)];
-    return [s, s, s];
+// CP-72: a wheel segment — mirrors one prize from the pool. `big` is the
+// headline text on the wedge ("50", "Free Latte"), `small` the qualifier
+// ("PTS", "REWARD", "COUPON").
+type WheelSeg = {
+  prizeId: string | null;
+  kind: string;
+  points: number | null;
+  big: string;
+  small: string;
+};
+
+// Built-in fallback — matches spin_daily_reward's default pool when the
+// business hasn't configured prizes (or the RPC isn't deployed yet).
+const DEFAULT_SEGS: WheelSeg[] = [
+  { prizeId: null, kind: "points", points: 50,  big: "50",  small: "PTS" },
+  { prizeId: null, kind: "points", points: 100, big: "100", small: "PTS" },
+  { prizeId: null, kind: "points", points: 300, big: "300", small: "PTS" },
+];
+
+const SEGMENT_COUNT = 8;
+
+function shortLabel(name: string): string {
+  const clean = (name ?? "").trim();
+  return clean.length > 12 ? `${clean.slice(0, 11)}…` : clean || "Prize";
+}
+
+function toSeg(row: { id: string | null; kind: string; label: string | null; points_amount: number | null }): WheelSeg {
+  if (row.kind === "points") {
+    return {
+      prizeId: row.id, kind: "points", points: row.points_amount ?? 0,
+      big: String(row.points_amount ?? 0), small: "PTS",
+    };
   }
-  if (tier === "lucky") {
-    const s = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-    let s2 = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-    while (s2 === s) s2 = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-    return [s, s, s2];
+  if (row.kind === "coupon") {
+    return { prizeId: row.id, kind: "coupon", points: null, big: shortLabel(row.label ?? "Coupon"), small: "COUPON" };
   }
-  return [...SYMBOLS].sort(() => Math.random() - 0.5).slice(0, 3) as [string, string, string];
+  return { prizeId: row.id, kind: "reward", points: null, big: shortLabel(row.label ?? "Reward"), small: "REWARD" };
 }
 
 // ─── component ───────────────────────────────────────────────────────────────
@@ -77,8 +98,6 @@ export function DailyMysteryModal({
 
   const alreadyClaimed = typeof window !== "undefined" && !!localStorage.getItem(todayKey);
 
-  // CP-68: which game this business plays + demo mode.
-  const game = rewardGame(business.reward_game);
   const gameMeta = rewardGameMeta(business.reward_game);
   const isDemo = !!business.is_demo;
 
@@ -92,30 +111,53 @@ export function DailyMysteryModal({
     return "ready";
   });
 
-  // Each reel holds an index into SYMBOLS that cycles while spinning.
-  const [reelIdx, setReelIdx] = useState<[number, number, number]>([0, 0, 0]);
-  const [locked, setLocked] = useState<[boolean, boolean, boolean]>([false, false, false]);
   const [prize, setPrize] = useState<Prize | null>(storedPrize);
   // White-flash overlay
   const [flash, setFlash] = useState(false);
   // CP-44: spin error (cooldown / not checked in / disabled).
   const [err, setErr] = useState<string | null>(null);
-  // CP-68: prize-wheel state — accumulated rotation + transition duration.
+  // Wheel state — accumulated rotation + transition duration.
   const [wheelRot, setWheelRot] = useState(0);
   const [wheelMs, setWheelMs] = useState(0);
-  // CP-68: mystery-boxes state — which box is highlighted / opened.
-  const [boxFocus, setBoxFocus] = useState<number | null>(null);
-  const [boxOpen, setBoxOpen] = useState<number | null>(null);
+  // CP-72: the real prize pool, mirrored onto the wheel. Starts with the
+  // built-in defaults; replaced once mystery_wheel_segments answers.
+  const [pool, setPool] = useState<WheelSeg[]>(DEFAULT_SEGS);
 
-  const intervals = useRef<ReturnType<typeof setInterval>[]>([]);
+  const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
   const primary = business.brand_colors.primary;
 
-  // CP-68: wheel geometry — 8 segments, pointer at the top.
-  const WHEEL_SEGMENTS = ["✨", "⭐", "💎", "🎁", "🍀", "👑", "🔥", "🎯"];
-  function segmentForTier(tier: Prize["tier"]): number {
-    if (tier === "jackpot") return [2, 5][Math.floor(Math.random() * 2)];        // 💎 👑
-    if (tier === "lucky")   return [1, 3, 4][Math.floor(Math.random() * 3)];     // ⭐ 🎁 🍀
-    return [0, 6, 7][Math.floor(Math.random() * 3)];                             // ✨ 🔥 🎯
+  // CP-72: load the segment labels (no weights/odds — those stay server-side).
+  useEffect(() => {
+    let cancelled = false;
+    createClient()
+      .rpc("mystery_wheel_segments", { p_business_id: business.id })
+      .then(({ data, error }) => {
+        if (cancelled || error) return; // RPC missing → keep defaults
+        const rows = (data ?? []) as { id: string | null; kind: string; label: string | null; points_amount: number | null }[];
+        if (rows.length > 0) setPool(rows.map(toSeg));
+      });
+    return () => { cancelled = true; };
+  }, [business.id]);
+
+  // The pool repeats around the wheel so short pools still fill 8 wedges.
+  const segments: WheelSeg[] = Array.from(
+    { length: SEGMENT_COUNT },
+    (_, i) => pool[i % pool.length],
+  );
+  const segAngle = 360 / SEGMENT_COUNT;
+
+  // Which wedge should the pointer land on for the awarded prize?
+  function segmentForPrize(p: Prize, awardedId: string | null): number {
+    // Prefer exact prize-id matches; else match point amounts; else any.
+    const byId = segments
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => awardedId !== null && s.prizeId === awardedId);
+    if (byId.length > 0) return byId[Math.floor(Math.random() * byId.length)].i;
+    const byPoints = segments
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => s.kind === "points" && p.points > 0 && s.points === p.points);
+    if (byPoints.length > 0) return byPoints[Math.floor(Math.random() * byPoints.length)].i;
+    return Math.floor(Math.random() * SEGMENT_COUNT);
   }
 
   // CP-68: demo replay — wipe local claim state and re-arm the game.
@@ -124,49 +166,25 @@ export function DailyMysteryModal({
       localStorage.removeItem(todayKey);
       localStorage.removeItem(prizeKey);
     } catch { /* ignore */ }
-    intervals.current.forEach(clearInterval);
+    timeouts.current.forEach(clearTimeout);
     setPrize(null); setFlash(false); setErr(null);
-    setLocked([false, false, false]);
-    setReelIdx([0, 0, 0]);
     setWheelMs(0);
-    setBoxFocus(null); setBoxOpen(null);
     setPhase("ready");
   }
 
   // ── cleanup on unmount
-  useEffect(() => () => intervals.current.forEach(clearInterval), []);
+  useEffect(() => () => timeouts.current.forEach(clearTimeout), []);
 
-  // ── start spinning (CP-44: server-authoritative; CP-68: per-game theater)
+  // ── spin (CP-44: server-authoritative)
   async function handleSpin() {
     if (phase !== "ready" || !membershipId) return;
     setErr(null);
     setPhase("spinning");
 
-    // Kick off this game's "suspense" animation immediately — it keeps
-    // running while we ask the server for the real prize.
-    if (game === "slot") {
-      setLocked([false, false, false]);
-      intervals.current = [0, 1, 2].map((ri) =>
-        setInterval(() => {
-          setReelIdx((prev) => {
-            const next = [...prev] as [number, number, number];
-            next[ri] = (next[ri] + 1) % SYMBOLS.length;
-            return next;
-          });
-        }, 75 + ri * 8),
-      );
-    } else if (game === "wheel") {
-      // Long lazy spin while we wait; overridden with the precise landing
-      // rotation once the server answers.
-      setWheelMs(9000);
-      setWheelRot((r) => r + 1440);
-    } else {
-      // boxes: cycle the highlight across the three gift boxes.
-      setBoxOpen(null);
-      let i = 0;
-      const t = setInterval(() => { setBoxFocus(i % 3); i++; }, 150);
-      intervals.current = [t];
-    }
+    // Long lazy spin while we wait; overridden with the precise landing
+    // rotation once the server answers.
+    setWheelMs(9000);
+    setWheelRot((r) => r + 1440);
 
     // Ask the server to pick + award the prize. The client cannot influence
     // the amount, can only spin for itself, and the cooldown is enforced here
@@ -177,9 +195,7 @@ export function DailyMysteryModal({
     });
 
     if (error || !data) {
-      intervals.current.forEach(clearInterval);
       setWheelMs(0);
-      setBoxFocus(null);
       const msg = error?.message ?? "Couldn't spin — please try again.";
       // Already spun / cooldown → show the "already spun" state.
       if (/already spun|cooldown/i.test(msg)) {
@@ -193,6 +209,7 @@ export function DailyMysteryModal({
     }
 
     const row = (Array.isArray(data) ? data[0] : data) as {
+      prize_id: string | null;
       prize_name: string | null; prize_description: string | null;
       prize_image_url: string | null; kind: string | null;
       points_amount: number | null; coupon_code: string | null;
@@ -200,7 +217,6 @@ export function DailyMysteryModal({
     const pts = Number(row.points_amount ?? 0);
     const tier: Prize["tier"] = pts >= 200 ? "jackpot" : pts >= 100 ? "lucky" : "nice";
     const p: Prize = {
-      symbols: symbolsForTier(tier),
       label: row.prize_name || (tier === "jackpot" ? "JACKPOT!" : tier === "lucky" ? "LUCKY!" : "Nice spin!"),
       points: pts,
       tier,
@@ -210,63 +226,29 @@ export function DailyMysteryModal({
     };
     setPrize(p);
 
-    // Shared landing: white flash → reveal. (Demo apps skip the localStorage
-    // claim so the game re-arms instantly on replay.)
-    const finish = () => {
+    // Land the pointer on the wedge showing the awarded prize: two more
+    // full turns, easing out onto the target.
+    const segIdx = segmentForPrize(p, row.prize_id ?? null);
+    setWheelMs(3000);
+    setWheelRot((r) => {
+      const base = Math.ceil(r / 360) * 360;
+      return base + 720 + (360 - (segIdx * segAngle + segAngle / 2));
+    });
+
+    // White flash → reveal. (Demo apps skip the localStorage claim so the
+    // game re-arms instantly on replay.)
+    timeouts.current.push(setTimeout(() => {
       setFlash(true);
-      setTimeout(() => setFlash(false), 350);
-      setTimeout(() => {
+      timeouts.current.push(setTimeout(() => setFlash(false), 350));
+      timeouts.current.push(setTimeout(() => {
         setPhase("revealed");
         if (!isDemo) {
           localStorage.setItem(todayKey, "1");
           localStorage.setItem(prizeKey, JSON.stringify(p));
         }
         // Points/prize were already awarded server-side — nothing to do.
-      }, 200);
-    };
-
-    if (game === "slot") {
-      // Stop each reel in sequence, landing on the server-decided symbols.
-      const stopTimes = [900, 1500, 2100];
-      stopTimes.forEach((t, ri) => {
-        setTimeout(() => {
-          clearInterval(intervals.current[ri]);
-          const finalIdx = SYMBOLS.indexOf(p.symbols[ri]);
-          setReelIdx((prev) => {
-            const next = [...prev] as [number, number, number];
-            next[ri] = finalIdx >= 0 ? finalIdx : 0;
-            return next;
-          });
-          setLocked((prev) => {
-            const next = [...prev] as [boolean, boolean, boolean];
-            next[ri] = true;
-            return next;
-          });
-          if (ri === 2) setTimeout(finish, 400);
-        }, t);
-      });
-    } else if (game === "wheel") {
-      // Land the pointer on a segment matching the prize tier: two more
-      // full turns, easing out onto the target.
-      const segIdx = segmentForTier(p.tier);
-      setWheelMs(3000);
-      setWheelRot((r) => {
-        const base = Math.ceil(r / 360) * 360;
-        return base + 720 + (360 - (segIdx * 45 + 22.5));
-      });
-      setTimeout(finish, 3150);
-    } else {
-      // boxes: keep shuffling briefly, settle on one, pop it open.
-      setTimeout(() => {
-        intervals.current.forEach(clearInterval);
-        const chosen = Math.floor(Math.random() * 3);
-        setBoxFocus(chosen);
-        setTimeout(() => {
-          setBoxOpen(chosen);
-          setTimeout(finish, 550);
-        }, 450);
-      }, 1500);
-    }
+      }, 200));
+    }, 3150));
   }
 
   // ── prize colour palette
@@ -348,9 +330,8 @@ export function DailyMysteryModal({
           </button>
         )}
 
-        {/* ── neon header ── */}
+        {/* ── neon header — CP-72: no emoji, just the neon title ── */}
         <div className="text-center mb-8 z-10 select-none">
-          <div className="text-5xl mb-2 drop-shadow-lg">{gameMeta.emoji}</div>
           <h2
             className="text-white text-2xl font-extrabold tracking-[0.25em] uppercase"
             style={{ textShadow: `0 0 15px ${primary}, 0 0 35px ${primary}88` }}
@@ -363,8 +344,8 @@ export function DailyMysteryModal({
           </p>
         </div>
 
-        {/* ── CP-68: prize wheel ── */}
-        {game === "wheel" && phase !== "locked" && phase !== "claimed" && (
+        {/* ── the prize wheel — CP-72: wedges show the REAL prizes ── */}
+        {phase !== "locked" && phase !== "claimed" && (
           <div className="relative mb-8 z-10">
             {/* pointer */}
             <div
@@ -374,122 +355,49 @@ export function DailyMysteryModal({
               ▼
             </div>
             <div
-              className="relative h-56 w-56 rounded-full"
+              className="relative h-64 w-64 rounded-full"
               style={{
                 transform: `rotate(${wheelRot}deg)`,
                 transition: wheelMs ? `transform ${wheelMs}ms cubic-bezier(0.12, 0.8, 0.22, 1)` : "none",
-                background: `conic-gradient(${WHEEL_SEGMENTS.map(
-                  (_, i) => `${i % 2 ? `${primary}cc` : "#181830"} ${i * 45}deg ${(i + 1) * 45}deg`,
+                background: `conic-gradient(${segments.map(
+                  (_, i) => `${i % 2 ? `${primary}cc` : "#181830"} ${i * segAngle}deg ${(i + 1) * segAngle}deg`,
                 ).join(", ")})`,
                 border: "4px solid #facc15",
                 boxShadow: `0 0 35px ${primary}55, inset 0 0 25px rgba(0,0,0,0.45)`,
               }}
             >
-              {WHEEL_SEGMENTS.map((s, i) => (
+              {segments.map((s, i) => (
                 <div
                   key={i}
                   className="absolute inset-0 pointer-events-none"
-                  style={{ transform: `rotate(${i * 45 + 22.5}deg)` }}
+                  style={{ transform: `rotate(${i * segAngle + segAngle / 2}deg)` }}
                 >
-                  <span className="absolute top-3 left-1/2 -translate-x-1/2 text-2xl drop-shadow">{s}</span>
+                  <div className="absolute top-2.5 left-1/2 -translate-x-1/2 text-center w-16">
+                    <div
+                      className={`font-black text-white drop-shadow leading-none ${
+                        s.kind === "points" ? "text-lg" : "text-[10px] leading-tight"
+                      }`}
+                    >
+                      {s.big}
+                    </div>
+                    <div className="text-[7px] font-extrabold tracking-[0.18em] text-white/75 mt-0.5">
+                      {s.small}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-            {/* hub */}
+            {/* hub — business logo when there is one */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-xl shadow-xl ring-2 ring-black/10">
-                🎯
+              <div className="h-14 w-14 rounded-full bg-white flex items-center justify-center shadow-xl ring-2 ring-black/10 overflow-hidden">
+                {business.logo_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={business.logo_url} alt="" className="h-full w-full object-contain p-1.5" />
+                ) : (
+                  <Zap className="h-6 w-6" style={{ color: primary }} />
+                )}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ── CP-68: mystery boxes ── */}
-        {game === "boxes" && phase !== "locked" && phase !== "claimed" && (
-          <div className="flex gap-5 mb-8 z-10">
-            {[0, 1, 2].map((i) => {
-              const focused = boxFocus === i;
-              const opened = boxOpen === i;
-              return (
-                <div
-                  key={i}
-                  className="h-24 w-24 rounded-2xl flex items-center justify-center text-5xl transition-all duration-200"
-                  style={{
-                    border: focused ? "3px solid #facc15" : `3px solid ${primary}55`,
-                    background: focused ? "rgba(250,204,21,0.12)" : `${primary}12`,
-                    boxShadow: focused
-                      ? "0 0 30px rgba(250,204,21,0.45), inset 0 0 18px rgba(250,204,21,0.08)"
-                      : `0 0 12px ${primary}44, inset 0 0 8px ${primary}18`,
-                    transform: opened ? "scale(1.25)" : focused ? "scale(1.1)" : "scale(1)",
-                  }}
-                >
-                  <span style={{ display: "block", lineHeight: 1 }}>
-                    {opened
-                      ? prize?.tier === "jackpot" ? "🎆" : prize?.tier === "lucky" ? "🎉" : "✨"
-                      : "🎁"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── slot machine reels (hidden in locked state) ── */}
-        {game === "slot" && phase !== "locked" && phase !== "claimed" && (
-          <div className="flex gap-4 mb-8 z-10">
-            {([0, 1, 2] as const).map((ri) => {
-              const isLocked = locked[ri];
-              return (
-                <div
-                  key={ri}
-                  className="relative flex flex-col items-center"
-                >
-                  {/* Reel cell */}
-                  <div
-                    className="h-24 w-24 rounded-2xl flex items-center justify-center text-5xl transition-all duration-200"
-                    style={{
-                      border: isLocked
-                        ? "3px solid #facc15"
-                        : `3px solid ${primary}55`,
-                      background: isLocked
-                        ? "rgba(250,204,21,0.12)"
-                        : `${primary}12`,
-                      boxShadow: isLocked
-                        ? "0 0 30px rgba(250,204,21,0.45), inset 0 0 18px rgba(250,204,21,0.08)"
-                        : `0 0 12px ${primary}44, inset 0 0 8px ${primary}18`,
-                      transform: isLocked ? "scale(1.12)" : "scale(1)",
-                    }}
-                  >
-                    <span
-                      style={{
-                        filter:
-                          phase === "spinning" && !isLocked
-                            ? "blur(2px)"
-                            : "none",
-                        transition: "filter 0.15s, transform 0.2s",
-                        display: "block",
-                        lineHeight: 1,
-                      }}
-                    >
-                      {SYMBOLS[reelIdx[ri]]}
-                    </span>
-                  </div>
-
-                  {/* "STOP" flash label under each reel as it locks */}
-                  <div
-                    className="text-[10px] font-extrabold tracking-widest uppercase mt-1.5 transition-opacity duration-200"
-                    style={{
-                      color: isLocked ? "#facc15" : "transparent",
-                      textShadow: isLocked
-                        ? "0 0 8px rgba(250,204,21,0.8)"
-                        : "none",
-                    }}
-                  >
-                    LOCK
-                  </div>
-                </div>
-              );
-            })}
           </div>
         )}
 
@@ -520,7 +428,7 @@ export function DailyMysteryModal({
                   background: `${primary}10`,
                 }}
               >
-                Come in to unlock 🔑
+                Come in to unlock
               </div>
             </div>
           )}
@@ -537,7 +445,7 @@ export function DailyMysteryModal({
                     "0 0 35px rgba(251,191,36,0.55), 0 8px 24px -4px rgba(245,158,11,0.45)",
                 }}
               >
-                {gameMeta.emoji} &nbsp;{gameMeta.cta}
+                {gameMeta.cta}
               </button>
               {err && <p className="text-rose-300 text-xs mt-3">{err}</p>}
             </>
@@ -665,11 +573,10 @@ export function DailyMysteryModal({
                     style={{ color: `${primary}bb` }}>
                     Your spin today
                   </div>
-                  <div className="flex justify-center gap-3 text-3xl mb-2">
-                    {storedPrize.symbols.map((s, i) => <span key={i}>{s}</span>)}
-                  </div>
                   <div className="text-white font-extrabold text-lg">{storedPrize.label}</div>
-                  <div className="text-white/70 text-sm">+{storedPrize.points} bonus points</div>
+                  {storedPrize.points > 0 && (
+                    <div className="text-white/70 text-sm">+{storedPrize.points} bonus points</div>
+                  )}
                 </div>
               )}
 

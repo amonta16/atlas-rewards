@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Sparkles, Plus, X, Save, Trash2, Edit2, Info } from "lucide-react";
+import { Sparkles, Plus, X, Save, Trash2, Edit2, Info, Coins, Gift, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,49 +16,62 @@ type Prize = {
   weight: number; is_active: boolean;
 };
 
-type MysteryConfig = { is_enabled: boolean; cooldown_hours: number };
+type RewardOption = { id: string; name: string };
 
 /**
- * Agency-side Mystery Reward configurator — sits on the Rewards tab below
- * the existing rewards store. Manages:
- *   • a per-business config row (enabled + cooldown_hours)
- *   • a weighted prize pool (CRUD)
+ * Prize Wheel configurator — CP-72 (revived from CP-42's removal).
  *
- * The customer-facing spin lives in components/customer/mystery-reward-card.tsx
- * and is wired to the spin_mystery_reward / mystery_reward_status RPCs from
- * checkpoint-18-engagement/01_automated_offers_and_mystery.sql.
+ * Lives on the builder's REWARDS tab. The customer-facing Prize Wheel's
+ * wedges mirror this pool (via mystery_wheel_segments), and
+ * spin_daily_reward picks the winner using these weights — so this panel
+ * IS the wheel's prize + odds configuration.
+ *
+ * Notes:
+ *  - The old is_enabled switch is gone: the wheel has been always-on since
+ *    CP-44.1 (gated only by check-in + cooldown). Only cooldown_hours from
+ *    business_mystery_config is still read by the spin RPC.
+ *  - kind = "reward" now has a real dropdown of the business's rewards
+ *    (the old UI had no way to set reward_id).
+ *  - Empty pool = the built-in default wheel (50 / 100 / 300 points),
+ *    called out in the empty state so owners aren't surprised.
  */
 export function MysteryPoolManager({ business }: { business: Business }) {
-  const [cfg, setCfg] = useState<MysteryConfig>({ is_enabled: false, cooldown_hours: 24 });
+  const [cooldown, setCooldown] = useState(24);
   const [prizes, setPrizes] = useState<Prize[]>([]);
+  const [rewardOptions, setRewardOptions] = useState<RewardOption[]>([]);
   const [editing, setEditing] = useState<Partial<Prize> | null>(null);
 
   async function load() {
     const supabase = createClient();
-    const [{ data: c }, { data: p }] = await Promise.all([
-      supabase.from("business_mystery_config").select("is_enabled, cooldown_hours")
+    const [{ data: c }, { data: p }, { data: r }] = await Promise.all([
+      supabase.from("business_mystery_config").select("cooldown_hours")
         .eq("business_id", business.id).maybeSingle(),
       supabase.from("mystery_reward_pool").select("*")
         .eq("business_id", business.id)
         .order("weight", { ascending: false }),
+      supabase.from("rewards").select("id, name")
+        .eq("business_id", business.id)
+        .order("sort_order").order("created_at"),
     ]);
-    if (c) setCfg({ is_enabled: c.is_enabled, cooldown_hours: c.cooldown_hours });
+    if (c) setCooldown(c.cooldown_hours ?? 24);
     setPrizes((p ?? []) as Prize[]);
+    setRewardOptions((r ?? []) as RewardOption[]);
   }
   useEffect(() => { load(); }, [business.id]);
 
-  async function saveConfig(next: MysteryConfig) {
-    setCfg(next);
+  async function saveCooldown(hours: number) {
+    setCooldown(hours);
     const supabase = createClient();
     await supabase.from("business_mystery_config").upsert({
       business_id: business.id,
-      is_enabled: next.is_enabled,
-      cooldown_hours: next.cooldown_hours,
+      is_enabled: true, // always-on since CP-44.1; kept for schema compat
+      cooldown_hours: hours,
     }, { onConflict: "business_id" });
   }
 
   async function savePrize() {
     if (!editing?.prize_name || !editing.kind) return;
+    if (editing.kind === "reward" && !editing.reward_id) return;
     const supabase = createClient();
     await supabase.rpc("upsert_mystery_prize", {
       p_id: editing.id ?? null,
@@ -68,8 +81,8 @@ export function MysteryPoolManager({ business }: { business: Business }) {
       p_prize_image_url: editing.prize_image_url ?? null,
       p_kind: editing.kind,
       p_points_amount: editing.kind === "points" ? (editing.points_amount ?? 0) : null,
-      p_reward_id: editing.reward_id ?? null,
-      p_coupon_code: editing.coupon_code ?? null,
+      p_reward_id: editing.kind === "reward" ? (editing.reward_id ?? null) : null,
+      p_coupon_code: editing.kind === "coupon" ? (editing.coupon_code ?? null) : null,
       p_weight: editing.weight ?? 10,
       p_is_active: editing.is_active ?? true,
     });
@@ -86,19 +99,23 @@ export function MysteryPoolManager({ business }: { business: Business }) {
 
   const totalWeight = prizes.filter(p => p.is_active).reduce((s, p) => s + p.weight, 0) || 1;
 
+  const kindIcon = (kind: Prize["kind"]) =>
+    kind === "points" ? <Coins className="h-4 w-4 text-amber-500" />
+      : kind === "reward" ? <Gift className="h-4 w-4 text-violet-500" />
+        : <Ticket className="h-4 w-4 text-sky-500" />;
+
   return (
     <div className="rounded-2xl border bg-white p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="font-semibold flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-500" /> Mystery Reward
+            <Sparkles className="h-4 w-4 text-amber-500" /> Prize Wheel — prizes &amp; odds
           </h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-prose">
-            Spin-to-win surprise prize on the customer Rewards tab. Set a prize pool with weights
-            (heavier = more likely), and customers can spin once per cooldown.
+            The check-in Prize Wheel shows THESE prizes on its wedges. Weight sets the odds —
+            heavier lands more often. Mix point amounts, free rewards, and coupon codes.
           </p>
         </div>
-        <Switch checked={cfg.is_enabled} onCheckedChange={(v) => saveConfig({ ...cfg, is_enabled: v })} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -107,8 +124,8 @@ export function MysteryPoolManager({ business }: { business: Business }) {
           <div className="flex items-center gap-2 mt-1">
             <Input
               type="number" min={1} max={720}
-              value={cfg.cooldown_hours}
-              onChange={e => saveConfig({ ...cfg, cooldown_hours: Math.max(1, parseInt(e.target.value || "1", 10)) })}
+              value={cooldown}
+              onChange={e => saveCooldown(Math.max(1, parseInt(e.target.value || "1", 10)))}
               className="h-9"
             />
             <span className="text-xs text-muted-foreground">hours</span>
@@ -118,7 +135,7 @@ export function MysteryPoolManager({ business }: { business: Business }) {
           <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <div className="text-[11px] text-muted-foreground leading-snug">
             Total active weight: <strong>{totalWeight}</strong>. A prize with weight 10 in a pool
-            totalling 100 will land roughly 10% of spins.
+            totalling 100 lands roughly 10% of spins.
           </div>
         </div>
       </div>
@@ -131,9 +148,12 @@ export function MysteryPoolManager({ business }: { business: Business }) {
       </div>
 
       {prizes.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed py-8 text-center text-muted-foreground">
+        <div className="rounded-xl border-2 border-dashed py-8 text-center text-muted-foreground px-6">
           <Sparkles className="h-6 w-6 mx-auto mb-1.5 text-zinc-300" />
-          <p className="text-sm">No prizes yet. Add at least one to enable the spin widget.</p>
+          <p className="text-sm font-medium">No custom prizes yet — the wheel runs its default pool.</p>
+          <p className="text-xs mt-1">
+            Default: 50 pts (80%), 100 pts (15%), 300 pts (5%). Add prizes to take over the wheel.
+          </p>
         </div>
       ) : (
         <div className="space-y-1.5">
@@ -146,7 +166,7 @@ export function MysteryPoolManager({ business }: { business: Business }) {
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={p.prize_image_url} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-xl">{p.kind === "points" ? "✨" : p.kind === "reward" ? "🎁" : "🏷️"}</span>
+                    kindIcon(p.kind)
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -185,11 +205,11 @@ export function MysteryPoolManager({ business }: { business: Business }) {
             </div>
             <div className="p-5 space-y-4 overflow-y-auto">
               <div>
-                <Label className="text-xs text-muted-foreground">Prize name</Label>
+                <Label className="text-xs text-muted-foreground">Prize name (shown on the wheel + reveal)</Label>
                 <Input
                   value={editing.prize_name ?? ""}
                   onChange={e => setEditing({ ...editing, prize_name: e.target.value })}
-                  placeholder="50 bonus points"
+                  placeholder="Free Latte"
                 />
               </div>
               <div>
@@ -214,7 +234,7 @@ export function MysteryPoolManager({ business }: { business: Business }) {
                   </select>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Weight</Label>
+                  <Label className="text-xs text-muted-foreground">Weight (odds)</Label>
                   <Input
                     type="number" min={1}
                     value={editing.weight ?? 10}
@@ -233,6 +253,30 @@ export function MysteryPoolManager({ business }: { business: Business }) {
                   />
                 </div>
               )}
+              {/* CP-72: kind=reward gets a real picker — the old UI had no
+                  way to choose WHICH reward, so reward prizes never worked
+                  from this panel. */}
+              {editing.kind === "reward" && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Which reward do they win?</Label>
+                  {rewardOptions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground mt-1.5 rounded-lg border border-dashed p-3">
+                      No rewards in the store yet — add one in the Rewards store section above first.
+                    </p>
+                  ) : (
+                    <select
+                      value={editing.reward_id ?? ""}
+                      onChange={e => setEditing({ ...editing, reward_id: e.target.value || null })}
+                      className="w-full mt-1 rounded-md border border-input bg-background h-9 px-2 text-sm"
+                    >
+                      <option value="">Choose a reward…</option>
+                      {rewardOptions.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
               {editing.kind === "coupon" && (
                 <div>
                   <Label className="text-xs text-muted-foreground">Coupon code</Label>
@@ -244,7 +288,7 @@ export function MysteryPoolManager({ business }: { business: Business }) {
                 </div>
               )}
               <div className="flex items-center justify-between rounded-lg border p-3 bg-zinc-50">
-                <Label className="cursor-pointer">Active in the pool</Label>
+                <Label className="cursor-pointer">Active on the wheel</Label>
                 <Switch
                   checked={editing.is_active ?? true}
                   onCheckedChange={(v) => setEditing({ ...editing, is_active: v })}
@@ -253,7 +297,11 @@ export function MysteryPoolManager({ business }: { business: Business }) {
             </div>
             <div className="p-5 border-t flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setEditing(null)}>Cancel</Button>
-              <Button className="flex-1" onClick={savePrize} disabled={!editing.prize_name}>
+              <Button
+                className="flex-1"
+                onClick={savePrize}
+                disabled={!editing.prize_name || (editing.kind === "reward" && !editing.reward_id)}
+              >
                 <Save className="h-4 w-4 mr-1" /> Save
               </Button>
             </div>

@@ -1,44 +1,39 @@
 /**
- * reward-games.ts — CP-68
+ * reward-games.ts — CP-68, simplified in CP-72.
  *
- * The check-in reward is no longer locked to one animation. Each business
- * picks a game in the brand editor (businesses.reward_game); the reward
- * modal plays that game's choreography. The prize itself is still chosen
- * and awarded SERVER-side (spin_daily_reward) — the game is pure theater.
+ * CP-72 (Andrew's call): the check-in reward is the PRIZE WHEEL for every
+ * business — the slot machine + mystery boxes options were removed ("spin
+ * is suitable for every business"). The picker is gone from the builder;
+ * any legacy businesses.reward_game value (slot/boxes) resolves to wheel.
  *
- * NULL / unknown ids fall back to "slot" (the original slot machine).
+ * The prize itself is still chosen and awarded SERVER-side
+ * (spin_daily_reward) — the wheel is pure theater. The wheel's segments
+ * mirror the business's real prize pool via mystery_wheel_segments
+ * (cp72 SQL), and odds are configured per-prize on the builder's Rewards
+ * tab (MysteryPoolManager).
  */
 
-export type RewardGameId = "slot" | "wheel" | "boxes";
+export type RewardGameId = "wheel";
 
 export const REWARD_GAMES: {
-  id: RewardGameId; label: string; emoji: string; hint: string;
+  id: RewardGameId; label: string; hint: string;
   /** Title shown in the modal header + quick-action card. */
   title: string;
   /** CTA copy on the play button. */
   cta: string;
 }[] = [
   {
-    id: "slot", label: "Slot machine", emoji: "🎰",
-    hint: "Three reels lock in the prize (default)",
-    title: "Daily Spin", cta: "SPIN!",
-  },
-  {
-    id: "wheel", label: "Prize wheel", emoji: "🎡",
+    id: "wheel", label: "Prize wheel",
     hint: "A spinning wheel lands on the prize",
     title: "Prize Wheel", cta: "SPIN THE WHEEL!",
   },
-  {
-    id: "boxes", label: "Mystery boxes", emoji: "🎁",
-    hint: "Three gift boxes — one holds the prize",
-    title: "Mystery Box", cta: "REVEAL MY GIFT!",
-  },
 ];
 
-export function rewardGame(id: string | null | undefined): RewardGameId {
-  return (REWARD_GAMES.find((g) => g.id === id)?.id ?? "slot") as RewardGameId;
+export function rewardGame(_id: string | null | undefined): RewardGameId {
+  // CP-72: every business plays the wheel, whatever the column says.
+  return "wheel";
 }
 
-export function rewardGameMeta(id: string | null | undefined) {
-  return REWARD_GAMES.find((g) => g.id === rewardGame(id))!;
+export function rewardGameMeta(_id: string | null | undefined) {
+  return REWARD_GAMES[0];
 }
