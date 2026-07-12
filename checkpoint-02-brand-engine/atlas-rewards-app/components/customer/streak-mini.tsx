@@ -1,16 +1,20 @@
 "use client";
 /**
- * StreakMini — CP-43.3
+ * StreakMini — CP-43.3, rebuilt in CP-70.
  *
- * A tiny streak "teaser" compartment on the customer Home page. Shows the
- * member how close they are to their FIRST streak reward at a glance
- * ("2 more check-ins until Free Latte") with a slim progress bar and a
- * "View more" button that opens the SAME streak panel as the header flame
- * quick-action (StreakWidget). Self-hides once the first reward is reached
- * (or when streaks/milestones aren't configured) so Home stays clean.
+ * Andrew's CP-70 call: kill the wordy "2 more weeks → 50% OFF" sentence and
+ * replace letters with VISUALS. The Home streak card is now a MINI CUBE
+ * TRAY — a horizontal row of little squares (one per day/week/month,
+ * whatever the streak period is), filled in white for every period the
+ * member has completed. The next cube pulses so you can see exactly where
+ * you are; milestone cubes wear a tiny gift so the reward is visible in
+ * the tray itself. Tapping still opens the full StreakWidget panel.
+ *
+ * The tray shows the current 7-period window (1–7, then 8–14, …) so long
+ * streaks never squish the cubes.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Flame, ChevronRight } from "lucide-react";
+import { Flame, Gift, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { StreakWidget } from "./streak-widget";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
@@ -23,6 +27,9 @@ type StreakStatus = {
   current_streak: number;
   milestones: Milestone[];
 };
+
+/** Cubes per tray row — a week-like window reads instantly. */
+const WINDOW = 7;
 
 export function StreakMini({
   business,
@@ -68,20 +75,47 @@ export function StreakMini({
 
   if (!s || !s.is_enabled || milestones.length === 0) return null;
 
-  const first = milestones[0];
   const current = s.current_streak ?? 0;
-  // Only a teaser until the first reward is earned — then hide.
-  if (current >= first.count) return null;
-
-  const remaining = Math.max(1, first.count - current);
-  const pct = Math.min(100, (current / first.count) * 100);
   const word =
     s.period_type === "weekly" ? "week" :
-    s.period_type === "monthly" ? "month" : "check-in";
-  const rewardName = first.reward_name ?? first.label;
+    s.period_type === "monthly" ? "month" : "day";
   const primary = business.brand_colors.primary;
   // CP-65: themable streak surface (default = classic fire).
-  const streakBg = streakGradient(resolveStreakTheme(business.streak_theme, primary));
+  const theme = resolveStreakTheme(business.streak_theme, primary);
+  const streakBg = streakGradient(theme);
+
+  // CP-70: the tray shows the 7-period window the member is currently in.
+  // A finished window (current = 7, 14, …) stays fully lit until the next
+  // period starts a fresh row — the "full tray" moment is the payoff.
+  const start = Math.floor(Math.max(current - 1, 0) / WINDOW) * WINDOW + 1;
+  const cells = Array.from({ length: WINDOW }, (_, i) => start + i);
+  const milestoneCounts = new Set(milestones.map((m) => m.count));
+
+  const cube = (n: number) => {
+    const filled = n <= current;
+    const isNext = n === current + 1;
+    const isMilestone = milestoneCounts.has(n);
+    return (
+      <div
+        key={n}
+        className={`relative flex-1 aspect-square rounded-[5px] flex items-center justify-center transition-all ${isNext ? "ring-2 ring-white/90 animate-pulse" : ""}`}
+        style={{
+          background: filled
+            ? "#ffffff"
+            : isNext
+              ? "rgba(255,255,255,0.28)"
+              : "rgba(255,255,255,0.16)",
+          boxShadow: filled ? `0 2px 6px -1px ${theme.glow}` : undefined,
+        }}
+      >
+        {isMilestone ? (
+          <Gift className="h-2.5 w-2.5" style={{ color: filled ? theme.to : "rgba(255,255,255,0.9)" }} />
+        ) : filled ? (
+          <Flame className="h-2.5 w-2.5" style={{ color: theme.to }} />
+        ) : null}
+      </div>
+    );
+  };
 
   // CP-52: compact half-width card for the side-by-side Home row.
   if (compact) {
@@ -92,22 +126,20 @@ export function StreakMini({
           className="w-full h-full rounded-2xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-md ring-1 ring-black/10 p-3 flex flex-col"
           style={{ background: streakBg }}
         >
-          <div className="h-10 w-10 rounded-xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center shrink-0">
-            <Flame className="h-5 w-5 text-white drop-shadow" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <Flame className="h-4 w-4 text-white drop-shadow shrink-0" />
+              <span className="text-lg font-black text-white leading-none">{current}</span>
+              <span className="text-[10px] uppercase tracking-widest font-extrabold text-white/85 truncate">
+                {word} streak
+              </span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-white/80 shrink-0" />
           </div>
-          <div className="text-[10px] uppercase tracking-widest font-extrabold text-white/85 mt-2">
-            {current > 0 ? `${current} streak` : "Streak"}
+          {/* CP-70: mini cube tray — the streak, as visuals not words. */}
+          <div className="mt-auto pt-2.5 flex gap-1">
+            {cells.map(cube)}
           </div>
-          <div className="text-sm font-extrabold leading-tight text-white">
-            {remaining} more {word}{remaining === 1 ? "" : "s"} → {rewardName}
-          </div>
-          <div className="mt-1.5 h-1.5 rounded-full bg-white/25 overflow-hidden">
-            <div className="h-full rounded-full bg-white transition-all duration-700"
-              style={{ width: `${pct}%`, boxShadow: "0 0 8px rgba(255,255,255,0.7)" }} />
-          </div>
-          <span className="mt-2 inline-flex items-center gap-0.5 self-start text-[11px] font-bold bg-white/90 text-zinc-900 px-2.5 py-1 rounded-full">
-            View more <ChevronRight className="h-3 w-3" />
-          </span>
         </button>
         {open && (
           <StreakWidget business={business} membershipId={membershipId} onClose={() => setOpen(false)} />
@@ -121,31 +153,28 @@ export function StreakMini({
       <div className="px-4 mt-4">
         <button
           onClick={() => setOpen(true)}
-          className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform shadow-sm"
+          className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform shadow-sm p-3.5"
           style={{ background: streakBg }}
         >
-          <div className="p-3.5 flex items-center gap-3 text-white">
-            <div className="h-11 w-11 rounded-2xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center shrink-0">
-              <Flame className="h-6 w-6 drop-shadow" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] uppercase tracking-widest font-extrabold text-white/85">
-                {current > 0 ? `${current} streak` : "Start your streak"}
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-9 w-9 rounded-xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center shrink-0">
+                <Flame className="h-5 w-5 drop-shadow" />
               </div>
-              <div className="text-sm font-extrabold leading-tight">
-                {remaining} more {word}{remaining === 1 ? "" : "s"} until {rewardName}
-              </div>
-              {/* slim progress bar */}
-              <div className="mt-1.5 h-1.5 rounded-full bg-white/25 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-white transition-all duration-700"
-                  style={{ width: `${pct}%`, boxShadow: "0 0 8px rgba(255,255,255,0.7)" }}
-                />
+              <div className="min-w-0">
+                <span className="text-xl font-black leading-none">{current}</span>
+                <span className="ml-1.5 text-[10px] uppercase tracking-widest font-extrabold text-white/85">
+                  {word} streak
+                </span>
               </div>
             </div>
-            <div className="shrink-0 flex items-center gap-0.5 text-xs font-bold bg-white/90 text-zinc-900 px-2.5 py-1.5 rounded-full">
-              View more <ChevronRight className="h-3 w-3" />
-            </div>
+            <span className="shrink-0 inline-flex items-center gap-0.5 text-[11px] font-bold bg-white/90 text-zinc-900 px-2.5 py-1 rounded-full">
+              View <ChevronRight className="h-3 w-3" />
+            </span>
+          </div>
+          {/* CP-70: mini cube tray — one cube per period in the current window. */}
+          <div className="mt-3 flex gap-1.5">
+            {cells.map(cube)}
           </div>
         </button>
       </div>

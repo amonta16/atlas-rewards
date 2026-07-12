@@ -10,10 +10,9 @@ import { TiltLoyaltyCard } from "./tilt-loyalty-card";
 // CP-43: rewards page now shares the SAME Daily Spin component as Home
 // (was a separate inline button that only tracked check-in, so the two
 // widgets could disagree). One component = always in sync.
-import { DailySpinButton } from "./daily-spin-button";
+// CP-70: DailySpinButton + StreakTrail removed from this tab — Home only.
 // CP-43: DailyMysteryModal is no longer opened directly here — DailySpinButton
 // owns the slot-machine modal now.
-import { StreakTrail } from "./streak-trail";
 import { LimitedOffersSection } from "./limited-offers-section";
 import { rewardsLayout } from "@/lib/section-layouts";
 // CP-67: element pack — themed headings, dividers, badges.
@@ -377,18 +376,9 @@ export function RewardsClient({
         </div>
       )}
 
-      {/* Streak trail — Clash-Royale-style milestone path (CP-05B) */}
-      {membership?.id && (
-        <StreakTrail business={business} membershipId={membership.id} />
-      )}
-
-      {/* Daily Spin — CP-43: shared DailySpinButton (same component Home
-          uses). Manages its own check-in + mystery_reward_status state and
-          the slot-machine modal, so this widget and the Home widget always
-          show the identical locked / ready / cooldown state. */}
-      {membership?.id && (
-        <DailySpinButton business={business} membershipId={membership.id} />
-      )}
+      {/* CP-70: the Streak trail + Daily Spin cards were REMOVED from the
+          Rewards tab — they live on Home only now (Andrew's call: Rewards
+          stays focused on the store + offers + earning). */}
 
       {/* CP-67: optional divider between the big sections */}
       <SectionDivider business={business} />
