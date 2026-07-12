@@ -40,6 +40,9 @@ export function LimitedOffersSection({
   primary,
   secondary,
   cardStyle,
+  layout,
+  headingStyle,
+  badgeStyle,
 }: {
   businessId: string;
   businessName: string;
