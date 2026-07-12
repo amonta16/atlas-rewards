@@ -6,8 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-// CP-73: prize photos — shown right on the wheel wedge.
-import { ImageUploader } from "./image-uploader";
 import type { Business } from "@/lib/types/database";
 
 type Prize = {
@@ -19,7 +17,7 @@ type Prize = {
   weight: number; is_active: boolean;
 };
 
-type RewardOption = { id: string; name: string };
+type RewardOption = { id: string; name: string; image_url: string | null };
 
 /**
  * Prize Wheel configurator — CP-72 (revived from CP-42's removal).
@@ -51,7 +49,7 @@ export function MysteryPoolManager({ business }: { business: Business }) {
       supabase.from("mystery_reward_pool").select("*")
         .eq("business_id", business.id)
         .order("weight", { ascending: false }),
-      supabase.from("rewards").select("id, name")
+      supabase.from("rewards").select("id, name, image_url")
         .eq("business_id", business.id)
         .order("sort_order").order("created_at"),
     ]);
@@ -139,12 +137,15 @@ export function MysteryPoolManager({ business }: { business: Business }) {
         <div className="space-y-1.5">
           {prizes.map(p => {
             const odds = p.is_active ? ((p.weight / totalWeight) * 100).toFixed(1) : "0";
+            // CP-73.1: reward prizes show the reward's own photo automatically.
+            const img = p.prize_image_url
+              ?? (p.kind === "reward" ? rewardOptions.find(r => r.id === p.reward_id)?.image_url ?? null : null);
             return (
               <div key={p.id} className="rounded-xl border p-3 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-zinc-50 flex items-center justify-center overflow-hidden shrink-0">
-                  {p.prize_image_url ? (
+                  {img ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={p.prize_image_url} alt="" className="h-full w-full object-cover" />
+                    <img src={img} alt="" className="h-full w-full object-cover" />
                   ) : (
                     kindIcon(p.kind)
                   )}
@@ -256,23 +257,14 @@ export function MysteryPoolManager({ business }: { business: Business }) {
                   )}
                 </div>
               )}
-              {/* CP-73: prize photo — shows on the wheel wedge + the win
-                  reveal. For "Free reward" prizes this is optional; the
-                  reveal falls back to the business logo. */}
-              <div>
-                <Label className="text-xs text-muted-foreground">Prize photo (shows on the wheel)</Label>
-                <div className="mt-1">
-                  <ImageUploader
-                    bucket="reward-images"
-                    pathPrefix={`wheel/${business.id}`}
-                    value={editing.prize_image_url ?? null}
-                    onChange={(url) => setEditing({ ...editing, prize_image_url: url })}
-                    label="Prize photo"
-                    aspectClass="aspect-video"
-                    library={{ category: "reward", industry: business.industry }}
-                  />
-                </div>
-              </div>
+              {/* CP-73.1: no separate photo upload — reward prizes
+                  automatically use the reward's own image on the wheel
+                  and the win reveal (no redone work). */}
+              {editing.kind === "reward" && editing.reward_id && (
+                <p className="text-[11px] text-muted-foreground rounded-lg bg-zinc-50 border p-2.5">
+                  The reward&apos;s own photo shows on the wheel automatically.
+                </p>
+              )}
               <div className="flex items-center justify-between rounded-lg border p-3 bg-zinc-50">
                 <Label className="cursor-pointer">Active on the wheel</Label>
                 <Switch

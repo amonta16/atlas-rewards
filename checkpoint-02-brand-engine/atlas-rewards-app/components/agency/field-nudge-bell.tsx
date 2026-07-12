@@ -14,6 +14,15 @@ import { useToast } from "@/components/ui/toast";
 
 type Note = { id: string; title: string; body: string | null; read_at: string | null; created_at: string };
 
+/** CP-73.1: safe check — bare `Notification?.permission` THROWS a
+ *  ReferenceError when the global doesn't exist at all (iOS Safari outside
+ *  an installed PWA). This was crashing the whole Field App on iPhones. */
+function pushGranted(): boolean {
+  return typeof window !== "undefined"
+    && "Notification" in window
+    && Notification.permission === "granted";
+}
+
 function ago(iso: string): string {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "now";
@@ -41,7 +50,7 @@ export function FieldNudgeBell() {
 
   useEffect(() => {
     load();
-    if (typeof window !== "undefined") setPushOn(Notification?.permission === "granted");
+    setPushOn(pushGranted());
   }, [load]);
 
   const unread = items.filter(i => !i.read_at).length;
@@ -60,8 +69,9 @@ export function FieldNudgeBell() {
     setPushBusy(true);
     try {
       await ensurePushSubscription(null); // null = agency/global tag
-      setPushOn(Notification?.permission === "granted");
-      if (Notification?.permission === "granted") toast.success("Push on for this phone 🔔");
+      const on = pushGranted();
+      setPushOn(on);
+      if (on) toast.success("Push on for this phone 🔔");
       else toast.error("Push permission was blocked");
     } catch {
       toast.error("Couldn't enable push here");
