@@ -204,8 +204,8 @@ D-U-N-S number → Google Play Console (Organization) first, then Apple Develope
 **CP-74 — Join-by-code backbone ✅ SHIPPED**
 `join_code` column + `join_business_by_code` RPC, `/join` pre-join screen (enter code), `/j/<code>` smart landing page (platform-aware store badges via env, browser fallback today, Play install-referrer), agency QR card now encodes `/j/<code>` + shows the join code.
 
-**CP-75 — Account deletion + email hardening + app_config**
-In-app deletion flow + anonymizing RPC + web deletion-request page; custom SMTP (Resend/Postmark) on a real domain so password-reset emails deliver reliably at volume; min-version gate. (Do this before the shell so submission #1 is complete.)
+**CP-75 — Account-deletion hardening + app_config ✅ SHIPPED**
+CP-40's in-app deletion was broken for referred customers (six NO ACTION FKs blocked `delete from auth.users`) — retargeted to SET NULL; staff self-delete guard; `/account/delete` public info page for the Play Data safety form; `app_config` min-version/kill-switch table. Remaining manual step: custom SMTP (Resend/Postmark) per checkpoint-75 README so reset emails deliver reliably.
 
 **CP-76 — Capacitor shell (Android first)**
 Wrap customer app, strip admin routes, splash + icon, native QR scanner plugin, haptics, `isNativePlatform` gating, read Play install referrer → auto-join. First run on real Android devices; iOS project generated but shipped second.
