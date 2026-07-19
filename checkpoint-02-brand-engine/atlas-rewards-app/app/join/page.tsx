@@ -34,7 +34,11 @@ type FoundBusiness = {
   brand_colors?: { primary: string; secondary: string; accent: string };
 };
 
-const BOOTED_KEY = "atlas-native-booted";
+// CP-76.2: cold-start guard. Was sessionStorage — but Android WebView
+// RESTORES sessionStorage across app restarts, so the app believed it had
+// already auto-booted and showed the code screen again. A module-scope
+// variable resets on every full page load, which is exactly a cold start.
+let bootRan = false;
 
 export default function JoinPage() {
   const [code, setCode] = useState("");
@@ -57,8 +61,8 @@ export default function JoinPage() {
   useEffect(() => {
     if (!isNative()) return;
     setNative(true);
-    if (sessionStorage.getItem(BOOTED_KEY)) return;
-    sessionStorage.setItem(BOOTED_KEY, "1");
+    if (bootRan) return;
+    bootRan = true;
     if (new URLSearchParams(window.location.search).get("stay")) return;
 
     (async () => {
