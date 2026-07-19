@@ -207,8 +207,8 @@ D-U-N-S number → Google Play Console (Organization) first, then Apple Develope
 **CP-75 — Account-deletion hardening + app_config ✅ SHIPPED**
 CP-40's in-app deletion was broken for referred customers (six NO ACTION FKs blocked `delete from auth.users`) — retargeted to SET NULL; staff self-delete guard; `/account/delete` public info page for the Play Data safety form; `app_config` min-version/kill-switch table. Remaining manual step: custom SMTP (Resend/Postmark) per checkpoint-75 README so reset emails deliver reliably.
 
-**CP-76 — Capacitor shell (Android first)**
-Wrap customer app, strip admin routes, splash + icon, native QR scanner plugin, haptics, `isNativePlatform` gating, read Play install referrer → auto-join. First run on real Android devices; iOS project generated but shipped second.
+**CP-76 — Capacitor shell (Android first) ✅ CODE SHIPPED — runbook pending on Andrew's machine**
+Remote-URL shell in `mobile-shell/` (webview loads live deployment; admin routes untouched — they're simply never navigated to and stay behind RLS). `lib/native.ts` bridge (no web-bundle deps), NativeShell (last-business memory via native Preferences, CP-75 update/kill wall, deep-link routing), `/join` native boot (last business → install referrer → scan button). Remaining: run the checkpoint-76 README runbook locally (`npx cap add android`, icon/splash, first device run).
 
 **CP-77 — Native push**
 FCM (+ APNs when iOS ships), `push_subscriptions.platform`, `push-server.ts` fan-out, permission prompt after join.

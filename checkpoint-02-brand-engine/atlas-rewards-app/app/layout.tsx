@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
+import { NativeShell } from "@/components/native/native-shell";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://atlas-engine.app"),
@@ -42,6 +43,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen antialiased">
         {/* CP-31: app-wide toaster — every alert() should migrate to this. */}
+        {/* CP-76: native shell glue — renders nothing on the web/PWA. */}
+        <NativeShell />
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

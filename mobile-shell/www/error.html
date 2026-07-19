@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atlas Rewards — offline</title>
+  <style>
+    body { margin:0; font-family:system-ui,sans-serif; background:#fff;
+           display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .card { text-align:center; padding:2rem; max-width:320px; }
+    button { margin-top:1.25rem; background:#0891b2; color:#fff; border:0; border-radius:12px;
+             padding:.8rem 1.6rem; font-size:1rem; font-weight:700; }
+  </style>
+</head>
+<body>
+  <!-- CP-76: shown by the shell when the live app can't be reached
+       (airplane mode, dead spot). Store reviewers test this. -->
+  <div class="card">
+    <div style="font-size:44px">📡</div>
+    <h1 style="font-size:1.2rem;margin:.5rem 0 0">You're offline</h1>
+    <p style="color:#71717a;font-size:.9rem">Atlas Rewards needs an internet connection to load your points and rewards.</p>
+    <button onclick="window.location.reload()">Try again</button>
+  </div>
+</body>
+</html>

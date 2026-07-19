@@ -1,23 +1,27 @@
 "use client";
-import { useState } from "react";
-import { QrCode, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { QrCode, ArrowRight, Sparkles, Loader2, Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  isNative, scanQrCode, getInstallReferrer,
+  prefGet, prefRemove, PREF_LAST_BUSINESS,
+} from "@/lib/native";
 
 /**
  * CP-74: The pre-join screen — the neutral "front door" of Atlas Rewards.
+ * CP-76: native-aware. Inside the Capacitor app this screen additionally:
+ *   - boots straight into the last-joined business (native Preferences,
+ *     written by NativeShell on the business subdomain) — once per cold
+ *     start, and never when opened with ?stay=1 (the "switch business" path)
+ *   - auto-joins from the Play Install Referrer (the ?referrer=<code> we
+ *     put on the store link at /j/<code>)
+ *   - offers a native camera "Scan QR" button
  *
- * This is the screen the future native app boots into when the customer
- * hasn't joined a business yet. Deliberately minimal (no marketplace, no
- * browse): enter a business code, or scan the business QR with the phone
- * camera. Lives on the APEX domain only — business subdomains rewrite
- * paths under /[business], so QRs and links always point here via the
- * root domain (e.g. https://atlasrewards.app/join).
- *
- * Flow: code → join_business_by_code RPC (anon, branding only) →
- * branded confirmation card → "Continue" → /qr/<slug>, which owns the
- * subdomain-redirect logic (CP-43.2) → business signup/login.
+ * Apex-domain only; business subdomains rewrite paths under /[business].
+ * Flow: code → join_business_by_code RPC (anon, branding only) → branded
+ * confirmation card → /qr/<slug> (owns the subdomain redirect, CP-43.2).
  */
 
 type FoundBusiness = {
@@ -30,11 +34,46 @@ type FoundBusiness = {
   brand_colors?: { primary: string; secondary: string; accent: string };
 };
 
+const BOOTED_KEY = "atlas-native-booted";
+
 export default function JoinPage() {
   const [code, setCode] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [biz, setBiz] = useState<FoundBusiness | null>(null);
+  const [native, setNative] = useState(false);
+
+  async function lookup(raw: string): Promise<FoundBusiness | null> {
+    const clean = raw.replace(/[^a-zA-Z0-9]/g, "");
+    if (clean.length < 3 || clean.length > 24) return null;
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("join_business_by_code", { p_code: clean });
+    if (error) return null;
+    const result = data as FoundBusiness;
+    return result?.found ? result : null;
+  }
+
+  // CP-76: native cold-start boot — last business, else install referrer.
+  useEffect(() => {
+    if (!isNative()) return;
+    setNative(true);
+    if (sessionStorage.getItem(BOOTED_KEY)) return;
+    sessionStorage.setItem(BOOTED_KEY, "1");
+    if (new URLSearchParams(window.location.search).get("stay")) return;
+
+    (async () => {
+      const last = await prefGet(PREF_LAST_BUSINESS);
+      if (last && /^[a-z0-9-]+$/.test(last)) {
+        window.location.href = `/qr/${last}`;
+        return;
+      }
+      const ref = await getInstallReferrer();
+      if (ref) {
+        const found = await lookup(ref);
+        if (found) setBiz(found); // show the branded confirm — never silently sign up
+      }
+    })();
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,19 +84,39 @@ export default function JoinPage() {
     }
     setLoading(true);
     setErr(null);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("join_business_by_code", { p_code: clean });
+    const found = await lookup(clean);
     setLoading(false);
-    if (error) {
-      setErr("Something went wrong — please try again.");
-      return;
-    }
-    const result = data as FoundBusiness;
-    if (!result?.found) {
+    if (!found) {
       setErr(`We couldn't find a business with code "${clean.toUpperCase()}". Double-check it and try again.`);
       return;
     }
-    setBiz(result);
+    setBiz(found);
+  }
+
+  // CP-76: native camera scan — accepts /j/<code>, /qr/<slug>, or a bare code.
+  async function onScan() {
+    setErr(null);
+    const raw = await scanQrCode();
+    if (!raw) return; // cancelled or plugin unavailable
+    const jMatch = raw.match(/\/j\/([a-zA-Z0-9]+)/);
+    const qrMatch = raw.match(/\/qr\/([a-z0-9-]+)/);
+    if (qrMatch) {
+      window.location.href = `/qr/${qrMatch[1]}`;
+      return;
+    }
+    const candidate = jMatch?.[1] ?? (/^[a-zA-Z0-9]{3,24}$/.test(raw.trim()) ? raw.trim() : null);
+    if (!candidate) {
+      setErr("That QR isn't an Atlas Rewards business code. Ask the front desk for theirs.");
+      return;
+    }
+    setLoading(true);
+    const found = await lookup(candidate);
+    setLoading(false);
+    if (!found) {
+      setErr("That QR looks like ours, but we couldn't find the business. Ask the front desk for their code.");
+      return;
+    }
+    setBiz(found);
   }
 
   const primary = biz?.brand_colors?.primary ?? "#0891b2";
@@ -99,13 +158,24 @@ export default function JoinPage() {
               </Button>
             </form>
 
-            <div className="mt-5 pt-5 border-t flex items-start gap-3 text-sm text-zinc-500">
-              <QrCode className="h-5 w-5 mt-0.5 shrink-0 text-zinc-400" />
-              <p>
-                Have their QR code instead? Just scan it with your phone camera — it brings you
-                straight here with the business already selected.
-              </p>
-            </div>
+            {native ? (
+              <Button
+                variant="outline"
+                onClick={onScan}
+                disabled={loading}
+                className="w-full h-12 mt-3 text-base font-semibold"
+              >
+                <Camera className="h-5 w-5 mr-2" /> Scan their QR code
+              </Button>
+            ) : (
+              <div className="mt-5 pt-5 border-t flex items-start gap-3 text-sm text-zinc-500">
+                <QrCode className="h-5 w-5 mt-0.5 shrink-0 text-zinc-400" />
+                <p>
+                  Have their QR code instead? Just scan it with your phone camera — it brings you
+                  straight here with the business already selected.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           /* Branded confirmation — the moment Atlas "becomes" the business */
@@ -135,7 +205,7 @@ export default function JoinPage() {
               </Button>
               <button
                 className="w-full text-sm text-zinc-500 hover:text-zinc-700"
-                onClick={() => { setBiz(null); setCode(""); }}
+                onClick={() => { void prefRemove(PREF_LAST_BUSINESS); setBiz(null); setCode(""); }}
               >
                 Not your business? Try another code
               </button>
