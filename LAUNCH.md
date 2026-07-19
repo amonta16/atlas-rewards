@@ -196,27 +196,29 @@ You've already built most of this. What launch requires:
 
 ## 12. Suggested Build Order (from today)
 
-**CP-58 — Accounts & paperwork (start now; longest lead time, zero code)**
-D-U-N-S number → Apple Developer (Organization) + Play Console (Organization) → reserve "Atlas Rewards" name + `com.atlasengine.rewards` → draft privacy policy + loyalty terms, host them.
+*(Numbering continues from the existing checkpoint series — CP-73.1 was the last shipped.)*
 
-**CP-59 — Join-by-code backbone (pure web/SQL, ship like any checkpoint)**
-`join_code` column + RPC, pre-join screen (enter code / scan QR), `/j/<code>` smart landing page, `apple-app-site-association` + `assetlinks.json`, business QR generator in manager dashboard.
+**Paperwork track (start now; longest lead time, zero code — runs in parallel with everything)**
+D-U-N-S number → Google Play Console (Organization) first, then Apple Developer (Organization) → reserve "Atlas Rewards" name + `com.atlasengine.rewards` → draft privacy policy + loyalty terms, host them.
 
-**CP-60 — Account deletion + app_config**
-In-app deletion flow + anonymizing RPC + web deletion-request page; min-version gate. (Do this before the shell so submission #1 is complete.)
+**CP-74 — Join-by-code backbone ✅ SHIPPED**
+`join_code` column + `join_business_by_code` RPC, `/join` pre-join screen (enter code), `/j/<code>` smart landing page (platform-aware store badges via env, browser fallback today, Play install-referrer), agency QR card now encodes `/j/<code>` + shows the join code.
 
-**CP-61 — Capacitor shell**
-Wrap customer app, strip admin routes, splash + icon, native QR scanner plugin, haptics, `isNativePlatform` gating. First run on real devices via Xcode/Android Studio.
+**CP-75 — Account deletion + email hardening + app_config**
+In-app deletion flow + anonymizing RPC + web deletion-request page; custom SMTP (Resend/Postmark) on a real domain so password-reset emails deliver reliably at volume; min-version gate. (Do this before the shell so submission #1 is complete.)
 
-**CP-62 — Native push**
-FCM + APNs, `push_subscriptions.platform`, `push-server.ts` fan-out, permission prompt after join.
+**CP-76 — Capacitor shell (Android first)**
+Wrap customer app, strip admin routes, splash + icon, native QR scanner plugin, haptics, `isNativePlatform` gating, read Play install referrer → auto-join. First run on real Android devices; iOS project generated but shipped second.
 
-**CP-63 — Store readiness**
-Assets (icon, screenshots, feature graphic), privacy label + Data safety form, age ratings, demo business + demo account + review notes, export compliance flag.
+**CP-77 — Native push**
+FCM (+ APNs when iOS ships), `push_subscriptions.platform`, `push-server.ts` fan-out, permission prompt after join.
 
-**CP-64 — Beta**
-TestFlight + Play closed track, pilot at one real business for 1–2 weeks, fix, then submit both stores (staged rollout on Play, phased on iOS).
+**CP-78 — Play Store readiness**
+Assets (icon 512, screenshots, feature graphic 1024×500), Data safety form, age rating, demo business + demo account + review notes. Closed-track beta at a pilot business 1–2 weeks → staged production rollout. `assetlinks.json` for App Links.
+
+**CP-79 — iOS pass**
+Xcode build (Mac or CI), APNs, `apple-app-site-association` Universal Links, privacy nutrition label, export compliance flag, TestFlight → App Store submission.
 
 **Phase 2 (post-launch):** Branch.io deferred deep links, Sign in with Apple + Google pair (if data justifies), branded standalone apps as upsell (per-client dev accounts), Square integration per POS strategy.
 
-Items to start **this week**: D-U-N-S application (slowest item on the list) and CP-59 (normal web checkpoint, no new tooling).
+Items to start **this week**: D-U-N-S application (slowest item on the list), then CP-75.

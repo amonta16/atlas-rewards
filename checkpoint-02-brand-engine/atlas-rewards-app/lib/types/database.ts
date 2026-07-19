@@ -74,6 +74,9 @@ export type Business = {
   id: string;
   slug: string;
   name: string;
+  /** CP-74: short human-typeable join code (e.g. FLIPPOS). Printed QRs
+   *  encode /j/<join_code>; customers can also type it on /join. */
+  join_code?: string | null;
   industry: string | null;
   logo_url: string | null;
   /** CP-38: dedicated square PWA/home-screen icon (falls back to logo). */

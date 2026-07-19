@@ -32,7 +32,14 @@ export function BusinessDiscoveryQR({ business }: { business: Business }) {
     setOrigin(window.location.origin);
   }, []);
 
-  const qrValue = origin ? `${origin}/qr/${business.slug}` : "";
+  // CP-74: QRs now point at the smart landing /j/<join_code>, which serves
+  // BOTH worlds — today it forwards browser users into the PWA (/qr/<slug>),
+  // and once the store apps ship it shows install badges + the join code.
+  // Printed QRs never need reprinting. Falls back to the legacy /qr/<slug>
+  // for businesses created before cp74_migration.sql is applied.
+  const qrValue = origin
+    ? (business.join_code ? `${origin}/j/${business.join_code}` : `${origin}/qr/${business.slug}`)
+    : "";
   const looksLikeLocal = /lvh\.me|localhost|127\.0\.0\.1/.test(origin);
 
   function copyLink() {
@@ -82,9 +89,15 @@ export function BusinessDiscoveryQR({ business }: { business: Business }) {
               </Button>
             </div>
           </div>
+          {business.join_code && (
+            <div>
+              <div className="text-[11px] uppercase tracking-widest font-bold text-muted-foreground mb-1">Join code</div>
+              <code className="inline-block text-sm font-black tracking-[0.2em] bg-zinc-50 border rounded-md px-3 py-2">{business.join_code}</code>
+            </div>
+          )}
           <div className="text-xs text-muted-foreground space-y-1">
-            <p>• Scanning opens this business's app at <code>/{business.slug}</code> on the same domain — then sign-in / sign-up.</p>
-            <p>• Inside the Atlas Engine app: adds this business to the customer's library.</p>
+            <p>• Scanning opens the join page for this business — sign-up in the browser today, app-store install once the mobile app launches (same QR, no reprint).</p>
+            <p>• Customers can also type the join code on the app's "Join" screen.</p>
             <p>• Print at ~2 inches square. Black on white works best for camera readability.</p>
           </div>
           {looksLikeLocal && (
