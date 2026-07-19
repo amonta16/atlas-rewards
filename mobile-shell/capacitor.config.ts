@@ -18,7 +18,8 @@ const config: CapacitorConfig = {
   appName: "Atlas Rewards",
   webDir: "www",
   server: {
-    url: "https://atlas-engine.app/join",
+    // www: the apex 301-redirects to www — boot the final URL directly.
+    url: "https://www.atlas-engine.app/join",
     // Keep every business subdomain INSIDE the webview; anything else
     // (Google Maps, Stripe checkout, review links) opens the system browser.
     allowNavigation: ["atlas-engine.app", "*.atlas-engine.app"],
