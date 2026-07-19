@@ -1,51 +1,51 @@
 /**
- * CP-76: Native bridge — the web app's ONLY window into the Capacitor shell.
+ * CP-76.3: Native bridge — the web app's ONLY window into the Capacitor shell.
  *
- * The mobile app is a Capacitor shell (mobile-shell/ at repo root) whose
- * webview loads the live deployment. Capacitor injects `window.Capacitor`
- * + registered plugins into the page at runtime, so the web bundle needs
- * NO Capacitor npm dependencies — every call here is duck-typed against
- * the injected globals and no-ops gracefully on the regular web/PWA.
+ * REWRITE (was duck-typing `window.Capacitor`): with a remote-URL shell the
+ * injected runtime never reaches the page, so `window.Capacitor` was always
+ * undefined and the app behaved as plain web. The reliable pattern for
+ * remote-loaded apps (Ionic Portals-style) is the reverse: the WEB APP
+ * bundles `@capacitor/core` + plugin JS itself. Core detects the native
+ * container via the webview's built-in message interface
+ * (`window.androidBridge` on Android, `webkit.messageHandlers` on iOS) —
+ * which exists on EVERY page the webview loads, any origin — and routes
+ * plugin calls over it. On the regular web, `isNativePlatform()` is false
+ * and everything here no-ops (Preferences falls back to localStorage).
+ *
+ * Plugins are dynamically imported inside each helper: SSR-safe, and the
+ * regular web bundle only pulls them on native-gated paths.
  *
  * Why Preferences instead of localStorage for cross-app state: each
  * business lives on its own SUBDOMAIN (different origin → different
  * localStorage). Capacitor Preferences is NATIVE storage reached via the
  * bridge, so the apex /join screen and every business subdomain share it.
  */
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-type CapGlobal = {
-  isNativePlatform?: () => boolean;
-  getPlatform?: () => string;
-  Plugins?: Record<string, any>;
-};
-
-function cap(): CapGlobal | null {
-  if (typeof window === "undefined") return null;
-  return ((window as any).Capacitor as CapGlobal) ?? null;
-}
-
-function plugin(name: string): any | null {
-  return cap()?.Plugins?.[name] ?? null;
-}
+import { Capacitor } from "@capacitor/core";
 
 /** True only inside the installed mobile app. */
 export function isNative(): boolean {
-  return Boolean(cap()?.isNativePlatform?.());
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
 }
 
 export function nativePlatform(): "ios" | "android" | "web" {
-  const p = cap()?.getPlatform?.();
-  return p === "ios" || p === "android" ? p : "web";
+  try {
+    const p = Capacitor.getPlatform();
+    return p === "ios" || p === "android" ? p : "web";
+  } catch {
+    return "web";
+  }
 }
 
 /** Android/iOS build number (integer we bump every store release). */
 export async function getAppBuild(): Promise<number | null> {
-  const app = plugin("App");
-  if (!app?.getInfo) return null;
+  if (!isNative()) return null;
   try {
-    const info = await app.getInfo();
+    const { App } = await import("@capacitor/app");
+    const info = await App.getInfo();
     const n = parseInt(String(info?.build ?? ""), 10);
     return Number.isFinite(n) ? n : null;
   } catch {
@@ -55,10 +55,9 @@ export async function getAppBuild(): Promise<number | null> {
 
 /** Native key-value storage (shared across all origins in the webview). */
 export async function prefGet(key: string): Promise<string | null> {
-  const p = plugin("Preferences");
-  if (!p?.get) return null;
   try {
-    const r = await p.get({ key });
+    const { Preferences } = await import("@capacitor/preferences");
+    const r = await Preferences.get({ key });
     return r?.value ?? null;
   } catch {
     return null;
@@ -66,32 +65,36 @@ export async function prefGet(key: string): Promise<string | null> {
 }
 
 export async function prefSet(key: string, value: string): Promise<void> {
-  const p = plugin("Preferences");
   try {
-    await p?.set?.({ key, value });
+    const { Preferences } = await import("@capacitor/preferences");
+    await Preferences.set({ key, value });
   } catch {
-    /* no-op on web */
+    /* no-op */
   }
 }
 
 export async function prefRemove(key: string): Promise<void> {
-  const p = plugin("Preferences");
   try {
-    await p?.remove?.({ key });
+    const { Preferences } = await import("@capacitor/preferences");
+    await Preferences.remove({ key });
   } catch {
-    /* no-op on web */
+    /* no-op */
   }
 }
 
 /**
- * Native camera QR scan. Returns the raw decoded string, or null if the
- * plugin is unavailable or the user cancelled. hint 0 = QR_CODE.
+ * Native camera QR scan. Returns the raw decoded string, or null if
+ * unavailable or the user cancelled.
  */
 export async function scanQrCode(): Promise<string | null> {
-  const s = plugin("CapacitorBarcodeScanner");
-  if (!s?.scanBarcode) return null;
+  if (!isNative()) return null;
   try {
-    const r = await s.scanBarcode({ hint: 0, scanInstructions: "Point your camera at the business QR code" });
+    const { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } =
+      await import("@capacitor/barcode-scanner");
+    const r = await CapacitorBarcodeScanner.scanBarcode({
+      hint: CapacitorBarcodeScannerTypeHint.QR_CODE,
+      scanInstructions: "Point your camera at the business QR code",
+    });
     const v = r?.ScanResult ?? null;
     return typeof v === "string" && v.length > 0 ? v : null;
   } catch {
@@ -101,12 +104,15 @@ export async function scanQrCode(): Promise<string | null> {
 
 /**
  * Play Install Referrer (Android): whatever `?referrer=` carried on the
- * Play Store link — for us, the business join code. Defensive across the
- * plugin names/method shapes in the ecosystem; returns null when absent
- * (e.g. iOS, sideloads, plugin not installed yet).
+ * Play Store link — for us, the business join code. No official plugin;
+ * duck-typed against community ones if present in the shell. Null when
+ * absent (iOS, sideloads, plugin not installed).
  */
 export async function getInstallReferrer(): Promise<string | null> {
-  const p = plugin("InstallReferrer") ?? plugin("CapacitorInstallReferrer");
+  if (typeof window === "undefined") return null;
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const plugins = (window as any).Capacitor?.Plugins;
+  const p = plugins?.InstallReferrer ?? plugins?.CapacitorInstallReferrer;
   if (!p) return null;
   try {
     const fn = p.getReferrerDetails ?? p.getInstallReferrer ?? null;
@@ -117,39 +123,42 @@ export async function getInstallReferrer(): Promise<string | null> {
   } catch {
     return null;
   }
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
 /** Deep links (App Links / Universal Links) while the app is running. */
 export function onAppUrlOpen(cb: (url: string) => void): void {
-  const app = plugin("App");
-  try {
-    app?.addListener?.("appUrlOpen", (e: any) => {
-      if (typeof e?.url === "string") cb(e.url);
-    });
-  } catch {
-    /* no-op */
-  }
+  if (!isNative()) return;
+  void (async () => {
+    try {
+      const { App } = await import("@capacitor/app");
+      await App.addListener("appUrlOpen", (e) => {
+        if (typeof e?.url === "string") cb(e.url);
+      });
+    } catch {
+      /* no-op */
+    }
+  })();
 }
 
 /**
  * CP-77: Native push registration. Asks for the OS notification
  * permission (Android 13+ shows the system dialog once), registers with
- * FCM, and hands the device token to the callback (which POSTs it to
- * /api/notifications/subscribe). Returns false when the plugin is
- * missing, permission was denied, or anything failed — always safe.
+ * FCM, and hands the device token to the callback. Returns false when
+ * not native, permission denied, or anything failed — always safe.
  */
 export async function registerNativePush(onToken: (token: string) => void): Promise<boolean> {
-  const p = plugin("PushNotifications");
-  if (!p?.register) return false;
+  if (!isNative()) return false;
   try {
-    let perm = await p.checkPermissions?.();
-    if (perm?.receive === "denied") return false; // don't re-nag
-    if (perm?.receive !== "granted") perm = await p.requestPermissions?.();
-    if (perm?.receive !== "granted") return false;
-    await p.addListener?.("registration", (t: any) => {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    let perm = await PushNotifications.checkPermissions();
+    if (perm.receive === "denied") return false; // don't re-nag
+    if (perm.receive !== "granted") perm = await PushNotifications.requestPermissions();
+    if (perm.receive !== "granted") return false;
+    await PushNotifications.addListener("registration", (t) => {
       if (typeof t?.value === "string" && t.value.length > 0) onToken(t.value);
     });
-    await p.register?.();
+    await PushNotifications.register();
     return true;
   } catch {
     return false;
@@ -158,15 +167,18 @@ export async function registerNativePush(onToken: (token: string) => void): Prom
 
 /** CP-77: notification tapped (app background/closed) → route to its link. */
 export function onPushTap(cb: (linkPath: string) => void): void {
-  const p = plugin("PushNotifications");
-  try {
-    p?.addListener?.("pushNotificationActionPerformed", (e: any) => {
-      const lp = e?.notification?.data?.link_path;
-      if (typeof lp === "string" && lp.startsWith("/")) cb(lp);
-    });
-  } catch {
-    /* no-op */
-  }
+  if (!isNative()) return;
+  void (async () => {
+    try {
+      const { PushNotifications } = await import("@capacitor/push-notifications");
+      await PushNotifications.addListener("pushNotificationActionPerformed", (e) => {
+        const lp = (e?.notification?.data as Record<string, unknown> | undefined)?.link_path;
+        if (typeof lp === "string" && lp.startsWith("/")) cb(lp);
+      });
+    } catch {
+      /* no-op */
+    }
+  })();
 }
 
 /** Keys shared between /join (apex) and the business subdomains. */
