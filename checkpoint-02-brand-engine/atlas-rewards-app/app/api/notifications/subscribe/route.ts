@@ -40,6 +40,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
 
+  // ---- CP-77: NATIVE branch — Capacitor app registering an FCM token.
+  // Body: { platform: "android"|"ios", token, business_id? | business_slug? }
+  // Stored with endpoint = "fcm:<token>" so unique(user_id, endpoint) and
+  // the CP-51 business-scoped fan-out work unchanged.
+  if (payload.platform === "android" || payload.platform === "ios") {
+    const token = typeof payload.token === "string" ? payload.token.trim() : "";
+    if (token.length < 20 || token.length > 4096) {
+      return NextResponse.json({ error: "invalid token" }, { status: 400 });
+    }
+    const admin2 = createAdminClient();
+    let nativeBusinessId: string | null = payload.business_id ?? null;
+    if (!nativeBusinessId && typeof payload.business_slug === "string") {
+      const { data: biz } = await admin2
+        .from("businesses").select("id").eq("slug", payload.business_slug).maybeSingle();
+      nativeBusinessId = biz?.id ?? null;
+    }
+    const { error: nativeErr } = await admin2
+      .from("push_subscriptions")
+      .upsert(
+        {
+          user_id: user.id,
+          business_id: nativeBusinessId,
+          endpoint: `fcm:${token}`,
+          p256dh: null,
+          auth: null,
+          platform: payload.platform,
+          last_seen_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,endpoint" },
+      );
+    if (nativeErr) {
+      console.log("[subscribe] native upsert failed:", nativeErr.message, nativeErr.code);
+      return NextResponse.json({ error: "upsert_failed", message: nativeErr.message }, { status: 400 });
+    }
+    console.log("[subscribe] saved native token for user", user.id, "business", nativeBusinessId, payload.platform);
+    return NextResponse.json({ ok: true });
+  }
+
   const businessId = payload.business_id ?? null;
   const sub = payload.subscription;
   if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {

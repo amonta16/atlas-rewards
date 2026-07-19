@@ -131,5 +131,43 @@ export function onAppUrlOpen(cb: (url: string) => void): void {
   }
 }
 
+/**
+ * CP-77: Native push registration. Asks for the OS notification
+ * permission (Android 13+ shows the system dialog once), registers with
+ * FCM, and hands the device token to the callback (which POSTs it to
+ * /api/notifications/subscribe). Returns false when the plugin is
+ * missing, permission was denied, or anything failed — always safe.
+ */
+export async function registerNativePush(onToken: (token: string) => void): Promise<boolean> {
+  const p = plugin("PushNotifications");
+  if (!p?.register) return false;
+  try {
+    let perm = await p.checkPermissions?.();
+    if (perm?.receive === "denied") return false; // don't re-nag
+    if (perm?.receive !== "granted") perm = await p.requestPermissions?.();
+    if (perm?.receive !== "granted") return false;
+    await p.addListener?.("registration", (t: any) => {
+      if (typeof t?.value === "string" && t.value.length > 0) onToken(t.value);
+    });
+    await p.register?.();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** CP-77: notification tapped (app background/closed) → route to its link. */
+export function onPushTap(cb: (linkPath: string) => void): void {
+  const p = plugin("PushNotifications");
+  try {
+    p?.addListener?.("pushNotificationActionPerformed", (e: any) => {
+      const lp = e?.notification?.data?.link_path;
+      if (typeof lp === "string" && lp.startsWith("/")) cb(lp);
+    });
+  } catch {
+    /* no-op */
+  }
+}
+
 /** Keys shared between /join (apex) and the business subdomains. */
 export const PREF_LAST_BUSINESS = "atlas-last-business-slug";

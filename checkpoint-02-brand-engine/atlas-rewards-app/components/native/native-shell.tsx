@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   isNative, getAppBuild, prefSet, onAppUrlOpen, PREF_LAST_BUSINESS,
+  registerNativePush, onPushTap, nativePlatform,
 } from "@/lib/native";
 
 const RESERVED = new Set([
@@ -31,8 +32,35 @@ export function NativeShell() {
 
     // 1) Remember the business we're inside (host = <slug>.<root-domain>)
     const labels = window.location.hostname.split(".");
-    if (labels.length >= 3 && !RESERVED.has(labels[0])) {
-      void prefSet(PREF_LAST_BUSINESS, labels[0]);
+    const businessSlug = labels.length >= 3 && !RESERVED.has(labels[0]) ? labels[0] : null;
+    if (businessSlug) {
+      void prefSet(PREF_LAST_BUSINESS, businessSlug);
+
+      // CP-77: native push. Only inside a business app AND signed in —
+      // so the OS permission dialog appears with real context (the
+      // customer just joined / opened their rewards), never on /join.
+      // Signup's notification-consent (CP-36b) remains the in-app switch.
+      (async () => {
+        try {
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          await registerNativePush(async (token) => {
+            await fetch("/api/notifications/subscribe", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                platform: nativePlatform(),
+                token,
+                business_slug: businessSlug,
+              }),
+            }).catch(() => { /* offline — retried next open */ });
+          });
+          onPushTap((linkPath) => { window.location.href = linkPath; });
+        } catch {
+          /* push is best-effort, never break the app over it */
+        }
+      })();
     }
 
     // 2) Version gate / kill switch

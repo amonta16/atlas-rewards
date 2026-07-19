@@ -198,8 +198,8 @@ You've already built most of this. What launch requires:
 
 *(Numbering continues from the existing checkpoint series — CP-73.1 was the last shipped.)*
 
-**Paperwork track (start now; longest lead time, zero code — runs in parallel with everything)**
-D-U-N-S number → Google Play Console (Organization) first, then Apple Developer (Organization) → reserve "Atlas Rewards" name + `com.atlasengine.rewards` → draft privacy policy + loyalty terms, host them.
+**Paperwork track (runs in parallel with everything)**
+DECIDED Jul 2026: launch Google Play as a **personal account now** ($25, no LLC/D-U-N-S needed) — accepts the 12-testers-for-14-days closed-test rule, which folds into the CP-78 pilot anyway. Form the LLC when revenue justifies (~$800/yr CA franchise tax), then: enroll **Apple as Organization from the start** (iOS ships later in CP-79 — no conversion needed) and transfer the Play app to a new org account (Play supports app transfers; account *type* can't be converted in place). Reserve "Atlas Rewards" + `com.atlasengine.rewards` at signup. Privacy policy + loyalty terms still needed before submission.
 
 **CP-74 — Join-by-code backbone ✅ SHIPPED**
 `join_code` column + `join_business_by_code` RPC, `/join` pre-join screen (enter code), `/j/<code>` smart landing page (platform-aware store badges via env, browser fallback today, Play install-referrer), agency QR card now encodes `/j/<code>` + shows the join code.
@@ -210,8 +210,8 @@ CP-40's in-app deletion was broken for referred customers (six NO ACTION FKs blo
 **CP-76 — Capacitor shell (Android first) ✅ CODE SHIPPED — runbook pending on Andrew's machine**
 Remote-URL shell in `mobile-shell/` (webview loads live deployment; admin routes untouched — they're simply never navigated to and stay behind RLS). `lib/native.ts` bridge (no web-bundle deps), NativeShell (last-business memory via native Preferences, CP-75 update/kill wall, deep-link routing), `/join` native boot (last business → install referrer → scan button). Remaining: run the checkpoint-76 README runbook locally (`npx cap add android`, icon/splash, first device run).
 
-**CP-77 — Native push**
-FCM (+ APNs when iOS ships), `push_subscriptions.platform`, `push-server.ts` fan-out, permission prompt after join.
+**CP-77 — Native push ✅ CODE SHIPPED — Firebase setup pending**
+FCM v1 sender (dep-free), native tokens in `push_subscriptions` (`fcm:` endpoints, CP-51 scoping untouched), registration after sign-in inside a business app, tap-to-open routing, `@capacitor/push-notifications` in the shell. Remaining: Firebase project + `google-services.json` + `FIREBASE_SERVICE_ACCOUNT` env + `cp77_migration.sql` (checkpoint-77 README).
 
 **CP-78 — Play Store readiness**
 Assets (icon 512, screenshots, feature graphic 1024×500), Data safety form, age rating, demo business + demo account + review notes. Closed-track beta at a pilot business 1–2 weeks → staged production rollout. `assetlinks.json` for App Links.

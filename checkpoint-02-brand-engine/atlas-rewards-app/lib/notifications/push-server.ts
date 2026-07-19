@@ -14,6 +14,7 @@
  */
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendFcm } from "@/lib/notifications/fcm-server";
 
 let vapidConfigured = false;
 
@@ -38,15 +39,22 @@ export type PushPayload = {
   kind?: string;
 };
 
-type SubRow = { id: string; endpoint: string; p256dh: string; auth: string };
+// CP-77: p256dh/auth are null for native rows (endpoint = "fcm:<token>").
+type SubRow = { id: string; endpoint: string; p256dh: string | null; auth: string | null };
 
 /**
  * Internal: send a payload to a concrete set of subscription rows.
- * Cleans up dead (404/410) subscriptions. Never throws.
+ * CP-77: rows whose endpoint starts with "fcm:" are NATIVE device tokens
+ * and go out through FCM; everything else is classic web-push. The
+ * CP-51 business scoping happened in the SELECT — by the time rows reach
+ * deliver() they're already the exact tenant-correct audience.
+ * Cleans up dead subscriptions on either path. Never throws.
  */
 async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: number; failed: number }> {
-  if (!configureVapid()) return { sent: 0, failed: 0 };
   if (!subs.length) return { sent: 0, failed: 0 };
+
+  const nativeSubs = subs.filter((s) => s.endpoint.startsWith("fcm:"));
+  const webSubs = subs.filter((s) => !s.endpoint.startsWith("fcm:"));
 
   const body = JSON.stringify({
     title: payload.title,
@@ -58,10 +66,21 @@ async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: nu
   let sent = 0, failed = 0;
   const deadIds: string[] = [];
 
-  await Promise.all(subs.map(async (s) => {
+  // Native (FCM)
+  await Promise.all(nativeSubs.map(async (s) => {
+    const result = await sendFcm(s.endpoint.slice(4), payload);
+    if (result === "sent") sent++;
+    else if (result === "dead") { failed++; deadIds.push(s.id); }
+    else if (result === "failed") failed++;
+    // "disabled" (no Firebase env yet) counts as neither — silent skip
+  }));
+
+  // Web push (VAPID)
+  if (webSubs.length && configureVapid()) {
+    await Promise.all(webSubs.map(async (s) => {
     try {
       await webpush.sendNotification(
-        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh ?? "", auth: s.auth ?? "" } },
         body,
       );
       sent++;
@@ -71,6 +90,7 @@ async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: nu
       else console.warn(`[push-server] send failed for ${s.endpoint}:`, e?.message ?? e);
     }
   }));
+  }
 
   if (deadIds.length) {
     const admin = createAdminClient();
