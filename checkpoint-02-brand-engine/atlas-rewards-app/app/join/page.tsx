@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   isNative, scanQrCode, getInstallReferrer,
-  prefGet, prefRemove, PREF_LAST_BUSINESS,
+  prefGet, prefSet, prefRemove, PREF_LAST_BUSINESS,
 } from "@/lib/native";
 
 /**
@@ -101,6 +101,10 @@ export default function JoinPage() {
     const jMatch = raw.match(/\/j\/([a-zA-Z0-9]+)/);
     const qrMatch = raw.match(/\/qr\/([a-z0-9-]+)/);
     if (qrMatch) {
+      // CP-76.1: persist HERE on the apex origin — the Capacitor bridge is
+      // always injected on the boot origin, but not reliably on business
+      // subdomains, so saving there can silently no-op.
+      await prefSet(PREF_LAST_BUSINESS, qrMatch[1]);
       window.location.href = `/qr/${qrMatch[1]}`;
       return;
     }
@@ -199,7 +203,12 @@ export default function JoinPage() {
               <Button
                 className="w-full h-12 text-base font-semibold"
                 style={{ background: primary }}
-                onClick={() => { window.location.href = `/qr/${biz.slug}`; }}
+                onClick={async () => {
+                  // CP-76.1: save the business on the APEX origin (bridge
+                  // guaranteed) before handing off to the subdomain.
+                  if (biz.slug) await prefSet(PREF_LAST_BUSINESS, biz.slug);
+                  window.location.href = `/qr/${biz.slug}`;
+                }}
               >
                 Continue to {biz.name} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
