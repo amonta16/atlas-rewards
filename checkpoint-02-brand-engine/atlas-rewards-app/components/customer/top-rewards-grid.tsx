@@ -146,8 +146,10 @@ function LockedRewardModal({
             Keep earning points to unlock this reward — check in, refer friends, and leave a review to get there faster.
           </p>
 
+          {/* CP-80: land on the "Need more points?" earn section with the
+              same scroll+flash the review "!" uses — not just page top. */}
           <a
-            href={`/${businessSlug}/app/rewards`}
+            href={`/${businessSlug}/app/rewards?focus=earn`}
             className="mt-4 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-md active:scale-[0.99] transition"
             style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})`, boxShadow: `0 10px 22px -8px ${primary}aa` }}
           >

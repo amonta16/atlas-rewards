@@ -303,26 +303,56 @@ export function StreakWidget({
           )}
         </div>
 
-        {/* CP-49: current-period date banner. Spells out exactly which
-            window is "live" right now + whether they've already checked in,
-            so the streak stops being a confusing row of abstract cubes. */}
+        {/* CP-80 (was CP-49): the banner's job is MOTIVATION, not a
+            calendar. The next streak award is now the hero — big, named,
+            with a "N to go" line — because "come back and get this" is
+            what brings customers in tomorrow. The period/date details
+            drop to a one-line footnote (and remain the fallback when
+            every milestone is already claimed). */}
         {windowLabel && (
           <div className="px-4 -mt-1 mb-1">
             <div className="rounded-2xl px-3.5 py-2.5 backdrop-blur-md ring-1 ring-white/20 flex items-center gap-2.5"
               style={{ background: "rgba(255,255,255,0.12)" }}
             >
-              <CalendarDays className="h-4 w-4 text-white/90 shrink-0" />
-              <div className="flex-1 min-w-0 text-white">
-                <div className="text-[10px] uppercase tracking-widest font-extrabold opacity-80">
-                  This {periodWord.toLowerCase()}
+              {nextMilestone ? (
+                <Gift className="h-5 w-5 text-white shrink-0" />
+              ) : (
+                <CalendarDays className="h-4 w-4 text-white/90 shrink-0" />
+              )}
+              {nextMilestone ? (
+                <div className="flex-1 min-w-0 text-white">
+                  <div className="text-[10px] uppercase tracking-widest font-extrabold opacity-80">
+                    Next streak award
+                  </div>
+                  <div className="text-lg font-extrabold leading-tight truncate">
+                    {nextMilestone.reward_name || nextMilestone.label}
+                    {nextMilestone.gift_kind === "points" && nextMilestone.points
+                      ? ` · ${nextMilestone.points} pts`
+                      : ""}
+                  </div>
+                  <div className="text-[13px] font-bold opacity-95 mt-0.5">
+                    {nextMilestone.count - s.current_streak === 1
+                      ? <>Just 1 check-in to go — it&apos;s yours next {periodWord.toLowerCase()}!</>
+                      : <>{nextMilestone.count - s.current_streak} check-ins to go</>}
+                  </div>
+                  <div className="text-[10px] opacity-75 mt-0.5 truncate">
+                    This {periodWord.toLowerCase()} · {windowLabel}
+                    {lastD ? <> · Last check-in {fmtWeekday(lastD)}</> : null}
+                  </div>
                 </div>
-                <div className="text-sm font-bold leading-tight truncate">{windowLabel}</div>
-                <div className="text-[11px] opacity-85 mt-0.5">
-                  {lastD
-                    ? <>Last check-in: {fmtWeekday(lastD)}</>
-                    : <>No check-ins yet</>}
+              ) : (
+                <div className="flex-1 min-w-0 text-white">
+                  <div className="text-[10px] uppercase tracking-widest font-extrabold opacity-80">
+                    This {periodWord.toLowerCase()}
+                  </div>
+                  <div className="text-sm font-bold leading-tight truncate">{windowLabel}</div>
+                  <div className="text-[11px] opacity-85 mt-0.5">
+                    {lastD
+                      ? <>Last check-in: {fmtWeekday(lastD)}</>
+                      : <>No check-ins yet</>}
+                  </div>
                 </div>
-              </div>
+              )}
               <span
                 className={`shrink-0 text-[10px] font-extrabold px-2 py-1 rounded-full whitespace-nowrap ${
                   s.checked_in_this_period

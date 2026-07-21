@@ -32,9 +32,30 @@ export function CelebrateWatcher({
   // — that hook bails out of static prerender and breaks our prod build.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = new URLSearchParams(window.location.search).get("celebrate");
-    if (raw && parseInt(raw, 10) > 0) setAmount(parseInt(raw, 10));
-  }, []);
+    const url = new URL(window.location.href);
+    const raw = url.searchParams.get("celebrate");
+    if (!raw || !(parseInt(raw, 10) > 0)) return;
+
+    // CP-80: consume the param IMMEDIATELY. The Android WebView restores
+    // the last-loaded URL (query string included) across cold starts, so
+    // leaving ?celebrate= in the address replayed the signup confetti on
+    // every app reopen.
+    url.searchParams.delete("celebrate");
+    window.history.replaceState(
+      window.history.state, "", url.pathname + url.search + url.hash,
+    );
+
+    // Belt & suspenders: the signup celebration is a once-per-device
+    // moment for this business — never replay it even if the param
+    // somehow reappears (old bookmark, restored tab, shared link).
+    const seenKey = `atlas-signup-celebrated:${businessId ?? "global"}`;
+    try {
+      if (window.localStorage.getItem(seenKey)) return;
+      window.localStorage.setItem(seenKey, "1");
+    } catch { /* private mode — still celebrate, param is stripped */ }
+
+    setAmount(parseInt(raw, 10));
+  }, [businessId]);
 
   // (b) Realtime ledger insert trigger
   useEffect(() => {

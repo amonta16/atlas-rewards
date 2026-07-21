@@ -24,6 +24,7 @@ import { Bell, ArrowUpRight } from "lucide-react";
 // CP-46: hold the screen while the bell spotlight is up so no other
 // overlay (confetti / welcome gift) pops over it.
 import { claimPopup, releasePopup, PopupPriority } from "@/lib/popup-coordinator";
+import { isNative, checkNativePushPermission } from "@/lib/native";
 
 const SEEN_KEY_PREFIX = "atlas-push-nudge-seen";
 const BELL_DONE_PREFIX = "atlas-onboard-bell-done";
@@ -52,21 +53,43 @@ export function EnablePushNudge({ primary, businessId }: { primary: string; busi
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // No notification support, or the user already decided → the bell
-    // moment is effectively "done"; let the welcome gift proceed.
-    if (!("Notification" in window) || Notification.permission !== "default") {
-      markBellOnboardDone(businessId);
-      return;
-    }
-    // Already shown once for this business → done.
-    try {
-      if (window.localStorage.getItem(seenKey)) { markBellOnboardDone(businessId); return; }
-    } catch { /* private mode */ }
 
     let cancelled = false;
     let tries = 0;
+    let armTimer: number | undefined;
 
-    const tryLocate = () => {
+    // CP-80: decide whether the notification ask is still PENDING in this
+    // runtime. On the web that's the browser Notification API; inside the
+    // Capacitor shell that API doesn't exist (which used to make this
+    // component bail instantly and mark the bell "done" — so the custom
+    // offer popped first and the spotlight never showed on Android/iOS).
+    // Native now asks the OS permission state through the bridge instead.
+    const isAskPending = async (): Promise<boolean> => {
+      if (isNative()) {
+        const p = await checkNativePushPermission();
+        return p === "prompt";
+      }
+      return ("Notification" in window) && Notification.permission === "default";
+    };
+
+    (async () => {
+      const pending = await isAskPending();
+      if (cancelled) return;
+      // No support, or the user already decided → the bell moment is
+      // effectively "done"; let the welcome gift proceed.
+      if (!pending) {
+        markBellOnboardDone(businessId);
+        return;
+      }
+      // Already shown once for this business → done.
+      try {
+        if (window.localStorage.getItem(seenKey)) { markBellOnboardDone(businessId); return; }
+      } catch { /* private mode */ }
+
+      armTimer = window.setTimeout(tryLocate, ARM_DELAY_MS);
+    })();
+
+    function tryLocate() {
       if (cancelled) return;
       const el = document.querySelector<HTMLElement>('[data-atlas-bell="1"]');
       if (el) {
@@ -84,10 +107,12 @@ export function EnablePushNudge({ primary, businessId }: { primary: string; busi
         // the welcome gift forever.
         markBellOnboardDone(businessId);
       }
-    };
+    }
 
-    const armTimer = window.setTimeout(tryLocate, ARM_DELAY_MS);
-    return () => { cancelled = true; window.clearTimeout(armTimer); };
+    return () => {
+      cancelled = true;
+      if (armTimer !== undefined) window.clearTimeout(armTimer);
+    };
   }, [seenKey, businessId]);
 
   // CP-46: while the spotlight is up, own the screen via the coordinator.

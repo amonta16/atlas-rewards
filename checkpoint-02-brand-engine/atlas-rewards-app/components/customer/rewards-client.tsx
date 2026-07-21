@@ -58,15 +58,26 @@ export function RewardsClient({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sp = new URLSearchParams(window.location.search);
-    const wantsReview = sp.get("focus") === "review" || window.location.hash === "#review-row";
-    if (!wantsReview) return;
+    // CP-80: generalized focus targets — same scroll+flash treatment for
+    // the review row (?focus=review) and the whole "Need more points?"
+    // earn section (?focus=earn, used by "See ways to earn" on Home).
+    const target =
+      sp.get("focus") === "review" || window.location.hash === "#review-row"
+        ? { id: "review-row", ring: "ring-rose-300" }
+        : sp.get("focus") === "earn" || window.location.hash === "#earn-section"
+          ? { id: "earn-section", ring: "ring-amber-300" }
+          : null;
+    if (!target) return;
     // Wait one tick for the DOM to settle then scroll.
     const t = setTimeout(() => {
-      const el = document.getElementById("review-row");
+      const el = document.getElementById(target.id);
       if (!el) return;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("animate-pulse", "ring-4", "ring-rose-300");
-      setTimeout(() => el.classList.remove("animate-pulse", "ring-4", "ring-rose-300"), 2200);
+      el.classList.add("animate-pulse", "ring-4", "rounded-3xl", target.ring);
+      setTimeout(
+        () => el.classList.remove("animate-pulse", "ring-4", "rounded-3xl", target.ring),
+        2200,
+      );
     }, 250);
     return () => clearTimeout(t);
   }, []);
@@ -381,8 +392,10 @@ export function RewardsClient({
       {/* CP-67: optional divider between the big sections */}
       <SectionDivider business={business} />
 
-      {/* Need more points? — CP-28: livelier, on-brand */}
-      <div className="px-4 mt-6">
+      {/* Need more points? — CP-28: livelier, on-brand.
+          CP-80: anchored (#earn-section) so "See ways to earn" lands here
+          with the same scroll+flash the review "!" uses. */}
+      <div id="earn-section" className="px-4 mt-6 scroll-mt-24">
         <div className="flex items-center gap-2 mb-3">
           <SectionHeading business={business}>Need more points?</SectionHeading>
           <span

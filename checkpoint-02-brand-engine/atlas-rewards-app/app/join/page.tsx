@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { QrCode, ArrowRight, Sparkles, Loader2, Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -40,12 +40,28 @@ type FoundBusiness = {
 // variable resets on every full page load, which is exactly a cold start.
 let bootRan = false;
 
+// CP-80: SSR-safe pre-paint effect — useLayoutEffect on the client so the
+// boot splash is decided BEFORE first paint (kills the "enter code" flash
+// for returning customers), plain useEffect during SSR to avoid warnings.
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 export default function JoinPage() {
   const [code, setCode] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [biz, setBiz] = useState<FoundBusiness | null>(null);
   const [native, setNative] = useState(false);
+  // CP-80: true while the native cold-start decision (last business /
+  // install referrer) is still pending — render a splash, not the form.
+  const [booting, setBooting] = useState(false);
+
+  // Runs before paint: if a cold-start boot is about to happen, hold the UI.
+  useIsomorphicLayoutEffect(() => {
+    if (!isNative() || bootRan) return;
+    if (new URLSearchParams(window.location.search).get("stay")) return;
+    setBooting(true);
+  }, []);
 
   async function lookup(raw: string): Promise<FoundBusiness | null> {
     const clean = raw.replace(/[^a-zA-Z0-9]/g, "");
@@ -66,15 +82,23 @@ export default function JoinPage() {
     if (new URLSearchParams(window.location.search).get("stay")) return;
 
     (async () => {
-      const last = await prefGet(PREF_LAST_BUSINESS);
-      if (last && /^[a-z0-9-]+$/.test(last)) {
-        window.location.href = `/qr/${last}`;
-        return;
-      }
-      const ref = await getInstallReferrer();
-      if (ref) {
-        const found = await lookup(ref);
-        if (found) setBiz(found); // show the branded confirm — never silently sign up
+      let navigating = false;
+      try {
+        const last = await prefGet(PREF_LAST_BUSINESS);
+        if (last && /^[a-z0-9-]+$/.test(last)) {
+          // Keep the splash up — the page is navigating away.
+          navigating = true;
+          window.location.href = `/qr/${last}`;
+          return;
+        }
+        const ref = await getInstallReferrer();
+        if (ref) {
+          const found = await lookup(ref);
+          if (found) setBiz(found); // show the branded confirm — never silently sign up
+        }
+      } finally {
+        // No stored business to forward to → reveal the join form.
+        if (!navigating) setBooting(false);
       }
     })();
   }, []);
@@ -130,6 +154,21 @@ export default function JoinPage() {
   const primary = biz?.brand_colors?.primary ?? "#0891b2";
   const secondary = biz?.brand_colors?.secondary ?? "#06b6d4";
   const logo = biz?.app_icon_url || biz?.logo_url || null;
+
+  // CP-80: boot splash — shown while deciding whether to forward a
+  // returning customer, so the join form never flashes first.
+  if (booting) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-600 text-white shadow-lg shadow-cyan-600/25">
+            <Sparkles className="h-7 w-7" />
+          </div>
+          <Loader2 className="h-5 w-5 animate-spin text-cyan-600" />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex flex-col items-center justify-center px-6 py-12">

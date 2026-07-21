@@ -13,12 +13,37 @@
  * unsupported environments (Safari < 16, in-app browsers, etc.).
  */
 
+import { isNative, nativePlatform, registerNativePush } from "@/lib/native";
+
 // CP-63: businessId may be null — the Field App subscribes with a null
 // (global/agency) tag so sendPushToUsers(..., null) can reach admin devices
 // without leaking a customer business's pushes to them.
 export async function ensurePushSubscription(businessId: string | null): Promise<void> {
-  // Feature-check first — bail silently if anything is missing.
   if (typeof window === "undefined") return;
+
+  // CP-80: inside the Capacitor shell "subscribe" means the NATIVE path —
+  // OS permission dialog → FCM/APNs token → /api/notifications/subscribe
+  // with { platform, token, business_slug }. The web ServiceWorker /
+  // PushManager APIs don't exist in the WebView, so without this branch
+  // every bell tap silently no-oped on Android/iOS.
+  if (isNative()) {
+    const labels = window.location.hostname.split(".");
+    const slug = labels.length >= 3 ? labels[0] : null;
+    await registerNativePush(async (token) => {
+      await fetch("/api/notifications/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platform: nativePlatform(),
+          token,
+          business_slug: slug,
+        }),
+      });
+    });
+    return;
+  }
+
+  // Feature-check first — bail silently if anything is missing.
   if (!("serviceWorker" in navigator)) return;
   if (!("PushManager" in window)) return;
   if (!("Notification" in window)) return;

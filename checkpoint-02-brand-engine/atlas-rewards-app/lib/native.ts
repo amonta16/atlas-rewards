@@ -165,6 +165,25 @@ export async function registerNativePush(onToken: (token: string) => void): Prom
   }
 }
 
+/**
+ * CP-80: current OS push-permission state inside the shell.
+ * "prompt" = the system dialog hasn't been shown yet (web's "default").
+ * Returns "unsupported" on the regular web — callers use the browser
+ * Notification API there instead.
+ */
+export async function checkNativePushPermission(): Promise<"granted" | "denied" | "prompt" | "unsupported"> {
+  if (!isNative()) return "unsupported";
+  try {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    const perm = await PushNotifications.checkPermissions();
+    if (perm.receive === "granted") return "granted";
+    if (perm.receive === "denied") return "denied";
+    return "prompt";
+  } catch {
+    return "unsupported";
+  }
+}
+
 /** CP-77: notification tapped (app background/closed) → route to its link. */
 export function onPushTap(cb: (linkPath: string) => void): void {
   if (!isNative()) return;

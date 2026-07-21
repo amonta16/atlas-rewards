@@ -20,6 +20,7 @@ import { Bell, BellOff, BellPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationCenter } from "./notification-center";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
+import { isNative, checkNativePushPermission } from "@/lib/native";
 
 export function NotificationBell({
   primary,
@@ -38,14 +39,22 @@ export function NotificationBell({
   const [pushing, setPushing] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
+    const supabase = createClient();
+    let cancelled = false;
+
+    // CP-80: the Capacitor WebView has no browser Notification API — read
+    // the OS push-permission state through the native bridge instead
+    // ("prompt" maps to the web's "default" = not asked yet).
+    if (isNative()) {
+      checkNativePushPermission().then((p) => {
+        if (cancelled) return;
+        setPermState(p === "prompt" ? "default" : p);
+      });
+    } else if (typeof window !== "undefined" && "Notification" in window) {
       setPermState(Notification.permission);
     } else {
       setPermState("unsupported");
     }
-
-    const supabase = createClient();
-    let cancelled = false;
     const load = async () => {
       // CP-44: scope the unread count to THIS business so a customer who
       // belongs to multiple Atlas businesses doesn't see another business's
@@ -91,6 +100,29 @@ export function NotificationBell({
    */
   async function handleClick() {
     setOpen(true);
+
+    // CP-80: native shell — the bell tap is the user-gesture moment to
+    // fire the OS push dialog, exactly like the web. ensurePushSubscription
+    // routes to the native FCM/APNs path inside the app.
+    if (isNative()) {
+      if (permState === "granted") {
+        // Already allowed — just refresh the token registration silently.
+        ensurePushSubscription(businessId).catch(() => { /* ignore */ });
+        return;
+      }
+      if (permState === "denied") return; // OS won't re-prompt; banner explains
+      setPushing(true);
+      try {
+        await ensurePushSubscription(businessId);
+        const p = await checkNativePushPermission();
+        setPermState(p === "prompt" ? "default" : p);
+      } catch {
+        /* best-effort */
+      } finally {
+        setPushing(false);
+      }
+      return;
+    }
 
     if (typeof window === "undefined" || !("Notification" in window)) return;
 
