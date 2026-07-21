@@ -21,6 +21,7 @@
  */
 import { useEffect, useState } from "react";
 import { Download, Monitor, Smartphone, X, Check } from "lucide-react";
+import { isNative } from "@/lib/native";
 
 type DeferredPrompt = {
   prompt: () => void;
@@ -55,6 +56,9 @@ export function ManagerPwaInstall({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // CP-80: inside the native app we're already "installed" — treating it
+    // as standalone makes the component return null and never render.
+    if (isNative()) { setIsStandalone(true); return; }
     setOs(detectOS());
     setIsStandalone(
       window.matchMedia?.("(display-mode: standalone)").matches ||

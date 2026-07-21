@@ -23,6 +23,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Sparkles, Check } from "lucide-react";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
+import { isNative } from "@/lib/native";
 
 const STORAGE_KEY_PREFIX = "atlas-pwa-onboarded";
 
@@ -46,6 +47,9 @@ export function PwaWelcomeOverlay({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // CP-80: the native app has its own push onboarding (native-shell.tsx)
+    // — this overlay is web-PWA only.
+    if (isNative()) return;
     // Already decided? Don't re-prompt.
     try {
       const flag = window.localStorage.getItem(`${STORAGE_KEY_PREFIX}:${businessId}`);

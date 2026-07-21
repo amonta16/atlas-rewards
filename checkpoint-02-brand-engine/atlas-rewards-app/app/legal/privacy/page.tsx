@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   return (
     <article className="prose prose-zinc max-w-none">
       <h1 className="text-3xl font-extrabold tracking-tight">Privacy Policy</h1>
-      <p className="text-sm text-zinc-500">Last updated: May 31, 2026</p>
+      <p className="text-sm text-zinc-500">Last updated: July 21, 2026</p>
 
       <p className="mt-4 leading-relaxed">
         Atlas Engine ("Atlas," "we," "us") provides a white-label customer
@@ -35,9 +35,17 @@ export default function PrivacyPage() {
         <li><strong>Account info</strong> — your email, name, phone (optional), and date of birth.</li>
         <li><strong>Loyalty activity</strong> — visits, points awarded, redemptions, reviews you've submitted, offers you've claimed.</li>
         <li><strong>Notification preferences</strong> — whether you've opted into push notifications.</li>
-        <li><strong>Device info</strong> — when you install the PWA, we store a push-subscription identifier so we can deliver notifications.</li>
+        <li><strong>Device info</strong> — when you install the app (from the App Store, Google Play, or as a PWA) and opt into notifications, we store a push-subscription identifier so we can deliver them.</li>
         <li><strong>Usage logs</strong> — basic request logs (IP, timestamp, route) kept for 30 days for abuse prevention.</li>
       </ul>
+
+      <p className="mt-3">
+        <strong>Camera.</strong> The mobile app uses your device's camera for
+        one purpose only: scanning a business's QR code to join or check in.
+        Scanning happens entirely on your device — no photos or video are
+        recorded, stored, or sent to our servers. You can decline the camera
+        permission and join with a code instead.
+      </p>
 
       <h2 className="text-xl font-bold mt-8">3. What we do NOT collect</h2>
       <ul>

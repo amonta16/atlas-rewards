@@ -8,27 +8,22 @@ field in the agency builder now has a **Choose from library** button —
 pick a photo, it drops straight in. Building a demo app no longer involves
 an image hunt.
 
-**No API key needed.** The seeder pulls from Openverse (openverse.org), the
-WordPress-run index of CC-licensed images — anonymous access, no signup.
-Licenses are filtered to commercial-use-allowed, and each image's creator +
-license is stored and shown on hover in the picker.
-
 ## What shipped
 
 - **`image-library` storage bucket + `image_library` catalog table**
   (`cp64_image_library.sql`) — public read (customer apps render the URLs
   directly), agency-admin write, staff-only browsing, soft-hide flag.
 - **Curated shot list** (`scripts/image-library-manifest.mjs`) — 8 industries
-  × 3 categories × ~12 images each (~290 photos), hand-tuned searches per
-  slot (e.g. Medspa hero = spa receptions + treatment rooms; Medspa rewards =
-  facials, Botox, massages, laser; offers = product shots + results
-  close-ups).
-- **Seeder** (`scripts/seed-image-library.mjs`) — keyless: searches Openverse,
-  downloads, uploads to the bucket, catalogs every photo with title + search
-  tags + credit. Idempotent and resumable: re-runs skip full categories and
-  only top up what's missing. Also uploads anything you drop in
-  `scripts/library-local/<industry>/<hero|reward|offer>/` (no internet needed
-  for those).
+  × 3 categories × ~12 images each (~290 photos), hand-tuned Pexels searches
+  per slot (e.g. Medspa hero = spa receptions + treatment rooms; Medspa
+  rewards = facials, Botox, massages, laser; offers = product shots + results
+  close-ups). Pexels photos are free for commercial use, no attribution
+  required.
+- **Seeder** (`scripts/seed-image-library.mjs`) — downloads the shot list,
+  uploads to the bucket, catalogs every photo with title + search tags +
+  credit. Idempotent + resumable: re-runs skip full categories and only top
+  up what's missing. Also uploads anything you drop in
+  `scripts/library-local/<industry>/<hero|reward|offer>/`.
 - **Library picker** (`components/agency/image-library-picker.tsx`) — clean
   poppy modal: industry chips, Hero/Rewards/Offers tabs, search, hover →
   **Use** (or **hide** a dud from the library forever).
@@ -38,30 +33,26 @@ license is stored and shown on hover in the picker.
   to the business's industry (medspa → Medspa, salon → Beauty Salon,
   coffee → Coffee Shop, yogurt → Ice Cream, …).
 
-## Apply it (once)
+## Apply it (once, ~10 minutes)
 
 1. **SQL** — run `cp64_image_library.sql` in the Supabase SQL editor.
-2. **Seed** — from the app folder (uses the Supabase keys already in
-   `.env.local`; nothing new to configure):
+2. **Pexels key (free)** — sign up at <https://www.pexels.com/api/> → copy
+   "Your API Key" → add to `checkpoint-02-brand-engine/atlas-rewards-app/.env.local`:
+
+   ```
+   PEXELS_API_KEY=your-key-here
+   ```
+
+3. **Seed** — from the app folder:
 
    ```bash
    cd "checkpoint-02-brand-engine/atlas-rewards-app"
    node scripts/seed-image-library.mjs --dry-run   # preview the plan
-   node scripts/seed-image-library.mjs             # ~290 photos, 10-15 min
+   node scripts/seed-image-library.mjs             # ~290 photos, a few minutes
    ```
 
-3. Open the builder → any business → Brand editor hero (or a reward/offer
+4. Open the builder → any business → Brand editor hero (or a reward/offer
    image) → **Choose from library**. Done.
-
-> **Pacing note:** Openverse allows 200 anonymous searches/day; a full seed
-> uses ~130, and the script paces itself under the per-minute limit (that's
-> why it takes ~10-15 min). If it ever stops early, run it again later — it
-> resumes exactly where it left off and never duplicates.
-
-> **Quality note:** CC stock is more hit-or-miss than commercial stock. The
-> picker's **hide** button (hover any photo → eye-off icon) exists exactly
-> for this — hide the duds once and they're gone for good. You can also drop
-> hand-picked images into `scripts/library-local/…` any time.
 
 ## Growing the library
 
@@ -104,7 +95,7 @@ Changed:
 ```bash
 cd "C:/Users/andre/OneDrive/Documents/Claude/Projects/Atlas Engine APP"
 git add checkpoint-64-image-library checkpoint-63-admin-field-app "checkpoint-02-brand-engine/atlas-rewards-app"
-git commit -m "CP-64: per-industry demo image library — bucket + catalog + keyless Openverse seeder + Choose-from-library picker"
+git commit -m "CP-64: per-industry demo image library — bucket + catalog + Pexels seeder + Choose-from-library picker"
 git push
 ```
 

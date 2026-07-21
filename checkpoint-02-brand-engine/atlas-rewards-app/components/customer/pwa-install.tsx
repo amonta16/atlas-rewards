@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Download, X } from "lucide-react";
+import { isNative } from "@/lib/native";
 
 /**
  * Registers the service worker and shows a brand-colored "Install app" prompt
@@ -15,6 +16,10 @@ export function PWAInstall({ primary, businessName }: { primary: string; busines
   const [iosHint, setIosHint] = useState(false);
 
   useEffect(() => {
+    // CP-80: inside the installed Android/iOS app there is nothing to
+    // "add to home screen" — never show the PWA install prompt there.
+    if (isNative()) return;
+
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
