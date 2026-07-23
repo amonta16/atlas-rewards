@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   isNative, getAppBuild, prefSet, onAppUrlOpen, PREF_LAST_BUSINESS,
-  registerNativePush, onPushTap, nativePlatform,
+  registerNativePush, onPushTap, nativePlatform, checkNativePushPermission,
 } from "@/lib/native";
 
 const RESERVED = new Set([
@@ -36,15 +36,20 @@ export function NativeShell() {
     if (businessSlug) {
       void prefSet(PREF_LAST_BUSINESS, businessSlug);
 
-      // CP-77: native push. Only inside a business app AND signed in —
-      // so the OS permission dialog appears with real context (the
-      // customer just joined / opened their rewards), never on /join.
-      // Signup's notification-consent (CP-36b) remains the in-app switch.
+      // CP-77 → CP-81.1: native push token refresh. This shell-level path
+      // now runs ONLY when permission is already granted — it silently
+      // re-registers the token on every open so pushes keep working.
+      // The permission ASK itself belongs to the bell-nudge onboarding
+      // moment (EnablePushNudge → bell tap → OS dialog), so the dialog
+      // appears in the right order: spotlight animation FIRST, then the
+      // system prompt, then celebrate/offer popups.
       (async () => {
         try {
           const supabase = createClient();
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
+          const perm = await checkNativePushPermission();
+          if (perm !== "granted") return; // ask happens via the bell nudge
           await registerNativePush(async (token) => {
             await fetch("/api/notifications/subscribe", {
               method: "POST",

@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { EditableProfile } from "@/components/customer/editable-profile";
 import { DeleteAccountSection } from "@/components/customer/delete-account-section";
 import { MyShops } from "@/components/customer/my-shops";
+import { NotificationPreferences } from "@/components/customer/notification-preferences";
+import { PushDiagnostics } from "@/components/customer/push-diagnostics";
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -35,12 +37,25 @@ export default async function ProfileTab({ params }: { params: { business: strin
         }}
       />
 
-      {/* CP-81: every shop this customer belongs to — switch between
-          them or add a new one, all under the same account. */}
+      {/* CP-81 → CP-81.1: every shop this customer belongs to — switch
+          between them or add a new one, all under the same account.
+          Sits ABOVE Notifications (Andrew's requested order). */}
       <MyShops
         currentBusinessId={business.id}
         primary={business.brand_colors?.primary ?? "#0891b2"}
       />
+
+      {/* CP-36b (moved here in CP-81.1 from inside EditableProfile):
+          per-customer notification preferences. Self-hides if the cp36
+          SQL hasn't been applied yet. */}
+      <NotificationPreferences
+        businessId={business.id}
+        primary={business.brand_colors?.primary ?? "#0891b2"}
+      />
+
+      {/* CP-81.1: native-only notification diagnostics + onboarding
+          replay — pre-launch testing aid, invisible on the web. */}
+      <PushDiagnostics businessId={business.id} />
 
       {/* CP-40: customer self-delete account section. Lives at the
           bottom so it's discoverable but not in the way of regular

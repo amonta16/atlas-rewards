@@ -38,4 +38,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- CP-81.1: REQUIRED on Android 13+ for the push-permission dialog to
+         appear at all. Without this line, requestPermissions() is silently
+         auto-denied: no OS dialog, checkPermissions reports "denied", the
+         bell nudge skips itself, and no notification can ever be shown. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
