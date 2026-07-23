@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { EditableProfile } from "@/components/customer/editable-profile";
 import { DeleteAccountSection } from "@/components/customer/delete-account-section";
+import { MyShops } from "@/components/customer/my-shops";
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,13 @@ export default async function ProfileTab({ params }: { params: { business: strin
           birthday: profile?.birthday ?? null,
           joined,
         }}
+      />
+
+      {/* CP-81: every shop this customer belongs to — switch between
+          them or add a new one, all under the same account. */}
+      <MyShops
+        currentBusinessId={business.id}
+        primary={business.brand_colors?.primary ?? "#0891b2"}
       />
 
       {/* CP-40: customer self-delete account section. Lives at the

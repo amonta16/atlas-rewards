@@ -95,12 +95,47 @@ export function AwardPointsPanel({
       setErr("Already checked in this period.");
       return;
     }
+
+    // CP-81: a check-in IS a visit. If the business configured a per-visit
+    // "Check-in reward" (point_rules.visit), award it here alongside any
+    // streak milestone points — so staff only ever need this one button.
+    // Previously the per-visit reward ONLY paid out via the separate
+    // "Visit / Check-in" quick-award tile, which read as "check-in gives
+    // no points" the first time someone tested it. The streak cooldown
+    // above (already_checked_in) is the double-award guard: this only
+    // fires on a genuinely new check-in for the period.
+    let visitPoints = 0;
+    const perVisit = Number(business.point_rules?.visit ?? 0);
+    if (perVisit > 0) {
+      const oldBalance = member.points_balance;
+      const { data: qData, error: qErr } = await supabase.rpc("quick_award", {
+        p_membership_id: member.membership_id,
+        p_rule_key: "visit",
+        p_notes: "Check-in",
+      });
+      if (!qErr) {
+        visitPoints = qData?.[0]?.points_awarded ?? perVisit;
+        // Same award-event fanout as the quick-award tile (CP-37.20).
+        fetch("/api/notifications/award-event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            business_id: business.id,
+            membership_id: member.membership_id,
+            old_balance: oldBalance,
+            new_balance: oldBalance + visitPoints,
+          }),
+        }).catch(() => { /* silent */ });
+      }
+    }
+
     setCheckInResult({
       streak: row.streak_after,
       milestone: row.is_milestone ? row.milestone_label : null,
       mystery: row.milestone_mystery_unlocked,
     });
-    if (row.awarded_points > 0) setSuccess(row.awarded_points);
+    const totalAwarded = row.awarded_points + visitPoints;
+    if (totalAwarded > 0) setSuccess(totalAwarded);
   }
 
   const dollars = parseFloat(amount || "0") || 0;
