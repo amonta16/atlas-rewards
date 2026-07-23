@@ -172,15 +172,31 @@ export async function registerNativePush(onToken: (token: string) => void): Prom
  * Notification API there instead.
  */
 export async function checkNativePushPermission(): Promise<"granted" | "denied" | "prompt" | "unsupported"> {
-  if (!isNative()) return "unsupported";
+  return (await debugNativePushPermission()).state;
+}
+
+/**
+ * CP-81.2: same check but keeps the underlying error text, so the
+ * Profile diagnostics card can show WHY a build reads as unsupported
+ * (e.g. Capacitor's "missing POST_NOTIFICATIONS in AndroidManifest"
+ * error from an APK built before the CP-81.1 manifest fix).
+ */
+export async function debugNativePushPermission(): Promise<{
+  state: "granted" | "denied" | "prompt" | "unsupported";
+  error: string | null;
+}> {
+  if (!isNative()) return { state: "unsupported", error: "not native" };
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
     const perm = await PushNotifications.checkPermissions();
-    if (perm.receive === "granted") return "granted";
-    if (perm.receive === "denied") return "denied";
-    return "prompt";
-  } catch {
-    return "unsupported";
+    if (perm.receive === "granted") return { state: "granted", error: null };
+    if (perm.receive === "denied") return { state: "denied", error: null };
+    return { state: "prompt", error: null };
+  } catch (e) {
+    return {
+      state: "unsupported",
+      error: e instanceof Error ? e.message : String(e),
+    };
   }
 }
 

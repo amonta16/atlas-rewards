@@ -21,18 +21,20 @@
  */
 import { useEffect, useState } from "react";
 import { Stethoscope, RefreshCw, BellRing } from "lucide-react";
-import { isNative, nativePlatform, checkNativePushPermission } from "@/lib/native";
+import { isNative, nativePlatform, debugNativePushPermission } from "@/lib/native";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
 
 export function PushDiagnostics({ businessId }: { businessId: string }) {
   const [native, setNative] = useState(false);
   const [perm, setPerm] = useState<string>("…");
+  const [permErr, setPermErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   async function refresh() {
-    const p = await checkNativePushPermission();
-    setPerm(p);
+    const { state, error } = await debugNativePushPermission();
+    setPerm(state);
+    setPermErr(error);
   }
 
   useEffect(() => {
@@ -93,6 +95,11 @@ export function PushDiagnostics({ businessId }: { businessId: string }) {
           <div>
             OS permission: <span className={`font-bold ${permColor}`}>{permLabel}</span>
           </div>
+          {permErr && permErr !== "not native" && (
+            <p className="text-[11px] text-rose-600 leading-snug break-words">
+              {permErr}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2 pt-1">
             <button
               type="button"
