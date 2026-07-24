@@ -48,9 +48,13 @@ async function destinationAfterAuth(
     .from("business_users")
     .select("role")
     .eq("user_id", userId);
+  // CP-82: agency_va counts as privileged too — a VA who signs in from a
+  // business login URL should land on the front desk like an admin, not be
+  // dumped into the customer app.
   const privileged = (roles ?? []).some(
     (r: { role: string }) =>
-      r.role === "agency_admin" || r.role === "business_manager" || r.role === "business_staff",
+      r.role === "agency_admin" || r.role === "agency_va" ||
+      r.role === "business_manager" || r.role === "business_staff",
   );
   return `${appBase}${privileged ? "/manage" : "/app"}`;
 }

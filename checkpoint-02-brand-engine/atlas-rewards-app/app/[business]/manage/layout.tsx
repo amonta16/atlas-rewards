@@ -35,16 +35,23 @@ export default async function ManagerLayout({
   if (!biz) notFound(); // CP-36
   const business = biz as Business;
 
-  // Auth gate: must be agency_admin OR business_manager for THIS business
+  // Auth gate: must be agency staff (admin OR VA) OR a manager/front-desk
+  // user for THIS business.
   const { data: roles } = await supabase
     .from("business_users")
     .select("role, business_id")
     .eq("user_id", user.id);
 
-  const isAdmin = roles?.some(r => r.role === "agency_admin");
+  // CP-82: agency_va joins agency_admin here. A VA builds and maintains the
+  // apps, so she needs to open any business's front desk to test scanning,
+  // awarding, offers and memberships. The data-layer twin of this gate is
+  // is_business_manager() / staffs_business(), widened for VAs in
+  // checkpoint-82-va-frontdesk-and-library/cp82_va_permissions.sql — the UI
+  // check alone would just trade this card for RLS errors on the desk.
+  const isAgencyStaff = roles?.some(r => r.role === "agency_admin" || r.role === "agency_va");
   const isManager = roles?.some(r => r.business_id === business.id && (r.role === "business_manager" || r.role === "business_staff"));
 
-  if (!isAdmin && !isManager) {
+  if (!isAgencyStaff && !isManager) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6 bg-zinc-50">
         <Card className="max-w-md">
