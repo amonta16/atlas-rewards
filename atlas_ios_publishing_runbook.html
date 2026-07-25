@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas Rewards — iOS Publishing Runbook</title>
+<style>
+  :root {
+    --teal: #0e7c86;
+    --teal-dark: #0a5d65;
+    --teal-light: #e6f4f5;
+    --ink: #1a2b32;
+    --muted: #5c6f76;
+    --line: #e3eaec;
+    --bg: #f7fafb;
+    --card: #ffffff;
+    --amber: #b45309;
+    --amber-bg: #fef3e2;
+    --green: #15803d;
+    --green-bg: #e8f5ec;
+    --red: #b91c1c;
+    --red-bg: #fdecec;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--ink); line-height: 1.55;
+    padding: 32px 16px 80px;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  header.hero {
+    background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dark) 100%);
+    color: #fff; border-radius: 16px; padding: 28px 32px; margin-bottom: 20px;
+  }
+  header.hero h1 { font-size: 25px; font-weight: 700; margin-bottom: 6px; }
+  header.hero p { opacity: .92; font-size: 14.5px; max-width: 700px; }
+  .progress-bar-outer { background: rgba(255,255,255,.25); border-radius: 99px; height: 10px; margin-top: 16px; overflow: hidden; }
+  .progress-bar-inner { background: #fff; height: 100%; width: 0%; border-radius: 99px; transition: width .3s ease; }
+  .progress-label { font-size: 12.5px; margin-top: 6px; opacity: .9; }
+
+  .strategy {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 24px; margin-bottom: 24px; font-size: 14.5px;
+  }
+  .strategy strong { color: var(--teal-dark); }
+
+  section.phase {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    margin-bottom: 20px; overflow: hidden;
+  }
+  .phase-head {
+    display: flex; align-items: center; gap: 14px; padding: 18px 22px;
+    border-bottom: 1px solid var(--line); background: var(--teal-light);
+  }
+  .phase-num {
+    background: var(--teal); color: #fff; font-weight: 700; font-size: 14px;
+    width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .phase-head h2 { font-size: 17px; font-weight: 700; }
+  .phase-head .when { font-size: 12.5px; color: var(--teal-dark); font-weight: 600; margin-top: 1px; }
+  .steps { padding: 8px 0; }
+  .step { display: flex; gap: 14px; padding: 14px 22px; border-bottom: 1px solid var(--line); }
+  .step:last-child { border-bottom: none; }
+  .step input[type=checkbox] {
+    width: 20px; height: 20px; accent-color: var(--teal); margin-top: 2px; flex-shrink: 0; cursor: pointer;
+  }
+  .step .body { flex: 1; min-width: 0; }
+  .step .title { font-weight: 600; font-size: 15px; cursor: pointer; }
+  .step .detail { font-size: 13.5px; color: var(--muted); margin-top: 4px; }
+  .step .detail code {
+    background: #eef3f4; border: 1px solid var(--line); border-radius: 5px;
+    padding: 1px 6px; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--teal-dark);
+  }
+  pre {
+    background: #10262b; color: #d7ecef; border-radius: 9px; padding: 12px 14px; margin-top: 9px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.5;
+    overflow-x: auto; white-space: pre;
+  }
+  pre .c { color: #7fa8ae; }
+  .step.done .title { text-decoration: line-through; color: var(--muted); }
+  .step.done { background: #fbfdfd; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-radius: 5px; padding: 2px 7px; margin-left: 6px; vertical-align: 2px; }
+  .tag.mac { background: #ede9fe; color: #6d28d9; }
+  .tag.win { background: #dbeafe; color: #1d4ed8; }
+  .tag.web { background: #d1fae5; color: #047857; }
+  .tag.wait { background: var(--amber-bg); color: var(--amber); }
+  .tag.blocker { background: var(--red-bg); color: var(--red); }
+
+  .callout { border-radius: 10px; padding: 12px 16px; font-size: 13.5px; margin: 10px 22px 14px; }
+  .callout.warn { background: var(--amber-bg); border: 1px solid #f5d9ae; color: #7c4a12; }
+  .callout.tip { background: var(--green-bg); border: 1px solid #bfe3cb; color: #166534; }
+  .callout.danger { background: var(--red-bg); border: 1px solid #f4c4c4; color: #8a1c1c; }
+  .callout strong { font-weight: 700; }
+
+  table.fields { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  table.fields th, table.fields td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  table.fields th { background: #f2f7f8; font-weight: 700; font-size: 12.5px; width: 34%; }
+  .copybox {
+    background: #f8fbfb; border: 1px dashed var(--teal); border-radius: 9px;
+    padding: 12px 14px; margin-top: 9px; font-size: 13px; color: var(--ink); white-space: pre-wrap;
+  }
+  footer { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Atlas Rewards — iOS Publishing Runbook</h1>
+    <p>Bundle ID <b>com.atlasengine.rewards</b> · Capacitor&nbsp;7 remote-URL shell · Web app at <b>www.atlas-engine.app</b> · Written July&nbsp;25,&nbsp;2026 against current Apple requirements</p>
+    <div class="progress-bar-outer"><div class="progress-bar-inner" id="bar"></div></div>
+    <div class="progress-label" id="barLabel">0 of 0 steps checked</div>
+  </header>
+
+  <div class="strategy">
+    <strong>Where you are:</strong> Apple account paid but <em>pending identity verification</em> (typically 24–48h, occasionally longer). There is no <code>ios/</code> folder in <code>mobile-shell/</code> yet — the iOS platform has never been generated. So the plan is: two long clocks run in parallel (Apple's approval + Xcode's ~10&nbsp;GB download), and you do all the free, no-account-needed work underneath them.
+    <br><br>
+    <strong>Answer to "should I hop to the Mac?":</strong> Yes — but spend 10 minutes on Windows first (Phase&nbsp;0), because the Mac is going to <em>clone from GitHub</em>, and anything you haven't pushed doesn't exist as far as the Mac is concerned.
+    <br><br>
+    <strong>Machine tags:</strong> <span class="tag mac">Mac</span> = on the Mac &nbsp; <span class="tag win">Windows</span> = on the Windows laptop &nbsp; <span class="tag web">Browser</span> = any computer &nbsp; <span class="tag wait">Waiting</span> = passive &nbsp; <span class="tag blocker">Blocker</span> = stops everything downstream
+  </div>
+
+  <!-- PHASE 0 -->
+  <section class="phase">
+    <div class="phase-head">
+      <div class="phase-num">0</div>
+      <div><h2>Windows, before you walk away</h2><div class="when">10 minutes — do these, then move to the Mac</div></div>
+    </div>
+    <div class="steps">
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Commit and push everything <span class="tag win">Windows</span> <span class="tag blocker">Blocker</span></div>
+        <div class="detail">Your working tree has ~35 modified files that are not on <code>origin/main</code> — including the CP-80 native-app fixes and the updated privacy policy. Two reasons this matters: the Mac clones from GitHub, and the iOS shell loads the <em>live</em> site, so unpushed web work is invisible to the app. Run this in the project root:</div>
+        <pre>git add -A
+git commit -m "CP-83: pre-iOS sync — native PWA gating, privacy policy, launch docs"
+git push origin main</pre>
+        <div class="detail">Then confirm Vercel finished deploying before you test anything on iPhone.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Drop a 1024×1024 app icon into the repo <span class="tag win">Windows</span></div>
+        <div class="detail"><code>mobile-shell/resources/</code> is empty except a README, and your Android launcher icons top out at 192px — too small for iOS. Save your Atlas mark as a <b>1024×1024 PNG, square, no transparency, no rounded corners</b> (Apple rounds it for you) at <code>mobile-shell/resources/icon.png</code>. Optionally add <code>splash.png</code> (2732×2732). Push it with the commit above. If you don't have a clean 1024 version, tell me and I'll generate one from your logo.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Check your Apple enrollment status <span class="tag web">Browser</span></div>
+        <div class="detail">Sign in at <code>developer.apple.com/account</code>. "Your enrollment is being processed" = still pending. If it sits more than ~5 business days, contact Apple Developer Support — pending enrollments do get stuck and only a support ticket unsticks them. Everything in Phase 1 works fine while you wait.</div>
+      </div></div>
+    </div>
+    <div class="callout warn"><strong>Don't skip the push.</strong> The single most common way this goes sideways is cloning on the Mac, building, and testing against a production site that's missing the fixes you made last week — then chasing "bugs" that were already fixed on Windows.</div>
+  </section>
+
+  <!-- PHASE 1 -->
+  <section class="phase">
+    <div class="phase-head">
+      <div class="phase-num">1</div>
+      <div><h2>Mac setup — free, no Apple account needed</h2><div class="when">Start now, runs in parallel with Apple's approval</div></div>
+    </div>
+    <div class="steps">
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Check your macOS version FIRST <span class="tag mac">Mac</span> <span class="tag blocker">Blocker</span></div>
+        <div class="detail">Apple menu →  About This Mac. Since <b>April 28, 2026</b>, every build uploaded to App Store Connect must be compiled with <b>Xcode 26</b> and the <b>iOS 26 SDK</b>. Xcode 26.4 requires <b>macOS Tahoe 26.2 or later</b>. If your Mac is on an older macOS, update it (System Settings → General → Software Update) before anything else. If your Mac is too old to run Tahoe, stop and tell me — we'd switch to a cloud-Mac or CI build path instead of burning a day.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Start the Xcode download immediately <span class="tag mac">Mac</span> <span class="tag wait">Waiting</span></div>
+        <div class="detail">Mac App Store → search Xcode → Get. It's 10+&nbsp;GB and can take hours. <b>Kick it off, then do the next three steps while it downloads.</b> When it finishes: open it once, accept the license, let it install additional components.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Install Node and CocoaPods <span class="tag mac">Mac</span></div>
+        <div class="detail">Node LTS from <code>nodejs.org</code>. Then CocoaPods (Capacitor's iOS dependency manager) — Homebrew is the least painful route on a modern Mac:</div>
+        <pre><span class="c"># if you don't have Homebrew:</span>
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+brew install node cocoapods
+node -v && pod --version</pre>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Clone the repo <span class="tag mac">Mac</span></div>
+        <div class="detail">Only after Phase 0's push has landed. GitHub will ask for credentials — use a personal access token, not your password.</div>
+        <pre>cd ~/Developer 2&gt;/dev/null || mkdir -p ~/Developer &amp;&amp; cd ~/Developer
+git clone https://github.com/amonta16/atlas-rewards.git
+cd atlas-rewards/mobile-shell</pre>
+        <div class="detail"><b>Keep this clone out of OneDrive.</b> Xcode builds and OneDrive sync fight each other badly.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Generate the iOS project <span class="tag mac">Mac</span></div>
+        <div class="detail"><code>@capacitor/ios</code> isn't in <code>package.json</code> yet (Android-only so far), so install it explicitly before adding the platform:</div>
+        <pre>npm install
+npm install @capacitor/ios@^7.0.0
+npx cap add ios
+npx cap sync ios</pre>
+        <div class="detail">This creates <code>mobile-shell/ios/</code>. Capacitor 7 is fully compatible with Xcode 26 — no migration needed. Commit the new <code>ios/</code> folder when it builds.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Add the two required Info.plist keys <span class="tag mac">Mac</span> <span class="tag blocker">Blocker</span></div>
+        <div class="detail">Open <code>ios/App/App/Info.plist</code> and add inside the top-level <code>&lt;dict&gt;</code>. The camera key is mandatory — the QR scanner crashes without it and Apple rejects builds that use the camera with no usage string. The encryption key saves you an export-compliance popup on every single upload.</div>
+        <pre>&lt;key&gt;NSCameraUsageDescription&lt;/key&gt;
+&lt;string&gt;Scan your business's QR code to join and check in.&lt;/string&gt;
+&lt;key&gt;ITSAppUsesNonExemptEncryption&lt;/key&gt;
+&lt;false/&gt;</pre>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Generate the app icon set <span class="tag mac">Mac</span></div>
+        <div class="detail">With <code>resources/icon.png</code> in place from Phase 0:</div>
+        <pre>npx @capacitor/assets generate --iconBackgroundColor '#ffffff' \
+  --iconBackgroundColorDark '#0e7c86' --ios</pre>
+        <div class="detail">Otherwise you ship with the default Capacitor logo, which is an instant "this is a template app" signal to a reviewer.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Run it in the Simulator <span class="tag mac">Mac</span></div>
+        <div class="detail"><code>npx cap open ios</code> → in Xcode pick an iPhone 17 simulator from the device dropdown → press ▶. First build is slow. Expected: Atlas Rewards boots to the join screen.</div>
+        <pre><span class="c"># if Terminal complains "xcodebuild requires Xcode":</span>
+sudo xcode-select -s /Applications/Xcode.app
+
+<span class="c"># if pods fail:</span>
+cd ios/App &amp;&amp; pod install --repo-update</pre>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Run the verify checklist in the Simulator <span class="tag mac">Mac</span></div>
+        <div class="detail">Join by code → branded business app loads → <b>quit the app entirely and reopen → still logged in, still in that business</b>. That last one is the iOS-specific risk: WKWebView is lazier than Android about persisting cookies. If the session drops, flag it — the fix is a small AppDelegate change, and it's much better to find it now than after a rejection. (Camera and push can't be tested in the Simulator — those need the real phone in Phase 2.)</div>
+      </div></div>
+    </div>
+    <div class="callout tip"><strong>Everything above is free.</strong> None of it needs the paid account to be approved. If Apple approves you mid-way through, great — just continue into Phase 2.</div>
+  </section>
+
+  <!-- PHASE 2 -->
+  <section class="phase">
+    <div class="phase-head">
+      <div class="phase-num">2</div>
+      <div><h2>Signing, push, and the real iPhone</h2><div class="when">The moment Apple approves your enrollment</div></div>
+    </div>
+    <div class="steps">
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Sign in to Xcode and turn on automatic signing <span class="tag mac">Mac</span></div>
+        <div class="detail">Xcode → Settings → Accounts → + → sign in with the <b>same Apple ID that owns the paid membership</b>. Then Project navigator → App target → <b>Signing &amp; Capabilities</b> → check "Automatically manage signing" → Team = your name (Personal Team won't work for the App Store; pick the paid one). Xcode creates the certificates and provisioning profiles for you — you don't need to touch the certificates portal manually.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Add the push capabilities <span class="tag mac">Mac</span></div>
+        <div class="detail">Signing &amp; Capabilities → <code>+ Capability</code> → add <b>Push Notifications</b>, then add <b>Background Modes</b> and tick <b>Remote notifications</b>.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Create the APNs Auth Key <span class="tag web">Browser</span></div>
+        <div class="detail"><code>developer.apple.com/account</code> → Keys → + → name it "Atlas APNs" → tick <b>Apple Push Notifications service (APNs)</b> → Continue → Register → <b>Download the .p8 file</b>. You can only download it once. Note the <b>Key ID</b> and your <b>Team ID</b> (top-right of the developer portal).</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Wire Firebase for iOS <span class="tag web">Browser</span> <span class="tag mac">Mac</span></div>
+        <div class="detail">Firebase Console → your Atlas project → Project settings → Add app → iOS → bundle ID <code>com.atlasengine.rewards</code> → download <code>GoogleService-Info.plist</code> and place it in <code>ios/App/App/</code> (drag it into Xcode's App folder so it's added to the target, not just the filesystem). Then Project settings → Cloud Messaging → iOS app configuration → upload the <b>.p8</b> with its Key ID and your Team ID. Finally <code>npx cap sync ios</code>.</div>
+      </div></div>
+      <div class="callout danger" style="margin-left:22px;margin-right:22px;"><strong>Known open item from CP-80:</strong> the Android equivalent, <code>mobile-shell/android/app/google-services.json</code>, is still missing — Android push cannot work until it's downloaded and dropped in. Same Firebase project, "Add app → Android". Grab both while you're in there.</div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Test on your actual iPhone <span class="tag mac">Mac</span> <span class="tag blocker">Blocker</span></div>
+        <div class="detail">Plug in, trust the computer, pick it as the run target, press ▶ (you may need to approve the developer profile on the phone: Settings → General → VPN &amp; Device Management). Now verify the things the Simulator can't:</div>
+        <div class="detail">→ QR scanner opens the camera and shows the permission prompt with your usage string<br>→ scanning a business QR joins correctly<br>→ push permission prompt appears and a test notification actually arrives<br>→ quit &amp; reopen → still logged in, still in the right business<br>→ external links (Google Maps, review links) open in Safari, not trapped in the webview</div>
+      </div></div>
+    </div>
+    <div class="callout warn"><strong>Do not move to Phase 3 until push works on the real phone.</strong> Once you upload a build with broken push you'll be doing 30-minute archive/upload round trips to debug it.</div>
+  </section>
+
+  <!-- PHASE 3 -->
+  <section class="phase">
+    <div class="phase-head">
+      <div class="phase-num">3</div>
+      <div><h2>App Store Connect — the paperwork</h2><div class="when">Can be done in parallel with Phase 2</div></div>
+    </div>
+    <div class="steps">
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Create the app record <span class="tag web">Browser</span></div>
+        <div class="detail"><code>appstoreconnect.apple.com</code> → Apps → + → New App.</div>
+        <table class="fields">
+          <tr><th>Platform</th><td>iOS</td></tr>
+          <tr><th>Name</th><td>Atlas Rewards <span style="color:var(--muted)">(must be globally unique — if taken, try "Atlas Rewards — Loyalty")</span></td></tr>
+          <tr><th>Primary language</th><td>English (U.S.)</td></tr>
+          <tr><th>Bundle ID</th><td>com.atlasengine.rewards</td></tr>
+          <tr><th>SKU</th><td>ATLAS-REWARDS-001 <span style="color:var(--muted)">(internal only, never shown)</span></td></tr>
+          <tr><th>User Access</th><td>Full Access</td></tr>
+          <tr><th>Category</th><td>Primary: Lifestyle · Secondary: Shopping</td></tr>
+        </table>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Set availability to United States only <span class="tag web">Browser</span></div>
+        <div class="detail">Distribution → Pricing and Availability → Free → deselect all countries except the US. <b>Why:</b> selling in the EU triggers the Digital Services Act "trader" requirement — as an individual you'd have to publish your name, phone number, and home address publicly on your store listing. US-only sidesteps that entirely, and every one of your businesses is local anyway. You can expand later.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Fill the App Privacy questionnaire <span class="tag web">Browser</span></div>
+        <div class="detail">This mirrors Google's Data Safety form. Based on your live privacy policy, the honest answers are:</div>
+        <table class="fields">
+          <tr><th>Contact Info → Email, Name, Phone</th><td>Collected · linked to identity · <b>App Functionality</b> + Account Management. Not used for tracking.</td></tr>
+          <tr><th>Other Data → Date of Birth</th><td>Collected · linked to identity · App Functionality (birthday rewards).</td></tr>
+          <tr><th>Identifiers → Device ID</th><td>Collected · linked to identity · App Functionality (push token). <b>Not</b> for tracking.</td></tr>
+          <tr><th>Usage Data → Product Interaction</th><td>Collected · linked to identity · Analytics + App Functionality (visits, points, redemptions).</td></tr>
+          <tr><th>Camera / Photos</th><td><b>Not collected.</b> QR decoding happens on-device; nothing is stored or transmitted. Say so plainly.</td></tr>
+          <tr><th>Tracking across apps?</th><td><b>No.</b> No ad SDKs, no third-party trackers.</td></tr>
+          <tr><th>Privacy Policy URL</th><td>https://www.atlas-engine.app/legal/privacy</td></tr>
+        </table>
+        <div class="detail">Also confirm the in-app <b>account deletion</b> path is reachable (CP-75) — Apple requires apps with account creation to offer in-app deletion, and reviewers do check.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Age rating questionnaire <span class="tag web">Browser</span></div>
+        <div class="detail">Answer "None" across the board — no violence, gambling, mature themes. The prize wheel is a loyalty mechanic with no wagering and no real-money stakes, so it is <b>not</b> gambling; if asked about "contests," describe it as a rewards giveaway. <b>Do not opt into the Kids Category</b> — that pulls in a much stricter rule set you don't want.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Write the listing copy <span class="tag web">Browser</span></div>
+        <div class="detail">Subtitle (30 char max), promotional text, description, keywords (100 chars, comma-separated, no spaces), support URL. Starting draft:</div>
+        <div class="copybox"><b>Subtitle:</b> Rewards at your local spots
+
+<b>Keywords:</b> loyalty,rewards,points,punch card,checkin,qr,local,business,spa,salon,perks
+
+<b>Description:</b>
+Atlas Rewards is your card for the local businesses you already love. Scan the QR code at the front desk, earn points on every visit, and cash them in for real rewards.
+
+• Scan to check in — the camera does the work, no punch cards to lose
+• Watch your points climb and see exactly how close you are to your next reward
+• Keep a visit streak going and unlock milestone gifts along the way
+• Spin the prize wheel after you check in
+• Get a heads-up when a limited-time offer drops at one of your spots
+• Every business looks like itself — its own colors, its own rewards, its own perks
+
+Join a business by scanning its QR code or entering its join code. One account works across every Atlas business you visit.</div>
+        <div class="detail">Support URL: <code>https://www.atlas-engine.app</code> (make sure a contact method is visible on it). Marketing URL is optional.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Capture screenshots <span class="tag mac">Mac</span></div>
+        <div class="detail">Required size is the <b>6.9" iPhone</b> (1290×2796 portrait) — Apple scales that down for smaller devices, so one set is enough. Run an iPhone 17 Pro Max simulator, navigate to each screen, ⌘S saves a screenshot to the desktop. Grab 5: <b>1)</b> home with points card + rewards, <b>2)</b> the rewards store, <b>3)</b> QR scan / check-in, <b>4)</b> streak + prize wheel, <b>5)</b> a limited offer. Use a demo business with real-looking data — empty states look broken.</div>
+      </div></div>
+    </div>
+    <div class="callout tip"><strong>Tip:</strong> the whole of Phase 3 is browser work. If Apple's approval is dragging, this is what to do with the wait.</div>
+  </section>
+
+  <!-- PHASE 4 -->
+  <section class="phase">
+    <div class="phase-head">
+      <div class="phase-num">4</div>
+      <div><h2>Upload, TestFlight, submit</h2><div class="when">Phases 2 and 3 both done</div></div>
+    </div>
+    <div class="steps">
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Set version and build number <span class="tag mac">Mac</span></div>
+        <div class="detail">Xcode → App target → General → Version <code>1.0.0</code>, Build <code>1</code>. <b>Every upload needs a higher build number</b>, even a re-upload of the same version. Bump it before each archive or App Store Connect rejects the binary.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Archive and upload <span class="tag mac">Mac</span></div>
+        <div class="detail">Device dropdown → <b>Any iOS Device (arm64)</b> (Archive is greyed out while a simulator is selected) → Product → Archive → when the Organizer opens: Distribute App → App Store Connect → Upload → accept the defaults. The build then processes for 15–30 minutes before it appears in App Store Connect.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">TestFlight on your own phone <span class="tag web">Browser</span></div>
+        <div class="detail">App Store Connect → TestFlight → Internal Testing → add yourself → install through the TestFlight app on your iPhone. No tester minimums, no waiting period — this is your dress rehearsal, and it's the exact binary Apple will review. Run the full checklist one more time here.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Create the demo account and demo QR <span class="tag web">Browser</span> <span class="tag blocker">Blocker</span></div>
+        <div class="detail">Make a real customer account on a demo business, seeded with points, a claimable reward, an active offer, and a streak in progress. Then export that business's join QR as a <b>PNG</b>. The reviewer is on a desk in Cupertino with no access to your spa — if they can't log in and can't scan anything, you get rejected the same day.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Write the App Review Information notes <span class="tag web">Browser</span></div>
+        <div class="detail">This box is your entire defense against a Guideline 4.2 "this is just a website" rejection — the #1 risk for a Capacitor shell that loads a remote URL. Fill in Sign-In Required = Yes, the demo credentials, and paste this into Notes (with the QR attached in the attachment field):</div>
+        <div class="copybox">Atlas Rewards is a loyalty app for local businesses (spas, salons, restaurants). Customers join a specific business and earn points for in-person visits.
+
+HOW TO REVIEW:
+1. Sign in with the demo account above. It is already enrolled in a demo business, so you'll land directly in that business's rewards app.
+2. Tap "Check in" and use the QR scanner — the attached QR image can be scanned from another screen or a printout. This awards points and advances the visit streak. This uses the device camera natively.
+3. After checking in, the Prize Wheel and streak milestones unlock on the Home tab.
+4. Rewards tab: redeem points for a reward. Offers appear as limited-time cards.
+5. Push notifications: allow the prompt on first launch. Offer alerts and reward unlocks are delivered via APNs.
+
+NATIVE FUNCTIONALITY: the app uses the camera for QR check-in, APNs push notifications for offer and reward alerts, and on-device storage to keep customers signed into their business between launches. Check-in requires physical presence at the business — the QR codes are posted at the front desk — so this is not a repackaged website; the core interaction only makes sense on a phone in a store.
+
+Account deletion is available in-app under Profile → Account.
+
+Questions: hello@atlas-engine.app</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Submit for review <span class="tag web">Browser</span></div>
+        <div class="detail">Attach the build to the 1.0.0 version, choose <b>Manually release this version</b> (so you pick the launch moment), then Add for Review → Submit. Typical turnaround is 24–48 hours. If it's rejected, don't rebuild reflexively — most 4.2 rejections are answered in Resolution Center with a clearer explanation and a screen recording of the QR check-in.</div>
+      </div></div>
+    </div>
+    <div class="callout danger"><strong>The one gotcha that matters most:</strong> Guideline 4.2 — Minimum Functionality. A webview pointing at a website gets rejected; a webview whose core loop is <em>scan a physical QR code at a business to earn points, then get pushed an offer</em> gets approved. Your job in the reviewer notes is to make that second sentence impossible to miss. Camera + push + persistent local session are your three native pillars — name all three explicitly.</div>
+  </section>
+
+  <!-- PHASE 5 -->
+  <section class="phase">
+    <div class="phase-head">
+      <div class="phase-num">5</div>
+      <div><h2>After approval</h2><div class="when">Ongoing</div></div>
+    </div>
+    <div class="steps">
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Release, then remember the day-to-day rule <span class="tag web">Browser</span></div>
+        <div class="detail">Because the shell loads <code>www.atlas-engine.app</code>, <b>every feature and fix ships as a web deploy</b> — both apps update instantly, no resubmission. You only rebuild and resubmit for: app icon changes, new native plugins, new permissions, or Apple's annual SDK bump.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Calendar the SDK deadline and the renewal <span class="tag web">Browser</span></div>
+        <div class="detail">Apple raises the minimum SDK roughly every April — you'll need to update Xcode and re-archive once a year to stay submittable. The $99 membership also auto-renews annually; if it lapses, your app is pulled from the store.</div>
+      </div></div>
+      <div class="step"><input type="checkbox"><div class="body">
+        <div class="title">Universal Links (optional, later)</div>
+        <div class="detail">Associated Domains capability → <code>applinks:atlas-engine.app</code> + host an <code>apple-app-site-association</code> file, alongside Android's <code>assetlinks.json</code>. Makes atlas-engine.app links open the installed app. Nice-to-have, not launch-blocking.</div>
+      </div></div>
+    </div>
+    <div class="callout tip"><strong>You're done when:</strong> a stranger can search "Atlas Rewards" in the App Store, install it, scan the QR at a business's front desk, and watch their points go up.</div>
+  </section>
+
+  <footer>Atlas Rewards · iOS runbook · checkboxes reset on reload — treat this as the map, and tell Claude which step you're on to work it together.</footer>
+</div>
+
+<script>
+  const boxes = Array.from(document.querySelectorAll('.step input[type=checkbox]'));
+  const bar = document.getElementById('bar');
+  const barLabel = document.getElementById('barLabel');
+  function refresh() {
+    const done = boxes.filter(b => b.checked).length;
+    bar.style.width = (done / boxes.length * 100) + '%';
+    barLabel.textContent = done + ' of ' + boxes.length + ' steps checked';
+    boxes.forEach(b => b.closest('.step').classList.toggle('done', b.checked));
+  }
+  boxes.forEach(b => b.addEventListener('change', refresh));
+  document.querySelectorAll('.step .title').forEach(t => t.addEventListener('click', () => {
+    const box = t.closest('.step').querySelector('input');
+    box.checked = !box.checked; refresh();
+  }));
+  refresh();
+</script>
+</body>
+</html>
