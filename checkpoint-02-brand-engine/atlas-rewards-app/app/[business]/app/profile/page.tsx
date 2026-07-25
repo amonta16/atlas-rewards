@@ -3,7 +3,6 @@ import { EditableProfile } from "@/components/customer/editable-profile";
 import { DeleteAccountSection } from "@/components/customer/delete-account-section";
 import { MyShops } from "@/components/customer/my-shops";
 import { NotificationPreferences } from "@/components/customer/notification-preferences";
-import { PushDiagnostics } from "@/components/customer/push-diagnostics";
 import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -53,9 +52,9 @@ export default async function ProfileTab({ params }: { params: { business: strin
         primary={business.brand_colors?.primary ?? "#0891b2"}
       />
 
-      {/* CP-81.1: native-only notification diagnostics + onboarding
-          replay — pre-launch testing aid, invisible on the web. */}
-      <PushDiagnostics businessId={business.id} />
+      {/* CP-81.3: PushDiagnostics removed for tester release — the
+          component still exists (components/customer/push-diagnostics.tsx)
+          and can be re-mounted here in one line if debugging is needed. */}
 
       {/* CP-40: customer self-delete account section. Lives at the
           bottom so it's discoverable but not in the way of regular

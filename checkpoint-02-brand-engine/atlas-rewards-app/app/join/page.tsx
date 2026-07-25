@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useState } from "react";
-import { QrCode, ArrowRight, Sparkles, Loader2, Camera } from "lucide-react";
+import { QrCode, ArrowRight, Loader2, Camera } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,9 +161,13 @@ export default function JoinPage() {
     return (
       <main className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-600 text-white shadow-lg shadow-cyan-600/25">
-            <Sparkles className="h-7 w-7" />
-          </div>
+          {/* CP-81.3: real Atlas logo instead of the placeholder sparkle. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/atlas-icon-512.png"
+            alt="Atlas Rewards"
+            className="h-16 w-16 rounded-2xl shadow-lg shadow-blue-900/25"
+          />
           <Loader2 className="h-5 w-5 animate-spin text-cyan-600" />
         </div>
       </main>
@@ -175,9 +179,13 @@ export default function JoinPage() {
       <div className="w-full max-w-sm">
         {/* Atlas header — neutral until a business is found */}
         <div className="text-center mb-8">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-600 text-white shadow-lg shadow-cyan-600/25 mb-4">
-            <Sparkles className="h-7 w-7" />
-          </div>
+          {/* CP-81.3: real Atlas logo instead of the placeholder sparkle. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/atlas-icon-512.png"
+            alt="Atlas Rewards"
+            className="inline-block h-16 w-16 rounded-2xl shadow-lg shadow-blue-900/25 mb-4"
+          />
           <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Atlas Rewards</h1>
           <p className="text-sm text-zinc-500 mt-1">One app for your favorite local spots.</p>
         </div>
