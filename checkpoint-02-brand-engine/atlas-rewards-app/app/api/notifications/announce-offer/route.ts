@@ -23,7 +23,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  let body: { business_id?: string; offer_id?: string; title?: string; description?: string | null };
+  // CP-85: kind "raffle" reuses this exact proven path for raffle launches —
+  // same master toggle, same in-app rows, same synchronous push — with a
+  // giveaway-flavored heading instead of the offer one.
+  let body: { business_id?: string; offer_id?: string; title?: string; description?: string | null; kind?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "bad json" }, { status: 400 }); }
 
@@ -52,7 +55,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, skipped: "toggle_off", recipients: 0, push_sent: 0 });
   }
 
-  const title = "New offer just dropped 🎁";
+  const isRaffle = body.kind === "raffle";
+  const title = isRaffle ? "New giveaway just dropped 🎟️" : "New offer just dropped 🎁";
   const messageBody = body.description?.trim()
     ? `${offerTitle} — ${body.description.trim()}`
     : offerTitle;
@@ -68,7 +72,7 @@ export async function POST(req: Request) {
     const rows = userIds.map(uid => ({
       user_id: uid,
       business_id: businessId,
-      kind: "customer_offer",
+      kind: isRaffle ? "raffle_open" : "customer_offer",
       title,
       body: messageBody,
       link_path: "/app/rewards",
@@ -87,7 +91,7 @@ export async function POST(req: Request) {
       title,
       body: messageBody,
       link_path: "/app/rewards",
-      kind: "customer_offer",
+      kind: isRaffle ? "raffle_open" : "customer_offer",
     });
     pushSent = r.sent; pushFailed = r.failed;
   } catch (e) {

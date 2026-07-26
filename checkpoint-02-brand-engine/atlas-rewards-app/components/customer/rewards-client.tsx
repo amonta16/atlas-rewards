@@ -14,6 +14,9 @@ import { TiltLoyaltyCard } from "./tilt-loyalty-card";
 // CP-43: DailyMysteryModal is no longer opened directly here — DailySpinButton
 // owns the slot-machine modal now.
 import { LimitedOffersSection } from "./limited-offers-section";
+// CP-85: Raffle Giveaways — a new offer type. Cards live in the same area
+// as Limited offers, with a more premium treatment + live countdown.
+import { RafflesSection } from "./raffle-section";
 import { rewardsLayout } from "@/lib/section-layouts";
 // CP-67: element pack — themed headings, dividers, badges.
 import { SectionDivider, SectionHeading } from "./section-elements";
@@ -219,6 +222,16 @@ export function RewardsClient({
         business={business}
         initialRedemptions={initialRedemptions}
         membershipId={membership?.id ?? null}
+      />
+
+      {/* CP-85: Raffle giveaways — same area as limited offers, richer
+          card. Hidden when the business has none running. Balance comes
+          from the live `displayed` counter so affordability states track
+          the same number the customer sees on their loyalty card. */}
+      <RafflesSection
+        business={business}
+        membershipId={membership?.id ?? null}
+        points={displayed}
       />
 
       {/* CP-29.1: Limited-time offers — automated + one-off promos with

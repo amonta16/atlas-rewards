@@ -1,12 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, Tag, Edit2, Trash2, X, Save, Star, StarOff, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Tag, Edit2, Trash2, X, Save, Star, StarOff, AlertCircle, CheckCircle2, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "./image-uploader";
+// CP-85: Raffle Giveaway is an additional offer TYPE inside this same
+// manager — not a separate feature. The "+ Add offer" button now opens a
+// type picker (Standard offer / Raffle Giveaway); raffles list right below
+// the regular offers with live status chips + an Entries admin view.
+import { RaffleEditor, RaffleList } from "./raffle-manager";
 import type { Business } from "@/lib/types/database";
 
 type Offer = {
@@ -29,6 +34,10 @@ export function OffersManager({
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  // CP-85: "+ Add offer" first asks which TYPE (standard / raffle).
+  const [pickingType, setPickingType] = useState(false);
+  const [creatingRaffle, setCreatingRaffle] = useState(false);
+  const [raffleTick, setRaffleTick] = useState(0);
 
   async function load() {
     const supabase = createClient();
@@ -133,7 +142,7 @@ export function OffersManager({
             The <strong>featured</strong> offer shows in the customer app's sticky banner at the top and in the big Featured Offer card on the Home tab.
           </p>
         </div>
-        <Button onClick={() => setEditing({ is_active: true, is_featured: offers.length === 0, expires_at: defaultExpiresAt() as any })}>
+        <Button onClick={() => setPickingType(true)}>
           <Plus className="h-4 w-4 mr-1" /> Add offer
         </Button>
       </div>
@@ -215,6 +224,79 @@ export function OffersManager({
             </div>
           ))}
         </div>
+      )}
+
+      {/* CP-85: raffle giveaways live in the same list area — same feature,
+          different offer type. Hidden entirely when the business has none. */}
+      <RaffleList
+        business={business}
+        refreshTick={raffleTick}
+        onChanged={() => { setRaffleTick(t => t + 1); onChange?.(); }}
+      />
+
+      {/* CP-85: offer-type picker — Standard keeps the exact flow that
+          existed before; Raffle opens the raffle editor. */}
+      {pickingType && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden">
+            <div className="p-5 flex items-center justify-between border-b">
+              <h2 className="font-bold">What kind of offer?</h2>
+              <button onClick={() => setPickingType(false)} className="h-9 w-9 rounded-full bg-zinc-100 flex items-center justify-center">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5 grid grid-cols-1 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setPickingType(false);
+                  setEditing({ is_active: true, is_featured: offers.length === 0, expires_at: defaultExpiresAt() as any });
+                }}
+                className="rounded-xl border-2 p-4 text-left hover:border-zinc-400 hover:shadow-md transition flex items-start gap-3"
+              >
+                <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
+                  <Tag className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm">Standard offer</div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    A limited-time promo customers claim as a gift — image, headline, expiry, featured banner.
+                  </p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setPickingType(false); setCreatingRaffle(true); }}
+                className="rounded-xl border-2 border-violet-200 p-4 text-left hover:border-violet-400 hover:shadow-md transition flex items-start gap-3"
+                style={{ background: "linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)" }}
+              >
+                <div className="h-10 w-10 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                  <Ticket className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm flex items-center gap-1.5">
+                    Raffle Giveaway
+                    <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-violet-600 text-white">New</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Members spend points to enter. When time runs out, one winner is drawn automatically — big prize, big hype.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CP-85: raffle creation modal */}
+      {creatingRaffle && (
+        <RaffleEditor
+          business={business}
+          raffle={null}
+          onClose={() => setCreatingRaffle(false)}
+          onSaved={() => { setRaffleTick(t => t + 1); onChange?.(); }}
+        />
       )}
 
       {editing && (
