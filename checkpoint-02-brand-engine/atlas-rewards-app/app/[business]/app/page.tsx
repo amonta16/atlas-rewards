@@ -10,6 +10,9 @@ import { WinbackBanner } from "@/components/customer/winback-banner";
 import { MembershipSection } from "@/components/customer/membership-section";
 import { LocationCard } from "@/components/customer/location-card";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+// CP-85.1: raffle edition of the Featured card — renders itself only when a
+// featured raffle is scheduled/open, ABOVE the featured offer card.
+import { FeaturedRaffleCard } from "@/components/customer/featured-raffle-card";
 // CP-42: reuse the existing Daily Spin button (the same one Andrew has
 // on Rewards) under the Featured offer on Home.
 import { DailySpinButton } from "@/components/customer/daily-spin-button";
@@ -120,6 +123,13 @@ export default async function CustomerHome({ params }: { params: { business: str
 
       {/* Win-back banner — surfaces personal messages from the Come-Back AI */}
       <WinbackBanner business={business} membershipId={mem?.id ?? null} />
+
+      {/* CP-85.1: featured RAFFLE card — the giveaway takes the hero spot
+          above the featured offer (client component; hides itself when no
+          featured raffle is scheduled or open). */}
+      {business.widget_config.offers && (
+        <FeaturedRaffleCard business={business} slug={params.business} />
+      )}
 
       {/* Featured offer — only when one exists in DB. CP-26: poppy glow border
           per Andrew's mock — a thick cyan/brand ring with a soft outer glow

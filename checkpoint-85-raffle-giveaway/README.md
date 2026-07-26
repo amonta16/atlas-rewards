@@ -77,6 +77,28 @@ and (if pg_cron is available) a 5-minute backstop sweep.
 | `components/customer/rewards-client.tsx` | MOD — renders RafflesSection (grow-only) |
 | `app/api/notifications/announce-offer/route.ts` | MOD — raffle heading (grow-only) |
 
+## CP-85.1 — Raffle acts as the FEATURED offer
+
+Second SQL file: run `cp85_1_featured_raffle.sql` AFTER `cp85_raffles.sql`.
+
+- `raffles.is_featured` (default ON, toggle in the raffle editor — same amber
+  Featured box the offer modal uses; amber ⭐ chip on the staff row).
+- **Sticky top banner**: while a featured raffle is OPEN it takes over the
+  banner on every customer tab — "🎟️ WIN <prize>" + live countdown pill +
+  "Enter →"; the whole banner is a tap target to the Rewards tab. Raffle
+  outranks the featured offer; the offer banner returns after the draw.
+- **Home featured card**: the raffle gets the same glow-ring hero card as the
+  featured offer (ribbon says 🎟️ Giveaway) with prize headline, live
+  countdown badge, entry-cost / FREE ENTRY chip, entries-so-far, and a big
+  "Enter the giveaway" button → Rewards tab. Renders ABOVE the featured
+  offer card; both can coexist.
+- New `featured_raffle()` RPC + `upsert_raffle` gains `p_is_featured` +
+  staff list returns `is_featured`.
+- Extra files: `components/customer/featured-raffle-card.tsx` (NEW),
+  `featured-offer-banner.tsx` (MOD), `app/[business]/app/page.tsx` (MOD),
+  `app/[business]/app/layout.tsx` (MOD), `lib/raffles.ts` (MOD),
+  `raffle-manager.tsx` (MOD).
+
 ## Verified
 
 Full cloud-mirror typecheck (`tsc --noEmit -p tsconfig.json` over the whole

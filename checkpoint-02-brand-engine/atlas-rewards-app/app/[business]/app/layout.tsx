@@ -94,6 +94,9 @@ export default async function CustomerAppLayout({
         bannerStyleId={business.banner_style}
         secondary={business.brand_colors.secondary}
         accent={business.brand_colors.accent}
+        /* CP-85.1: a featured OPEN raffle takes over this banner; tapping it
+           jumps to the Rewards tab where the entry flow lives. */
+        slug={params.business}
       />
       {/* CP-29.1: auto-popping offer reveal — only renders if the customer
           hasn't already seen this offer on this device. */}

@@ -18,12 +18,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle, Ban, CheckCircle2, Clock, Crown, Edit2, RefreshCw,
-  Save, Search, Ticket, Trophy, Users, X,
+  Save, Search, Star, Ticket, Trophy, Users, X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "./image-uploader";
 import {
   type AdminRaffle, type RaffleParticipant, type WinnerDisplay,
@@ -51,11 +52,14 @@ type EditorDraft = {
   terms: string;
   winner_display: WinnerDisplay;
   claim_deadline_days: number | null;
+  /** CP-85.1: featured raffles take over the sticky banner + Home card. */
+  is_featured: boolean;
 };
 
 function draftFrom(raffle: AdminRaffle | null): EditorDraft {
   if (raffle) {
     return {
+      is_featured: raffle.is_featured ?? true,
       id: raffle.id,
       title: raffle.title,
       description: raffle.description ?? "",
@@ -90,6 +94,7 @@ function draftFrom(raffle: AdminRaffle | null): EditorDraft {
     terms: "",
     winner_display: "first_last_initial",
     claim_deadline_days: 14,
+    is_featured: true,
   };
 }
 
@@ -154,6 +159,7 @@ export function RaffleEditor({
       p_terms: d.terms.trim() || null,
       p_winner_display: d.winner_display,
       p_claim_deadline_days: d.claim_deadline_days ? Math.max(1, Math.round(d.claim_deadline_days)) : null,
+      p_is_featured: d.is_featured,
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -313,6 +319,22 @@ export function RaffleEditor({
               onChange={e => setD({ ...d, claim_deadline_days: e.target.value === "" ? null : Number(e.target.value) })} />
           </div>
 
+          {/* CP-85.1: featured = the raffle takes over the customer app's
+              sticky top banner AND the big Featured card on Home (with an
+              Enter button) while it's scheduled/open — same real estate the
+              featured offer uses. */}
+          <div className="flex items-center justify-between rounded-lg border p-3 bg-amber-50">
+            <div>
+              <Label className="cursor-pointer flex items-center gap-1.5">
+                <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Featured
+              </Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Shows in the sticky top banner + the big Featured card on Home with an Enter button, until the draw.
+              </p>
+            </div>
+            <Switch checked={d.is_featured} onCheckedChange={(v) => setD({ ...d, is_featured: v })} />
+          </div>
+
           <div className="rounded-lg bg-violet-50 border border-violet-200 p-3 text-[11px] text-violet-900 flex items-start gap-2">
             <Trophy className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <div>
@@ -401,6 +423,12 @@ export function RaffleList({
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="font-semibold text-sm truncate">{r.title}</div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.chip}`}>{meta.label}</span>
+                      {/* CP-85.1: featured chip — same amber grammar as offers. */}
+                      {r.is_featured && (r.state === "open" || r.state === "scheduled") && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
+                          <Star className="h-2.5 w-2.5 fill-current" /> Featured
+                        </span>
+                      )}
                       {r.state === "winner_selected" && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-amber-300 text-amber-700 flex items-center gap-1">
                           <Crown className="h-2.5 w-2.5" /> {r.winner_display_name ?? "Winner"}

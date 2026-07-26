@@ -42,6 +42,23 @@ export type AdminRaffle = CustomerRaffle & {
   winner_display: WinnerDisplay;
   prize_claim_status: RaffleClaimStatus;
   unique_participants: number;
+  /** CP-85.1: featured raffles take over the sticky banner + Home featured card. */
+  is_featured: boolean;
+};
+
+/** Row shape from featured_raffle (sticky banner + Home featured card). */
+export type FeaturedRaffle = {
+  id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  prize: string;
+  entry_cost_points: number;
+  starts_at: string;
+  ends_at: string;
+  timezone: string;
+  state: "scheduled" | "open";
+  total_entries: number;
 };
 
 /** Row shape from raffle_participants (staff detail). */
