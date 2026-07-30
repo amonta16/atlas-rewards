@@ -42,6 +42,9 @@ export type PointRules = {
   social_follow: number;
   profile_complete: number;
   first_visit_bonus: number;
+  /** CP-87: referral payout unlocks after the referred friend spends this
+   *  much (in cents). 0 = instant payout on signup. Default $20. */
+  referral_min_spend_cents?: number;
 };
 
 export type Tier = {

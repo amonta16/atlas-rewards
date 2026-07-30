@@ -36,6 +36,8 @@ export default async function ShopPage({
     .select("id, name, description, point_cost, image_url, category, sort_order")
     .eq("business_id", business.id)
     .eq("is_active", true)
+    // CP-87: prize-only rewards are hidden from the shop.
+    .eq("show_in_store", true)
     .order("sort_order", { ascending: true })
     .order("name",       { ascending: true });
 

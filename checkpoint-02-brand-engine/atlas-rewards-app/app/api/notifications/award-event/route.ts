@@ -62,13 +62,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "permission denied" }, { status: 403 });
   }
 
-  // Look up rewards that were just crossed.
+  // Look up rewards that were just crossed. CP-87: prize-only rewards
+  // (show_in_store=false) can't be redeemed from the store, so crossing
+  // their threshold shouldn't fire a "you can now redeem" notification.
   const admin = createAdminClient();
   const { data: crossed } = await admin
     .from("rewards")
     .select("id, name, point_cost")
     .eq("business_id", business_id)
     .eq("is_active", true)
+    .eq("show_in_store", true)
     .lte("point_cost", newBalance)
     .gt("point_cost", oldBalance)
     .order("point_cost", { ascending: true });
@@ -97,12 +100,19 @@ export async function POST(req: Request) {
     .maybeSingle();
   const businessName = (biz as any)?.name ?? "your spot";
 
-  // Fire one push per crossing. Most awards cross at most one
-  // threshold, but the rare "big bonus" can clear two — handle it.
+  // CP-87: ONE notification per award, no matter how many thresholds a
+  // big spend clears. A $200 purchase used to fire 4-5 pushes back to
+  // back ("Reward unlocked!" × N) — now multiple crossings collapse into
+  // a single "You unlocked N rewards" message that names the top few.
   let pushSent = 0;
-  for (const r of crossings) {
-    const title = "Reward unlocked! 🎁";
-    const messageBody = `You can now redeem ${r.name} at ${businessName}.`;
+  {
+    const single = crossings.length === 1;
+    const title = single ? "Reward unlocked! 🎁" : `You unlocked ${crossings.length} rewards! 🎁`;
+    const names = crossings.map(r => r.name);
+    const preview = names.slice(0, 3).join(", ");
+    const messageBody = single
+      ? `You can now redeem ${names[0]} at ${businessName}.`
+      : `You can now redeem ${preview}${names.length > 3 ? ` and ${names.length - 3} more` : ""} at ${businessName}.`;
 
     // (a) In-app row — so the bell badge updates even if push fails.
     try {

@@ -7,6 +7,8 @@ import { TopRewardsGrid } from "@/components/customer/top-rewards-grid";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { OffersRevalidator } from "@/components/customer/offers-revalidator";
 import { WinbackBanner } from "@/components/customer/winback-banner";
+// CP-87: referred friends see their "spend $X to unlock your bonus" progress.
+import { ReferralProgressCard } from "@/components/customer/referral-progress-card";
 import { MembershipSection } from "@/components/customer/membership-section";
 import { LocationCard } from "@/components/customer/location-card";
 import { NotificationBell } from "@/components/notifications/notification-bell";
@@ -123,6 +125,15 @@ export default async function CustomerHome({ params }: { params: { business: str
 
       {/* Win-back banner — surfaces personal messages from the Come-Back AI */}
       <WinbackBanner business={business} membershipId={mem?.id ?? null} />
+
+      {/* CP-87: pending-referral progress (referee side) — hides itself
+          unless this member was referred and hasn't hit the spend goal. */}
+      <ReferralProgressCard
+        businessId={business.id}
+        membershipId={mem?.id ?? null}
+        primary={business.brand_colors.primary}
+        secondary={business.brand_colors.secondary}
+      />
 
       {/* CP-85.1: featured RAFFLE card — the giveaway takes the hero spot
           above the featured offer (client component; hides itself when no

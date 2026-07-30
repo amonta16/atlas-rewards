@@ -9,6 +9,8 @@ type ReferralRow = {
   id: string; code: string; status: string;
   referee_name: string | null; referee_email: string | null;
   created_at: string; completed_at: string | null;
+  // CP-87: qualification progress (friend's spend vs the minimum).
+  spend_cents?: number | null; min_spend_cents?: number | null;
 };
 
 export function ReferFriendModal({
@@ -22,6 +24,9 @@ export function ReferFriendModal({
   const shareUrl = `${isLocal ? "http" : "https"}://${business.slug}.${rootDomain}${isLocal ? ":3000" : ""}/signup?ref=${referralCode}`;
   const refReward = business.point_rules.referral_referrer;
   const friendReward = business.point_rules.referral_referee;
+  // CP-87: referral points unlock only after the friend spends this much
+  // (0 = instant, the old behavior).
+  const minSpendCents = business.point_rules.referral_min_spend_cents ?? 2000;
 
   // Load referrals list + subscribe to realtime updates
   useEffect(() => {
@@ -83,8 +88,11 @@ export function ReferFriendModal({
             </div>
             <h3 className="text-xl font-bold mt-3">You both earn</h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Get <span className="font-bold" style={{ color: business.brand_colors.primary }}>+{refReward} points</span> when a friend signs up.
-              They get <span className="font-bold" style={{ color: business.brand_colors.primary }}>+{friendReward} points</span> on their first visit.
+              You get <span className="font-bold" style={{ color: business.brand_colors.primary }}>+{refReward} points</span> and
+              your friend gets <span className="font-bold" style={{ color: business.brand_colors.primary }}>+{friendReward} points</span>
+              {minSpendCents > 0
+                ? <> once they sign up and spend <span className="font-bold" style={{ color: business.brand_colors.primary }}>${(minSpendCents / 100).toFixed(0)}</span>.</>
+                : <> when they sign up.</>}
             </p>
           </div>
 
@@ -113,24 +121,53 @@ export function ReferFriendModal({
             <div className="mt-6">
               <h4 className="text-sm font-bold mb-2.5">Your referrals · {completedCount} completed</h4>
               <div className="space-y-2">
-                {referrals.map(r => (
-                  <div key={r.id} className="flex items-center gap-3 bg-white rounded-xl border p-3">
-                    <div className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold"
-                      style={{ background: business.brand_colors.primary }}>
-                      {(r.referee_name?.[0] ?? "?").toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate">{r.referee_name ?? "Someone"}</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Joined {new Date(r.created_at).toLocaleDateString()}
+                {referrals.map(r => {
+                  // CP-87: pending referrals show a spend progress bar.
+                  const pending = r.status === "pending";
+                  const min = r.min_spend_cents ?? minSpendCents;
+                  const spent = r.spend_cents ?? 0;
+                  const pct = min > 0 ? Math.min(100, Math.round((spent / min) * 100)) : 100;
+                  return (
+                    <div key={r.id} className="bg-white rounded-xl border p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold"
+                          style={{ background: business.brand_colors.primary }}>
+                          {(r.referee_name?.[0] ?? "?").toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate">{r.referee_name ?? "Someone"}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Joined {new Date(r.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        {pending ? (
+                          <div className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                            In progress
+                          </div>
+                        ) : (
+                          <div className="text-xs font-bold px-2.5 py-1 rounded-full"
+                            style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
+                            +{refReward}
+                          </div>
+                        )}
                       </div>
+                      {pending && min > 0 && (
+                        <div className="mt-2.5">
+                          <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-500 mb-1">
+                            <span>They've spent ${(spent / 100).toFixed(2)} of ${(min / 100).toFixed(0)}</span>
+                            <span style={{ color: business.brand_colors.primary }}>+{refReward} pts at the finish</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${pct}%`, background: business.brand_colors.primary }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs font-bold px-2.5 py-1 rounded-full"
-                      style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
-                      +{refReward}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

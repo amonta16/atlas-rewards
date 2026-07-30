@@ -218,7 +218,9 @@ export default function CustomerSignup() {
             </div>
             <div className="text-sm">
               <div className="font-semibold text-emerald-900">You were invited!</div>
-              <div className="text-xs text-emerald-700">You'll earn a referral bonus when you sign up.</div>
+              {/* CP-87: bonus now unlocks after the friend's first purchases
+                  (qualified referrals) — keep the copy honest. */}
+              <div className="text-xs text-emerald-700">Sign up now — your referral bonus unlocks with your first purchases.</div>
             </div>
           </div>
         )}

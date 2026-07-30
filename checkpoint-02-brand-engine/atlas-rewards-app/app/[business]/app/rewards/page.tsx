@@ -13,8 +13,10 @@ export default async function RewardsTab({ params }: { params: { business: strin
   const { data: memRows } = await supabase.rpc("my_membership", { p_business_id: business.id });
   const mem = (memRows?.[0] ?? null) as Membership | null;
 
+  // CP-87: prize-only rewards (wheel/streak/offer gifts) stay out of the store.
   const { data: rewards } = await supabase
-    .from("rewards").select("*").eq("business_id", business.id).eq("is_active", true).order("sort_order");
+    .from("rewards").select("*").eq("business_id", business.id).eq("is_active", true)
+    .eq("show_in_store", true).order("sort_order");
 
   const { data: redemptions } = await supabase.rpc("my_redemptions", { p_business_id: business.id });
   const { data: featured }    = await supabase.rpc("featured_offer", { p_business_id: business.id });

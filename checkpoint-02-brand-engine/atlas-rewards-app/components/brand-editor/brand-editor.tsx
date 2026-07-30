@@ -46,6 +46,11 @@ import { BusinessDiscoveryQR } from "@/components/agency/business-discovery-qr";
 import { OffersManager } from "@/components/agency/offers-manager";
 import { AutomatedOffersManager } from "@/components/agency/automated-offers-manager";
 import { MembershipEditor } from "@/components/agency/membership-editor";
+// CP-87: the SAME payments / plans & passes setup the manager dashboard
+// has (CP-34 payment modes + CP-86 duration passes) — parity for admins.
+import { MembershipBillingSetup } from "@/components/manager/membership-billing-setup";
+// CP-87: manager-only announcement composer, surfaced for admins here too.
+import { AnnouncementComposer } from "@/components/manager/announcement-composer";
 import { NewsManager } from "@/components/agency/news-manager";
 // Products manager removed — Atlas is loyalty-only now (no in-app commerce).
 // CP-42: TemplateApplyPanel removed — industry template only applied during create.
@@ -1083,6 +1088,38 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     />
                   ))}
                 </div>
+
+                {/* CP-87: referral qualification — the friend must spend
+                    this much before EITHER side gets referral points.
+                    $0 = instant payout on signup (the old behavior). */}
+                <div className="mt-6 rounded-xl border bg-zinc-50 p-4">
+                  <Label className="text-sm font-semibold">Referral qualification</Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 mb-2">
+                    Stops link-farming: the referred friend must spend this much
+                    (front-desk purchases) before both sides get their referral
+                    points. Both apps show a live progress bar. Set $0 for
+                    instant payout on signup.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="relative max-w-[160px]">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                      <Input
+                        type="number" min="0" step="1" className="pl-7"
+                        value={(((b.point_rules.referral_min_spend_cents ?? 2000) / 100)).toString()}
+                        onChange={e => {
+                          const dollars = Math.max(0, parseFloat(e.target.value || "0") || 0);
+                          update("point_rules", {
+                            ...b.point_rules,
+                            referral_min_spend_cents: Math.round(dollars * 100),
+                          });
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      minimum friend spend before payout
+                    </span>
+                  </div>
+                </div>
               </Section>
 
               <RewardsManager business={b} />
@@ -1132,11 +1169,25 @@ export function BrandEditor({ initial }: { initial: Business }) {
               {offersSubTab === "automated" && <AutomatedOffersManager business={b} />}
             </div>
           )}
-          {tab === "membership" && <MembershipEditor business={b} onUpdate={patch} />}
+          {tab === "membership" && (
+            <div className="space-y-6">
+              <MembershipEditor business={b} onUpdate={patch} />
+              {/* CP-87: payment modes + plans & passes (CP-86) — the exact
+                  setup the manager sees on their Membership tab, so admins
+                  can configure passes from the app builder too. */}
+              <div>
+                <h3 className="font-semibold text-sm mb-2">Payments, plans & passes</h3>
+                <MembershipBillingSetup business={b} />
+              </div>
+            </div>
+          )}
           {tab === "news"       && <NewsManager business={b} />}
           {tab === "settings"   && (
             <div className="space-y-6">
               <BusinessSettingsPanel business={b} onUpdate={patch} />
+              {/* CP-87: same announcements surface the manager desk has —
+                  post/clear the customer-facing banner from the builder. */}
+              <AnnouncementComposer businessId={b.id} primary={b.brand_colors.primary} />
               {/* CP-36b: per-business notification toggles + manual
                   broadcast composer (moved here from the manager view). */}
               <NotificationSettingsPanel business={b} />

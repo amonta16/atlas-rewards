@@ -15,6 +15,9 @@ type Reward = {
   is_active: boolean; sort_order: number;
   // CP-42: free-form category label — powers the categorized Shop page.
   category: string | null;
+  // CP-87: false = "prize only" — usable as a wheel prize / streak gift /
+  // offer gift, but never listed in the customer reward store.
+  show_in_store?: boolean | null;
 };
 
 // CP-42: starter category suggestions surfaced as quick-pick chips when
@@ -78,6 +81,7 @@ export function RewardsManager({ business }: { business: Business }) {
       p_is_active: editing.is_active ?? true,
       p_sort_order: editing.sort_order ?? 0,
       p_category: (editing.category ?? "").trim() || null,  // CP-42
+      p_show_in_store: editing.show_in_store ?? true,       // CP-87
     });
     if (error) { alert("Save failed: " + error.message); return; }
     setEditing(null);
@@ -124,6 +128,12 @@ export function RewardsManager({ business }: { business: Business }) {
                 {!r.is_active && (
                   <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-900/80 text-white">
                     Inactive
+                  </div>
+                )}
+                {/* CP-87: prize-only badge — not listed in the store. */}
+                {r.is_active && r.show_in_store === false && (
+                  <div className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-600/90 text-white">
+                    🎡 Prize only
                   </div>
                 )}
               </div>
@@ -244,6 +254,23 @@ export function RewardsManager({ business }: { business: Business }) {
               <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/20">
                 <Label className="cursor-pointer">Active (visible to customers)</Label>
                 <Switch checked={editing.is_active ?? true} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />
+              </div>
+
+              {/* CP-87: store visibility. OFF = prize-only — the reward can
+                  still be picked as a wheel prize, streak gift, or offer
+                  gift, but customers never see it in the reward store. */}
+              <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/20">
+                <div className="pr-3">
+                  <Label className="cursor-pointer">Show in rewards store</Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Turn off for prize-only rewards (wheel spins, streak gifts,
+                    offers) that shouldn't be redeemable from the store.
+                  </p>
+                </div>
+                <Switch
+                  checked={editing.show_in_store ?? true}
+                  onCheckedChange={(v) => setEditing({ ...editing, show_in_store: v })}
+                />
               </div>
             </div>
             <div className="p-5 border-t flex gap-2">
