@@ -25,6 +25,9 @@ import type { Business, Membership } from "@/lib/types/database";
 
 type PaymentMode = "stripe" | "external_link" | "in_person";
 
+// CP-86: one-time duration pass configured by the business.
+type PassOption = { id: string; label: string; months: number; price_cents: number };
+
 type BillingPublic = {
   is_enabled: boolean;
   price_cents: number;
@@ -41,6 +44,10 @@ type BillingPublic = {
   payment_mode?: PaymentMode;
   external_payment_url?: string | null;
   payment_instructions?: string | null;
+  // CP-86: duration passes + monthly-plan toggle. Older DBs return
+  // undefined → treated as "monthly only", the pre-CP-86 behavior.
+  pass_options?: PassOption[] | null;
+  offer_monthly?: boolean | null;
 };
 
 export function MembershipJoinModal({
@@ -66,8 +73,19 @@ export function MembershipJoinModal({
   const [existingPaymentStatus, setExistingPaymentStatus] = useState<
     "unpaid" | "pending" | "paid" | null
   >(null);
+  // CP-86: which plan the customer picked — "monthly" or a pass id.
+  const [selectedPlan, setSelectedPlan] = useState<string>("monthly");
 
   const primary = business.brand_colors.primary;
+
+  // CP-86: derived plan helpers.
+  const passOptions: PassOption[] = billing?.pass_options ?? [];
+  const offerMonthly = billing?.offer_monthly ?? true;
+  const selectedPass = selectedPlan === "monthly"
+    ? null
+    : passOptions.find(p => p.id === selectedPlan) ?? null;
+  const selectedPriceCents = selectedPass ? selectedPass.price_cents : (billing?.price_cents ?? 0);
+  const hasPlanChoice = passOptions.length > 0;
 
   // Check whether customer already has a paid tier
   const isPaid = !!(
@@ -85,8 +103,13 @@ export function MembershipJoinModal({
         supabase.rpc("my_membership_payment_state", { p_business_id: business.id }),
       ]);
 
-      const billRow = Array.isArray(billingRes.data) ? billingRes.data[0] : billingRes.data;
+      const billRow = (Array.isArray(billingRes.data) ? billingRes.data[0] : billingRes.data) as BillingPublic | null;
       setBilling(billRow ?? null);
+
+      // CP-86: monthly off → preselect the first pass.
+      if (billRow && billRow.offer_monthly === false && (billRow.pass_options ?? []).length > 0) {
+        setSelectedPlan((billRow.pass_options as PassOption[])[0].id);
+      }
 
       const stateRow = Array.isArray(stateRes.data) ? stateRes.data[0] : stateRes.data;
       if (stateRow && (stateRow as any).has_row) {
@@ -117,6 +140,9 @@ export function MembershipJoinModal({
             userId,
             membershipId: membership?.id ?? null,
             returnUrl: window.location.href,
+            // CP-86: a pass id switches checkout to a one-time payment;
+            // the server re-reads the price from the DB (never trusts us).
+            passId: selectedPass?.id ?? null,
           }),
         });
         const json = await res.json();
@@ -129,14 +155,22 @@ export function MembershipJoinModal({
       return;
     }
 
-    // external_link OR in_person — call request_membership which marks
-    // the customer as pending, then either open the external URL or
-    // show the "pay at front desk" success state.
+    // external_link OR in_person — mark the customer pending (with the
+    // plan they picked), then either open the external URL or show the
+    // "pay at front desk" success state.
     try {
       const supabase = createClient();
-      const { error } = await supabase.rpc("request_membership", {
+      // CP-86: v2 snapshots the chosen plan server-side. Falls back to the
+      // CP-34 RPC (monthly only) on databases without the cp86 migration.
+      let { error } = await supabase.rpc("request_membership_v2", {
         p_business_id: business.id,
+        p_pass_id: selectedPass?.id ?? null,
       });
+      if (error && /request_membership_v2/.test(error.message)) {
+        ({ error } = await supabase.rpc("request_membership", {
+          p_business_id: business.id,
+        }));
+      }
       if (error) throw new Error(error.message);
 
       if (mode === "external_link" && billing.external_payment_url) {
@@ -354,10 +388,40 @@ export function MembershipJoinModal({
               </h2>
               <div className="flex items-baseline justify-center gap-1 mt-2">
                 <span className="text-3xl font-extrabold" style={{ color: primary }}>
-                  ${(billing.price_cents / 100).toFixed(2)}
+                  ${(selectedPriceCents / 100).toFixed(2)}
                 </span>
-                <span className="text-zinc-400 text-sm">/ month</span>
+                <span className="text-zinc-400 text-sm">
+                  {selectedPass ? ` one-time · ${selectedPass.months === 12 ? "1 year" : `${selectedPass.months} months`}` : "/ month"}
+                </span>
               </div>
+
+              {/* CP-86: plan picker — monthly vs one-time passes. Only
+                  renders when the business configured at least one pass. */}
+              {hasPlanChoice && (
+                <div className="mt-4 space-y-2">
+                  {offerMonthly && (
+                    <PlanRow
+                      primary={primary}
+                      active={selectedPlan === "monthly"}
+                      onClick={() => setSelectedPlan("monthly")}
+                      title="Monthly"
+                      sub="Renews every month · cancel anytime"
+                      price={`$${(billing.price_cents / 100).toFixed(2)}/mo`}
+                    />
+                  )}
+                  {passOptions.map(p => (
+                    <PlanRow
+                      key={p.id}
+                      primary={primary}
+                      active={selectedPlan === p.id}
+                      onClick={() => setSelectedPlan(p.id)}
+                      title={p.label}
+                      sub={`One payment · good for ${p.months === 12 ? "a full year" : `${p.months} month${p.months === 1 ? "" : "s"}`}`}
+                      price={`$${(p.price_cents / 100).toFixed(2)}`}
+                    />
+                  ))}
+                </div>
+              )}
 
               {/* Divider */}
               <div className="my-6 h-px bg-white/8" />
@@ -423,9 +487,14 @@ export function MembershipJoinModal({
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    {(billing.payment_mode ?? "stripe") === "stripe"      && `Subscribe — $${(billing.price_cents / 100).toFixed(2)}/mo`}
-                    {(billing.payment_mode ?? "stripe") === "external_link" && `Pay $${(billing.price_cents / 100).toFixed(2)} now`}
-                    {(billing.payment_mode ?? "stripe") === "in_person"     && `Join — $${(billing.price_cents / 100).toFixed(2)}/mo`}
+                    {/* CP-86: CTA follows the selected plan. */}
+                    {(billing.payment_mode ?? "stripe") === "stripe" && (selectedPass
+                      ? `Buy ${selectedPass.label} — $${(selectedPass.price_cents / 100).toFixed(2)}`
+                      : `Subscribe — $${(billing.price_cents / 100).toFixed(2)}/mo`)}
+                    {(billing.payment_mode ?? "stripe") === "external_link" && `Pay $${(selectedPriceCents / 100).toFixed(2)} now`}
+                    {(billing.payment_mode ?? "stripe") === "in_person" && (selectedPass
+                      ? `Get ${selectedPass.label} — $${(selectedPass.price_cents / 100).toFixed(2)}`
+                      : `Join — $${(billing.price_cents / 100).toFixed(2)}/mo`)}
                     <ChevronRight className="h-4 w-4" />
                   </>
                 )}
@@ -467,6 +536,44 @@ export function MembershipJoinModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/* CP-86: selectable plan row (monthly vs pass). */
+function PlanRow({
+  primary, active, onClick, title, sub, price,
+}: {
+  primary: string;
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  sub: string;
+  price: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition active:scale-[0.99]"
+      style={{
+        background: active ? `${primary}1f` : "rgba(255,255,255,0.05)",
+        border: `1.5px solid ${active ? primary : "rgba(255,255,255,0.12)"}`,
+      }}
+    >
+      <span
+        className="h-4 w-4 rounded-full shrink-0 flex items-center justify-center"
+        style={{ border: `2px solid ${active ? primary : "rgba(255,255,255,0.35)"}` }}
+      >
+        {active && <span className="h-2 w-2 rounded-full" style={{ background: primary }} />}
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-bold text-white truncate">{title}</span>
+        <span className="block text-[11px] text-zinc-400 truncate">{sub}</span>
+      </span>
+      <span className="text-sm font-extrabold shrink-0" style={{ color: active ? primary : "#e4e4e7" }}>
+        {price}
+      </span>
+    </button>
   );
 }
 

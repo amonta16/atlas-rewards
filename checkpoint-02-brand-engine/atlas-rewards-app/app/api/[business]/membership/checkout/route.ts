@@ -29,14 +29,17 @@ export async function POST(
   { params }: { params: { business: string } },
 ) {
   // ── parse body ────────────────────────────────────────────────────────────
-  let body: { userId?: string; membershipId?: string | null; returnUrl?: string };
+  // CP-86: passId (optional) switches checkout from a monthly subscription
+  // to a ONE-TIME payment for a duration pass. The pass is re-read from the
+  // DB server-side — the client never supplies a price.
+  let body: { userId?: string; membershipId?: string | null; returnUrl?: string; passId?: string | null };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const { userId, membershipId, returnUrl } = body;
+  const { userId, membershipId, returnUrl, passId } = body;
   if (!userId) {
     return NextResponse.json({ error: "userId is required." }, { status: 400 });
   }
@@ -64,7 +67,7 @@ export async function POST(
   // ── fetch billing config (stripe key lives here, staff-only RLS bypassed via service role) ──
   const { data: billing, error: billErr } = await admin
     .from("business_membership_billing")
-    .select("is_enabled, price_cents, membership_name, stripe_secret_key")
+    .select("is_enabled, price_cents, membership_name, stripe_secret_key, pass_options")
     .eq("business_id", biz.id)
     .maybeSingle();
 
@@ -86,21 +89,43 @@ export async function POST(
   const successUrl = `${base}/${businessSlug}/app?membership=success`;
   const cancelUrl  = returnUrl ?? `${base}/${businessSlug}/app`;
 
+  // ── CP-86: resolve the pass (if any) from the DB config ──────────────────
+  type Pass = { id: string; label: string; months: number; price_cents: number };
+  let pass: Pass | null = null;
+  if (passId) {
+    const options = (billing as any).pass_options as Pass[] | null | undefined;
+    pass = (options ?? []).find(p => p.id === passId) ?? null;
+    if (!pass) {
+      return NextResponse.json({ error: "That pass is no longer available." }, { status: 400 });
+    }
+  }
+
   // ── call Stripe REST API to create a Checkout Session ─────────────────────
   // We use fetch + URLSearchParams instead of the npm stripe package.
+  // CP-86: a pass is a ONE-TIME payment (mode=payment); the monthly plan
+  // stays a subscription.
   const stripePayload = new URLSearchParams();
-  stripePayload.set("mode", "subscription");
+  stripePayload.set("mode", pass ? "payment" : "subscription");
   stripePayload.set("line_items[0][price_data][currency]", "usd");
-  stripePayload.set("line_items[0][price_data][unit_amount]", String(billing.price_cents));
-  stripePayload.set("line_items[0][price_data][recurring][interval]", "month");
-  stripePayload.set("line_items[0][price_data][product_data][name]",  billing.membership_name);
+  stripePayload.set("line_items[0][price_data][unit_amount]", String(pass ? pass.price_cents : billing.price_cents));
+  if (!pass) {
+    stripePayload.set("line_items[0][price_data][recurring][interval]", "month");
+  }
+  stripePayload.set("line_items[0][price_data][product_data][name]",
+    pass ? `${billing.membership_name} — ${pass.label}` : billing.membership_name);
   stripePayload.set("line_items[0][price_data][product_data][description]",
-    `Monthly membership at ${biz.name}`);
+    pass
+      ? `${pass.months}-month membership pass at ${biz.name}`
+      : `Monthly membership at ${biz.name}`);
   stripePayload.set("line_items[0][quantity]", "1");
   stripePayload.set("client_reference_id", userId);
   stripePayload.set("metadata[business_id]",  biz.id);
   stripePayload.set("metadata[user_id]",       userId);
   stripePayload.set("metadata[business_slug]", businessSlug);
+  if (pass) {
+    stripePayload.set("metadata[pass_months]", String(pass.months));
+    stripePayload.set("metadata[pass_label]",  pass.label);
+  }
   if (membershipId) {
     stripePayload.set("metadata[membership_id]", membershipId);
   }

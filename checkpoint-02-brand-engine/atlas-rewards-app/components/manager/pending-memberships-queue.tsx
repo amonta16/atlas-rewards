@@ -32,6 +32,14 @@ type Pending = {
   email: string | null;
   phone: string | null;
   requested_at: string;
+  // CP-86: the plan they picked (monthly or a duration pass) so staff
+  // know exactly what to charge before tapping Activate.
+  pending_plan?: {
+    kind: "monthly" | "pass";
+    label?: string;
+    months?: number;
+    price_cents?: number;
+  } | null;
 };
 
 export function PendingMembershipsQueue({ business }: { business: Business }) {
@@ -190,6 +198,19 @@ export function PendingMembershipsQueue({ business }: { business: Business }) {
                   <Clock className="h-3 w-3" />
                   Requested {new Date(r.requested_at).toLocaleString()}
                 </div>
+                {/* CP-86: what they're buying — collect this amount, then Activate. */}
+                {r.pending_plan && (
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-100 border border-amber-300 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-900">
+                    {r.pending_plan.label ?? (r.pending_plan.kind === "pass" ? "Pass" : "Monthly")}
+                    {typeof r.pending_plan.price_cents === "number" && (
+                      <> · ${(r.pending_plan.price_cents / 100).toFixed(2)}
+                        {r.pending_plan.kind === "monthly" ? "/mo" : ""}</>
+                    )}
+                    {r.pending_plan.kind === "pass" && r.pending_plan.months && (
+                      <span className="font-semibold text-amber-700">({r.pending_plan.months} mo)</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">

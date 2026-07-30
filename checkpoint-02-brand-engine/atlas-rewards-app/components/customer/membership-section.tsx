@@ -37,6 +37,9 @@ type BillingPublic = {
   points_multiplier?: number | null;
   has_priority_booking?: boolean | null;
   image_url?: string | null;
+  // CP-86: duration passes + monthly toggle.
+  pass_options?: { id: string; label: string; months: number; price_cents: number }[] | null;
+  offer_monthly?: boolean | null;
 };
 
 export function MembershipSection({
@@ -60,7 +63,11 @@ export function MembershipSection({
   // was unreliable after the CP-22 single-membership refactor — it kept
   // showing the Join CTA to paid members.
   const [paidStatus, setPaidStatus] = useState<
-    { is_paid: boolean; paid_at: string | null; renewal_due_at: string | null } | null
+    {
+      is_paid: boolean; paid_at: string | null; renewal_due_at: string | null;
+      // CP-86: hard expiry (passes) + the plan they bought.
+      expires_at?: string | null; plan_label?: string | null;
+    } | null
   >(null);
 
   useEffect(() => {
@@ -124,7 +131,7 @@ export function MembershipSection({
             <div className="flex-1 min-w-0">
               <div className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase mb-1.5"
                 style={{ color: primary }}>
-                <Crown className="h-3 w-3" /> Member · {name}
+                <Crown className="h-3 w-3" /> Member · {paidStatus?.plan_label ?? name}
               </div>
               <h2 className="text-lg font-extrabold text-zinc-900 leading-tight">Membership benefits</h2>
             </div>
@@ -182,7 +189,7 @@ export function MembershipSection({
           {/* CP-42: Member-since + renewal-due bar — replaces the "you're in"
               ribbon when we know the paid_at date from member_membership_status.
               Doubles as a "you're already a member, no Join CTA" signal. */}
-          {(paidStatus?.paid_at || paidStatus?.renewal_due_at) ? (
+          {(paidStatus?.paid_at || paidStatus?.renewal_due_at || paidStatus?.expires_at) ? (
             <div
               className="px-5 py-3 grid grid-cols-2 gap-3 text-[11px] border-t"
               style={{ background: `${primary}06`, borderColor: `${primary}18` }}
@@ -202,7 +209,22 @@ export function MembershipSection({
                   </div>
                 </div>
               )}
-              {paidStatus?.renewal_due_at && (
+              {/* CP-86: a pass shows its hard expiry; monthly keeps "Renews". */}
+              {paidStatus?.expires_at ? (
+                <div className="flex items-start gap-1.5">
+                  <CalendarClock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} />
+                  <div>
+                    <div className="font-bold uppercase tracking-wider text-[9px]" style={{ color: primary }}>
+                      Expires
+                    </div>
+                    <div className="font-semibold text-zinc-800 leading-tight mt-0.5">
+                      {new Date(paidStatus.expires_at).toLocaleDateString(undefined, {
+                        month: "short", day: "numeric", year: "numeric",
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : paidStatus?.renewal_due_at && (
                 <div className="flex items-start gap-1.5">
                   <CalendarClock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} />
                   <div>
@@ -279,12 +301,27 @@ export function MembershipSection({
                   <Sparkles className="h-2.5 w-2.5" /> EXCLUSIVE
                 </div>
                 <h2 className="text-xl font-extrabold text-white leading-tight drop-shadow-sm">{membership_name}</h2>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-2xl font-extrabold text-white">
-                    ${(price_cents / 100).toFixed(2)}
-                  </span>
-                  <span className="text-white/80 text-xs">/ month</span>
-                </div>
+                {/* CP-86: price line adapts — monthly, passes, or both. */}
+                {(billing.offer_monthly ?? true) ? (
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-extrabold text-white">
+                      ${(price_cents / 100).toFixed(2)}
+                    </span>
+                    <span className="text-white/80 text-xs">/ month</span>
+                    {(billing.pass_options ?? []).length > 0 && (
+                      <span className="text-white/70 text-[11px] ml-1">· or grab a pass</span>
+                    )}
+                  </div>
+                ) : (billing.pass_options ?? []).length > 0 ? (
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-extrabold text-white">
+                      ${(Math.min(...(billing.pass_options ?? []).map(p => p.price_cents)) / 100).toFixed(2)}
+                    </span>
+                    <span className="text-white/80 text-xs">
+                      {(billing.pass_options ?? []).length === 1 ? "one-time pass" : "· passes from"}
+                    </span>
+                  </div>
+                ) : null}
               </div>
               <div
                 className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 bg-white/20 ring-1 ring-white/40"

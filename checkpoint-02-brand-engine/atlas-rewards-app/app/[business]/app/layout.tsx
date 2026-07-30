@@ -4,6 +4,8 @@ import { CustomerAppShell } from "@/components/customer/app-shell";
 import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
 import { PWAInstall } from "@/components/customer/pwa-install";
 import { FeaturedOfferBanner } from "@/components/customer/featured-offer-banner";
+// CP-86: business-wide announcement banner (manager-posted, dismissible).
+import { AnnouncementBanner } from "@/components/customer/announcement-banner";
 import { OfferRevealWatcher } from "@/components/customer/offer-reveal-watcher";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { designVars } from "@/lib/design-styles";
@@ -97,6 +99,13 @@ export default async function CustomerAppLayout({
         /* CP-85.1: a featured OPEN raffle takes over this banner; tapping it
            jumps to the Rewards tab where the entry flow lives. */
         slug={params.business}
+      />
+      {/* CP-86: manager-posted announcement ("closing early Tuesday") —
+          renders on every tab, realtime, dismissible per device. */}
+      <AnnouncementBanner
+        businessId={business.id}
+        primary={business.brand_colors.primary}
+        secondary={business.brand_colors.secondary}
       />
       {/* CP-29.1: auto-popping offer reveal — only renders if the customer
           hasn't already seen this offer on this device. */}

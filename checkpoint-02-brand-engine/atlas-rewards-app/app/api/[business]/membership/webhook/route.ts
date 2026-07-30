@@ -123,8 +123,9 @@ export async function POST(
       case "checkout.session.completed": {
         const session = event.data.object;
 
-        // Only handle subscription checkouts
-        if (session.mode !== "subscription") break;
+        // CP-86: handle BOTH subscription checkouts (monthly plan) and
+        // one-time payment checkouts (duration passes).
+        if (session.mode !== "subscription" && session.mode !== "payment") break;
         if (session.payment_status !== "paid" && session.status !== "complete") break;
 
         const userId    = session.metadata?.user_id    ?? session.client_reference_id;
@@ -135,7 +136,24 @@ export async function POST(
           break;
         }
 
-        // Upgrade the member's tier to the paid membership name
+        // CP-86: pass metadata (set by the checkout route) → hard expiry.
+        const passMonths = session.metadata?.pass_months
+          ? parseInt(session.metadata.pass_months, 10)
+          : null;
+        const passLabel = session.metadata?.pass_label ?? null;
+
+        // Mark them paid + stamp plan/expiry (service-role RPC from cp86).
+        const { error: applyErr } = await admin.rpc("apply_membership_purchase", {
+          p_business_id: businessId,
+          p_user_id:     userId,
+          p_months:      passMonths,
+          p_label:       passLabel ?? "Monthly",
+        });
+        if (applyErr) {
+          console.error("apply_membership_purchase failed:", applyErr.message);
+        }
+
+        // Legacy tier upgrade (kept for older data paths).
         const tierName = billing.membership_name ?? "Member";
         const { error } = await admin.rpc("upgrade_to_member", {
           p_business_id: businessId,
@@ -146,7 +164,7 @@ export async function POST(
         if (error) {
           console.error("upgrade_to_member failed:", error.message);
         } else {
-          console.log(`membership: upgraded user ${userId} to "${tierName}" in business ${businessId}`);
+          console.log(`membership: upgraded user ${userId} to "${tierName}" in business ${businessId}${passMonths ? ` (${passMonths}-month pass)` : ""}`);
         }
         break;
       }

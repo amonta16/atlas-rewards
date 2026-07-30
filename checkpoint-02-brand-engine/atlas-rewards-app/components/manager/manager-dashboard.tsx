@@ -22,6 +22,8 @@ import { ManagerOffersPreview } from "@/components/manager/manager-offers-previe
 import { ScannerListener } from "@/components/manager/scanner-listener";
 import { CustomerSearch } from "@/components/manager/customer-search";
 import { DailyRecapCard } from "@/components/manager/daily-recap-card";
+// CP-86: manager-only announcement composer (customer-facing banner + push).
+import { AnnouncementComposer } from "@/components/manager/announcement-composer";
 // CP-42 (round 3): AtlasValueStrip moved to InsightsDashboard.
 import { TeamMembers } from "@/components/team/team-members";
 import { FrontDeskPins } from "@/components/team/front-desk-pins";
@@ -458,6 +460,15 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               primary={business.brand_colors.primary}
               secondary={business.brand_colors.secondary}
             />
+
+            {/* CP-86: announcements — MANAGER-ONLY (business_staff never
+                sees it; the SQL RPCs are manager-gated too). */}
+            {(role === "business_manager" || role === "agency_admin") && (
+              <AnnouncementComposer
+                businessId={business.id}
+                primary={business.brand_colors.primary}
+              />
+            )}
 
             {/* CP-48: insights moved OFF the front-desk tab — they live in the
                 Insights tab. The desk stays focused on day-to-day ops. */}

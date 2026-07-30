@@ -117,7 +117,8 @@ export function MembersDirectory({
                     <div className="text-sm font-bold tabular-nums" style={{ color: primary }}>
                       {m.points_balance.toLocaleString()}
                     </div>
-                    <div className="text-[10px] text-zinc-400">{m.tier}</div>
+                    {/* CP-86: tier label removed per Andrew — just "pts". */}
+                    <div className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold">pts</div>
                   </div>
                   <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0" />
                 </button>

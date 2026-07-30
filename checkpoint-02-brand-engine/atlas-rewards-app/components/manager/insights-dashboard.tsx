@@ -77,7 +77,15 @@ type TopMember = {
 type Inactive = {
   membership_id: string; full_name: string | null; email: string | null; phone: string | null;
   last_visit_at: string | null; days_since_last: number | null; visit_count: number;
+  // CP-86: returned by inactive_members v2 so never-checked-in members can
+  // show "joined <date>" instead of a blank.
+  joined_at?: string | null;
 };
+
+// CP-86: selectable win-back window. 60d stays the default (Andrew's "two
+// months"), but shorter windows make the list actually usable for newer
+// businesses whose whole member base is younger than 60 days.
+const INACTIVE_WINDOWS = [7, 14, 30, 60, 90] as const;
 
 // CP-36: minimum days since last visit before we consider a member inactive.
 // Andrew explicitly asked for two months.
@@ -91,6 +99,11 @@ export function InsightsDashboard({ business }: { business: Business }) {
   const [funnel, setFunnel]       = useState<ReviewFunnel | null>(null);
   const [top, setTop]             = useState<TopMember[]>([]);
   const [inactive, setInactive]   = useState<Inactive[]>([]);
+  // CP-86: adjustable window (days without a check-in). Default 60.
+  const [inactiveDays, setInactiveDays] = useState<number>(INACTIVE_DAYS);
+  // CP-86: surface the RPC error instead of silently rendering an empty
+  // list — a missing migration used to read as "nice retention 👏".
+  const [inactiveErr, setInactiveErr] = useState<string | null>(null);
   const [sending, setSending]     = useState<string | "all" | null>(null);
   // CP-36: we-miss-you composer — opens with either a single membership
   // selected, or null (= send-to-all-inactive).
@@ -101,14 +114,14 @@ export function InsightsDashboard({ business }: { business: Business }) {
     const [
       { data: r },
       { data: t },
-      { data: i },
+      inactiveRes,
       impactRes,
       monthlyRes,
       funnelRes,
     ] = await Promise.all([
       supabase.rpc("business_analytics_rollup", { p_business_id: business.id }),
       supabase.rpc("top_loyal_members",         { p_business_id: business.id, p_limit: 5 }),
-      supabase.rpc("inactive_members",          { p_business_id: business.id, p_min_days: INACTIVE_DAYS, p_limit: 50 }),
+      supabase.rpc("inactive_members",          { p_business_id: business.id, p_min_days: inactiveDays, p_limit: 50 }),
       supabase.rpc("atlas_impact_rollup",       { p_business_id: business.id }),
       supabase.rpc("atlas_impact_monthly",      { p_business_id: business.id }),
       supabase.rpc("atlas_review_funnel",       { p_business_id: business.id }),
@@ -117,7 +130,8 @@ export function InsightsDashboard({ business }: { business: Business }) {
     const row = Array.isArray(r) ? r[0] : r;
     setRollup((row ?? null) as Rollup | null);
     setTop((t ?? []) as TopMember[]);
-    setInactive((i ?? []) as Inactive[]);
+    setInactive((inactiveRes.data ?? []) as Inactive[]);
+    setInactiveErr(inactiveRes.error ? inactiveRes.error.message : null);
 
     // CP-32 RPCs — silently no-op if the migration hasn't been applied.
     const im = Array.isArray(impactRes.data) ? impactRes.data[0] : impactRes.data;
@@ -127,7 +141,9 @@ export function InsightsDashboard({ business }: { business: Business }) {
     setFunnel((fu ?? null) as ReviewFunnel | null);
   }
 
-  useEffect(() => { loadAll(); }, [business.id]);
+  // CP-86: re-query when the win-back window changes too.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadAll(); }, [business.id, inactiveDays]);
 
   // CP-36: send a we-miss-you notification (+ optional bonus points) to
   // a single inactive member OR to the entire inactive list. Targets the
@@ -492,7 +508,7 @@ export function InsightsDashboard({ business }: { business: Business }) {
             icon={<AlertTriangle className="h-5 w-5" />}
             label="Win-back ready"
             value={inactive.length}
-            sub={inactive.length === 0 ? "No lapsed members 🎉" : "Lapsed 60d+ · contactable"}
+            sub={inactive.length === 0 ? "No lapsed members 🎉" : `Lapsed ${inactiveDays}d+ · contactable`}
             tone="rose"
           />
         </div>
@@ -538,34 +554,60 @@ export function InsightsDashboard({ business }: { business: Business }) {
         )}
       </div>
 
-      {/* ===================== INACTIVE LIST (CP-36) ===================== */}
+      {/* ===================== INACTIVE LIST (CP-36 → CP-86) ===================== */}
       <div className="rounded-2xl border bg-white overflow-hidden">
-        <div className="px-5 py-3 border-b flex items-center justify-between gap-3">
+        <div className="px-5 py-3 border-b flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 min-w-0">
             <Mail className="h-4 w-4 text-zinc-500 shrink-0" />
             <div className="min-w-0">
-              <h3 className="font-semibold">Inactive members (60d+)</h3>
+              <h3 className="font-semibold">Inactive members ({inactiveDays}d+)</h3>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Haven't checked in for two months. Send a "we miss you" with
-                a bonus to pull them back.
+                No check-in for {inactiveDays} days (including members who never
+                checked in). Send a "we miss you" with a bonus to pull them back.
               </p>
             </div>
           </div>
-          {inactive.length > 0 && (
-            <Button
-              size="sm"
-              onClick={() => setComposer({ target: "all" })}
-              disabled={sending === "all"}
-              style={{ background: brand }}
-              className="text-white text-xs shrink-0"
-            >
-              <MessageSquareHeart className="h-3 w-3 mr-1" />
-              {sending === "all" ? "Sending…" : `Send to all ${inactive.length}`}
-            </Button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* CP-86: window picker — 60d default, shorter windows for newer businesses. */}
+            <div className="flex rounded-full bg-zinc-100 p-0.5">
+              {INACTIVE_WINDOWS.map(d => (
+                <button
+                  key={d}
+                  onClick={() => setInactiveDays(d)}
+                  className={
+                    "px-2.5 py-1 rounded-full text-[11px] font-bold transition " +
+                    (inactiveDays === d ? "bg-white shadow-sm text-zinc-900" : "text-zinc-500 hover:text-zinc-800")
+                  }
+                >
+                  {d}d
+                </button>
+              ))}
+            </div>
+            {inactive.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() => setComposer({ target: "all" })}
+                disabled={sending === "all"}
+                style={{ background: brand }}
+                className="text-white text-xs shrink-0"
+              >
+                <MessageSquareHeart className="h-3 w-3 mr-1" />
+                {sending === "all" ? "Sending…" : `Send to all ${inactive.length}`}
+              </Button>
+            )}
+          </div>
         </div>
-        {inactive.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">No one's inactive — nice retention 👏</div>
+        {inactiveErr ? (
+          <div className="p-6 text-center text-sm">
+            <div className="font-semibold text-rose-600">Couldn't load the inactive list</div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              {inactiveErr} — if this mentions a missing function, apply the CP-86 SQL migration in Supabase.
+            </div>
+          </div>
+        ) : inactive.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            No one's been away {inactiveDays}+ days — nice retention 👏
+          </div>
         ) : (
           <div className="divide-y">
             {inactive.map(m => (
@@ -575,7 +617,9 @@ export function InsightsDashboard({ business }: { business: Business }) {
                   <div className="text-[11px] text-muted-foreground mt-0.5">
                     {m.last_visit_at
                       ? `Last seen ${new Date(m.last_visit_at).toLocaleDateString()} (${Math.round(Number(m.days_since_last))}d ago)`
-                      : "Never visited"}
+                      : m.joined_at
+                        ? `Never checked in · joined ${new Date(m.joined_at).toLocaleDateString()}`
+                        : "Never checked in"}
                     {m.email && <> · {m.email}</>}
                   </div>
                 </div>

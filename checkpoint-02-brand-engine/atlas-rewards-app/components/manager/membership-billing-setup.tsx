@@ -22,7 +22,7 @@
 import { useEffect, useState } from "react";
 import {
   CreditCard, Eye, EyeOff, Check, AlertCircle, Loader2,
-  ExternalLink, ShieldCheck, Plus, Trash2, Link2, Store, Zap,
+  ExternalLink, ShieldCheck, Plus, Trash2, Link2, Store, Zap, Ticket,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,16 @@ import { Switch } from "@/components/ui/switch";
 import type { Business } from "@/lib/types/database";
 
 type PaymentMode = "stripe" | "external_link" | "in_person";
+
+// CP-86: one-time duration pass — bigger upfront order than the monthly plan.
+export type PassOption = {
+  id: string;
+  label: string;
+  months: number;      // 1–24
+  price_cents: number; // one-time price
+};
+
+const PASS_DURATIONS = [1, 3, 6, 12] as const;
 
 type BillingConfig = {
   is_enabled: boolean;
@@ -50,6 +60,9 @@ type BillingConfig = {
   points_multiplier?: number | null;
   has_priority_booking?: boolean | null;
   image_url?: string | null;
+  // CP-86: duration passes
+  pass_options?: PassOption[] | null;
+  offer_monthly?: boolean | null;
 };
 
 export function MembershipBillingSetup({ business }: { business: Business }) {
@@ -72,6 +85,10 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
   const [err, setErr] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [newPerk, setNewPerk] = useState("");
+  // CP-86: add-a-pass form
+  const [newPassMonths, setNewPassMonths] = useState<number>(12);
+  const [newPassPrice, setNewPassPrice] = useState<string>("");
+  const [newPassLabel, setNewPassLabel] = useState<string>("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -105,7 +122,8 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
       if (stripeErr) { setSaving(false); setErr(stripeErr.message); return; }
     }
 
-    const { error } = await supabase.rpc("upsert_membership_billing_v2", {
+    // CP-86: v3 carries the pass options + monthly toggle.
+    const { error } = await supabase.rpc("upsert_membership_billing_v3", {
       p_business_id:                business.id,
       p_is_enabled:                 cfg.is_enabled,
       p_membership_name:            cfg.membership_name,
@@ -118,12 +136,14 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
       p_payment_mode:               cfg.payment_mode,
       p_external_payment_url:       cfg.external_payment_url || null,
       p_payment_instructions:       cfg.payment_instructions || null,
+      p_pass_options:               cfg.pass_options ?? [],
+      p_offer_monthly:              cfg.offer_monthly ?? true,
     });
     setSaving(false);
     if (error) {
       setErr(
-        error.message.includes("upsert_membership_billing_v2")
-          ? "RPC not found — apply the CP-34 SQL migration in Supabase first."
+        error.message.includes("upsert_membership_billing_v3")
+          ? "RPC not found — apply the CP-86 SQL migration in Supabase first."
           : error.message,
       );
       return;
@@ -136,6 +156,31 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
     if (!p || cfg.perks.includes(p)) return;
     setCfg(c => ({ ...c, perks: [...c.perks, p] }));
     setNewPerk("");
+  }
+
+  // CP-86: pass helpers
+  const passes = cfg.pass_options ?? [];
+  function defaultPassLabel(months: number) {
+    return months === 12 ? "1-Year Pass" : `${months}-Month Pass`;
+  }
+  function addPass() {
+    const price = Math.round(parseFloat(newPassPrice || "0") * 100);
+    if (!price || price <= 0) { setErr("Give the pass a price."); return; }
+    if (passes.length >= 6) { setErr("A maximum of 6 passes is supported."); return; }
+    setErr(null);
+    const pass: PassOption = {
+      id: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+        ? crypto.randomUUID().slice(0, 8)
+        : Math.random().toString(36).slice(2, 10),
+      label: newPassLabel.trim() || defaultPassLabel(newPassMonths),
+      months: newPassMonths,
+      price_cents: price,
+    };
+    setCfg(c => ({ ...c, pass_options: [...(c.pass_options ?? []), pass] }));
+    setNewPassPrice(""); setNewPassLabel("");
+  }
+  function removePass(id: string) {
+    setCfg(c => ({ ...c, pass_options: (c.pass_options ?? []).filter(p => p.id !== id) }));
   }
 
   const webhookUrl = typeof window !== "undefined"
@@ -162,7 +207,9 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
             <div className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Customer Memberships</div>
             <div className="mt-1 text-xl font-bold">{cfg.membership_name}</div>
             <div className="text-sm text-muted-foreground mt-0.5">
-              ${(cfg.price_cents / 100).toFixed(2)} / month
+              {(cfg.offer_monthly ?? true) && <>${(cfg.price_cents / 100).toFixed(2)} / month</>}
+              {(cfg.offer_monthly ?? true) && passes.length > 0 && <> · </>}
+              {passes.length > 0 && <>{passes.length} pass{passes.length === 1 ? "" : "es"}</>}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -322,6 +369,99 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* ── CP-86: plans — monthly toggle + duration passes ── */}
+      <div className="rounded-2xl border bg-white p-5 space-y-4">
+        <div>
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <Ticket className="h-4 w-4 text-muted-foreground" /> Plans & passes
+          </h3>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Sell the recurring monthly plan, one-time passes (a bigger upfront
+            order that lasts 1–12 months), or both. A pass sets a hard expiry
+            date on the membership.
+          </p>
+        </div>
+
+        {/* Monthly plan toggle */}
+        <div className="flex items-center justify-between rounded-xl border bg-zinc-50 px-3 py-2.5">
+          <div>
+            <div className="text-sm font-semibold">Recurring monthly plan</div>
+            <div className="text-[11px] text-muted-foreground">
+              ${(cfg.price_cents / 100).toFixed(2)} / month — price set above
+            </div>
+          </div>
+          <Switch
+            checked={cfg.offer_monthly ?? true}
+            onCheckedChange={v => setCfg(c => ({ ...c, offer_monthly: v }))}
+          />
+        </div>
+
+        {/* Existing passes */}
+        {passes.length > 0 && (
+          <div className="space-y-1.5">
+            {passes.map(p => (
+              <div key={p.id} className="flex items-center gap-2 rounded-lg bg-amber-50/70 border border-amber-200 px-3 py-2 text-sm">
+                <Ticket className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                <span className="flex-1 font-semibold">{p.label}</span>
+                <span className="text-[11px] text-zinc-500">{p.months} mo</span>
+                <span className="font-bold" style={{ color: business.brand_colors.primary }}>
+                  ${(p.price_cents / 100).toFixed(2)}
+                </span>
+                <button onClick={() => removePass(p.id)} className="text-zinc-400 hover:text-rose-500 transition ml-1">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add a pass */}
+        <div className="rounded-xl border-2 border-dashed p-3 space-y-2">
+          <Label className="text-xs font-bold text-zinc-700 flex items-center gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> Add a pass
+          </Label>
+          <div className="grid grid-cols-4 gap-1.5">
+            {PASS_DURATIONS.map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setNewPassMonths(m)}
+                className={
+                  "rounded-lg border py-1.5 text-xs font-bold transition " +
+                  (newPassMonths === m ? "text-white shadow-sm" : "bg-white text-zinc-600 hover:bg-zinc-50")
+                }
+                style={newPassMonths === m ? { background: business.brand_colors.primary, borderColor: business.brand_colors.primary } : undefined}
+              >
+                {m === 12 ? "1 year" : `${m} mo`}
+              </button>
+            ))}
+          </div>
+          <div className="grid sm:grid-cols-[1fr_140px_auto] gap-2">
+            <Input
+              value={newPassLabel}
+              onChange={e => setNewPassLabel(e.target.value)}
+              placeholder={defaultPassLabel(newPassMonths)}
+              maxLength={40}
+            />
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+              <Input
+                type="number" min="0" step="0.01" className="pl-7"
+                value={newPassPrice}
+                onChange={e => setNewPassPrice(e.target.value)}
+                placeholder="99.00"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={addPass} className="h-10">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-[10px] text-zinc-500">
+            Tip: price the year pass at ~10× monthly so "2 months free" sells itself.
+          </p>
         </div>
       </div>
 

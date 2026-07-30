@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, X, Star, Users, Calendar, MapPin, DollarSign, Sparkles, Flame, Trophy, MinusCircle } from "lucide-react";
+import { ArrowLeft, Check, X, Star, Users, Calendar, MapPin, DollarSign, Sparkles, Flame, Trophy, MinusCircle, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,17 @@ type StreakSnapshot = {
   period_type: "daily" | "weekly" | "monthly";
 };
 
+// CP-86: VIP membership status for the scanned member — so the front desk
+// instantly sees "this person is a member" and when the membership expires.
+type VipStatus = {
+  is_member: boolean;
+  plan_label: string | null;
+  member_since: string | null;
+  expires_at: string | null;
+  just_expired: boolean;
+  payment_status: string | null;
+};
+
 export function AwardPointsPanel({
   business, member, onClose,
 }: { business: Business; member: Member; onClose: () => void }) {
@@ -57,6 +68,8 @@ export function AwardPointsPanel({
   const [checkInResult, setCheckInResult] = useState<{ streak: number; milestone: string | null; mystery: boolean } | null>(null);
   // CP-44: total $ this member has spent (front desk + manager + admin see it).
   const [spentCents, setSpentCents] = useState<number | null>(null);
+  // CP-86: membership badge (plan + expiry) for the scanned member.
+  const [vip, setVip] = useState<VipStatus | null>(null);
 
   // Load the member's current streak state + total spend when the panel opens
   useEffect(() => {
@@ -71,6 +84,16 @@ export function AwardPointsPanel({
     (async () => {
       const { data } = await supabase.rpc("member_total_spent", { p_membership_id: member.membership_id });
       setSpentCents(typeof data === "number" ? data : Number((data as any)?.[0] ?? 0));
+    })();
+    // CP-86: is this person a VIP member? Silent no-op if the cp86 SQL
+    // isn't applied yet (RPC missing → error → badge simply doesn't render).
+    (async () => {
+      const { data, error } = await supabase.rpc("member_vip_status", {
+        p_membership_id: member.membership_id,
+      });
+      if (error) return;
+      const row = (Array.isArray(data) ? data[0] : data) as VipStatus | null;
+      setVip(row ?? null);
     })();
   }, [business.id, member.membership_id]);
 
@@ -311,9 +334,54 @@ export function AwardPointsPanel({
             <div className="text-xl font-bold" style={{ color: business.brand_colors.primary }}>
               {member.points_balance.toLocaleString()}
             </div>
-            <div className="text-[10px] text-muted-foreground">pts · {member.tier}</div>
+            {/* CP-86: tier label (Bronze/Silver/Gold) removed per Andrew —
+                tiers no longer exist in the customer app either (CP-73). */}
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">pts</div>
           </div>
         </div>
+
+        {/* CP-86: unmistakable membership strip — gold when they're an
+            active member (with plan + expiry), amber warning when their
+            pass just lapsed so staff can offer a renewal on the spot. */}
+        {vip?.is_member && (
+          <div
+            className="mt-2 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm"
+            style={{
+              background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 55%, #fcd34d 100%)",
+              border: "1px solid #f59e0b66",
+            }}
+          >
+            <div
+              className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 shadow-inner"
+              style={{ background: "linear-gradient(135deg, #fff 0%, #fbbf24 60%, #b45309 100%)" }}
+            >
+              <Crown className="h-4 w-4 text-amber-900 fill-amber-200" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-black text-amber-900 tracking-tight truncate">
+                MEMBER{vip.plan_label ? ` · ${vip.plan_label}` : ""}
+              </div>
+              <div className="text-[11px] font-semibold text-amber-800/90">
+                {vip.expires_at
+                  ? <>Expires <strong>{new Date(vip.expires_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</strong></>
+                  : "Active — renews monthly"}
+                {vip.member_since && (
+                  <> · since {new Date(vip.member_since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {vip?.just_expired && (
+          <div className="mt-2 rounded-2xl px-4 py-3 flex items-center gap-3 bg-amber-50 border border-amber-300">
+            <Crown className="h-4 w-4 text-amber-500 shrink-0" />
+            <div className="text-[12px] font-semibold text-amber-800">
+              Membership <strong>expired</strong>
+              {vip.expires_at && <> {new Date(vip.expires_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</>}
+              {" — offer them a renewal."}
+            </div>
+          </div>
+        )}
 
         {/* MODE: menu — choose what to award */}
         {mode === "menu" && (
