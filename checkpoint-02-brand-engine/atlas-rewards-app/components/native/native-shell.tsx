@@ -15,12 +15,8 @@ import { createClient } from "@/lib/supabase/client";
 import {
   isNative, getAppBuild, prefSet, onAppUrlOpen, PREF_LAST_BUSINESS,
   registerNativePush, onPushTap, nativePlatform, checkNativePushPermission,
+  resolveNativeBusinessSlug,
 } from "@/lib/native";
-
-const RESERVED = new Set([
-  "www", "agency", "admin", "api", "app", "mail", "blog", "marketing",
-  "support", "help", "docs", "status", "dev", "staging", "test",
-]);
 
 type Wall = { kind: "update" | "kill"; message: string } | null;
 
@@ -30,9 +26,13 @@ export function NativeShell() {
   useEffect(() => {
     if (!isNative()) return;
 
-    // 1) Remember the business we're inside (host = <slug>.<root-domain>)
-    const labels = window.location.hostname.split(".");
-    const businessSlug = labels.length >= 3 && !RESERVED.has(labels[0]) ? labels[0] : null;
+    // 1) Remember the business we're inside.
+    // CP-91: was subdomain-only — on the path-routed apex host
+    // (app.atlas-engine.app/<slug>/app, the CP-74/81 flow) it resolved
+    // null, so the silent token re-registration below NEVER ran and
+    // push_subscriptions stayed empty. resolveNativeBusinessSlug handles
+    // both subdomain and path routing.
+    const businessSlug = resolveNativeBusinessSlug();
     if (businessSlug) {
       void prefSet(PREF_LAST_BUSINESS, businessSlug);
 

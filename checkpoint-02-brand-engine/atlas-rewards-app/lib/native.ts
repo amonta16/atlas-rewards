@@ -216,5 +216,44 @@ export function onPushTap(cb: (linkPath: string) => void): void {
   })();
 }
 
+/**
+ * CP-91: which business is this webview currently inside?
+ *
+ * The old logic (in native-shell.tsx AND push-client.ts, separately) only
+ * understood SUBDOMAIN routing (`<slug>.atlas-engine.app`). CP-74/81 moved
+ * the customer flow to PATH routing on the apex app host
+ * (`app.atlas-engine.app/<slug>/app/...`), where the first hostname label
+ * is the reserved "app" — so both call sites resolved null (or worse,
+ * literally "app"), push registration silently never ran, and
+ * push_subscriptions stayed empty. This is the one shared resolver:
+ *
+ *   1. `<slug>.<root>` subdomain → that label, unless reserved.
+ *   2. `app.<root>/<slug>/app/...` → the first path segment, but only when
+ *      the SECOND segment is a known business child route — that guard
+ *      keeps /join, /j/CODE, /login, /agency etc. from being mistaken for
+ *      business slugs.
+ */
+const RESERVED_HOST_LABELS = new Set([
+  "www", "agency", "admin", "api", "app", "mail", "blog", "marketing",
+  "support", "help", "docs", "status", "dev", "staging", "test",
+]);
+const BUSINESS_CHILD_ROUTES = new Set([
+  "app", "manage", "frontdesk", "login", "signup",
+  "reset-password", "forgot-password",
+]);
+
+export function resolveNativeBusinessSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  const labels = window.location.hostname.split(".");
+  if (labels.length >= 3 && !RESERVED_HOST_LABELS.has(labels[0])) {
+    return labels[0];
+  }
+  const segs = window.location.pathname.split("/").filter(Boolean);
+  if (segs.length >= 2 && BUSINESS_CHILD_ROUTES.has(segs[1]) && !RESERVED_HOST_LABELS.has(segs[0])) {
+    return segs[0];
+  }
+  return null;
+}
+
 /** Keys shared between /join (apex) and the business subdomains. */
 export const PREF_LAST_BUSINESS = "atlas-last-business-slug";

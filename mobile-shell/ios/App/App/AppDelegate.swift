@@ -1,5 +1,7 @@
 import UIKit
 import Capacitor
+import FirebaseCore
+import FirebaseMessaging
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +9,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // CP-91: Firebase must be configured before any Messaging call.
+        // Reads GoogleService-Info.plist (already in this target).
+        FirebaseApp.configure()
         return true
     }
 
@@ -46,4 +50,34 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
+    // ─── CP-91: push registration plumbing ────────────────────────────
+    //
+    // The stock Capacitor template omits BOTH of these methods, so the
+    // @capacitor/push-notifications `registration` event NEVER fired on
+    // iOS — permission was granted, register() ran, and then silence.
+    //
+    // On top of that, our server sends through FCM HTTP v1, which does
+    // NOT accept raw APNs device tokens. So: hand the APNs token to
+    // Firebase Messaging, exchange it for an FCM registration token, and
+    // post THAT string to Capacitor's notification center (the plugin
+    // accepts a String or Data object). The web app then stores it as
+    // `fcm:<token>` in push_subscriptions and delivery works end-to-end.
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Messaging.messaging().apnsToken = deviceToken
+        Messaging.messaging().token { token, error in
+            if let error = error {
+                NotificationCenter.default.post(
+                    name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+                return
+            }
+            NotificationCenter.default.post(
+                name: .capacitorDidRegisterForRemoteNotifications, object: token)
+        }
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(
+            name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
 }

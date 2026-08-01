@@ -27,8 +27,11 @@ export async function ensurePushSubscription(businessId: string | null): Promise
   // PushManager APIs don't exist in the WebView, so without this branch
   // every bell tap silently no-oped on Android/iOS.
   if (isNative()) {
-    const labels = window.location.hostname.split(".");
-    const slug = labels.length >= 3 ? labels[0] : null;
+    // CP-91: was `hostname.split(".")[0]` — which on the path-routed apex
+    // (app.atlas-engine.app/<slug>/app) evaluated to the literal string
+    // "app", a slug that matches no business. We already HAVE the real
+    // business id as this function's argument — send it directly; the
+    // subscribe route accepts business_id for the native branch.
     await registerNativePush(async (token) => {
       await fetch("/api/notifications/subscribe", {
         method: "POST",
@@ -36,7 +39,7 @@ export async function ensurePushSubscription(businessId: string | null): Promise
         body: JSON.stringify({
           platform: nativePlatform(),
           token,
-          business_slug: slug,
+          business_id: businessId,
         }),
       });
     });

@@ -19,7 +19,10 @@ end
 
 target 'App' do
   capacitor_pods
-  # Add your Pods here
+  # CP-91: FCM token exchange on iOS. The server sends via FCM HTTP v1,
+  # which rejects raw APNs tokens — AppDelegate swaps the APNs token for
+  # an FCM registration token through FirebaseMessaging.
+  pod 'FirebaseMessaging'
 end
 
 post_install do |installer|
