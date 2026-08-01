@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "781538917646",
+    "project_id": "atlas-rewards-a090c",
+    "storage_bucket": "atlas-rewards-a090c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:781538917646:android:9e6d759b3449efa2afab5f",
+        "android_client_info": {
+          "package_name": "com.atlasengine.rewards"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD23fSfhwL-hBM-dVh6CGQ_tcZKv5jpN6g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
