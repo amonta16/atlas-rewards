@@ -36,8 +36,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { HeadingByStyle } from "./section-elements";
 import { badgeCss } from "@/lib/element-styles";
+import { createJitteredHandler } from "@/lib/realtime-jitter";
 import {
-  type CustomerRaffle, formatCountdown, formatRaffleTime, sweepDueRaffles,
+  type CustomerRaffle, formatCountdown, formatRaffleTime,
 } from "@/lib/raffles";
 import type { Business } from "@/lib/types/database";
 
@@ -94,8 +95,18 @@ export function RafflesSection({
   }, []);
 
   // Load + realtime on the raffles table (state flips live when the draw
-  // happens or the owner edits times), + a lazy sweep so a raffle that
-  // came due while the app was closed gets its winner drawn right now.
+  // happens or the owner edits times).
+  //
+  // CP-88: two changes here.
+  //   • The `sweepDueRaffles()` call is gone. `raffles-${business.id}` is a
+  //     PER-BUSINESS topic, so this ran once per customer per mount and fired
+  //     a global service-role write; at 1,000 customers that's 1,000
+  //     concurrent sweeps queuing on one row lock. pg_cron backstops the
+  //     draw, and the subscription below picks up the finalized state.
+  //   • The realtime handler is jittered. Every connected customer receives
+  //     the same message at the same instant, so an un-jittered `load` meant
+  //     N simultaneous RPCs — and blows past Supabase's 500 msg/sec Realtime
+  //     ceiling well before N gets large.
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
@@ -103,34 +114,45 @@ export function RafflesSection({
       const { data } = await supabase.rpc("list_active_raffles", { p_business_id: business.id });
       if (!cancelled) setRows((data ?? []) as CustomerRaffle[]);
     };
-    sweepDueRaffles();
     load();
+    const { handler: onRaffleChange, cancel: cancelJitter } = createJitteredHandler(load, {
+      maxDelayMs: 5000,
+      minGapMs: 2000,
+    });
     const ch = supabase
       .channel(`raffles-${business.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "raffles", filter: `business_id=eq.${business.id}` },
-        load,
+        onRaffleChange,
       )
       .subscribe();
     // Gentle poll keeps total-entry counts fresh (other members entering).
     const poll = setInterval(load, 60_000);
-    return () => { cancelled = true; clearInterval(poll); supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      cancelJitter();
+      clearInterval(poll);
+      supabase.removeChannel(ch);
+    };
   }, [business.id]);
 
-  // When a countdown hits zero locally, nudge the backend draw + refetch.
+  // When a countdown hits zero locally, refetch so the card stops saying
+  // "open". CP-88: no longer nudges the backend draw — pg_cron finalizes it,
+  // and the realtime subscription above will deliver the state flip anyway.
+  // The delay is randomised so a raffle ending at a round time doesn't make
+  // every viewer refetch on the same tick.
   const dueIds = useMemo(
     () => (rows ?? []).filter(r => r.state === "open" && new Date(r.ends_at).getTime() <= now).map(r => r.id).join(","),
     [rows, now],
   );
   useEffect(() => {
     if (!dueIds) return;
-    sweepDueRaffles();
     const t = setTimeout(async () => {
       const supabase = createClient();
       const { data } = await supabase.rpc("list_active_raffles", { p_business_id: business.id });
       setRows((data ?? []) as CustomerRaffle[]);
-    }, 2500);
+    }, 2500 + Math.floor(Math.random() * 5000));
     return () => clearTimeout(t);
   }, [dueIds, business.id]);
 
@@ -167,7 +189,9 @@ export function RafflesSection({
       if (/ended/i.test(msg)) {
         setConfirming(null);
         toast.error("This raffle just ended — entries are closed.");
-        sweepDueRaffles();
+        // CP-88: was sweepDueRaffles(). A customer hitting a closed raffle is
+        // the worst moment to trigger a global service-role sweep — that's
+        // exactly when many customers hit it at once. pg_cron handles the draw.
       } else if (/insufficient/i.test(msg)) {
         setEntryErr("Not enough points for this entry.");
       } else if (/join the rewards/i.test(msg)) {

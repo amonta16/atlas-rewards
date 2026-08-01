@@ -1,30 +1,54 @@
 /**
- * POST /api/raffles/sweep — CP-85
+ * /api/raffles/sweep — CP-85, secured + cron-enabled in CP-88
  *
- * Lazy raffle finalizer + push fan-out. Called fire-and-forget by:
- *   • the customer RaffleSection on mount (Rewards tab), and
- *   • the staff raffle panel inside the Offers manager.
- *
- * It invokes finalize_due_raffles() with the service-role client. The RPC
- * is once-only per raffle (row lock + status guard in SQL), and it RETURNS
- * only the raffles THIS call actually finalized — so pushes never
- * double-send even with the pg_cron backstop running in parallel (whoever
- * transitions the row is the only one who gets rows back).
+ * Lazy raffle finalizer + push fan-out. It invokes finalize_due_raffles()
+ * with the service-role client. The RPC is once-only per raffle (row lock +
+ * status guard in SQL), and it RETURNS only the raffles THIS call actually
+ * finalized — so pushes never double-send even with the pg_cron backstop
+ * running in parallel (whoever transitions the row is the only one who gets
+ * rows back). That property is what makes it safe to have several callers.
  *
  * In-app bell rows are written inside the SQL (winner + owner/front-desk
  * team). This route adds the synchronous phone pushes on top — same proven
  * path announce-offer uses (sendPushToUsers, tenant-scoped by business).
  *
- * Body: {} — nothing needed; the sweep is global and cheap (indexed scan
- * over active raffles past their end). No auth required: the endpoint only
- * triggers draws that are already due, which is exactly what the cron
- * would do anyway.
+ * ── CP-88 SECURITY ───────────────────────────────────────────────
+ * The old header said "No auth required: the endpoint only triggers draws
+ * that are already due, which is exactly what the cron would do anyway."
+ * Two problems with that reasoning:
+ *
+ *   1. It's an unauthenticated endpoint that takes a service-role WRITE path
+ *      and a push fan-out. Even if every individual call is semantically
+ *      harmless, an open service-role write is free DoS: hammer it and you
+ *      queue row locks in Postgres and burn connections, on your bill.
+ *
+ *   2. It was called by EVERY CUSTOMER on mount of the Rewards tab
+ *      (components/customer/raffle-section.tsx, three separate call sites).
+ *      At 1,000 customers that's 1,000 concurrent global sweeps serializing
+ *      on the same row lock, for work that only needs doing once.
+ *
+ * Fixed in two places: these gates, and removing the customer-side calls.
+ *
+ * ── CP-88 CRON ───────────────────────────────────────────────────
+ * Removing the customer-side calls means something else has to guarantee a
+ * due raffle actually gets drawn. pg_cron was already the backstop, but that
+ * lives in the database and is easy to have never installed — so this route
+ * now also exposes GET for Vercel Cron (which issues GET, not POST) and
+ * `vercel.json` schedules it every 5 minutes. Belt and braces: whichever
+ * runs first wins the row lock, the other gets zero rows back.
+ *
+ *   GET  → machine secret only (Vercel Cron sends `Authorization: Bearer`).
+ *   POST → machine secret OR a signed-in session, so staff can still trigger
+ *          a sweep by hand from the raffle manager
+ *          (components/agency/raffle-manager.tsx:391 — same-origin fetch,
+ *          cookies ride along). Customers no longer call it at all.
  *
  * Returns: { ok, finalized: [{ raffle_id, state }] }
  */
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUsers } from "@/lib/notifications/push-server";
+import { requireMachineSecret, requireMachineSecretOrSession } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -39,7 +63,8 @@ type FinalizedRow = {
   winner_name: string | null;
 };
 
-export async function POST() {
+/** The actual work. Callers must have passed a gate first. */
+async function runSweep() {
   const admin = createAdminClient();
 
   const { data, error } = await admin.rpc("finalize_due_raffles");
@@ -99,8 +124,30 @@ export async function POST() {
     }
   }
 
+  if (rows.length > 0) {
+    console.log(`[raffles/sweep] finalized=${rows.length}`);
+  }
+
   return NextResponse.json({
     ok: true,
     finalized: rows.map((r) => ({ raffle_id: r.raffle_id, state: r.out_state })),
   });
+}
+
+/** Vercel Cron target. Cron issues GET with `Authorization: Bearer $CRON_SECRET`. */
+export async function GET(req: Request) {
+  const gate = requireMachineSecret(req);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
+  return runSweep();
+}
+
+/** Staff-initiated sweep from the raffle manager, or any machine caller. */
+export async function POST(req: Request) {
+  const gate = await requireMachineSecretOrSession(req);
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
+  }
+  return runSweep();
 }

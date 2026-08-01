@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react";
 import { Megaphone, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { createJitteredHandler } from "@/lib/realtime-jitter";
 
 type Announcement = {
   business_id: string;
@@ -51,13 +52,20 @@ export function AnnouncementBanner({
     };
 
     load();
+    // CP-88: `announcement-${businessId}` is a per-BUSINESS topic — a manager
+    // posting one announcement notifies every connected customer in the same
+    // instant. Jitter the re-query so they ramp instead of spiking; coalescing
+    // also means a manager editing the text a few times in a row costs one
+    // fetch per customer, not one per keystroke-save.
+    const { handler: onAnnouncementChange, cancel: cancelJitter } =
+      createJitteredHandler(load, { maxDelayMs: 5000, minGapMs: 2000 });
     const ch = supabase
       .channel(`announcement-${businessId}`)
       .on("postgres_changes",
         { event: "*", schema: "public", table: "business_announcements", filter: `business_id=eq.${businessId}` },
-        load)
+        onAnnouncementChange)
       .subscribe();
-    return () => { cancelled = true; supabase.removeChannel(ch); };
+    return () => { cancelled = true; cancelJitter(); supabase.removeChannel(ch); };
   }, [businessId]);
 
   if (!ann) return null;

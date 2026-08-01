@@ -1,34 +1,53 @@
 /**
- * GET /api/notifications/process-pending — CP-37.12
+ * GET /api/notifications/process-pending — CP-37.12, secured in CP-88
  *
  * Vercel cron target. Reads notifications.push_sent_at IS NULL,
  * fires web-push for each via sendPushToUsers (the proven path the
  * Send-to-all broadcast uses), and marks the rows as sent.
  *
  * Replaces the CP-42 pg_net + universal trigger pipe, which was
- * silently failing for Andrew. The cron runs once a minute so trigger-
- * fired notifications (reward_unlocked, daily_check, review_request,
- * etc.) ring phones within ~60s of the in-app row landing.
+ * silently failing for Andrew.
  *
- * Auth: protected by `CRON_SECRET` env var. Vercel passes a header
- * the cron runtime sets automatically. Manual calls require the
- * same secret in the Authorization header.
+ * ── CP-88 SECURITY ───────────────────────────────────────────────
+ * The old check was:
+ *
+ *     if (cronSecret && auth !== `Bearer ${cronSecret}`) return 401;
+ *
+ * That fails OPEN — with `CRON_SECRET` unset the check is skipped and
+ * anyone can GET this route and drain the pending-push queue. `CRON_SECRET`
+ * was not set locally. Now it fails CLOSED via `requireMachineSecret`, and
+ * returns a distinguishable 503 if the deployment has no secret configured.
+ *
+ * ── CP-88 NOTE ON DELIVERY LATENCY (this is a live functional bug) ─
+ * The docblock used to claim "the cron runs once a minute so trigger-fired
+ * notifications ring phones within ~60s." It does not. `vercel.json`
+ * schedules this at `0 12 * * *` — once a day — because **Vercel's Hobby
+ * plan caps cron jobs at once per day**, with ±59 minutes of scheduling
+ * slop. Any more frequent expression fails at deploy time.
+ *
+ * So today, a customer who unlocks a reward can wait up to 24 hours for the
+ * push. On Vercel Pro the minimum interval drops to once per minute; after
+ * upgrading, change the schedule in `vercel.json` to:
+ *
+ *     { "path": "/api/notifications/process-pending", "schedule": "* * * * *" }
+ *
+ * That is deliberately NOT changed in this checkpoint — committing a
+ * per-minute cron while still on Hobby fails the deployment outright.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUsers } from "@/lib/notifications/push-server";
+import { requireMachineSecret } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  // Vercel Cron sets the Authorization header with `Bearer ${CRON_SECRET}`.
-  const auth = req.headers.get("authorization") ?? "";
-  const cronSecret = process.env.CRON_SECRET;
-  // If a secret is configured, require it. If not configured, allow
-  // (dev environments often skip it). Production should always set it.
-  if (cronSecret && auth !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // CP-88: fail CLOSED. Vercel Cron sends `Authorization: Bearer $CRON_SECRET`.
+  const gate = requireMachineSecret(req);
+  if (!gate.ok) {
+    console.warn(`[process-pending] rejected: ${gate.error}`);
+    return NextResponse.json({ error: gate.error }, { status: gate.status });
   }
 
   const admin = createAdminClient();

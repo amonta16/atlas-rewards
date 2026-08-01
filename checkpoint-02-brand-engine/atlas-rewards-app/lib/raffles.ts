@@ -160,7 +160,23 @@ export function formatCountdown(ms: number): string {
   return `${s}s`;
 }
 
-/** Fire-and-forget: draw any raffle that's past its end (lazy sweep). */
+/**
+ * Fire-and-forget: draw any raffle that's past its end (lazy sweep).
+ *
+ * CP-88: STAFF SURFACES ONLY. This used to be called from the customer
+ * Rewards tab on mount, which meant every customer triggered a global
+ * service-role sweep — 1,000 customers, 1,000 concurrent sweeps serializing
+ * on the same row lock, for work that only needs doing once. Those call
+ * sites are gone (see components/customer/raffle-section.tsx); customers now
+ * rely on the pg_cron backstop, and their UI picks up the finalized state
+ * through the Realtime subscription on `raffles` that's already there.
+ *
+ * `/api/raffles/sweep` now requires either the machine secret or a signed-in
+ * session, so this same-origin fetch keeps working from staff pages (cookies
+ * ride along automatically) and is closed to anonymous callers.
+ *
+ * Do NOT reintroduce this into any per-customer render path.
+ */
 export function sweepDueRaffles(): void {
   try {
     fetch("/api/raffles/sweep", { method: "POST" }).catch(() => {});
