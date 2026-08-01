@@ -1,11 +1,12 @@
 import { Gift, ChevronRight } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { getBusinessBySlug, getFeaturedOffer, getMyMembership, type FeaturedOfferRow } from "@/lib/data/customer-app";
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
 import { NewsSection } from "@/components/customer/news-section";
 import { TopRewardsGrid } from "@/components/customer/top-rewards-grid";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
-import { OffersRevalidator } from "@/components/customer/offers-revalidator";
 import { WinbackBanner } from "@/components/customer/winback-banner";
 // CP-87: referred friends see their "spend $X to unlock your bonus" progress.
 import { ReferralProgressCard } from "@/components/customer/referral-progress-card";
@@ -28,11 +29,6 @@ import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
-type FeaturedOffer = {
-  id: string; title: string; description: string | null;
-  image_url: string | null; expires_at: string | null;
-};
-
 type TopReward = { id: string; name: string; point_cost: number; image_url: string | null };
 
 type NewsRow = {
@@ -41,22 +37,23 @@ type NewsRow = {
 };
 
 export default async function CustomerHome({ params }: { params: { business: string } }) {
-  const supabase = createClient();
-  const { data: biz } = await supabase
-    .from("businesses").select("*").eq("slug", params.business).single();
-  const business = biz as Business;
+  // CP-89: business / user / membership / featured offer are all request-
+  // memoized (lib/data/customer-app.ts + getCachedUser) — the layout already
+  // fetched them in this same request, so these four "calls" are free here.
+  // Only top_rewards and latest_news are page-specific network calls.
+  const business = await getBusinessBySlug(params.business);
+  if (!business) notFound();
 
-  const [{ data: memRows }, { data: { user } }, { data: featured }, { data: rewards }, { data: news }] = await Promise.all([
-    supabase.rpc("my_membership", { p_business_id: business.id }),
-    supabase.auth.getUser(),
-    supabase.rpc("featured_offer", { p_business_id: business.id }),
+  const supabase = createClient();
+  const [user, mem, offer, { data: rewards }, { data: news }] = await Promise.all([
+    getCachedUser(),
+    getMyMembership(business.id),
+    getFeaturedOffer(business.id),
     // CP-52: show at least 4 top rewards on Home (was 2).
     supabase.rpc("top_rewards_public", { p_business_id: business.id, p_limit: 4 }),
     supabase.rpc("latest_news",        { p_business_id: business.id, p_limit: 3 }),
   ]);
 
-  const mem = (memRows?.[0] ?? null) as Membership | null;
-  const offer = (featured?.[0] ?? null) as FeaturedOffer | null;
   const topRewards = (rewards ?? []) as TopReward[];
   const newsPosts = (news ?? []) as NewsRow[];
 
@@ -78,7 +75,9 @@ export default async function CustomerHome({ params }: { params: { business: str
 
   return (
     <div className="relative">
-      <OffersRevalidator businessId={business.id} />
+      {/* CP-89: OffersRevalidator mount removed — CP-88 neutralised it (the
+          router.refresh() stampede); the featured-offer banner + limited
+          offers keep their own targeted realtime listeners. */}
 
       {/* CP-52.4: header (logo + quick actions) now lives in the app shell so
           it appears on every tab — not just here. */}

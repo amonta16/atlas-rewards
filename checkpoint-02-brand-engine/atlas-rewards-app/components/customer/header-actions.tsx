@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Crown, Flame, Gift, Lock, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { jitteredPollMs } from "@/lib/realtime-jitter";
 import { readableTextColor } from "@/lib/patterns";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import { DailyMysteryModal } from "./daily-mystery-modal";
@@ -179,9 +180,10 @@ export function HeaderActions({
     // secondsLeft refreshes. Replaces the old setSecondsLeft(prev - 30)
     // pattern which drifted when realtime events were missed.
     const tick = setInterval(() => setRenderTick(t => t + 1), 15_000);
-    // Also poll the RPC every 60s as a safety net for missed realtime
-    // events (check_in_events isn't always in the realtime publication).
-    const poll = setInterval(loadStreak, 60_000);
+    // CP-89: safety-net poll raised from 60s to ~5min. The realtime
+    // subscription below + the visibilitychange refresh are the real
+    // update paths; this only catches silently-missed events.
+    const poll = setInterval(loadStreak, jitteredPollMs());
     // And refresh when the tab regains focus.
     const onVis = () => { if (document.visibilityState === "visible") loadStreak(); };
     document.addEventListener("visibilitychange", onVis);

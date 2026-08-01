@@ -48,6 +48,31 @@ export type JitteredHandler = {
   cancel: () => void;
 };
 
+/**
+ * CP-89: interval for "safety net" polls that back up a realtime
+ * subscription.
+ *
+ * Six customer components used to re-poll every 60 seconds "in case
+ * realtime drops" — even though each already had (a) a realtime
+ * subscription on the same data and, in most cases, (b) a visibilitychange
+ * refresh. That redundancy cost ~240 requests/hour PER CUSTOMER sitting
+ * idle on Home; at 200 concurrent sessions, ~48k requests/hour of pure
+ * insurance.
+ *
+ * A safety net only has to catch the rare case where a realtime event was
+ * silently missed while the tab stayed focused. Every 5-ish minutes is
+ * plenty for that; the visibilitychange handler covers the common "user
+ * came back to the tab" case instantly. The random spread stops all of a
+ * business's customers from polling on the same tick.
+ *
+ * Do NOT quietly put a 60s interval back — if a surface really needs
+ * fresher data than this, it needs a realtime subscription (or to fix the
+ * one it has), not a faster poll.
+ */
+export function jitteredPollMs(baseMs = 300_000, spreadMs = 120_000): number {
+  return baseMs + Math.floor(Math.random() * spreadMs);
+}
+
 export function createJitteredHandler(
   fn: () => void,
   options: JitterOptions = {},

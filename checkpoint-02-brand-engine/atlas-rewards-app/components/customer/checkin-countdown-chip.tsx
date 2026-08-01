@@ -27,6 +27,7 @@
 import { useEffect, useState } from "react";
 import { Clock, Check, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { jitteredPollMs } from "@/lib/realtime-jitter";
 
 type Status = {
   can_check_in_now: boolean;
@@ -86,9 +87,9 @@ export function CheckinCountdownChip({
     // ("11 min", "10 min", ...) stay accurate.
     const renderTick = setInterval(() => setTick(t => t + 1), 15_000);
 
-    // CP-42: poll every 60s in case realtime drops the check-in event.
-    // Cheap because the RPC is fast and idempotent.
-    const pollTick = setInterval(load, 60_000);
+    // CP-42→CP-89: safety-net poll, raised from 60s to ~5min. Realtime +
+    // the visibilitychange refresh below are the real update paths.
+    const pollTick = setInterval(load, jitteredPollMs());
 
     // Refresh on visibility change — when the user comes back to the
     // tab, immediately re-query so the chip catches up.

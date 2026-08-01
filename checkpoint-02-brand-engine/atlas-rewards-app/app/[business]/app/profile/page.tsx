@@ -1,22 +1,22 @@
-import { createClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { getBusinessBySlug, getMyMembership } from "@/lib/data/customer-app";
 import { EditableProfile } from "@/components/customer/editable-profile";
 import { DeleteAccountSection } from "@/components/customer/delete-account-section";
 import { MyShops } from "@/components/customer/my-shops";
 import { NotificationPreferences } from "@/components/customer/notification-preferences";
-import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProfileTab({ params }: { params: { business: string } }) {
+  // CP-89: request-memoized — dedupes with the app layout's fetches.
+  const business = await getBusinessBySlug(params.business);
+  if (!business) notFound();
   const supabase = createClient();
-  const { data: biz } = await supabase
-    .from("businesses").select("*").eq("slug", params.business).single();
-  const business = biz as Business;
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCachedUser();
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user!.id).single();
-  const { data: memRows } = await supabase.rpc("my_membership", { p_business_id: business.id });
-  const mem = (memRows?.[0] ?? null) as Membership | null;
+  const mem = await getMyMembership(business.id);
 
   const joined = mem?.joined_at
     ? new Date(mem.joined_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })

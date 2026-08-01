@@ -21,6 +21,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles, Clock, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { jitteredPollMs } from "@/lib/realtime-jitter";
 
 type Status = {
   is_available: boolean;
@@ -62,8 +63,9 @@ export function SpinHomeWidget({
 
     // Re-render every second so the countdown ticks visibly.
     const tick = setInterval(() => forceRerender(t => t + 1), 1000);
-    // Re-poll every 60s as a safety net.
-    const poll = setInterval(load, 60_000);
+    // CP-89: safety-net poll raised from 60s to ~5min (realtime + the
+    // onVis refresh below are the real update paths).
+    const poll = setInterval(load, jitteredPollMs());
     // Refresh on focus.
     const onVis = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", onVis);

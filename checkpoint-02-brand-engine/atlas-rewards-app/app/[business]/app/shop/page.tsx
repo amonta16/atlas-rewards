@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { ShopClient } from "./shop-client";
-import type { Business } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +20,9 @@ export default async function ShopPage({
 }) {
   const supabase = createClient();
 
-  const { data: bizRow } = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("slug", params.business)
-    .maybeSingle();
-
-  if (!bizRow) notFound();
-  const business = bizRow as Business;
+  // CP-89: request-memoized — dedupes with the app layout's fetches.
+  const business = await getBusinessBySlug(params.business);
+  if (!business) notFound();
 
   // Pull all active rewards for this business. The page groups by
   // `category` client-side — "Uncategorized" gets its own bucket.
@@ -42,7 +37,7 @@ export default async function ShopPage({
     .order("name",       { ascending: true });
 
   // Customer's current points balance
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCachedUser();  // CP-89: memoized (layout already fetched it)
   let pointsBalance = 0;
   if (user) {
     const { data: mem } = await supabase

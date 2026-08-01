@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { getBusinessBySlug, getFeaturedOffer, getMyMembership } from "@/lib/data/customer-app";
 import { CustomerAppShell } from "@/components/customer/app-shell";
 import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
 import { PWAInstall } from "@/components/customer/pwa-install";
@@ -17,45 +18,43 @@ export const dynamic = "force-dynamic";
 export default async function CustomerAppLayout({
   children, params,
 }: { children: React.ReactNode; params: { business: string } }) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // CP-89: request-memoized — the page and metadata share these lookups.
+  const user = await getCachedUser();
   // CP-45: slug-prefixed so path-based access (/<slug>/app, used by the
   // agency live preview + "Customer app" button) lands on this business's
   // login instead of 404ing. Subdomain access also resolves correctly.
   if (!user) redirect(`/${params.business}/login`);
 
-  const { data: biz } = await supabase
-    .from("businesses").select("*").eq("slug", params.business).single();
-  if (!biz) notFound(); // CP-36: invalid slug → 404 instead of crash
-  const business = biz as Business;
+  const business = await getBusinessBySlug(params.business);
+  if (!business) notFound(); // CP-36: invalid slug → 404 instead of crash
 
-  // Auto-enroll if not already a member
-  await supabase.rpc("enroll_member", { p_user_id: user.id, p_business_id: business.id });
-
-  // Resolve the membership for the Realtime celebrate watcher + shared header.
-  const { data: memRows } = await supabase.rpc("my_membership", { p_business_id: business.id });
-  const membership = (memRows?.[0] ?? null) as Membership | null;
+  // CP-89: enroll_member is a WRITE and used to run on EVERY page view of
+  // every tab. For an existing member it only ever backfilled a missing
+  // referral_code (verified in checkpoint-25/01_enrollment_hardening.sql —
+  // it touches no activity timestamps), so it's now gated: run it only for
+  // brand-new members or a membership missing its code, then re-fetch
+  // fresh (bypassing the request memo, which would hand back the pre-enroll
+  // null).
+  const supabase = createClient();
+  let membership: Membership | null = await getMyMembership(business.id);
+  if (!membership || !membership.referral_code) {
+    await supabase.rpc("enroll_member", { p_user_id: user.id, p_business_id: business.id });
+    const { data: fresh } = await supabase.rpc("my_membership", { p_business_id: business.id });
+    membership = ((fresh as Membership[] | null)?.[0] ?? null);
+  }
   const membershipId = membership?.id ?? null;
 
   // CP-52.4: is a paid membership live? Gates the VIP quick-action in the
   // shared header (same as the Home page does).
-  const { data: billing } = await supabase.rpc("membership_billing_public", { p_business_id: business.id });
+  // CP-21: the featured offer loads once at the layout level so the sticky
+  // banner persists across every tab. CP-89: both fetches run in parallel,
+  // and featured_offer is request-memoized (the Home page reuses it free).
+  const [{ data: billing }, bannerOffer] = await Promise.all([
+    supabase.rpc("membership_billing_public", { p_business_id: business.id }),
+    getFeaturedOffer(business.id),
+  ]);
   const billingRow = (Array.isArray(billing) ? billing[0] : billing) as { is_enabled?: boolean } | null;
   const vipEnabled = !!billingRow?.is_enabled;
-
-  // CP-21: Load featured offer once at the layout level so the sticky banner
-  // persists across every tab (Home / Scan / Rewards / Profile) instead of
-  // only on Home like it used to. featured_offer() is the same RPC the
-  // Home page was already using — single row at most per business.
-  const { data: featured } = await supabase.rpc("featured_offer", {
-    p_business_id: business.id,
-  });
-  // CP-29: featured_offer() now returns voice_message_url so the sticky
-  // banner can render an inline play button for automated offers that
-  // ship with a voice note.
-  const bannerOffer = (Array.isArray(featured) ? featured[0] : null) as
-    | { title: string; expires_at: string | null; voice_message_url: string | null }
-    | null;
 
   // CP-52: faint tiled background pattern (Design picker) for a warmer feel.
   // CP-54: customizable surface (page) + header colors. Default light when

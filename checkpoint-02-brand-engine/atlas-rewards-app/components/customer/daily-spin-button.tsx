@@ -28,6 +28,7 @@
 import { useEffect, useState } from "react";
 import { Zap, Clock, Dices, Coins } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { jitteredPollMs } from "@/lib/realtime-jitter";
 import { DailyMysteryModal } from "./daily-mystery-modal";
 // CP-68: game-aware labels + demo mode.
 import { rewardGameMeta } from "@/lib/reward-games";
@@ -138,14 +139,19 @@ export function DailySpinButton({
 
     // Countdown tick.
     const tick = setInterval(() => forceRerender(t => t + 1), 1000);
-    // Safety re-poll every 60s in case realtime drops.
-    const poll = setInterval(load, 60_000);
+    // CP-89: safety re-poll raised from 60s to ~5min — ch1/ch2 above are
+    // the real update paths. In exchange, ALSO refresh when the tab
+    // regains focus (this component was the only poller without it).
+    const poll = setInterval(load, jitteredPollMs());
+    const onVis = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVis);
 
     return () => {
       supabase.removeChannel(ch1);
       supabase.removeChannel(ch2);
       clearInterval(tick);
       clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [business.id, membershipId]);
 

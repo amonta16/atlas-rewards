@@ -1,17 +1,16 @@
-import { createClient } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { getBusinessBySlug, getFeaturedOffer, getMyMembership } from "@/lib/data/customer-app";
 import { RewardsClient } from "@/components/customer/rewards-client";
-import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
 export default async function RewardsTab({ params }: { params: { business: string } }) {
+  // CP-89: request-memoized — dedupes with the app layout's fetches.
+  const business = await getBusinessBySlug(params.business);
+  if (!business) notFound();
   const supabase = createClient();
-  const { data: biz } = await supabase
-    .from("businesses").select("*").eq("slug", params.business).single();
-  const business = biz as Business;
-
-  const { data: memRows } = await supabase.rpc("my_membership", { p_business_id: business.id });
-  const mem = (memRows?.[0] ?? null) as Membership | null;
+  const mem = await getMyMembership(business.id);
 
   // CP-87: prize-only rewards (wheel/streak/offer gifts) stay out of the store.
   const { data: rewards } = await supabase
@@ -19,9 +18,9 @@ export default async function RewardsTab({ params }: { params: { business: strin
     .eq("show_in_store", true).order("sort_order");
 
   const { data: redemptions } = await supabase.rpc("my_redemptions", { p_business_id: business.id });
-  const { data: featured }    = await supabase.rpc("featured_offer", { p_business_id: business.id });
+  const featured = await getFeaturedOffer(business.id);   // CP-89: memoized (layout already fetched it)
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCachedUser();                     // CP-89: memoized (layout already fetched it)
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
   const fullName = profile?.full_name ?? user!.email ?? "Member";
 
@@ -36,7 +35,7 @@ export default async function RewardsTab({ params }: { params: { business: strin
         rewards={rewards ?? []}
         fullName={fullName}
         initialRedemptions={redemptions ?? []}
-        initialFeaturedOffer={(featured?.[0] ?? null) as any}
+        initialFeaturedOffer={featured as any}
       />
     </>
   );

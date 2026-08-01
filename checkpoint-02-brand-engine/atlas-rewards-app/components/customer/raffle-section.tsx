@@ -36,7 +36,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
 import { HeadingByStyle } from "./section-elements";
 import { badgeCss } from "@/lib/element-styles";
-import { createJitteredHandler } from "@/lib/realtime-jitter";
+import { createJitteredHandler, jitteredPollMs } from "@/lib/realtime-jitter";
 import {
   type CustomerRaffle, formatCountdown, formatRaffleTime,
 } from "@/lib/raffles";
@@ -128,7 +128,11 @@ export function RafflesSection({
       )
       .subscribe();
     // Gentle poll keeps total-entry counts fresh (other members entering).
-    const poll = setInterval(load, 60_000);
+    // CP-89: raised from 60s to ~3-4min. NOTE this poll is the ONLY source
+    // of entry-count freshness — entries land in a different table, so the
+    // raffles-row realtime above doesn't fire for them. Kept shorter than
+    // the standard safety-net interval for that reason.
+    const poll = setInterval(load, jitteredPollMs(180_000, 60_000));
     return () => {
       cancelled = true;
       cancelJitter();

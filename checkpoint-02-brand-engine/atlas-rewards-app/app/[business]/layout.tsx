@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import type { Metadata, Viewport } from "next";
 import { createClient } from "@/lib/supabase/server";
+// CP-89: request-memoized business lookup — generateViewport, generateMetadata,
+// the app layout and the page all share ONE fetch of this row per request
+// (it was fetched five separate times before).
+import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { hexToHsl } from "@/lib/utils";
 import type { Business } from "@/lib/types/database";
 // CP-42: cache brand into localStorage so loading.tsx files can theme.
@@ -24,9 +28,9 @@ export const dynamic = "force-dynamic";
 export async function generateViewport(
   { params }: { params: { business: string } },
 ): Promise<Viewport> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("businesses").select("brand_colors").eq("slug", params.business).maybeSingle();
+  // CP-89: shared, request-memoized fetch (dedupes with generateMetadata,
+  // the app layout and the page).
+  const data = await getBusinessBySlug(params.business);
   const themeColor = (data?.brand_colors as { primary?: string } | null)?.primary ?? "#0a3d62";
   return {
     themeColor,
@@ -38,12 +42,9 @@ export async function generateViewport(
 export async function generateMetadata(
   { params }: { params: { business: string } },
 ): Promise<Metadata> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("businesses")
-    .select("name, logo_url, app_icon_url, brand_colors")
-    .eq("slug", params.business)
-    .maybeSingle();
+  // CP-89: shared, request-memoized fetch — free when generateViewport
+  // already ran in this request.
+  const data = await getBusinessBySlug(params.business);
 
   const name = data?.name ?? "Atlas Rewards";
   const themeColor = (data?.brand_colors as { primary?: string } | null)?.primary ?? "#0a3d62";

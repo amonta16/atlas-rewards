@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles, Gift, Loader2, Check, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { jitteredPollMs } from "@/lib/realtime-jitter";
 import type { Business } from "@/lib/types/database";
 
 type MysteryResult = {
@@ -76,7 +77,9 @@ export function MysteryRewardCard({ business, membershipId }: { business: Busine
     // Tick once a second so the relative-time copy stays fresh, plus a
     // 60s safety re-poll if realtime drops.
     const tick = setInterval(() => forceRerender(t => t + 1), 1000);
-    const poll = setInterval(load, 60_000);
+    // CP-89: safety-net poll raised from 60s to ~5min (realtime + onVis
+    // above are the real update paths).
+    const poll = setInterval(load, jitteredPollMs());
 
     return () => {
       cancelled = true;
