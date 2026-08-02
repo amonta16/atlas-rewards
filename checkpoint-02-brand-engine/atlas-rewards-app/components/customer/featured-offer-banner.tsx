@@ -126,8 +126,10 @@ export function FeaturedOfferBanner({
   if (raffleOpen && liveRaffle) {
     const inner = (
       <div
-        className="sticky top-0 z-40 px-3 py-3 flex items-center justify-between text-white text-[13px] font-bold shadow-sm relative overflow-hidden"
-        style={bannerStyle(bannerStyleId, primary, secondary, accent)}
+        // CP-92: sticky offset = the iPhone notch/status-bar inset, so the
+        // banner pins just below the clock instead of underneath it.
+        className="sticky z-40 px-3 py-3 flex items-center justify-between text-white text-[13px] font-bold shadow-sm relative overflow-hidden"
+        style={{ ...bannerStyle(bannerStyleId, primary, secondary, accent), top: "env(safe-area-inset-top, 0px)" }}
         role="status"
         aria-label={`Giveaway: ${liveRaffle.title}`}
       >
@@ -167,8 +169,9 @@ export function FeaturedOfferBanner({
       // z-40 sits above the page content but below the celebration toasts (z-50).
       // CP-28: distinctive diagonal stripe pattern so the featured offer
       // header reads as a *promo* band, not just a flat color bar.
-      className="sticky top-0 z-40 px-3 py-3 flex items-center justify-between text-white text-[13px] font-bold shadow-sm relative overflow-hidden"
-      style={bannerStyle(bannerStyleId, primary, secondary, accent)}
+      // CP-92: same safe-area sticky offset as the raffle variant above.
+      className="sticky z-40 px-3 py-3 flex items-center justify-between text-white text-[13px] font-bold shadow-sm relative overflow-hidden"
+      style={{ ...bannerStyle(bannerStyleId, primary, secondary, accent), top: "env(safe-area-inset-top, 0px)" }}
       role="status"
       aria-label={`Featured offer: ${liveOffer.title}`}
     >

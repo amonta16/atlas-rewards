@@ -46,6 +46,17 @@ type Claim = { id: string; priority: number };
 let claims: Claim[] = [];
 const listeners = new Set<() => void>();
 
+/**
+ * CP-92: minimum quiet time between two popups. Before this, the instant
+ * one overlay released, the next claim took the screen in the SAME render
+ * pass — after the bell-nudge onboarding, the welcome-points confetti and
+ * the offer reveal fired back-to-back with no time to even mount their
+ * animations. Every hand-off now waits this long with nothing on screen.
+ */
+const INTER_POPUP_GAP_MS = 1500;
+let gapUntil = 0;
+let gapTimer: ReturnType<typeof setTimeout> | null = null;
+
 function emit() {
   for (const l of listeners) l();
 }
@@ -53,6 +64,7 @@ function emit() {
 /** Highest-precedence (lowest-number) active claim id, or null. */
 export function activePopupId(): string | null {
   if (claims.length === 0) return null;
+  if (Date.now() < gapUntil) return null; // CP-92: breathing-room window
   return claims.reduce((best, c) => (c.priority < best.priority ? c : best)).id;
 }
 
@@ -73,6 +85,16 @@ export function releasePopup(id: string) {
   const next = claims.filter((c) => c.id !== id);
   if (next.length === claims.length) return;
   claims = next;
+  // CP-92: if anything is still waiting, hold the screen empty for a beat
+  // before handing over, then re-notify subscribers when the gap ends.
+  if (claims.length > 0) {
+    gapUntil = Date.now() + INTER_POPUP_GAP_MS;
+    if (gapTimer) clearTimeout(gapTimer);
+    gapTimer = setTimeout(() => {
+      gapTimer = null;
+      emit();
+    }, INTER_POPUP_GAP_MS + 20);
+  }
   emit();
 }
 

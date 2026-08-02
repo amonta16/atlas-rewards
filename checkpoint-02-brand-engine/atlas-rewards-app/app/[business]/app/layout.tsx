@@ -77,7 +77,11 @@ export default async function CustomerAppLayout({
     // and designVars() supplies the card/button tokens for this business.
     <div
       className="atlas-surface max-w-md mx-auto min-h-screen relative"
-      style={{ ...bgStyle, ...designVars(business.card_style, business.button_style, business.cta_glow, business.brand_colors.primary) }}
+      // CP-92: start content below the iPhone status bar (safe-area inset)
+      // while the background color/pattern still paints behind it — the
+      // notch area blends with the app instead of eating the top banner.
+      // env() is 0 in regular browsers/PWA, so nothing changes there.
+      style={{ ...bgStyle, ...designVars(business.card_style, business.button_style, business.cta_glow, business.brand_colors.primary), paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
       <CelebrateWatcher
         businessName={business.name}

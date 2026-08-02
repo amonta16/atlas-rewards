@@ -36,6 +36,10 @@ export async function generateViewport(
     themeColor,
     width: "device-width",
     initialScale: 1,
+    // CP-92: expose the iPhone notch/status-bar safe-area to CSS env().
+    // Without viewport-fit=cover, env(safe-area-inset-top) is always 0 in
+    // the Capacitor webview and the top banner renders under the clock.
+    viewportFit: "cover",
   };
 }
 
