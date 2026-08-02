@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { LifeBuoy, Mail, Store, ShieldCheck, FileText, UserX } from "lucide-react";
 import { BackLink } from "@/components/back-link";
 
@@ -17,6 +17,13 @@ import { BackLink } from "@/components/back-link";
  */
 const SUPPORT_EMAIL = "support@atlas-engine.app";
 
+// CP-96.2: safe-area support inside the notched-iPhone webview (CP-92 pattern).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Support — Atlas Rewards",
   description: "Get help with the Atlas Rewards app — points, rewards, your account, and your data.",
@@ -27,7 +34,7 @@ const NAVY = "#0a3d62";
 export default function SupportPage() {
   return (
     <div className="min-h-screen bg-zinc-50">
-      <header className="border-b bg-white">
+      <header className="border-b bg-white" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="max-w-3xl mx-auto px-5 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* CP-96.1: way back into the app — the native webview has no
@@ -129,7 +136,7 @@ export default function SupportPage() {
         </div>
       </main>
 
-      <footer className="border-t bg-white mt-10">
+      <footer className="border-t bg-white mt-10" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="max-w-3xl mx-auto px-5 py-6 text-xs text-zinc-500 flex items-center justify-between">
           <span>© {new Date().getFullYear()} Atlas Engine</span>
           <span>

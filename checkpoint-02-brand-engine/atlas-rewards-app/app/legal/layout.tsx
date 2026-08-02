@@ -1,5 +1,16 @@
 import Link from "next/link";
+import type { Viewport } from "next";
 import { BackLink } from "@/components/back-link";
+
+// CP-96.2: viewportFit "cover" makes env(safe-area-inset-*) report real
+// values inside the notched-iPhone webview — same fix as the app shell
+// got in CP-92. Without it the header rode up under the clock/battery
+// and the Back button was untappable.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 /**
  * Shared layout for /legal/* pages. Plain prose, anchored at the root
@@ -14,7 +25,7 @@ import { BackLink } from "@/components/back-link";
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-zinc-50">
-      <header className="border-b bg-white">
+      <header className="border-b bg-white" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="max-w-3xl mx-auto px-5 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <BackLink />
@@ -29,7 +40,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
       <main className="max-w-3xl mx-auto px-5 py-10">{children}</main>
-      <footer className="border-t bg-white">
+      <footer className="border-t bg-white" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="max-w-3xl mx-auto px-5 py-6 text-xs text-zinc-500 flex items-center justify-between">
           <span>© {new Date().getFullYear()} Atlas Engine</span>
           <span>Questions? <a href="mailto:hello@atlas-engine.app" className="underline">hello@atlas-engine.app</a></span>
