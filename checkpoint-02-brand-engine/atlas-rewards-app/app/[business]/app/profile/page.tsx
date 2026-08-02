@@ -5,6 +5,7 @@ import { EditableProfile } from "@/components/customer/editable-profile";
 import { DeleteAccountSection } from "@/components/customer/delete-account-section";
 import { MyShops } from "@/components/customer/my-shops";
 import { NotificationPreferences } from "@/components/customer/notification-preferences";
+import { ProfileHelpLinks } from "@/components/customer/profile-help-links";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,11 @@ export default async function ProfileTab({ params }: { params: { business: strin
         businessId={business.id}
         primary={business.brand_colors?.primary ?? "#0891b2"}
       />
+
+      {/* CP-96: Help & Support + Terms + Privacy — Apple App Review wants
+          the privacy policy reachable inside the app, and customers get a
+          real support path. */}
+      <ProfileHelpLinks primary={business.brand_colors?.primary ?? "#0891b2"} />
 
       {/* CP-81.3: PushDiagnostics removed for tester release — the
           component still exists (components/customer/push-diagnostics.tsx)
