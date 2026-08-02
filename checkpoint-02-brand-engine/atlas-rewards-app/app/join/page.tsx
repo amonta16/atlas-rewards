@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useState } from "react";
-import { QrCode, ArrowRight, Loader2, Camera } from "lucide-react";
+import { QrCode, ArrowRight, Loader2, Camera, Check, ChevronRight, Store } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,18 @@ type FoundBusiness = {
   brand_colors?: { primary: string; secondary: string; accent: string };
 };
 
+/** CP-93: row from my_memberships — the boot-time business chooser. */
+type BootShop = {
+  business_id: string;
+  slug: string;
+  name: string;
+  logo_url: string | null;
+  app_icon_url: string | null;
+  brand_colors: { primary?: string; secondary?: string } | null;
+  points_balance: number;
+  tier: string;
+};
+
 // CP-76.2: cold-start guard. Was sessionStorage — but Android WebView
 // RESTORES sessionStorage across app restarts, so the app believed it had
 // already auto-booted and showed the code screen again. A module-scope
@@ -55,6 +67,11 @@ export default function JoinPage() {
   // CP-80: true while the native cold-start decision (last business /
   // install referrer) is still pending — render a splash, not the form.
   const [booting, setBooting] = useState(false);
+  // CP-93: when the signed-in customer belongs to MORE THAN ONE business,
+  // cold start shows this chooser instead of silently forwarding to the
+  // last-used one. Andrew's ask: pick the shop BEFORE any app loads.
+  const [chooser, setChooser] = useState<BootShop[] | null>(null);
+  const [lastSlug, setLastSlug] = useState<string | null>(null);
 
   // Runs before paint: if a cold-start boot is about to happen, hold the UI.
   useIsomorphicLayoutEffect(() => {
@@ -85,6 +102,32 @@ export default function JoinPage() {
       let navigating = false;
       try {
         const last = await prefGet(PREF_LAST_BUSINESS);
+
+        // CP-93: signed-in customer with SEVERAL shops → choose first.
+        // The CP-81 parent-domain cookie makes the session valid here on
+        // the apex, so my_memberships works from the boot screen.
+        try {
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data } = await supabase.rpc("my_memberships");
+            const shops = (Array.isArray(data) ? data : []) as BootShop[];
+            if (shops.length > 1) {
+              setLastSlug(last && /^[a-z0-9-]+$/.test(last) ? last : null);
+              setChooser(shops);
+              return; // splash drops in finally → chooser renders
+            }
+            if (shops.length === 1 && shops[0].slug) {
+              navigating = true;
+              await prefSet(PREF_LAST_BUSINESS, shops[0].slug);
+              window.location.href = `/qr/${shops[0].slug}`;
+              return;
+            }
+          }
+        } catch {
+          /* offline / RPC missing — fall back to the legacy boot below */
+        }
+
         if (last && /^[a-z0-9-]+$/.test(last)) {
           // Keep the splash up — the page is navigating away.
           navigating = true;
@@ -97,7 +140,7 @@ export default function JoinPage() {
           if (found) setBiz(found); // show the branded confirm — never silently sign up
         }
       } finally {
-        // No stored business to forward to → reveal the join form.
+        // No stored business to forward to → reveal the join form / chooser.
         if (!navigating) setBooting(false);
       }
     })();
@@ -169,6 +212,84 @@ export default function JoinPage() {
             className="h-16 w-16 rounded-2xl shadow-lg shadow-blue-900/25"
           />
           <Loader2 className="h-5 w-5 animate-spin text-cyan-600" />
+        </div>
+      </main>
+    );
+  }
+
+  // CP-93: boot-time business chooser — several shops on one account.
+  if (chooser) {
+    return (
+      <main
+        className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex flex-col items-center justify-center px-6 py-12"
+        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 3rem)" }}
+      >
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-6">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/atlas-icon-512.png"
+              alt="Atlas Rewards"
+              className="inline-block h-14 w-14 rounded-2xl shadow-lg shadow-blue-900/25 mb-3"
+            />
+            <h1 className="text-xl font-extrabold tracking-tight text-zinc-900">Where to today?</h1>
+            <p className="text-sm text-zinc-500 mt-1">Pick a shop — your points are waiting at each one.</p>
+          </div>
+
+          <div className="rounded-3xl border bg-white shadow-sm overflow-hidden divide-y">
+            {chooser.map((s) => {
+              const icon = s.app_icon_url || s.logo_url;
+              const shopPrimary = s.brand_colors?.primary || "#0891b2";
+              const isLast = s.slug === lastSlug;
+              return (
+                <button
+                  key={s.business_id}
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-4 text-left active:bg-zinc-50 transition"
+                  onClick={async () => {
+                    setBooting(true); // splash while we hand off
+                    await prefSet(PREF_LAST_BUSINESS, s.slug);
+                    window.location.href = `/qr/${s.slug}`;
+                  }}
+                >
+                  {icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={icon} alt="" className="h-12 w-12 rounded-xl object-cover shrink-0 ring-1 ring-black/5" />
+                  ) : (
+                    <div
+                      className="h-12 w-12 rounded-xl flex items-center justify-center text-white text-lg font-extrabold shrink-0"
+                      style={{ background: shopPrimary }}
+                    >
+                      {s.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[15px] font-bold text-zinc-900 truncate flex items-center gap-2">
+                      {s.name}
+                      {isLast && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full text-white"
+                          style={{ background: shopPrimary }}
+                        >
+                          <Check className="h-2.5 w-2.5" /> Recent
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[12px] text-zinc-500">{s.points_balance.toLocaleString()} points</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setChooser(null)}
+            className="mt-4 w-full flex items-center justify-center gap-2 text-sm font-semibold text-zinc-500 hover:text-zinc-700"
+          >
+            <Store className="h-4 w-4" /> Join a new shop instead
+          </button>
         </div>
       </main>
     );
