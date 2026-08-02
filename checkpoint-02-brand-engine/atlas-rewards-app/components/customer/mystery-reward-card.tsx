@@ -169,7 +169,7 @@ export function MysteryRewardCard({ business, membershipId }: { business: Busine
                 <div className="text-xl font-extrabold leading-tight mt-0.5">
                   {spinning ? "Spinning…" : "Tap to unwrap"}
                 </div>
-                <div className="text-[11px] opacity-80 mt-0.5">Could be points, a free item, or something rare ✨</div>
+                <div className="text-[11px] opacity-80 mt-0.5">Could be points, a free item, or something rare</div>
               </div>
             </div>
           ) : (

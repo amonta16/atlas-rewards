@@ -142,7 +142,7 @@ export function CheckinCountdownChip({
         ? `Next check-in in ${Math.ceil(secondsLeft / 3600)} Hr`
         : `Next check-in in ${Math.max(1, Math.ceil(secondsLeft / 60))} min`)
     : ready
-      ? "Ready to check in ✨"
+      ? "Ready to check in"
       : "Check in any time";
 
   return (

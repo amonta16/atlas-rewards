@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Lock, Zap, RotateCcw, Coins, Gift } from "lucide-react";
+import { X, Lock, Zap, RotateCcw, Coins, Gift, PartyPopper } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
@@ -510,12 +510,18 @@ export function DailyMysteryModal({
                     />
                   </div>
                 ) : (
-                  <div className="text-5xl">
-                    {prize.tier === "jackpot"
-                      ? "🎆"
-                      : prize.tier === "lucky"
-                        ? "🎉"
-                        : "✨"}
+                  /* CP-94: emoji fallback replaced with a tier-tinted icon
+                     tile — matches the branded frame used when a logo or
+                     prize photo exists, so no path looks "stock". */
+                  <div
+                    className="h-20 w-20 rounded-2xl flex items-center justify-center"
+                    style={{
+                      background: "rgba(255,255,255,0.08)",
+                      border: `2px solid ${prizeColor}`,
+                      boxShadow: prizeGlow,
+                    }}
+                  >
+                    <PartyPopper className="h-10 w-10" style={{ color: prizeColor }} />
                   </div>
                 )}
               </div>
@@ -540,7 +546,7 @@ export function DailyMysteryModal({
                 </>
               ) : (
                 <div className="text-white/80 text-sm mb-6 px-4">
-                  Added to your rewards — show it at the counter to claim. 🎉
+                  Added to your rewards — show it at the counter to claim.
                 </div>
               )}
 
@@ -570,32 +576,73 @@ export function DailyMysteryModal({
             </div>
           )}
 
-          {/* CLAIMED — show what they won as a reminder */}
+          {/* CLAIMED — CP-94: the green ✅ emoji is gone. The prize they
+              already won IS the visual now: its photo (or the business
+              logo) in the same branded frame the reveal uses, with the
+              prize name as the headline. Falls back to a brand-ringed
+              gift icon when nothing is stored (spun on another device). */}
           {phase === "claimed" && (
             <div className="flex flex-col items-center w-full">
-              <div className="text-4xl mb-3">✅</div>
-              <h3 className="text-white text-xl font-bold mb-1">
-                Already spun today!
-              </h3>
+              <div
+                className="text-[10px] uppercase tracking-[0.25em] font-extrabold mb-4"
+                style={{ color: `${primary}cc` }}
+              >
+                Already spun today
+              </div>
 
-              {/* Last prize reminder */}
-              {storedPrize && (
-                <div
-                  className="mt-4 mb-4 w-full rounded-2xl p-4 text-center"
-                  style={{ background: `${primary}18`, border: `1px solid ${primary}33` }}
-                >
-                  <div className="text-[10px] uppercase tracking-widest font-bold mb-2"
-                    style={{ color: `${primary}bb` }}>
-                    Your spin today
+              {storedPrize ? (
+                <>
+                  <div
+                    className="h-20 w-20 rounded-2xl bg-white flex items-center justify-center overflow-hidden mb-3"
+                    style={{
+                      border: `2px solid ${primary}`,
+                      boxShadow: `0 0 30px ${primary}55`,
+                    }}
+                  >
+                    {(storedPrize.image || business.logo_url) ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={storedPrize.image || business.logo_url || ""}
+                        alt={storedPrize.label}
+                        className={`h-full w-full ${storedPrize.image ? "object-cover" : "object-contain p-2"}`}
+                      />
+                    ) : (
+                      <Gift className="h-9 w-9" style={{ color: primary }} />
+                    )}
                   </div>
-                  <div className="text-white font-extrabold text-lg">{storedPrize.label}</div>
+                  <div className="text-white/60 text-xs font-bold uppercase tracking-wider mb-1">
+                    You won
+                  </div>
+                  <div
+                    className="text-3xl font-extrabold leading-tight mb-1"
+                    style={{ color: "#fff", textShadow: `0 0 24px ${primary}88` }}
+                  >
+                    {storedPrize.label}
+                  </div>
                   {storedPrize.points > 0 && (
-                    <div className="text-white/70 text-sm">+{storedPrize.points} bonus points</div>
+                    <div className="text-white/70 text-sm font-semibold">
+                      +{storedPrize.points} bonus points
+                    </div>
                   )}
-                </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="h-20 w-20 rounded-full flex items-center justify-center mb-3"
+                    style={{
+                      background: "rgba(255,255,255,0.06)",
+                      border: `2px solid ${primary}66`,
+                    }}
+                  >
+                    <Gift className="h-9 w-9" style={{ color: primary }} />
+                  </div>
+                  <h3 className="text-white text-xl font-bold mb-1">
+                    Today&apos;s spin is done
+                  </h3>
+                </>
               )}
 
-              <p className="text-zinc-500 text-xs mb-5">
+              <p className="text-zinc-500 text-xs mb-5 mt-3">
                 Check in tomorrow for a fresh spin.
               </p>
               {/* CP-68: demo apps replay the reward moment endlessly. */}

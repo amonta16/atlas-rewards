@@ -6,9 +6,17 @@
  * straight to the Rewards tab with ?redeem= (auto-opens the redeem flow).
  * LOCKED rewards now open a detail popup right here on Home (image, cost,
  * progress, how far to go) instead of silently bouncing to the Rewards tab.
+ *
+ * CP-94: claimable treatment. When the customer can afford a reward, the
+ * card stops whispering ("Tap to redeem ✨" in 9px text) and pops:
+ *   • a breathing brand-colored glow around the whole card
+ *   • a "READY" ribbon on the photo
+ *   • a full-width gradient "Redeem now" button where the progress
+ *     numbers used to be
+ * No emoji anywhere — brand colors + lucide icons only.
  */
 import { useState } from "react";
-import { Gift, Lock, X } from "lucide-react";
+import { Gift, Lock, X, Zap } from "lucide-react";
 
 export type TopReward = { id: string; name: string; point_cost: number; image_url: string | null };
 
@@ -33,36 +41,60 @@ export function TopRewardsGrid({
 
           const inner = (
             <>
-              {r.image_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={r.image_url} alt={r.name} className="aspect-[4/3] w-full object-cover" />
-              ) : (
-                <div className="aspect-[4/3] flex items-center justify-center" style={{ background: `${primary}15` }}>
-                  <Gift className="h-8 w-8" style={{ color: primary }} />
-                </div>
-              )}
+              <div className="relative">
+                {r.image_url ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={r.image_url} alt={r.name} className="aspect-[4/3] w-full object-cover" />
+                ) : (
+                  <div className="aspect-[4/3] flex items-center justify-center" style={{ background: `${primary}15` }}>
+                    <Gift className="h-8 w-8" style={{ color: primary }} />
+                  </div>
+                )}
+                {/* CP-94: claimable ribbon on the photo. */}
+                {unlocked && (
+                  <span
+                    className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black tracking-wider text-white shadow-md"
+                    style={{ background: `linear-gradient(90deg, ${primary}, ${secondary})` }}
+                  >
+                    <Zap className="h-2.5 w-2.5" /> READY
+                  </span>
+                )}
+              </div>
               <div className="p-2.5">
                 <div className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: primary }}>
-                  <Lock className="h-2.5 w-2.5" /> {r.point_cost.toLocaleString()} POINTS
+                  {unlocked
+                    ? <Zap className="h-2.5 w-2.5" />
+                    : <Lock className="h-2.5 w-2.5" />} {r.point_cost.toLocaleString()} POINTS
                 </div>
                 <div className="text-xs font-bold mt-0.5">{r.name}</div>
                 <div className="mt-1.5">
-                  <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
+                  {unlocked ? (
+                    // CP-94: a real call-to-action instead of 9px whisper text.
+                    <span
+                      className="flex items-center justify-center gap-1 w-full rounded-lg py-1.5 text-[10px] font-black tracking-wide text-white"
                       style={{
-                        width: `${pct}%`,
-                        background: unlocked
-                          ? "linear-gradient(90deg, #10b981, #059669)"
-                          : `linear-gradient(90deg, ${primary}, ${secondary})`,
+                        background: `linear-gradient(90deg, ${primary}, ${secondary})`,
+                        boxShadow: `0 4px 12px -4px ${primary}`,
                       }}
-                    />
-                  </div>
-                  <div className={`text-[9px] font-bold mt-0.5 tabular-nums ${unlocked ? "text-emerald-600" : "text-zinc-500"}`}>
-                    {unlocked
-                      ? "Tap to redeem ✨"
-                      : `${points.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`}
-                  </div>
+                    >
+                      <Gift className="h-3 w-3" /> REDEEM NOW
+                    </span>
+                  ) : (
+                    <>
+                      <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${pct}%`,
+                            background: `linear-gradient(90deg, ${primary}, ${secondary})`,
+                          }}
+                        />
+                      </div>
+                      <div className="text-[9px] font-bold mt-0.5 tabular-nums text-zinc-500">
+                        {`${points.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </>
@@ -72,7 +104,7 @@ export function TopRewardsGrid({
 
           return unlocked ? (
             <a key={r.id} href={`/${businessSlug}/app/rewards?redeem=${r.id}`} className={cls}
-              style={{ borderColor: `${primary}55` }}>
+              style={{ borderColor: `${primary}55`, animation: "atlasClaimPulse 2.2s ease-in-out infinite" }}>
               {inner}
             </a>
           ) : (
@@ -82,6 +114,15 @@ export function TopRewardsGrid({
           );
         })}
       </div>
+
+      {/* CP-94: breathing glow for claimable cards — brand-tinted, subtle,
+          and CSS-only (no re-renders). */}
+      <style>{`
+        @keyframes atlasClaimPulse {
+          0%, 100% { box-shadow: 0 0 0 0 ${primary}00, 0 1px 3px rgba(0,0,0,0.06); }
+          50%      { box-shadow: 0 0 0 4px ${primary}26, 0 8px 20px -6px ${primary}66; }
+        }
+      `}</style>
 
       {detail && (
         <LockedRewardModal

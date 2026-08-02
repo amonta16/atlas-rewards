@@ -147,6 +147,13 @@ export function onAppUrlOpen(cb: (url: string) => void): void {
  * FCM, and hands the device token to the callback. Returns false when
  * not native, permission denied, or anything failed — always safe.
  */
+// CP-94: registerNativePush runs on every boot / business switch, and each
+// call used to add ANOTHER 'registration' listener without removing the old
+// one — so one token event fanned out into ~8 duplicate subscribe POSTs per
+// session (harmless idempotent upserts, but noisy in the logs). Keep the
+// handle module-level and swap it on re-registration.
+let pushRegistrationHandle: { remove: () => Promise<void> } | null = null;
+
 export async function registerNativePush(onToken: (token: string) => void): Promise<boolean> {
   if (!isNative()) return false;
   try {
@@ -155,7 +162,11 @@ export async function registerNativePush(onToken: (token: string) => void): Prom
     if (perm.receive === "denied") return false; // don't re-nag
     if (perm.receive !== "granted") perm = await PushNotifications.requestPermissions();
     if (perm.receive !== "granted") return false;
-    await PushNotifications.addListener("registration", (t) => {
+    if (pushRegistrationHandle) {
+      try { await pushRegistrationHandle.remove(); } catch { /* ignore */ }
+      pushRegistrationHandle = null;
+    }
+    pushRegistrationHandle = await PushNotifications.addListener("registration", (t) => {
       if (typeof t?.value === "string" && t.value.length > 0) onToken(t.value);
     });
     await PushNotifications.register();
