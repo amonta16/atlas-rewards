@@ -104,6 +104,9 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   const [mode, setMode] = useState<"idle" | "scanning" | "code-entry">("idle");
   const [code, setCode] = useState("");
   const [member, setMember] = useState<Member | null>(null);
+  // CP-95: remember the last member the desk worked with, so staff can
+  // reopen them in one tap without asking the customer to scan again.
+  const [lastMember, setLastMember] = useState<Member | null>(null);
   const [redemption, setRedemption] = useState<RedemptionLookup | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [offersSubTab, setOffersSubTab] = useState<"one-time" | "automated">("one-time");
@@ -168,6 +171,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
       { p_code: c, p_business_id: business.id });
     if (memData && memData.length > 0) {
       setMember(memData[0] as Member);
+      setLastMember(memData[0] as Member);
       setMode("idle");
       return;
     }
@@ -374,6 +378,39 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               </div>
             </div>
 
+            {/* CP-95: one-tap reopen of the last customer served — the panel
+                re-fetches their live balance on open, so this is always
+                safe even after awards. Kills the "please scan again so I
+                can enter what you spent" dance. */}
+            {lastMember && (
+              <button
+                type="button"
+                onClick={() => setMember(lastMember)}
+                className="w-full rounded-2xl border bg-white p-3.5 flex items-center gap-3 text-left shadow-sm ring-1 ring-black/5 active:scale-[0.99] hover:shadow-md transition"
+              >
+                <div
+                  className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold shrink-0"
+                  style={{ background: business.brand_colors.primary }}
+                >
+                  {(lastMember.full_name ?? "?")[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest font-bold text-zinc-400">
+                    Previous customer
+                  </div>
+                  <div className="text-sm font-bold truncate">
+                    {lastMember.full_name ?? "Unnamed member"}
+                  </div>
+                </div>
+                <span
+                  className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-extrabold px-3 py-1.5 rounded-full text-white"
+                  style={{ background: business.brand_colors.primary }}
+                >
+                  <History className="h-3.5 w-3.5" /> Reopen
+                </span>
+              </button>
+            )}
+
             {/* CP-43.4: prominent "install on this computer" card. Self-hides
                 once the app is installed / running standalone, so it only
                 shows during first-time setup at the front desk. */}
@@ -440,7 +477,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               businessId={business.id}
               primary={business.brand_colors.primary}
               onPick={(h) => {
-                setMember({
+                const m: Member = {
                   membership_id: h.membership_id,
                   user_id: h.user_id,
                   full_name: h.full_name,
@@ -450,7 +487,9 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                   tier: h.tier,
                   joined_at: h.joined_at,
                   visit_count: h.visit_count,
-                });
+                };
+                setMember(m);
+                setLastMember(m);
               }}
             />
 

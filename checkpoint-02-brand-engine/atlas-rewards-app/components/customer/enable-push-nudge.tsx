@@ -29,7 +29,8 @@ import { isNative, checkNativePushPermission } from "@/lib/native";
 const SEEN_KEY_PREFIX = "atlas-push-nudge-seen";
 const BELL_DONE_PREFIX = "atlas-onboard-bell-done";
 const ARM_DELAY_MS = 1500;   // wait for boot splash + layout to settle
-const AUTO_DISMISS_MS = 9000;
+// CP-95: was 9s — Andrew wanted the moment to breathe a little longer.
+const AUTO_DISMISS_MS = 14000;
 const RETRY_FIND_MS = 250;
 const MAX_FIND_TRIES = 16;
 
@@ -157,6 +158,7 @@ export function EnablePushNudge({ primary, businessId }: { primary: string; busi
 
   const bellCenterX = anchor.x + anchor.w / 2;
   const bellCenterY = anchor.y + anchor.h / 2;
+  // (handleTap below reads these to detect a tap on the spotlighted bell.)
 
   const arrowSize = 56;
   const arrowTop = Math.max(8, bellCenterY + 10);
@@ -173,10 +175,27 @@ export function EnablePushNudge({ primary, businessId }: { primary: string; busi
   // Spotlight radius around the bell.
   const spotR = Math.max(anchor.w, anchor.h) / 2 + 16;
 
+  // CP-95: one tap does BOTH. Before, the overlay swallowed every tap —
+  // tapping the glowing bell only dismissed the spotlight, and the customer
+  // had to find the bell and tap it a SECOND time to get the iPhone
+  // permission dialog. Now a tap inside the spotlight dismisses AND
+  // forwards the click to the real bell, so the OS prompt opens right away.
+  function handleTap(e: React.MouseEvent) {
+    const dx = e.clientX - bellCenterX;
+    const dy = e.clientY - bellCenterY;
+    const onBell = Math.sqrt(dx * dx + dy * dy) <= spotR + 10;
+    dismiss();
+    if (onBell) {
+      window.setTimeout(() => {
+        document.querySelector<HTMLElement>('[data-atlas-bell="1"]')?.click();
+      }, 60);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-[100] pointer-events-auto"
-      onClick={dismiss}
+      onClick={handleTap}
       aria-label="Tap to dismiss"
     >
       {/* Heavy dim with a transparent hole punched over the bell, so
@@ -241,7 +260,7 @@ export function EnablePushNudge({ primary, businessId }: { primary: string; busi
           Get pinged when you earn points, a reward unlocks, or a new offer drops.
         </p>
         <div className="mt-2 text-[10px] uppercase tracking-widest font-bold text-zinc-400">
-          Tap anywhere to dismiss
+          Tap the bell to enable · anywhere else to dismiss
         </div>
       </div>
 

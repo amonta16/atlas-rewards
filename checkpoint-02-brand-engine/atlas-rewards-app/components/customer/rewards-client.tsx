@@ -312,9 +312,22 @@ export function RewardsClient({
                         />
                       </div>
                     </div>
-                    <span className={`shrink-0 text-[10px] font-extrabold ${locked ? "text-zinc-400" : "text-emerald-600"}`}>
-                      {locked ? `${remaining.toLocaleString()} to go` : "Redeem ✨"}
-                    </span>
+                    {/* CP-95: claimable = gradient chip (matches Home), no emoji. */}
+                    {locked ? (
+                      <span className="shrink-0 text-[10px] font-extrabold text-zinc-400">
+                        {remaining.toLocaleString()} to go
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-black tracking-wide text-white"
+                        style={{
+                          background: `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                          boxShadow: `0 4px 12px -4px ${business.brand_colors.primary}`,
+                        }}
+                      >
+                        <Gift className="h-3 w-3" /> REDEEM
+                      </span>
+                    )}
                   </button>
                 );
               }
@@ -347,28 +360,42 @@ export function RewardsClient({
                   <div className="p-3">
                     <div className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
-                      <Lock className="h-2.5 w-2.5" /> {r.point_cost.toLocaleString()} POINTS
+                      {locked
+                        ? <Lock className="h-2.5 w-2.5" />
+                        : <Zap className="h-2.5 w-2.5" />} {r.point_cost.toLocaleString()} POINTS
                     </div>
                     <div className={`${big ? "text-base" : "text-sm"} font-bold mt-1 leading-tight`}>{r.name}</div>
 
-                    {/* CP-27: progress to this reward */}
+                    {/* CP-27: progress to this reward.
+                        CP-95: claimable cards trade the 10px whisper for a
+                        full-width gradient REDEEM NOW button (matches Home). */}
                     <div className="mt-2">
-                      <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
+                      {locked ? (
+                        <>
+                          <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{
+                                width: `${pct}%`,
+                                background: `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                              }}
+                            />
+                          </div>
+                          <div className="text-[10px] font-bold mt-1 tabular-nums text-zinc-500">
+                            {`${displayed.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`}
+                          </div>
+                        </>
+                      ) : (
+                        <span
+                          className="flex items-center justify-center gap-1 w-full rounded-lg py-1.5 text-[10px] font-black tracking-wide text-white"
                           style={{
-                            width: `${pct}%`,
-                            background: locked
-                              ? `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`
-                              : "linear-gradient(90deg, #10b981, #059669)",
+                            background: `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                            boxShadow: `0 4px 12px -4px ${business.brand_colors.primary}`,
                           }}
-                        />
-                      </div>
-                      <div className={`text-[10px] font-bold mt-1 tabular-nums ${locked ? "text-zinc-500" : "text-emerald-600"}`}>
-                        {locked
-                          ? `${displayed.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`
-                          : "Tap to redeem ✨"}
-                      </div>
+                        >
+                          <Gift className="h-3 w-3" /> REDEEM NOW
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>

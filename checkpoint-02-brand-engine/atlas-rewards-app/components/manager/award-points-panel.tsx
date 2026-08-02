@@ -70,10 +70,25 @@ export function AwardPointsPanel({
   const [spentCents, setSpentCents] = useState<number | null>(null);
   // CP-86: membership badge (plan + expiry) for the scanned member.
   const [vip, setVip] = useState<VipStatus | null>(null);
+  // CP-95: LIVE points balance. The member prop is a snapshot from the scan
+  // — after a check-in / award the staff now returns to this panel instead
+  // of being kicked to the dashboard, so the balance must refresh itself.
+  const [balance, setBalance] = useState(member.points_balance);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Load the member's current streak state + total spend when the panel opens
+  // (and again whenever staff come back from a success screen — reloadKey).
   useEffect(() => {
     const supabase = createClient();
+    (async () => {
+      const { data } = await supabase
+        .from("memberships")
+        .select("points_balance")
+        .eq("id", member.membership_id)
+        .single();
+      const b = (data as { points_balance?: number } | null)?.points_balance;
+      if (typeof b === "number") setBalance(b);
+    })();
     (async () => {
       const { data } = await supabase.rpc("get_streak_status", {
         p_business_id: business.id, p_membership_id: member.membership_id,
@@ -95,7 +110,7 @@ export function AwardPointsPanel({
       const row = (Array.isArray(data) ? data[0] : data) as VipStatus | null;
       setVip(row ?? null);
     })();
-  }, [business.id, member.membership_id]);
+  }, [business.id, member.membership_id, reloadKey]);
 
   async function checkIn() {
     setSubmitting(true); setErr(null);
@@ -130,7 +145,7 @@ export function AwardPointsPanel({
     let visitPoints = 0;
     const perVisit = Number(business.point_rules?.visit ?? 0);
     if (perVisit > 0) {
-      const oldBalance = member.points_balance;
+      const oldBalance = balance;
       const { data: qData, error: qErr } = await supabase.rpc("quick_award", {
         p_membership_id: member.membership_id,
         p_rule_key: "visit",
@@ -167,7 +182,7 @@ export function AwardPointsPanel({
   // CP-43: points the staff wants to remove, capped at the member's balance.
   const pointsToRemove = Math.min(
     parseInt(removeAmount || "0", 10) || 0,
-    member.points_balance,
+    balance,
   );
 
   function pressRemove(digit: string) {
@@ -210,7 +225,7 @@ export function AwardPointsPanel({
     setSubmitting(true);
     setErr(null);
     const supabase = createClient();
-    const oldBalance = member.points_balance;
+    const oldBalance = balance;
     const { data, error } = await supabase.rpc("quick_award", {
       p_membership_id: member.membership_id,
       p_rule_key: ruleKey,
@@ -242,7 +257,7 @@ export function AwardPointsPanel({
     setErr(null);
     const supabase = createClient();
     const idempotencyKey = `purchase_${member.membership_id}_${Date.now()}`;
-    const oldBalance = member.points_balance;
+    const oldBalance = balance;
     const { error } = await supabase.rpc("award_points", {
       p_membership_id: member.membership_id,
       p_delta: pointsToAward,
@@ -280,6 +295,20 @@ export function AwardPointsPanel({
     }).catch(() => { /* silent — in-app row is the safety net */ });
   }
 
+  // CP-95: staff kept losing the customer after "Check in" — the success
+  // screen's only exit closed the whole panel, so awarding the visit spend
+  // meant asking the customer to scan AGAIN. Now the primary action returns
+  // to this member (with a freshly fetched balance); "Done" still exits.
+  function backToMember() {
+    setSuccess(null);
+    setMode("menu");
+    setAmount("");
+    setRemoveAmount("");
+    setRemoveNote("");
+    setErr(null);
+    setReloadKey((k) => k + 1);
+  }
+
   if (success !== null) {
     return (
       <SuccessScreen
@@ -289,10 +318,11 @@ export function AwardPointsPanel({
         membershipId={member.membership_id}
         primary={business.brand_colors.primary}
         onUndone={() => {
-          // After undo, route the staff back to the dashboard so they can
-          // re-grant a corrected amount.
-          onClose();
+          // After undo, stay on the member so staff can re-grant the
+          // corrected amount without a re-scan.
+          backToMember();
         }}
+        onBack={backToMember}
         onDone={onClose}
       />
     );
@@ -332,7 +362,7 @@ export function AwardPointsPanel({
           </div>
           <div className="text-right">
             <div className="text-xl font-bold" style={{ color: business.brand_colors.primary }}>
-              {member.points_balance.toLocaleString()}
+              {balance.toLocaleString()}
             </div>
             {/* CP-86: tier label (Bronze/Silver/Gold) removed per Andrew —
                 tiers no longer exist in the customer app either (CP-73). */}
@@ -644,7 +674,7 @@ export function AwardPointsPanel({
  * makes the screen feel celebratory without being noisy.
  */
 function SuccessScreen({
-  amount, memberName, businessId, membershipId, primary, onUndone, onDone,
+  amount, memberName, businessId, membershipId, primary, onUndone, onBack, onDone,
 }: {
   amount: number;
   memberName: string;
@@ -652,6 +682,8 @@ function SuccessScreen({
   membershipId: string;
   primary: string;
   onUndone: () => void;
+  /** CP-95: return to the member's panel (keep serving this customer). */
+  onBack: () => void;
   onDone: () => void;
 }) {
   const [secondsLeft, setSecondsLeft] = useState(30);
@@ -725,11 +757,20 @@ function SuccessScreen({
                 : "Undo window closed"}
           </Button>
         )}
+        {/* CP-95: primary = keep serving this customer (e.g. check-in →
+            now enter what they spent). Secondary = fully done. */}
         <Button
-          onClick={onDone}
+          onClick={onBack}
           className="w-full h-12 text-base font-bold bg-white text-zinc-900 hover:bg-zinc-100"
         >
-          Done
+          Back to {memberName.split(" ")[0]}
+        </Button>
+        <Button
+          onClick={onDone}
+          variant="outline"
+          className="w-full h-11 text-sm font-bold border-white/40 text-white bg-transparent hover:bg-white/15 hover:text-white"
+        >
+          Done — next customer
         </Button>
         {undoErr && (
           <p className="text-xs text-rose-100 bg-rose-900/40 rounded-lg px-3 py-2 text-center">{undoErr}</p>
