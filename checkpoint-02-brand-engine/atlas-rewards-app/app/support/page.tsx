@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { LifeBuoy, Mail, Store, ShieldCheck, FileText, UserX } from "lucide-react";
+import { BackLink } from "@/components/back-link";
 
 /**
  * CP-96 — public customer-support page.
@@ -28,9 +29,14 @@ export default function SupportPage() {
     <div className="min-h-screen bg-zinc-50">
       <header className="border-b bg-white">
         <div className="max-w-3xl mx-auto px-5 h-14 flex items-center justify-between">
-          <Link href="/" className="font-extrabold tracking-tight" style={{ color: NAVY }}>
-            Atlas Engine
-          </Link>
+          <div className="flex items-center gap-4">
+            {/* CP-96.1: way back into the app — the native webview has no
+                browser chrome, so this is the customer's only exit. */}
+            <BackLink />
+            <Link href="/" className="font-extrabold tracking-tight" style={{ color: NAVY }}>
+              Atlas Engine
+            </Link>
+          </div>
           <nav className="flex items-center gap-4 text-sm">
             <Link href="/legal/privacy" className="text-zinc-600 hover:text-zinc-900">Privacy</Link>
             <Link href="/legal/terms" className="text-zinc-600 hover:text-zinc-900">Terms</Link>

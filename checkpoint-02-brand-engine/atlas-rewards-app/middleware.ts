@@ -52,7 +52,12 @@ export async function middleware(request: NextRequest) {
     "/sw.js", "/sw-push.js", "/manifest.json", "/manifest.webmanifest",
     "/robots.txt", "/sitemap.xml", "/atlas-favicon.png", "/atlas-apple-touch.png",
   ]);
-  const isRootAsset = ROOT_ASSETS.has(url.pathname) || url.pathname.startsWith("/api/");
+  // CP-96.1: legal + support pages are host-agnostic — ONE policy and one
+  // support page cover every business, and the Profile tab links to them
+  // from business subdomains (where the rewrite below used to turn
+  // /legal/terms into /<slug>/legal/terms → 404 inside the phone app).
+  const isRootPage = url.pathname === "/support" || url.pathname.startsWith("/legal");
+  const isRootAsset = ROOT_ASSETS.has(url.pathname) || url.pathname.startsWith("/api/") || isRootPage;
 
   if (!isRootAsset && subdomain && !RESERVED.has(subdomain)) {
     // /agency is reserved for the agency dashboard (only reachable from the root domain).
