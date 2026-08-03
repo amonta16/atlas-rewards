@@ -10,6 +10,19 @@ import {
 } from "@/lib/native";
 
 /**
+ * CP-97: inside the native shell, STAY on the boot origin (www) and use
+ * path routing to enter a business. On Android, Capacitor only injects
+ * the plugin bridge into pages from the configured server origin — the
+ * moment the webview hopped to a business SUBDOMAIN, every plugin call
+ * threw "not implemented": no push permission prompt, no push
+ * registration, no Preferences. iOS injects everywhere, which is why
+ * this only bit Android. Regular web browsers keep the subdomain flow.
+ */
+function businessEntryUrl(slug: string): string {
+  return isNative() ? `/${slug}` : `/qr/${slug}`;
+}
+
+/**
  * CP-74: The pre-join screen — the neutral "front door" of Atlas Rewards.
  * CP-76: native-aware. Inside the Capacitor app this screen additionally:
  *   - boots straight into the last-joined business (native Preferences,
@@ -120,7 +133,7 @@ export default function JoinPage() {
             if (shops.length === 1 && shops[0].slug) {
               navigating = true;
               await prefSet(PREF_LAST_BUSINESS, shops[0].slug);
-              window.location.href = `/qr/${shops[0].slug}`;
+              window.location.href = businessEntryUrl(shops[0].slug);
               return;
             }
           }
@@ -131,7 +144,7 @@ export default function JoinPage() {
         if (last && /^[a-z0-9-]+$/.test(last)) {
           // Keep the splash up — the page is navigating away.
           navigating = true;
-          window.location.href = `/qr/${last}`;
+          window.location.href = businessEntryUrl(last);
           return;
         }
         const ref = await getInstallReferrer();
@@ -176,7 +189,7 @@ export default function JoinPage() {
       // always injected on the boot origin, but not reliably on business
       // subdomains, so saving there can silently no-op.
       await prefSet(PREF_LAST_BUSINESS, qrMatch[1]);
-      window.location.href = `/qr/${qrMatch[1]}`;
+      window.location.href = businessEntryUrl(qrMatch[1]);
       return;
     }
     const candidate = jMatch?.[1] ?? (/^[a-zA-Z0-9]{3,24}$/.test(raw.trim()) ? raw.trim() : null);
@@ -249,7 +262,7 @@ export default function JoinPage() {
                   onClick={async () => {
                     setBooting(true); // splash while we hand off
                     await prefSet(PREF_LAST_BUSINESS, s.slug);
-                    window.location.href = `/qr/${s.slug}`;
+                    window.location.href = businessEntryUrl(s.slug);
                   }}
                 >
                   {icon ? (
@@ -379,7 +392,7 @@ export default function JoinPage() {
                   // CP-76.1: save the business on the APEX origin (bridge
                   // guaranteed) before handing off to the subdomain.
                   if (biz.slug) await prefSet(PREF_LAST_BUSINESS, biz.slug);
-                  window.location.href = `/qr/${biz.slug}`;
+                  window.location.href = businessEntryUrl(biz.slug ?? "");
                 }}
               >
                 Continue to {biz.name} <ArrowRight className="h-4 w-4 ml-1" />

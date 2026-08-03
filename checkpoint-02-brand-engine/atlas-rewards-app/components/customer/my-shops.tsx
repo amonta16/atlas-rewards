@@ -22,6 +22,7 @@
 import { useEffect, useState } from "react";
 import { Store, Plus, ChevronRight, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { isNative } from "@/lib/native";
 
 type Shop = {
   business_id: string;
@@ -72,6 +73,15 @@ export function MyShops({
     if (shop.business_id === currentBusinessId) return;
     const root = rootDomain();
     if (!root) return;
+    // CP-97: the native shell must STAY on the www origin (path routing)
+    // — Android only injects the Capacitor plugin bridge on the server
+    // origin, so subdomains silently lose push/Preferences. Also rescues
+    // devices currently stranded on a subdomain: switching shops brings
+    // them back to www. Web browsers keep the subdomain world.
+    if (isNative()) {
+      window.location.href = `https://www.${root}/${shop.slug}/app`;
+      return;
+    }
     // Full navigation (not router.push): the destination is another
     // subdomain/origin. NativeShell on arrival records it as the new
     // boot business for the native app.
