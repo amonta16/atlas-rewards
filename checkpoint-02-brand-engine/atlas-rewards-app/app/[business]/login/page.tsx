@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { safeRedirect } from "@/lib/utils";
+import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
 
 /**
  * Customer login — CP-37.1 revision.
@@ -274,8 +275,17 @@ export default function CustomerLogin() {
         </div>
 
         <p className="text-xs text-center text-muted-foreground mt-4">
-          New here? <Link href="/signup" className="font-semibold text-brand-primary">Create an account</Link>
+          {/* CP-98: was href="/signup" — an absolute path that loses the
+              business slug on path-based access (native app + www), landing
+              on a 404. `base` keeps the slug ("" on subdomains, where
+              middleware routes /signup correctly). */}
+          New here? <Link href={`${base}/signup`} className="font-semibold text-brand-primary">Create an account</Link>
         </p>
+
+        {/* CP-98: escape hatch back to the business finder. */}
+        <div className="mt-3 text-center">
+          <SwitchBusinessLink label="Wrong business? Find yours" />
+        </div>
       </div>
     </main>
   );

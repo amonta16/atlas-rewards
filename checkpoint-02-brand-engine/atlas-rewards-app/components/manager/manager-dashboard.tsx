@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ScanLine, UserSearch, History, LogOut, Gift, Tag, Newspaper, Home, Check, Shield, Lightbulb } from "lucide-react";
 import { ManagerTutorial, useTutorialAutoOpen } from "@/components/manager/manager-tutorial";
 // CP-37.18 — Install-app affordance for managers + front-desk.
@@ -158,11 +158,31 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
     });
   }
 
+  // CP-98: scan de-dupe. The camera scanner decodes the same QR many times
+  // per second while it's in view, and USB scanners can double-trigger —
+  // both used to fire resolveCode repeatedly ("scans twice" / flaky feel).
+  // One lookup in flight at a time, and the same code is ignored for 2.5s.
+  const resolvingRef = useRef(false);
+  const lastScanRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
+
   /** Smart resolver — tries member code first, then redemption code. */
   async function resolveCode(rawCode: string) {
-    setErr(null);
     const c = rawCode.trim().toUpperCase();
     if (!c) { setErr("Empty code."); return; }
+    const now = Date.now();
+    if (resolvingRef.current) return;
+    if (lastScanRef.current.code === c && now - lastScanRef.current.at < 2500) return;
+    resolvingRef.current = true;
+    lastScanRef.current = { code: c, at: now };
+    try {
+      await resolveCodeInner(c);
+    } finally {
+      resolvingRef.current = false;
+    }
+  }
+
+  async function resolveCodeInner(c: string) {
+    setErr(null);
 
     const supabase = createClient();
 
@@ -217,32 +237,42 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   }
 
   // Routed views
+  // CP-98: the ScannerListener stays mounted while a panel is open, so the
+  // desk can scan the NEXT customer without closing anything first — the
+  // new scan simply swaps the panel. True "scan → pops up", zero clicks.
   if (member) {
     return (
-      <AwardPointsPanel
-        business={business}
-        member={member}
-        onClose={() => { setMember(null); router.refresh(); }}
-      />
+      <>
+        <ScannerListener onScan={(code) => resolveCode(code)} />
+        <AwardPointsPanel
+          business={business}
+          member={member}
+          onClose={() => { setMember(null); router.refresh(); }}
+        />
+      </>
     );
   }
   if (redemption) {
     return (
-      <RedemptionFulfillPanel
-        business={business}
-        redemption={redemption}
-        onClose={() => { setRedemption(null); router.refresh(); }}
-      />
+      <>
+        <ScannerListener onScan={(code) => resolveCode(code)} />
+        <RedemptionFulfillPanel
+          business={business}
+          redemption={redemption}
+          onClose={() => { setRedemption(null); router.refresh(); }}
+        />
+      </>
     );
   }
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* CP-30: USB QR scanner support — invisible auto-focused input that
-          catches HID-class scanner keystrokes and runs resolveCode. No
-          UI footprint; works on every tab. */}
+      {/* CP-30: USB QR scanner support — catches HID-class scanner
+          keystrokes and runs resolveCode. No UI footprint.
+          CP-98: enabled on EVERY tab (was desk-only) — staff can be on
+          Offers or Users when a customer walks up, and the scan still
+          pops the award panel instantly. */}
       <ScannerListener
-        enabled={tab === "desk"}
         onScan={(code) => resolveCode(code)}
       />
       <header className="bg-white border-b">

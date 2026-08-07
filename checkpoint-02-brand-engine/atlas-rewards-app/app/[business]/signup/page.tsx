@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
 
 export default function CustomerSignup() {
   const router = useRouter();
@@ -299,6 +300,13 @@ export default function CustomerSignup() {
               /<slug>/login to the same page. */}
           Already have an account? <Link href={`/${params.business}/login`} className="font-semibold text-brand-primary">Sign in</Link>
         </p>
+
+        {/* CP-98: escape hatch — this used to be a dead end. A customer who
+            landed on the wrong business (bad QR, old link) had no way out
+            without creating an account. */}
+        <div className="mt-3 text-center">
+          <SwitchBusinessLink label="Wrong business? Find yours" />
+        </div>
       </div>
     </main>
   );

@@ -4,6 +4,7 @@ import { Gift, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import type { Business } from "@/lib/types/database";
+import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,11 @@ export default async function BusinessRootPage({ params }: { params: { business:
             <Link href={`/${params.business}/login`} className="block text-sm text-white/85 hover:text-white">
               Already a member? Sign in
             </Link>
+            {/* CP-98: escape hatch — wrong business? Back to the finder,
+                no account required. */}
+            <div className="pt-4">
+              <SwitchBusinessLink className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-white/60 hover:text-white/90" />
+            </div>
           </div>
         </div>
       </div>
