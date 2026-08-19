@@ -3,7 +3,7 @@ import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Cale
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
-import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
+import { resolveStreakTheme, streakGradient, streakEnvColors } from "@/lib/streak-themes";
 // CP-65.1 + CP-66: mirror the offer-card skin + section layouts live.
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-panel presets mirrored in the preview store mock.
@@ -834,6 +834,7 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
  *  preview rewards so agencies see their own colors/photos. */
 function StreaksBody({ business: b, rewards = [] }: { business: Business; rewards?: PreviewReward[] }) {
   const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
+  const env = streakEnvColors(b.streak_env_color);
   // Demo program: 10-day range, member at day 7, milestones at 3 / 7 / 10.
   const current = 7, range = 10;
   const fill = (current / range) * 100;
@@ -843,29 +844,29 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
     { count: 10, r: rewards[2] ?? rewards[0] ?? null, state: "next" as const },
   ];
   const nextR = ms[2];
-  const H = 320, PT = 22, PB = 48;
+  const H = 340, PT = 22, PB = 74;
   const yFor = (c: number) => PT + (1 - c / range) * (H - PT - PB);
   const fillGradient = `linear-gradient(to top, ${theme.cell[2]} 0%, ${theme.cell[1]} 55%, ${theme.cell[0]} 100%)`;
 
   return (
-    <div className="relative -mx-0" style={{ background: "linear-gradient(180deg, #f8fafc 0%, #eef1f6 45%, #e9edf3 100%)" }}>
+    <div className="relative -mx-0" style={{ background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)` }}>
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(120% 55% at 50% 20%, rgba(255,255,255,0.85), transparent 70%)" }} />
+        style={{ background: "radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,0.07), transparent 70%)" }} />
       <div className="relative z-10 px-3 pt-4 pb-5">
         {/* HERO HUD */}
         <div className="flex items-center gap-3">
-          <div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-black/5 shadow-md"
+          <div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-white/20 shadow-md"
             style={{ background: `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 55%, ${theme.cell[2]} 100%)`, boxShadow: `0 8px 20px -8px ${theme.glow}` }}>
             <Flame className="h-7 w-7 text-white drop-shadow" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-end gap-1.5">
-              <span className="text-4xl font-black leading-none tabular-nums text-slate-900">{current}</span>
-              <span className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-slate-500 mb-0.5">day streak</span>
+              <span className="text-4xl font-black leading-none tabular-nums text-white">{current}</span>
+              <span className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-white/60 mb-0.5">day streak</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-[10px] font-bold">
-              <Trophy className="h-3 w-3 text-amber-500" />
-              <span className="text-amber-600">Personal best — keep it alive.</span>
+              <Trophy className="h-3 w-3 text-amber-300" />
+              <span className="text-amber-300">Personal best — keep it alive.</span>
             </div>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-1 rounded-full bg-white text-slate-700 ring-1 ring-black/10 shadow-sm">
@@ -898,10 +899,13 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
 
         {/* ROAD */}
         <div className="flex items-center justify-between mt-4 mb-1 px-1">
-          <h2 className="text-xs font-bold text-slate-800">Your reward road</h2>
-          <span className="text-[8px] font-extrabold text-slate-500">Check in every day to climb</span>
+          <h2 className="text-xs font-bold text-white/90">Your reward road</h2>
+          <span className="text-[8px] font-extrabold text-white/50">Check in every day to climb</span>
         </div>
         <div className="relative" style={{ height: H }}>
+          {/* protected corridor around the route */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2rem] pointer-events-none"
+            style={{ width: "6.5rem", background: "linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06))", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.09)" }} />
           {/* casing + channel + fill */}
           <div className="absolute left-1/2 -translate-x-1/2 w-4 rounded-full bg-white ring-1 ring-black/10"
             style={{ top: PT, bottom: PB, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
@@ -970,7 +974,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                         </div>
                       </div>
                     </div>
-                    <div className="mt-0.5 text-[7px] font-black tracking-wider uppercase text-slate-400">{m.count} days</div>
+                    <div className="mt-0.5 text-[7px] font-black tracking-wider uppercase" style={{ color: "#4a7ba6" }}>{m.count} days</div>
                   </div>
                 </div>
               </div>
@@ -978,11 +982,14 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
           })}
 
           {/* START marker */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ bottom: PB - 42 }}>
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ bottom: PB - 68 }}>
             <div className="h-7 w-7 rounded-full bg-white ring-1 ring-black/10 shadow-sm flex items-center justify-center">
               <Flame className="h-3.5 w-3.5" style={{ color: theme.to }} />
             </div>
-            <span className="mt-0.5 text-[8px] font-black tracking-[0.2em] uppercase text-slate-400">Start</span>
+            <span className="mt-0.5 text-[8px] font-black tracking-[0.2em] uppercase text-white/60">Start</span>
+            <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-extrabold text-white bg-white/15 ring-1 ring-white/30 whitespace-nowrap">
+              <ScanLine className="h-2.5 w-2.5" /> Check in now
+            </span>
           </div>
         </div>
       </div>

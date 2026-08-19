@@ -226,6 +226,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           button_style: b.button_style ?? null,
           /* CP-65: streak surface theme. */
           streak_theme: b.streak_theme ?? null,
+          /* CP-99: streak page environment color. */
+          streak_env_color: b.streak_env_color ?? null,
           /* CP-65.1: customer offer-card style. */
           offer_card_style: b.offer_card_style ?? null,
           /* CP-99: reward-store panel style. */
@@ -1072,6 +1074,26 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       </button>
                     );
                   })}
+                </div>
+                {/* CP-99: the streak PAGE environment color. Never used
+                    literally — the app desaturates + darkens it so white
+                    reward cards and the flame always stay readable. */}
+                <div className="space-y-2 mt-4">
+                  <Label className="text-xs text-muted-foreground">Streak page background</Label>
+                  <div className="flex gap-2 items-center">
+                    <input type="color" value={b.streak_env_color ?? "#16324a"}
+                      onChange={e => update("streak_env_color", e.target.value)}
+                      className="h-10 w-12 rounded border cursor-pointer" />
+                    <Input value={b.streak_env_color ?? ""} placeholder="Ocean blue (default)"
+                      onChange={e => update("streak_env_color", e.target.value || null)} />
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={() => update("streak_env_color", null)}>
+                      Reset
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    The deep backdrop behind the streak reward road. Your pick is automatically darkened and softened so the road, flame, and white reward cards always stay clear.
+                  </p>
                 </div>
               </Section>
 

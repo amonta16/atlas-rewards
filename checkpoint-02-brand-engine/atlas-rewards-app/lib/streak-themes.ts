@@ -138,3 +138,34 @@ export function resolveStreakTheme(
 export function streakGradient(theme: StreakTheme, angle = 135): string {
   return `linear-gradient(${angle}deg, ${theme.from} 0%, ${theme.to} 100%)`;
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   CP-99 Phase 4: streak-page ENVIRONMENT color (businesses.streak_env_color).
+   The streak page is its own controlled world — cool, deep, premium — so
+   the white reward cards pop and the warm flame stays the hottest color.
+   Default is a desaturated ocean blue. A client-configured color is never
+   used literally: it's desaturated and clamped dark so readability can't
+   be destroyed by a bright / neon / near-white pick.
+   ──────────────────────────────────────────────────────────────────── */
+
+export type StreakEnv = { top: string; mid: string; edge: string };
+
+const OCEAN_ENV: StreakEnv = { top: "#1e3d59", mid: "#16324a", edge: "#0e2233" };
+
+export function streakEnvColors(input?: string | null): StreakEnv {
+  const raw = (input ?? "").trim();
+  if (!/^#?[0-9a-fA-F]{6}$/.test(raw)) return OCEAN_ENV;
+  const p = raw.startsWith("#") ? raw : `#${raw}`;
+  // Desaturate ~35% toward gray, then clamp relative luminance into a deep,
+  // premium band [0.045, 0.15] — dark enough for white text + white cards,
+  // never pitch black.
+  let [r, g, b] = hexToRgb(p);
+  const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+  r += (gray - r) * 0.35; g += (gray - g) * 0.35; b += (gray - b) * 0.35;
+  const lum = () => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  let guard = 0;
+  while (lum() > 0.15 && guard++ < 24) { r *= 0.88; g *= 0.88; b *= 0.88; }
+  while (lum() < 0.045 && guard++ < 24) { r += (255 - r) * 0.1; g += (255 - g) * 0.1; b += (255 - b) * 0.1; }
+  const mid = toHex([r, g, b]);
+  return { top: lighten(mid, 0.08), mid, edge: darken(mid, 0.24) };
+}

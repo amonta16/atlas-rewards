@@ -118,6 +118,10 @@ export type Business = {
   /** CP-65: streak surface theme. See lib/streak-themes.ts StreakThemeId
    *  (fire/gold/neon/pink/blue/gray/coffee/midnight/brand). NULL = fire. */
   streak_theme?: string | null;
+  /** CP-99: streak PAGE environment color (hex). Derived safe (desaturated
+   *  + clamped dark) by lib/streak-themes.ts streakEnvColors — never used
+   *  literally. NULL = premium ocean blue default. */
+  streak_env_color?: string | null;
   /** CP-65.1: customer offer-card style. See lib/offer-card-styles.ts
    *  (clean/tint/pop/gradient/midnight/luxe). NULL = clean white. */
   offer_card_style?: string | null;

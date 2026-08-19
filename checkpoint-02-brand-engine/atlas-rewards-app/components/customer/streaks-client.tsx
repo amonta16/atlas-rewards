@@ -33,7 +33,7 @@ import {
   Flame, Gift, Trophy, Lock, Check, CalendarDays, QrCode, Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { resolveStreakTheme, type StreakTheme } from "@/lib/streak-themes";
+import { resolveStreakTheme, streakEnvColors, type StreakEnv, type StreakTheme } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = {
@@ -97,6 +97,9 @@ export function StreaksClient({
   const [now, setNow] = useState(() => Date.now());
 
   const theme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
+  // Cool environment — ocean default, or a SAFE derivation of the client's
+  // configured color (businesses.streak_env_color; clamped dark+desaturated).
+  const env = streakEnvColors(business.streak_env_color);
 
   useEffect(() => {
     if (!membershipId) { setLoaded(true); return; }
@@ -134,7 +137,7 @@ export function StreaksClient({
 
   if (!loaded) {
     return (
-      <Shell>
+      <Shell env={env}>
         <div className="px-4 pt-10 pb-4 flex justify-center">
           <div className="bg-white rounded-2xl px-6 py-4 text-sm text-zinc-600 shadow-sm border">Loading your streak…</div>
         </div>
@@ -144,7 +147,7 @@ export function StreaksClient({
 
   if (!membershipId || !s || !s.is_enabled) {
     return (
-      <Shell>
+      <Shell env={env}>
         <div className="px-4 pt-8 pb-4">
           <div className="rounded-3xl bg-white border shadow-sm p-8 text-center">
             <Flame className="h-10 w-10 mx-auto text-zinc-300" />
@@ -177,13 +180,13 @@ export function StreaksClient({
   const urgent = canCheckIn && msLeft !== null && msLeft < 12 * 3600_000 && current > 0;
 
   return (
-    <Shell>
+    <Shell env={env}>
       {/* ═══════════ HERO HUD (state-aware, flows into the road) ═══════════ */}
       <div className="px-4 pt-4">
         <div className="flex items-center gap-3.5">
           {/* flame emblem — ember at zero, burning once the streak lives */}
           <div
-            className="h-16 w-16 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-black/5 shadow-md"
+            className="h-16 w-16 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-white/20 shadow-md"
             style={zero
               ? { background: "linear-gradient(160deg, #f1f5f9, #e2e8f0)" }
               : { background: `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 55%, ${theme.cell[2]} 100%)`, boxShadow: `0 8px 22px -8px ${theme.glow}` }}
@@ -194,26 +197,26 @@ export function StreaksClient({
           <div className="min-w-0 flex-1">
             {zero ? (
               <>
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-600">Start your streak</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Start your streak</div>
                 <div className="flex items-end gap-1.5 mt-0.5">
-                  <span className="text-4xl font-black leading-none tabular-nums text-slate-900">0</span>
-                  <span className="text-[11px] uppercase tracking-[0.14em] font-extrabold text-slate-500 mb-0.5">check-ins</span>
+                  <span className="text-4xl font-black leading-none tabular-nums text-white">0</span>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-extrabold text-white/60 mb-0.5">check-ins</span>
                 </div>
-                <div className="text-[11px] font-bold text-slate-500 mt-1">One check-in lights the flame.</div>
+                <div className="text-[11px] font-bold text-white/60 mt-1">One check-in lights the flame.</div>
               </>
             ) : (
               <>
                 <div className="flex items-end gap-2">
-                  <span className="text-5xl font-black leading-none tabular-nums text-slate-900">{current}</span>
-                  <span className="text-[11px] uppercase tracking-[0.16em] font-extrabold text-slate-500 mb-1">
+                  <span className="text-5xl font-black leading-none tabular-nums text-white">{current}</span>
+                  <span className="text-[11px] uppercase tracking-[0.16em] font-extrabold text-white/60 mb-1">
                     {unit} streak
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold">
-                  <Trophy className="h-3.5 w-3.5 text-amber-500" />
+                  <Trophy className="h-3.5 w-3.5 text-amber-300" />
                   {atPersonalBest
-                    ? <span className="text-amber-600">Personal best — keep it alive.</span>
-                    : <span className="text-slate-500">Best: {longest} {unit}{longest === 1 ? "" : "s"}</span>}
+                    ? <span className="text-amber-300">Personal best — keep it alive.</span>
+                    : <span className="text-white/60">Best: {longest} {unit}{longest === 1 ? "" : "s"}</span>}
                 </div>
               </>
             )}
@@ -237,9 +240,9 @@ export function StreaksClient({
 
         {/* keep-alive line */}
         {canCheckIn && msLeft !== null && current > 0 && (
-          <div className="mt-2 text-[11px] font-bold text-slate-600">
+          <div className="mt-2 text-[11px] font-bold text-white/75">
             {urgent ? "Your streak is about to reset — " : "Keep your streak alive — "}
-            check in within <span className="tabular-nums text-slate-900">{timeLeftLabel(msLeft)}</span>.
+            check in within <span className="tabular-nums text-white">{timeLeftLabel(msLeft)}</span>.
           </div>
         )}
 
@@ -311,6 +314,8 @@ export function StreaksClient({
           theme={theme}
           logoUrl={business.logo_url}
           unit={unit}
+          slug={business.slug}
+          canCheckIn={canCheckIn}
         />
       ) : (
         // Program not configured — a true empty state (never fake rewards).
@@ -338,20 +343,24 @@ export function StreaksClient({
    component would remount the road, and its animation refs, on every
    state tick).
    ════════════════════════════════════════════════════════════════════ */
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ env, children }: { env: StreakEnv; children: React.ReactNode }) {
   return (
     <div
       className="relative"
       style={{
-        background: "linear-gradient(180deg, #f8fafc 0%, #eef1f6 45%, #e9edf3 100%)",
+        // CP-99: cool, deep environment (default = premium ocean blue;
+        // client color is derived/clamped in streakEnvColors, never literal)
+        // so white cards pop and the warm flame stays the hottest thing.
+        background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)`,
         paddingBottom: "7rem",
         marginBottom: "-5rem",
       }}
     >
+      {/* faint center illumination + darker-edge vignette */}
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(120% 55% at 50% 20%, rgba(255,255,255,0.85), transparent 70%)" }} />
+        style={{ background: "radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,0.07), transparent 70%)" }} />
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(130% 90% at 50% 55%, transparent 62%, rgba(15,23,42,0.05) 100%)" }} />
+        style={{ background: "radial-gradient(130% 90% at 50% 55%, transparent 58%, rgba(0,0,0,0.28) 100%)" }} />
       <div className="relative z-10">{children}</div>
     </div>
   );
@@ -362,14 +371,15 @@ function Shell({ children }: { children: React.ReactNode }) {
    ════════════════════════════════════════════════════════════════════ */
 
 const PAD_TOP = 56;
-const PAD_BOTTOM = 88;
+// Room below the track for START + its own small check-in CTA.
+const PAD_BOTTOM = 132;
 const MIN_GAP = 118;
 /** Pilot-flame height (px) shown at zero streak — VISUAL ONLY, never
  *  affects real progression, unlocking, or counts. */
 const STARTER_PX = 20;
 
 function RewardRoad({
-  milestones, current, claimed, nextCount, theme, logoUrl, unit,
+  milestones, current, claimed, nextCount, theme, logoUrl, unit, slug, canCheckIn,
 }: {
   milestones: Milestone[];
   current: number;
@@ -378,6 +388,9 @@ function RewardRoad({
   theme: StreakTheme;
   logoUrl: string | null;
   unit: string;
+  /** For the secondary check-in CTA under START (same behavior as the hero CTA). */
+  slug: string;
+  canCheckIn: boolean;
 }) {
   const range = Math.max(milestones.at(-1)?.count ?? 1, current, 1);
   const targetFrac = Math.min(1, current / range);
@@ -499,13 +512,27 @@ function RewardRoad({
   return (
     <div className="px-3 mt-4">
       <div className="flex items-center justify-between mb-1 px-1">
-        <h2 className="text-sm font-bold text-slate-800">Your reward road</h2>
-        <span className="text-[10px] font-extrabold text-slate-500">
+        <h2 className="text-sm font-bold text-white/90">Your reward road</h2>
+        <span className="text-[10px] font-extrabold text-white/50">
           Check in every {unit} to climb
         </span>
       </div>
 
       <div ref={containerRef} className="relative" style={{ height }}>
+        {/* ── PROTECTED CORRIDOR: a subtle frosted lane around the route so
+            the road never sits directly on the environment color. Wider
+            than the track, much narrower than the screen — a runway, not
+            another giant card. ── */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2.5rem] pointer-events-none"
+          style={{
+            width: "8.25rem",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0.09) 100%)",
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.09), inset 0 0 34px rgba(255,255,255,0.05)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
+          }}
+        />
         {/* warm ambient light around the active part of the road */}
         <div
           className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
@@ -600,9 +627,9 @@ function RewardRoad({
                     <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: "#f59e0b" }} />
                   </div>
                 ) : (
-                  <div className="h-5 w-5 rounded-full bg-slate-100 ring-4 ring-white flex items-center justify-center"
-                    style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.15)" }}>
-                    <Lock className="h-2.5 w-2.5 text-slate-400" />
+                  <div className="h-5 w-5 rounded-full ring-4 ring-white flex items-center justify-center"
+                    style={{ background: "#dbe7f2", boxShadow: "0 1px 3px rgba(15,23,42,0.2), inset 0 0 0 1px rgba(91,124,157,0.35)" }}>
+                    <Lock className="h-2.5 w-2.5" style={{ color: "#5b7c9d" }} />
                   </div>
                 )}
               </div>
@@ -614,7 +641,7 @@ function RewardRoad({
                   [left ? "right" : "left"]: "50%",
                   [left ? "marginRight" : "marginLeft"]: "1.1rem",
                   width: "1rem",
-                  background: unlocked || isNext ? "linear-gradient(90deg, #facc15, #f59e0b)" : "rgba(15,23,42,0.12)",
+                  background: unlocked || isNext ? "linear-gradient(90deg, #facc15, #f59e0b)" : "rgba(255,255,255,0.28)",
                 } as React.CSSProperties}
               />
 
@@ -676,7 +703,7 @@ function RewardRoad({
                     </div>
                   </div>
                   {/* milestone label — how it's earned, quietly last */}
-                  <div className="mt-1 text-[8px] font-black tracking-wider uppercase text-slate-400">
+                  <div className="mt-1 text-[8px] font-black tracking-wider uppercase" style={{ color: "#4a7ba6" }}>
                     {m.count} {unit}{m.count === 1 ? "" : "s"}
                   </div>
                 </div>
@@ -692,16 +719,29 @@ function RewardRoad({
               style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 0 18px 4px rgba(245,158,11,0.6)" }}>
               <Trophy className="h-5 w-5 text-white drop-shadow" />
             </div>
-            <span className="mt-1 text-[9px] font-black tracking-widest uppercase text-amber-600">Complete</span>
+            <span className="mt-1 text-[9px] font-black tracking-widest uppercase text-amber-300">Complete</span>
           </div>
         )}
 
-        {/* START marker at the base of the climb */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ bottom: PAD_BOTTOM - 64 }}>
+        {/* START marker at the base of the climb + its own small CTA —
+            the road is reachable AND actionable right where it begins. */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ bottom: PAD_BOTTOM - 104 }}>
           <div className="h-8 w-8 rounded-full bg-white ring-1 ring-black/10 shadow-sm flex items-center justify-center">
             <Flame className="h-4 w-4" style={{ color: theme.to }} />
           </div>
-          <span className="mt-1 text-[9px] font-black tracking-[0.2em] uppercase text-slate-400">Start</span>
+          <span className="mt-1 text-[9px] font-black tracking-[0.2em] uppercase text-white/60">Start</span>
+          {canCheckIn ? (
+            <a
+              href={`/${slug}/app/scan`}
+              className="mt-2 inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-extrabold text-white bg-white/15 ring-1 ring-white/30 backdrop-blur-sm shadow-sm active:scale-95 transition whitespace-nowrap"
+            >
+              <QrCode className="h-3 w-3" /> Check in now
+            </a>
+          ) : (
+            <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-300/90 whitespace-nowrap">
+              <Check className="h-3 w-3" /> Checked in
+            </span>
+          )}
         </div>
       </div>
 
