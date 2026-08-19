@@ -40,7 +40,8 @@ export type PushPayload = {
 };
 
 // CP-77: p256dh/auth are null for native rows (endpoint = "fcm:<token>").
-type SubRow = { id: string; endpoint: string; p256dh: string | null; auth: string | null };
+// CP-99: user_id included so deliver() can prefer native over web per user.
+type SubRow = { id: string; endpoint: string; p256dh: string | null; auth: string | null; user_id: string | null };
 
 /**
  * Internal: send a payload to a concrete set of subscription rows.
@@ -54,7 +55,21 @@ async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: nu
   if (!subs.length) return { sent: 0, failed: 0 };
 
   const nativeSubs = subs.filter((s) => s.endpoint.startsWith("fcm:"));
-  const webSubs = subs.filter((s) => !s.endpoint.startsWith("fcm:"));
+
+  // CP-99 double-notification fix: a user who installed the native app but
+  // ALSO has an older web/PWA subscription used to receive the SAME push
+  // twice on one phone (once via FCM, once via the browser). If a user has
+  // any native subscription in this audience, suppress their web rows for
+  // this send. Nothing is deleted — if the native token ever goes dead, the
+  // existing dead-row cleanup removes it and web push resumes automatically
+  // on the next send.
+  const nativeUsers = new Set(
+    nativeSubs.map((s) => s.user_id).filter((u): u is string => !!u),
+  );
+  const webSubs = subs.filter(
+    (s) => !s.endpoint.startsWith("fcm:")
+      && !(s.user_id && nativeUsers.has(s.user_id)),
+  );
 
   const body = JSON.stringify({
     title: payload.title,
@@ -120,7 +135,7 @@ export async function sendPushToUsers(
   const admin = createAdminClient();
   let q = admin
     .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
+    .select("id, endpoint, p256dh, auth, user_id")
     .in("user_id", userIds);
   // The tenant boundary: never send a business's push to a subscription
   // tagged for a different business (or to an untagged/global one).
@@ -146,7 +161,7 @@ export async function sendPushToBusiness(
   const admin = createAdminClient();
   const { data: subs } = await admin
     .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
+    .select("id, endpoint, p256dh, auth, user_id")
     .eq("business_id", businessId);
   return deliver((subs ?? []) as SubRow[], payload);
 }

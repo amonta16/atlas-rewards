@@ -40,6 +40,10 @@ type BillingPublic = {
   // CP-86: duration passes + monthly toggle.
   pass_options?: { id: string; label: string; months: number; price_cents: number }[] | null;
   offer_monthly?: boolean | null;
+  // CP-34/CP-99: how this business takes membership payment — drives the
+  // fine print so we never claim "Stripe checkout" for a business that
+  // collects in person or via its own external link.
+  payment_mode?: "stripe" | "external_link" | "in_person" | null;
 };
 
 export function MembershipSection({
@@ -373,9 +377,15 @@ export function MembershipSection({
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            {/* Fine print */}
+            {/* Fine print — CP-99: mode-aware. Only the Stripe payment mode
+                may claim Stripe checkout; other modes describe what actually
+                happens (mirrors the join modal's CP-34 branching). */}
             <p className="text-center text-[10px] text-white/80 mt-2.5">
-              Cancel anytime · Secure checkout via Stripe
+              {(billing?.payment_mode ?? "stripe") === "stripe"
+                ? "Cancel anytime · Secure checkout via Stripe"
+                : (billing?.payment_mode === "external_link"
+                  ? "Cancel anytime · Payment handled by the business"
+                  : "Cancel anytime · Set up in person at the counter")}
             </p>
           </div>
         </div>
