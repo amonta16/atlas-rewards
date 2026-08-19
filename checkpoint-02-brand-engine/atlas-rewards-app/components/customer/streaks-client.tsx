@@ -70,7 +70,8 @@ function isReward(m: Milestone): boolean {
 }
 
 function rewardTitle(m: Milestone): string {
-  return isReward(m) ? (m.reward_name ?? m.label) : `${(m.points ?? 0).toLocaleString()} bonus points`;
+  // Display-only: points rewards read "150 pts" — the number is the prize.
+  return isReward(m) ? (m.reward_name ?? m.label) : `${(m.points ?? 0).toLocaleString()} pts`;
 }
 
 /** "2d 5h" / "5h 32m" / "42m" — compact time-left label. */
@@ -392,7 +393,7 @@ export function StreaksClient({
 // Mask that clears the pattern out of the protected center corridor — the
 // route always gets a clean vertical lane no matter which pattern is picked.
 const CORRIDOR_MASK =
-  "linear-gradient(to right, black 0%, black calc(50% - 4.6rem), transparent calc(50% - 4.1rem), transparent calc(50% + 4.1rem), black calc(50% + 4.6rem), black 100%)";
+  "linear-gradient(to right, black 0%, black calc(50% - 5.7rem), transparent calc(50% - 5.1rem), transparent calc(50% + 5.1rem), black calc(50% + 5.7rem), black 100%)";
 
 function Shell({ env, pattern, children }: { env: StreakEnv; pattern?: React.CSSProperties | null; children: React.ReactNode }) {
   return (
@@ -442,7 +443,7 @@ const CORRIDOR_SPARKS = [
   { t: "42%", l: "38%", s: 1.5, o: 0.16 },
   { t: "56%", l: "64%", s: 1.5, o: 0.12 },
 ];
-const MIN_GAP = 118;
+const MIN_GAP = 170;
 /** Pilot-flame height (px) shown at zero streak — VISUAL ONLY, never
  *  affects real progression, unlocking, or counts. */
 const STARTER_PX = 20;
@@ -467,13 +468,34 @@ function RewardRoad({
   const targetFrac = Math.min(1, current / range);
   const nextFrac = nextCount ? Math.min(1, nextCount / range) : null;
 
-  const height = Math.max(460, milestones.length * (MIN_GAP + 28) + PAD_TOP + PAD_BOTTOM);
+  // The road is ALLOWED to be long — journeys deserve scroll distance.
+  // Height scales with milestone count AND (capped) program length, so a
+  // 12-week plan reads as real climbing, while a 365-day plan stays sane.
+  const height = Math.max(
+    560,
+    milestones.length * (MIN_GAP + 56) + PAD_TOP + PAD_BOTTOM,
+    Math.min(range, 60) * 46 + PAD_TOP + PAD_BOTTOM,
+  );
   const trackLen = height - PAD_TOP - PAD_BOTTOM;
   const rawY = (count: number) => PAD_TOP + (1 - count / range) * trackLen;
   const ys: number[] = milestones.map(m => rawY(m.count));
   if (ys.length > 0) {
     ys[0] = Math.min(ys[0], height - PAD_BOTTOM - 16);
     for (let i = 1; i < ys.length; i++) ys[i] = Math.min(ys[i], ys[i - 1] - MIN_GAP);
+  }
+
+  // PROGRESS MARKERS: lightweight "WEEK 1"-style ticks for units that have
+  // no reward, so the road never feels like an empty void between prizes.
+  // Step scales with program length; markers colliding with reward
+  // milestones (or their cards) are skipped.
+  const milestoneCounts = new Set(milestones.map(m => m.count));
+  const markerStep = Math.max(1, Math.ceil(range / 16));
+  const markers: { n: number; y: number }[] = [];
+  for (let n = markerStep; n <= range; n += markerStep) {
+    if (milestoneCounts.has(n)) continue;
+    const my = rawY(n);
+    if (ys.some(y => Math.abs(y - my) < 48)) continue;
+    markers.push({ n, y: my });
   }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -540,7 +562,16 @@ function RewardRoad({
       setCrossed(new Set(crossedRef.current));
       setDisplayFrac(targetFrac);
       setSettled(true);
-      return;
+      // Still open at the user's position (START at zero) — never leave a
+      // long road showing its far summit first.
+      const t = window.setTimeout(() => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const headY = rect.top + PAD_TOP + (1 - targetFrac) * (rect.height - PAD_TOP - PAD_BOTTOM);
+        const target = Math.max(0, window.scrollY + headY - window.innerHeight * 0.55);
+        if (target > 4) window.scrollTo({ top: target });
+      }, 120);
+      return () => window.clearTimeout(t);
     }
     const T = Math.min(4500, Math.max(1500, 1200 + targetFrac * 3300));
     const kick = window.setTimeout(() => {
@@ -572,7 +603,7 @@ function RewardRoad({
 
   // Flame head grows with the streak: ember → lit → blazing.
   const ratio = current / range;
-  const headSize = current <= 0 ? 0 : ratio < 0.34 ? 40 : 48;
+  const headSize = current <= 0 ? 0 : ratio < 0.34 ? 46 : 54;
   const headGlow = ratio < 0.34 ? `0 0 16px 3px ${theme.glow}` : `0 0 24px 6px ${theme.glow}`;
 
   const fillGradient = `linear-gradient(to top, ${theme.cell[2]} 0%, ${theme.cell[1]} 55%, ${theme.cell[0]} 100%)`;
@@ -597,7 +628,7 @@ function RewardRoad({
         <div
           className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2.5rem] pointer-events-none overflow-hidden"
           style={{
-            width: "8.25rem",
+            width: "10rem",
             // Escalating lane: calm at the base, faint golden atmosphere at
             // the summit — higher streak = higher-value territory.
             background: "linear-gradient(180deg, rgba(253,230,138,0.15) 0%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0.08) 100%)",
@@ -626,18 +657,18 @@ function RewardRoad({
 
         {/* ── CENTRAL TRACK: casing → channel → fill → head ── */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 w-5 rounded-full bg-white ring-1 ring-black/10"
-          style={{ top: PAD_TOP, bottom: PAD_BOTTOM, boxShadow: "0 1px 3px rgba(15,23,42,0.08), inset 0 1px 2px rgba(15,23,42,0.05)" }}
+          className="absolute left-1/2 -translate-x-1/2 w-8 rounded-full bg-white ring-1 ring-black/10"
+          style={{ top: PAD_TOP, bottom: PAD_BOTTOM, boxShadow: "0 2px 5px rgba(15,23,42,0.12), inset 0 1px 2px rgba(255,255,255,0.9), inset 0 -1px 2px rgba(15,23,42,0.06)" }}
         >
           {/* inner channel — the whole journey stays clearly visible */}
           <div className="absolute rounded-full bg-slate-200"
-            style={{ left: 3, right: 3, top: 3, bottom: 3, boxShadow: "inset 0 1px 2px rgba(15,23,42,0.12)" }}>
+            style={{ left: 4, right: 4, top: 4, bottom: 4, boxShadow: "inset 0 1px 3px rgba(15,23,42,0.14)" }}>
             {/* DIRECTIONAL next segment: dotted amber line + arrowhead — the
                 road visibly points from my flame to my next reward. Beyond
                 the next milestone the channel stays quiet/inactive. */}
             {nextFrac !== null && nextFrac > displayFrac && (
               <>
-                <div className="absolute left-1/2 -translate-x-1/2 w-[3px]"
+                <div className="absolute left-1/2 -translate-x-1/2 w-1 rounded-full"
                   style={{
                     bottom: `${displayFrac * 100}%`,
                     height: `${(nextFrac - displayFrac) * 100}%`,
@@ -651,7 +682,7 @@ function RewardRoad({
             <div
               ref={fillRef}
               className="absolute bottom-0 left-0 right-0 rounded-full"
-              style={{ height: `${fillPx}px`, background: fillGradient, boxShadow: `0 0 12px 1px ${theme.glow}` }}
+              style={{ height: `${fillPx}px`, background: fillGradient, boxShadow: `0 0 14px 2px ${theme.glow}, inset 2px 0 3px rgba(255,255,255,0.35), inset -2px 0 3px rgba(0,0,0,0.15)` }}
             />
           </div>
 
@@ -674,7 +705,7 @@ function RewardRoad({
             /* pilot flame at zero — a small spark waiting to be lit (visual
                only; the streak truthfully reads 0 everywhere) */
             <div className="absolute left-1/2 z-20" style={{ bottom: STARTER_PX, transform: "translate(-50%, 50%)" }}>
-              <div className="atlas-flame-head h-8 w-8 rounded-full flex items-center justify-center ring-4 ring-white"
+              <div className="atlas-flame-head h-9 w-9 rounded-full flex items-center justify-center ring-4 ring-white"
                 style={{
                   background: `linear-gradient(135deg, ${theme.cell[0]}, ${theme.cell[1]})`,
                   boxShadow: `0 0 12px 2px ${theme.glow}`,
@@ -684,6 +715,21 @@ function RewardRoad({
             </div>
           )}
         </div>
+
+        {/* ── PROGRESS MARKERS: "— WEEK 1" ticks between rewards ── */}
+        {markers.map(({ n, y }) => {
+          const done = n <= current;
+          return (
+            <div key={`mk-${n}`} className="absolute inset-x-0 pointer-events-none" style={{ top: y }}>
+              <div className="absolute left-1/2 h-0.5 w-3 -translate-y-1/2 rounded-full"
+                style={{ marginLeft: "1.5rem", background: done ? "rgba(74,222,128,0.75)" : "rgba(255,255,255,0.32)" }} />
+              <span className="absolute left-1/2 -translate-y-1/2 text-[9px] font-extrabold uppercase tracking-[0.12em] whitespace-nowrap"
+                style={{ marginLeft: "2.6rem", color: done ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.42)" }}>
+                {unit} {n}
+              </span>
+            </div>
+          );
+        })}
 
         {/* ── MILESTONES branching off the track ── */}
         {milestones.map((m, i) => {
@@ -750,7 +796,7 @@ function RewardRoad({
                 style={{ top: 0, width: "calc(50% - 2.2rem)" }}
               >
                 <div
-                  className={`relative rounded-2xl border bg-white shadow-sm ring-1 ring-black/5 p-3 ${
+                  className={`relative rounded-2xl border bg-white shadow-sm ring-1 ring-black/5 overflow-hidden ${
                     !unlocked && !isNext ? "opacity-70" : ""
                   }`}
                   style={
@@ -769,47 +815,75 @@ function RewardRoad({
                 >
                   {/* white circle + green check — the completion seal */}
                   {unlocked && (
-                    <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-white shadow-md flex items-center justify-center">
+                    <span className="absolute top-2 right-2 z-10 h-6 w-6 rounded-full bg-white shadow-md flex items-center justify-center">
                       <Check className="h-4 w-4 text-green-600" />
                     </span>
                   )}
-                  {isNext && (
-                    <div className="text-[8px] font-black tracking-[0.16em] uppercase mb-1.5 text-amber-600">
-                      Next reward
-                    </div>
-                  )}
-                  {/* prize preview: consistent image container + aligned text
-                      column — MILESTONE kicker over a big two-line name */}
-                  <div className="flex items-center gap-2.5">
-                    <div className={`${isNext ? "h-16 w-16" : "h-14 w-14"} rounded-xl overflow-hidden shrink-0 flex items-center justify-center ring-1 ${
-                      unlocked ? "bg-white/20 ring-white/40" : "bg-slate-100 ring-black/5"
-                    }`}>
-                      {rewardGift && m.reward_image_url ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={m.reward_image_url} alt="" className="h-full w-full object-cover"
-                          style={{ opacity: unlocked || isNext ? 1 : 0.65, filter: unlocked || isNext ? undefined : "saturate(0.55)" }} />
-                      ) : pointsGift && logoUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={logoUrl} alt="" className={`h-full w-full object-contain p-1 ${unlocked ? "bg-white rounded-lg" : ""}`} />
-                      ) : (
-                        <Gift className={`h-6 w-6 ${unlocked ? "text-white/80" : "text-slate-400"}`} />
-                      )}
-                    </div>
-                    <div className={`min-w-0 flex-1 ${unlocked ? "pr-6" : ""}`}>
-                      <div className={`text-[9px] font-black tracking-wider uppercase ${unlocked ? "text-white/75" : ""}`}
-                        style={!unlocked ? { color: "#4a7ba6" } : undefined}>
-                        {m.count} {unit}{m.count === 1 ? "" : "s"}
+                  {/* PHOTO rewards: big banner image — a real prize preview.
+                      POINTS rewards: the number IS the prize, shown large. */}
+                  {rewardGift && m.reward_image_url ? (
+                    <>
+                      <div className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={m.reward_image_url} alt="" className={`w-full object-cover ${isNext ? "h-24" : "h-20"}`}
+                          style={{ opacity: unlocked || isNext ? 1 : 0.7, filter: unlocked || isNext ? undefined : "saturate(0.55)" }} />
+                        <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
                       </div>
-                      <div className={`text-[13px] font-black leading-tight line-clamp-2 mt-0.5 ${unlocked ? "text-white" : "text-slate-900"}`}>
-                        {rewardTitle(m)}
+                      <div className="p-2.5">
+                        {isNext && (
+                          <div className="text-[8px] font-black tracking-[0.16em] uppercase mb-0.5 text-amber-600">
+                            Next reward
+                          </div>
+                        )}
+                        <div className={`text-[9px] font-black tracking-wider uppercase ${unlocked ? "text-white/75" : ""}`}
+                          style={!unlocked ? { color: "#4a7ba6" } : undefined}>
+                          {unit} {m.count}
+                        </div>
+                        <div className={`text-[13px] font-black leading-tight line-clamp-2 mt-0.5 ${unlocked ? "text-white" : "text-slate-900"}`}>
+                          {rewardTitle(m)}
+                        </div>
+                        {isNext && (
+                          <div className={`mt-1 text-[10px] font-extrabold ${away === 1 ? "text-amber-600" : "text-slate-600"}`}>
+                            {away === 1 ? "One check-in away!" : `${away} more check-ins`}
+                          </div>
+                        )}
                       </div>
+                    </>
+                  ) : (
+                    <div className="p-3">
                       {isNext && (
-                        <div className={`mt-1 text-[10px] font-extrabold ${away === 1 ? "text-amber-600" : "text-slate-600"}`}>
-                          {away === 1 ? "One check-in away!" : `${away} more check-ins`}
+                        <div className="text-[8px] font-black tracking-[0.16em] uppercase mb-1 text-amber-600">
+                          Next reward
                         </div>
                       )}
+                      <div className="flex items-center gap-2.5">
+                        <div className={`h-14 w-14 rounded-xl overflow-hidden shrink-0 flex items-center justify-center ring-1 ${
+                          unlocked ? "bg-white ring-white/40" : "bg-slate-100 ring-black/5"
+                        }`}>
+                          {pointsGift && logoUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" />
+                          ) : (
+                            <Gift className={`h-6 w-6 ${unlocked ? "text-green-600" : "text-slate-400"}`} />
+                          )}
+                        </div>
+                        <div className={`min-w-0 flex-1 ${unlocked ? "pr-6" : ""}`}>
+                          <div className={`text-[9px] font-black tracking-wider uppercase ${unlocked ? "text-white/75" : ""}`}
+                            style={!unlocked ? { color: "#4a7ba6" } : undefined}>
+                            {unit} {m.count}
+                          </div>
+                          <div className={`${pointsGift ? "text-lg" : "text-[13px]"} font-black leading-tight line-clamp-2 mt-0.5 ${unlocked ? "text-white" : "text-slate-900"}`}>
+                            {rewardTitle(m)}
+                          </div>
+                          {isNext && (
+                            <div className={`mt-1 text-[10px] font-extrabold ${away === 1 ? "text-amber-600" : "text-slate-600"}`}>
+                              {away === 1 ? "One check-in away!" : `${away} more check-ins`}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

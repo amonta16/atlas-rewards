@@ -935,7 +935,18 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
             ))}
           </div>
           {/* casing + channel + fill */}
-          <div className="absolute left-1/2 -translate-x-1/2 w-4 rounded-full bg-white ring-1 ring-black/10"
+          {/* progress markers between rewards */}
+          {[{ n: 5, done: true }, { n: 9, done: false }].map(mk => (
+            <div key={`mk-${mk.n}`} className="absolute inset-x-0 pointer-events-none" style={{ top: PT + (1 - mk.n / range) * (H - PT - PB) }}>
+              <div className="absolute left-1/2 h-0.5 w-2.5 -translate-y-1/2 rounded-full"
+                style={{ marginLeft: "1.1rem", background: mk.done ? "rgba(74,222,128,0.75)" : "rgba(255,255,255,0.32)" }} />
+              <span className="absolute left-1/2 -translate-y-1/2 text-[7px] font-extrabold uppercase tracking-[0.12em] whitespace-nowrap"
+                style={{ marginLeft: "1.9rem", color: mk.done ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.42)" }}>
+                Day {mk.n}
+              </span>
+            </div>
+          ))}
+          <div className="absolute left-1/2 -translate-x-1/2 w-5 rounded-full bg-white ring-1 ring-black/10"
             style={{ top: PT, bottom: PB, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
             <div className="absolute rounded-full bg-slate-200" style={{ left: 2.5, right: 2.5, top: 2.5, bottom: 2.5, boxShadow: "inset 0 1px 2px rgba(15,23,42,0.12)" }}>
 
@@ -1002,7 +1013,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                       </div>
                       <div className={`min-w-0 flex-1 ${m.state !== "next" ? "pr-4" : ""}`}>
                         <div className={`text-[7px] font-black tracking-wider uppercase ${m.state === "next" ? "" : "text-white/75"}`}
-                          style={m.state === "next" ? { color: "#4a7ba6" } : undefined}>{m.count} days</div>
+                          style={m.state === "next" ? { color: "#4a7ba6" } : undefined}>Day {m.count}</div>
                         <div className={`text-[10px] font-black leading-tight line-clamp-2 mt-0.5 ${m.state === "next" ? "text-slate-900" : "text-white"}`}>{m.r?.name ?? "Reward"}</div>
                         {m.state === "next" && (
                           <div className="mt-0.5 text-[8px] font-extrabold text-slate-600">3 more check-ins</div>

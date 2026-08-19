@@ -1101,7 +1101,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     Masked out of the center corridor, so the road stays clean. */}
                 <div className="space-y-2 mt-4">
                   <Label className="text-xs text-muted-foreground">Streak page pattern</Label>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {STREAK_ENV_PATTERNS.map(p => {
                       const selected = (b.streak_env_pattern ?? "none") === p.id;
                       const envSwatch = streakEnvColors(b.streak_env_color);

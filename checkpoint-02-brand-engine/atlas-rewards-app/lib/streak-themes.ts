@@ -178,14 +178,19 @@ export function streakEnvColors(input?: string | null): StreakEnv {
    center corridor, so the route always stays visually calm.
    ──────────────────────────────────────────────────────────────────── */
 
-export type StreakEnvPatternId = "none" | "lowpoly" | "waves" | "stars" | "ascent";
+export type StreakEnvPatternId =
+  | "none" | "lowpoly" | "waves" | "stars" | "ascent"
+  | "confetti" | "sparkle" | "deco";
 
 export const STREAK_ENV_PATTERNS: { id: StreakEnvPatternId; label: string; emoji: string }[] = [
-  { id: "none",    label: "Clean",    emoji: "◽" },
-  { id: "lowpoly", label: "Low poly", emoji: "🔷" },
-  { id: "waves",   label: "Waves",    emoji: "🌊" },
-  { id: "stars",   label: "Stars",    emoji: "✨" },
-  { id: "ascent",  label: "Ascent",   emoji: "⛰️" },
+  { id: "none",     label: "Clean",        emoji: "◽" },
+  { id: "lowpoly",  label: "Low poly",     emoji: "🔷" },
+  { id: "waves",    label: "Waves",        emoji: "🌊" },
+  { id: "stars",    label: "Stars",        emoji: "✨" },
+  { id: "ascent",   label: "Ascent",       emoji: "⛰️" },
+  { id: "confetti", label: "Confetti",     emoji: "🎊" },
+  { id: "sparkle",  label: "Fine sparkle", emoji: "💎" },
+  { id: "deco",     label: "Art deco",     emoji: "🏛️" },
 ];
 
 /** CSS layers for the picked pattern. null = no pattern layer. */
@@ -221,6 +226,37 @@ export function streakEnvPatternCss(id: string | null | undefined): React.CSSPro
         backgroundImage:
           "repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 10px, transparent 10px, transparent 64px)," +
           "repeating-linear-gradient(-45deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 10px, transparent 10px, transparent 64px)",
+      };
+    case "confetti":
+      // Sparse celebratory pieces — achievement energy, NOT a birthday party.
+      return {
+        backgroundImage:
+          "radial-gradient(2px 4px at 15% 18%, rgba(251,191,36,0.24), transparent 65%)," +
+          "radial-gradient(2px 3px at 68% 38%, rgba(255,255,255,0.20), transparent 65%)," +
+          "radial-gradient(3px 2px at 40% 72%, rgba(96,165,250,0.18), transparent 65%)," +
+          "radial-gradient(2px 3px at 86% 82%, rgba(244,114,182,0.16), transparent 65%)," +
+          "radial-gradient(2px 2px at 8% 55%, rgba(74,222,128,0.16), transparent 65%)",
+        backgroundSize: "320px 360px",
+        backgroundRepeat: "repeat",
+      };
+    case "sparkle":
+      // Fine premium glints — sparser and warmer than "stars".
+      return {
+        backgroundImage:
+          "radial-gradient(1.4px 1.4px at 28% 20%, rgba(253,230,138,0.55), transparent 65%)," +
+          "radial-gradient(1px 1px at 74% 58%, rgba(255,255,255,0.45), transparent 65%)," +
+          "radial-gradient(1.6px 1.6px at 12% 80%, rgba(253,230,138,0.4), transparent 65%)," +
+          "radial-gradient(0.9px 0.9px at 55% 40%, rgba(255,255,255,0.3), transparent 65%)",
+        backgroundSize: "340px 400px",
+        backgroundRepeat: "repeat",
+      };
+    case "deco":
+      // Barely-there art-deco luxury grid with a faint gold cast.
+      return {
+        backgroundImage:
+          "repeating-linear-gradient(0deg, rgba(212,175,55,0.05) 0px, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 44px)," +
+          "repeating-linear-gradient(90deg, rgba(212,175,55,0.05) 0px, rgba(212,175,55,0.05) 1px, transparent 1px, transparent 44px)," +
+          "repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 31px)",
       };
     default:
       return null;
