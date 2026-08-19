@@ -229,6 +229,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
           /* CP-99: streak page environment color + pattern. */
           streak_env_color: b.streak_env_color ?? null,
           streak_env_pattern: b.streak_env_pattern ?? null,
+          streak_progress_mode: b.streak_progress_mode ?? null,
           /* CP-65.1: customer offer-card style. */
           offer_card_style: b.offer_card_style ?? null,
           /* CP-99: reward-store panel style. */
@@ -1126,6 +1127,40 @@ export function BrandEditor({ initial }: { initial: Business }) {
                       );
                     })}
                   </div>
+                </div>
+                {/* CP-99: streak-road progress colors — classic fire vs a
+                    tonal range derived from the brand primary. */}
+                <div className="space-y-2 mt-4">
+                  <Label className="text-xs text-muted-foreground">Progress colors</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { id: null, label: "Streak theme", hint: "Classic fire by default", theme: resolveStreakTheme(b.streak_theme, b.brand_colors.primary) },
+                      { id: "brand", label: "Brand color", hint: "Toned from your primary", theme: resolveStreakTheme("brand", b.brand_colors.primary) },
+                    ] as const).map(opt => {
+                      const selected = (b.streak_progress_mode ?? null) === opt.id;
+                      return (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => update("streak_progress_mode", opt.id)}
+                          className={cn(
+                            "rounded-xl border-2 overflow-hidden text-left transition",
+                            selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                          )}
+                          title={opt.hint}
+                        >
+                          <div className="h-8 mx-2 mt-2 rounded-full"
+                            style={{ background: `linear-gradient(90deg, ${opt.theme.cell[2]}, ${opt.theme.cell[1]}, ${opt.theme.cell[0]})` }} />
+                          <div className={cn("text-[10px] font-semibold px-2 py-1.5", selected ? "text-brand-primary" : "text-zinc-600")}>
+                            {opt.label}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Colors the burning progress on the streak reward road. Brand mode builds a dark-to-bright range from your primary so it never looks flat.
+                  </p>
                 </div>
               </Section>
 

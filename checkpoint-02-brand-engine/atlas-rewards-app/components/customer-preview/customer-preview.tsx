@@ -836,6 +836,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
   const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
   const env = streakEnvColors(b.streak_env_color);
   const envPattern = streakEnvPatternCss(b.streak_env_pattern);
+  const roadTheme = b.streak_progress_mode === "brand" ? resolveStreakTheme("brand", b.brand_colors?.primary) : theme;
   // Demo program: 10-day range, member at day 7, milestones at 3 / 7 / 10.
   const current = 7, range = 10;
   const fill = (current / range) * 100;
@@ -847,7 +848,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
   const nextR = ms[2];
   const H = 340, PT = 22, PB = 74;
   const yFor = (c: number) => PT + (1 - c / range) * (H - PT - PB);
-  const fillGradient = `linear-gradient(to top, ${theme.cell[2]} 0%, ${theme.cell[1]} 55%, ${theme.cell[0]} 100%)`;
+  const fillGradient = `linear-gradient(to top, ${roadTheme.cell[2]} 0%, ${roadTheme.cell[1]} 55%, ${roadTheme.cell[0]} 100%)`;
 
   return (
     <div className="relative -mx-0" style={{ background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)` }}>
@@ -883,32 +884,34 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
           </span>
         </div>
 
-        {/* NEXT REWARD panel */}
-        <div className="mt-3 rounded-2xl bg-white/90 border border-black/5 shadow-sm p-2.5 flex items-center gap-2.5">
-          <div className="h-12 w-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
-            {nextR.r?.image_url ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={nextR.r.image_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <Gift className="h-5 w-5 text-slate-400" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[8px] font-black uppercase tracking-[0.16em] text-amber-600">Next reward</div>
-            <div className="text-[12px] font-black text-slate-900 leading-tight line-clamp-2 mt-0.5">{nextR.r?.name ?? "Free reward"}</div>
-            <div className="mt-0.5 text-[10px] font-extrabold text-slate-500">3 more check-ins</div>
-          </div>
-        </div>
-
-        {/* timing: when I CAN act vs when I MUST act */}
-        <div className="mt-2 flex gap-2">
-          <div className="flex-1 rounded-xl bg-white/10 ring-1 ring-white/15 px-2.5 py-1.5">
-            <div className="text-[7px] font-black uppercase tracking-[0.14em] text-white/50">Next check-in</div>
-            <div className="text-[11px] font-extrabold text-white mt-0.5">Available now</div>
-          </div>
-          <div className="flex-1 rounded-xl bg-amber-400/15 ring-1 ring-amber-300/40 px-2.5 py-1.5">
-            <div className="text-[7px] font-black uppercase tracking-[0.14em] text-amber-200/90">Streak expires</div>
-            <div className="text-[11px] font-extrabold text-amber-100 mt-0.5">in 5h 12m</div>
+        {/* NEXT REWARD panel — prize preview + both timers in one card */}
+        <div className="mt-3 rounded-2xl bg-white/95 border border-black/5 shadow-sm p-2.5">
+          <div className="text-[8px] font-black uppercase tracking-[0.16em] text-amber-600">Next reward</div>
+          <div className="mt-1 flex items-center gap-2.5">
+            <div className="h-14 w-14 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
+              {nextR.r?.image_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={nextR.r.image_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Gift className="h-6 w-6 text-slate-400" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-black text-slate-900 leading-tight line-clamp-2">{nextR.r?.name ?? "Free reward"}</div>
+              <div className="mt-0.5 text-[9px] font-extrabold text-slate-500">3 more check-ins</div>
+            </div>
+            <div className="shrink-0 text-right space-y-1.5 pl-2 border-l border-black/10">
+              <div>
+                <div className="text-[7px] font-black uppercase tracking-[0.1em] text-slate-400">Next check-in</div>
+                <div className="text-[10px] font-extrabold text-slate-700 mt-0.5">Now</div>
+              </div>
+              <div>
+                <div className="flex items-center justify-end gap-1 text-[7px] font-black uppercase tracking-[0.1em] text-amber-600">
+                  <span className="h-1 w-1 rounded-full bg-red-500" /> Streak expires
+                </div>
+                <div className="text-[10px] font-extrabold text-amber-600 mt-0.5">5h 12m</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -935,14 +938,16 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
           <div className="absolute left-1/2 -translate-x-1/2 w-4 rounded-full bg-white ring-1 ring-black/10"
             style={{ top: PT, bottom: PB, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
             <div className="absolute rounded-full bg-slate-200" style={{ left: 2.5, right: 2.5, top: 2.5, bottom: 2.5, boxShadow: "inset 0 1px 2px rgba(15,23,42,0.12)" }}>
-              <div className="absolute left-0 right-0 rounded-full"
-                style={{ bottom: `${fill}%`, height: `${100 - fill}%`, background: "linear-gradient(to top, rgba(251,191,36,0.35), rgba(251,191,36,0.10))" }} />
+
               <div className="absolute bottom-0 left-0 right-0 rounded-full"
-                style={{ height: `${fill}%`, background: fillGradient, boxShadow: `0 0 10px 1px ${theme.glow}` }} />
+                style={{ height: `${fill}%`, background: fillGradient, boxShadow: `0 0 10px 1px ${roadTheme.glow}` }} />
+              {/* dotted directional segment toward the next reward */}
+              <div className="absolute left-1/2 -translate-x-1/2 w-[2px]"
+                style={{ bottom: `${fill}%`, height: `${100 - fill}%`, backgroundImage: "repeating-linear-gradient(to top, rgba(251,191,36,0.85) 0px, rgba(251,191,36,0.85) 3px, transparent 3px, transparent 9px)" }} />
             </div>
             <div className="absolute left-1/2 z-20" style={{ bottom: `${fill}%`, transform: "translate(-50%, 50%)" }}>
               <div className="h-9 w-9 rounded-full flex items-center justify-center ring-4 ring-white"
-                style={{ background: `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 55%, ${theme.cell[2]} 100%)`, boxShadow: `0 0 16px 3px ${theme.glow}` }}>
+                style={{ background: `linear-gradient(135deg, ${roadTheme.cell[0]} 0%, ${roadTheme.cell[1]} 55%, ${roadTheme.cell[2]} 100%)`, boxShadow: `0 0 16px 3px ${roadTheme.glow}` }}>
                 <Flame className="h-5 w-5 text-white drop-shadow" />
               </div>
             </div>
@@ -957,7 +962,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                 <div className="absolute left-1/2 z-10" style={{ transform: "translate(-50%, -50%)" }}>
                   {unlocked ? (
                     <div className="h-5 w-5 rounded-full ring-4 ring-white flex items-center justify-center"
-                      style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 0 10px 2px rgba(245,158,11,0.55)" }}>
+                      style={{ background: "linear-gradient(135deg, #4ade80, #16a34a)", boxShadow: "0 0 10px 2px rgba(34,197,94,0.5)" }}>
                       <Check className="h-3 w-3 text-white" />
                     </div>
                   ) : (
@@ -970,19 +975,24 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                 <div className="absolute top-0 h-0.5 -translate-y-1/2"
                   style={{ [left ? "right" : "left"]: "50%", [left ? "marginRight" : "marginLeft"]: "0.85rem", width: "0.8rem", background: "linear-gradient(90deg, #facc15, #f59e0b)" } as React.CSSProperties} />
                 <div className={`absolute -translate-y-1/2 ${left ? "left-0" : "right-0"}`} style={{ top: 0, width: "calc(50% - 1.8rem)" }}>
-                  <div className="rounded-xl border bg-white shadow-sm ring-1 ring-black/5 p-2"
+                  <div className="relative rounded-xl border bg-white shadow-sm ring-1 ring-black/5 p-2"
                     style={m.state === "next"
                       ? { borderColor: "rgba(245,158,11,0.6)", boxShadow: "0 0 0 2px rgba(245,158,11,0.35)" }
                       : {
-                          background: "linear-gradient(160deg, #fffdf4 0%, #fdf6e3 55%, #f9ecc8 100%)",
-                          borderColor: "rgba(217,164,65,0.55)",
-                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95), 0 6px 16px -10px rgba(245,158,11,0.55)",
+                          background: "linear-gradient(160deg, #22c55e 0%, #16a34a 55%, #15803d 100%)",
+                          borderColor: "rgba(255,255,255,0.25)",
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 16px -10px rgba(22,163,74,0.6)",
                         }}>
+                    {m.state !== "next" && (
+                      <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-white shadow flex items-center justify-center">
+                        <Check className="h-2.5 w-2.5 text-green-600" />
+                      </span>
+                    )}
                     {m.state === "next" && (
                       <div className="text-[7px] font-black tracking-[0.16em] uppercase mb-0.5 text-amber-600">Next reward</div>
                     )}
-                    <div className="flex items-start gap-1.5">
-                      <div className="h-9 w-9 rounded-lg overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
+                    <div className="flex items-center gap-1.5">
+                      <div className={`h-11 w-11 rounded-lg overflow-hidden shrink-0 flex items-center justify-center ring-1 ${m.state === "next" ? "bg-slate-100 ring-black/5" : "bg-white/20 ring-white/40"}`}>
                         {m.r?.image_url ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img src={m.r.image_url} alt="" className="h-full w-full object-cover" />
@@ -990,20 +1000,15 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                           <Gift className="h-4 w-4 text-slate-400" />
                         )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[9px] font-bold text-slate-900 leading-tight line-clamp-2">{m.r?.name ?? "Reward"}</div>
-                        <div className="mt-0.5">
-                          {m.state === "claimed" ? (
-                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full text-white" style={{ background: "linear-gradient(90deg, #f59e0b, #d97706)" }}><Trophy className="h-2 w-2" /> Claimed</span>
-                          ) : m.state === "unlocked" ? (
-                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full text-white" style={{ background: "linear-gradient(90deg, #fbbf24, #f59e0b)" }}><Check className="h-2 w-2" /> Earned</span>
-                          ) : (
-                            <span className="text-[8px] font-extrabold text-slate-600">3 more check-ins</span>
-                          )}
-                        </div>
+                      <div className={`min-w-0 flex-1 ${m.state !== "next" ? "pr-4" : ""}`}>
+                        <div className={`text-[7px] font-black tracking-wider uppercase ${m.state === "next" ? "" : "text-white/75"}`}
+                          style={m.state === "next" ? { color: "#4a7ba6" } : undefined}>{m.count} days</div>
+                        <div className={`text-[10px] font-black leading-tight line-clamp-2 mt-0.5 ${m.state === "next" ? "text-slate-900" : "text-white"}`}>{m.r?.name ?? "Reward"}</div>
+                        {m.state === "next" && (
+                          <div className="mt-0.5 text-[8px] font-extrabold text-slate-600">3 more check-ins</div>
+                        )}
                       </div>
                     </div>
-                    <div className="mt-0.5 text-[7px] font-black tracking-wider uppercase" style={{ color: m.state === "next" ? "#4a7ba6" : "#b45309" }}>{m.count} days</div>
                   </div>
                 </div>
               </div>
