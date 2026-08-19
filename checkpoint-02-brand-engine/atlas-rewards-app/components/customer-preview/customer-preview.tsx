@@ -834,7 +834,6 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
  *  preview rewards so agencies see their own colors/photos. */
 function StreaksBody({ business: b, rewards = [] }: { business: Business; rewards?: PreviewReward[] }) {
   const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
-  const primary = b.brand_colors.primary;
   // Demo program: 10-day range, member at day 7, milestones at 3 / 7 / 10.
   const current = 7, range = 10;
   const fill = (current / range) * 100;
@@ -843,124 +842,148 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
     { count: 7, r: rewards[1] ?? rewards[0] ?? null, state: "unlocked" as const },
     { count: 10, r: rewards[2] ?? rewards[0] ?? null, state: "next" as const },
   ];
-  const H = 330, PT = 20, PB = 46;
+  const nextR = ms[2];
+  const H = 320, PT = 22, PB = 48;
   const yFor = (c: number) => PT + (1 - c / range) * (H - PT - PB);
   const fillGradient = `linear-gradient(to top, ${theme.cell[2]} 0%, ${theme.cell[1]} 55%, ${theme.cell[0]} 100%)`;
 
   return (
-    <div className="px-3 pt-3 pb-4">
-      {/* HERO */}
-      <div className="rounded-3xl px-4 pt-3.5 pb-4 text-white shadow-xl ring-1 ring-black/10 relative overflow-hidden"
-        style={{ background: streakGradient(theme, 160) }}>
-        <Flame className="absolute -top-5 -right-5 h-20 w-20 text-white/10 rotate-12 pointer-events-none" />
+    <div className="relative -mx-0" style={{ background: "linear-gradient(180deg, #f8fafc 0%, #eef1f6 45%, #e9edf3 100%)" }}>
+      <div className="absolute inset-0 pointer-events-none"
+        style={{ background: "radial-gradient(120% 55% at 50% 20%, rgba(255,255,255,0.85), transparent 70%)" }} />
+      <div className="relative z-10 px-3 pt-4 pb-5">
+        {/* HERO HUD */}
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/40 shrink-0">
-            <Flame className="h-7 w-7 drop-shadow-lg" />
+          <div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 ring-1 ring-black/5 shadow-md"
+            style={{ background: `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 55%, ${theme.cell[2]} 100%)`, boxShadow: `0 8px 20px -8px ${theme.glow}` }}>
+            <Flame className="h-7 w-7 text-white drop-shadow" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-end gap-2">
-              <span className="text-4xl font-black leading-none tabular-nums drop-shadow">{current}</span>
-              <span className="text-[10px] uppercase tracking-[0.18em] font-extrabold opacity-90 mb-0.5">day streak</span>
+            <div className="flex items-end gap-1.5">
+              <span className="text-4xl font-black leading-none tabular-nums text-slate-900">{current}</span>
+              <span className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-slate-500 mb-0.5">day streak</span>
             </div>
-            <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold">
-              <Trophy className="h-3.5 w-3.5 text-amber-200" />
-              <span className="text-amber-100">Personal best — keep it alive.</span>
+            <div className="mt-1 flex items-center gap-1.5 text-[10px] font-bold">
+              <Trophy className="h-3 w-3 text-amber-500" />
+              <span className="text-amber-600">Personal best — keep it alive.</span>
             </div>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full bg-white text-zinc-900">
+          <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-1 rounded-full bg-white text-slate-700 ring-1 ring-black/10 shadow-sm">
             <CalendarDays className="h-3 w-3" /> 5h 12m left
           </span>
         </div>
-        <div className="mt-3">
-          <div className="flex items-baseline justify-between text-[11px] mb-1 opacity-95">
-            <span className="font-bold truncate mr-2">Next: {ms[2].r?.name ?? "Free reward"}</span>
-            <span className="tabular-nums font-extrabold shrink-0">{current} / {range}</span>
+
+        {/* NEXT REWARD panel */}
+        <div className="mt-3 rounded-2xl bg-white/90 border border-black/5 shadow-sm p-2.5 flex items-center gap-2.5">
+          <div className="h-12 w-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
+            {nextR.r?.image_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={nextR.r.image_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Gift className="h-5 w-5 text-slate-400" />
+            )}
           </div>
-          <div className="h-2.5 rounded-full bg-white/20 overflow-hidden ring-1 ring-white/30">
-            <div className="h-full rounded-full bg-white" style={{ width: `${fill}%`, boxShadow: "0 0 10px rgba(255,255,255,0.7)" }} />
+          <div className="min-w-0 flex-1">
+            <div className="text-[8px] font-black uppercase tracking-[0.16em] text-amber-600">Next reward</div>
+            <div className="text-[12px] font-black text-slate-900 leading-tight line-clamp-2 mt-0.5">{nextR.r?.name ?? "Free reward"}</div>
+            <div className="mt-0.5 text-[10px] font-extrabold text-slate-500">3 more check-ins</div>
           </div>
         </div>
-      </div>
 
-      {/* THE REWARD ROAD — centered burning track, milestones branch off. */}
-      <div className="flex items-center justify-between mt-4 mb-1 px-1">
-        <h2 className="text-sm font-bold">Your reward road</h2>
-        <span className="text-[9px] font-extrabold text-white px-2 py-0.5 rounded-full" style={{ background: streakGradient(theme) }}>
-          Check in every day to climb
-        </span>
-      </div>
-      <div className="relative" style={{ height: H }}>
-        {/* central track */}
-        <div className="absolute left-1/2 -translate-x-1/2 w-3 rounded-full"
-          style={{ top: PT, bottom: PB, background: "rgba(0,0,0,0.07)", boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)" }}>
-          <div className="absolute bottom-0 left-0 right-0 rounded-full"
-            style={{ height: `${fill}%`, background: fillGradient, boxShadow: `0 0 12px 1px ${theme.glow}` }} />
-          {/* flame head at the current position */}
-          <div className="absolute left-1/2 z-20" style={{ bottom: `${fill}%`, transform: "translate(-50%, 50%)" }}>
-            <div className="h-9 w-9 rounded-full flex items-center justify-center ring-4 ring-white"
-              style={{ background: `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 55%, ${theme.cell[2]} 100%)`, boxShadow: `0 0 16px 3px ${theme.glow}` }}>
-              <Flame className="h-5 w-5 text-white drop-shadow" />
+        {/* CTA */}
+        <div className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-extrabold text-white shadow-lg"
+          style={{ background: `linear-gradient(135deg, ${theme.cell[1]} 0%, ${theme.cell[2]} 100%)`, boxShadow: `0 8px 20px -8px ${theme.glow}` }}>
+          <ScanLine className="h-3.5 w-3.5" /> Check in now
+        </div>
+
+        {/* ROAD */}
+        <div className="flex items-center justify-between mt-4 mb-1 px-1">
+          <h2 className="text-xs font-bold text-slate-800">Your reward road</h2>
+          <span className="text-[8px] font-extrabold text-slate-500">Check in every day to climb</span>
+        </div>
+        <div className="relative" style={{ height: H }}>
+          {/* casing + channel + fill */}
+          <div className="absolute left-1/2 -translate-x-1/2 w-4 rounded-full bg-white ring-1 ring-black/10"
+            style={{ top: PT, bottom: PB, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
+            <div className="absolute rounded-full bg-slate-200" style={{ left: 2.5, right: 2.5, top: 2.5, bottom: 2.5, boxShadow: "inset 0 1px 2px rgba(15,23,42,0.12)" }}>
+              <div className="absolute left-0 right-0 rounded-full"
+                style={{ bottom: `${fill}%`, height: `${100 - fill}%`, background: "linear-gradient(to top, rgba(251,191,36,0.35), rgba(251,191,36,0.10))" }} />
+              <div className="absolute bottom-0 left-0 right-0 rounded-full"
+                style={{ height: `${fill}%`, background: fillGradient, boxShadow: `0 0 10px 1px ${theme.glow}` }} />
+            </div>
+            <div className="absolute left-1/2 z-20" style={{ bottom: `${fill}%`, transform: "translate(-50%, 50%)" }}>
+              <div className="h-9 w-9 rounded-full flex items-center justify-center ring-4 ring-white"
+                style={{ background: `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 55%, ${theme.cell[2]} 100%)`, boxShadow: `0 0 16px 3px ${theme.glow}` }}>
+                <Flame className="h-5 w-5 text-white drop-shadow" />
+              </div>
             </div>
           </div>
-        </div>
 
-        {ms.map((m, i) => {
-          const y = yFor(m.count);
-          const left = i % 2 === 0;
-          const unlocked = m.state !== "next";
-          return (
-            <div key={m.count} className="absolute inset-x-0" style={{ top: y }}>
-              <div className="absolute left-1/2 z-10" style={{ transform: "translate(-50%, -50%)" }}>
-                <div className="h-5 w-5 rounded-full ring-4 ring-white flex items-center justify-center"
-                  style={{ background: unlocked ? "linear-gradient(135deg, #facc15, #f59e0b)" : "#e4e4e7", boxShadow: unlocked ? "0 0 10px 2px rgba(245,158,11,0.55)" : undefined }}>
-                  {unlocked ? <Check className="h-3 w-3 text-white" /> : <Lock className="h-2.5 w-2.5 text-zinc-400" />}
-                </div>
-              </div>
-              <div className="absolute top-0 h-0.5 -translate-y-1/2"
-                style={{ [left ? "right" : "left"]: "50%", [left ? "marginRight" : "marginLeft"]: "0.75rem", width: "0.9rem", background: unlocked ? "linear-gradient(90deg, #facc15, #f59e0b)" : "rgba(0,0,0,0.10)" } as React.CSSProperties} />
-              <div className={`absolute -translate-y-1/2 ${left ? "left-0" : "right-0"}`} style={{ top: 0, width: "calc(50% - 1.7rem)" }}>
-                <div className={`rounded-xl border bg-white shadow-sm ring-1 ring-black/5 p-2 ${m.state === "next" ? "" : ""}`}
-                  style={m.state === "next"
-                    ? { borderColor: `${primary}66`, boxShadow: `0 0 0 2px ${primary}40` }
-                    : { borderColor: "rgba(245,158,11,0.5)" }}>
-                  {m.state === "next" && (
-                    <div className="text-[7px] font-black tracking-[0.14em] uppercase mb-0.5" style={{ color: primary }}>Next reward</div>
+          {ms.map((m, i) => {
+            const y = yFor(m.count);
+            const left = i % 2 === 0;
+            const unlocked = m.state !== "next";
+            return (
+              <div key={m.count} className="absolute inset-x-0" style={{ top: y }}>
+                <div className="absolute left-1/2 z-10" style={{ transform: "translate(-50%, -50%)" }}>
+                  {unlocked ? (
+                    <div className="h-5 w-5 rounded-full ring-4 ring-white flex items-center justify-center"
+                      style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 0 10px 2px rgba(245,158,11,0.55)" }}>
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
+                  ) : (
+                    <div className="h-6 w-6 rounded-full bg-white ring-4 ring-white flex items-center justify-center"
+                      style={{ boxShadow: "0 0 0 2px #f59e0b, 0 0 12px 2px rgba(245,158,11,0.4)" }}>
+                      <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: "#f59e0b" }} />
+                    </div>
                   )}
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-7 w-7 rounded-md overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center">
-                      {m.r?.image_url ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={m.r.image_url} alt="" className="h-full w-full object-cover" style={{ opacity: unlocked || m.state === "next" ? 1 : 0.6 }} />
-                      ) : (
-                        <Gift className="h-3.5 w-3.5 text-zinc-400" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[7px] font-black tracking-wider uppercase text-zinc-400">{m.count} days</div>
-                      <div className="text-[9px] font-bold text-zinc-900 leading-tight truncate">{m.r?.name ?? "Reward"}</div>
-                    </div>
-                  </div>
-                  <div className="mt-1">
-                    {m.state === "claimed" ? (
-                      <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><Trophy className="h-2 w-2" /> Claimed</span>
-                    ) : m.state === "unlocked" ? (
-                      <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full bg-amber-100 text-amber-700"><Check className="h-2 w-2" /> Unlocked</span>
-                    ) : (
-                      <span className="text-[7px] font-bold" style={{ color: primary }}>{m.count - current} more check-ins</span>
+                </div>
+                <div className="absolute top-0 h-0.5 -translate-y-1/2"
+                  style={{ [left ? "right" : "left"]: "50%", [left ? "marginRight" : "marginLeft"]: "0.85rem", width: "0.8rem", background: "linear-gradient(90deg, #facc15, #f59e0b)" } as React.CSSProperties} />
+                <div className={`absolute -translate-y-1/2 ${left ? "left-0" : "right-0"}`} style={{ top: 0, width: "calc(50% - 1.8rem)" }}>
+                  <div className="rounded-xl border bg-white shadow-sm ring-1 ring-black/5 p-2"
+                    style={m.state === "next"
+                      ? { borderColor: "rgba(245,158,11,0.6)", boxShadow: "0 0 0 2px rgba(245,158,11,0.35)" }
+                      : { borderColor: "rgba(245,158,11,0.45)" }}>
+                    {m.state === "next" && (
+                      <div className="text-[7px] font-black tracking-[0.16em] uppercase mb-0.5 text-amber-600">Next reward</div>
                     )}
+                    <div className="flex items-start gap-1.5">
+                      <div className="h-9 w-9 rounded-lg overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
+                        {m.r?.image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={m.r.image_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <Gift className="h-4 w-4 text-slate-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[9px] font-bold text-slate-900 leading-tight line-clamp-2">{m.r?.name ?? "Reward"}</div>
+                        <div className="mt-0.5">
+                          {m.state === "claimed" ? (
+                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><Trophy className="h-2 w-2" /> Claimed</span>
+                          ) : m.state === "unlocked" ? (
+                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full bg-amber-100 text-amber-700"><Check className="h-2 w-2" /> Unlocked</span>
+                          ) : (
+                            <span className="text-[8px] font-extrabold text-slate-600">3 more check-ins</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-0.5 text-[7px] font-black tracking-wider uppercase text-slate-400">{m.count} days</div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
 
-        {/* START marker */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ bottom: PB - 40 }}>
-          <div className="h-7 w-7 rounded-full bg-white ring-1 ring-black/10 shadow-sm flex items-center justify-center">
-            <Flame className="h-3.5 w-3.5" style={{ color: theme.to }} />
+          {/* START marker */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ bottom: PB - 42 }}>
+            <div className="h-7 w-7 rounded-full bg-white ring-1 ring-black/10 shadow-sm flex items-center justify-center">
+              <Flame className="h-3.5 w-3.5" style={{ color: theme.to }} />
+            </div>
+            <span className="mt-0.5 text-[8px] font-black tracking-[0.2em] uppercase text-slate-400">Start</span>
           </div>
-          <span className="mt-0.5 text-[8px] font-black tracking-[0.2em] uppercase text-zinc-400">Start</span>
         </div>
       </div>
     </div>
