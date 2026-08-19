@@ -169,3 +169,60 @@ export function streakEnvColors(input?: string | null): StreakEnv {
   const mid = toHex([r, g, b]);
   return { top: lighten(mid, 0.08), mid, edge: darken(mid, 0.24) };
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   CP-99 Phase 4: streak ENVIRONMENT PATTERN (businesses.streak_env_pattern).
+   Pure-CSS atmosphere layers for the streak page's outer environment —
+   deliberately faint (opacities ≤ 0.05) so they never compete with the
+   road or rewards. The page masks the pattern out of the protected
+   center corridor, so the route always stays visually calm.
+   ──────────────────────────────────────────────────────────────────── */
+
+export type StreakEnvPatternId = "none" | "lowpoly" | "waves" | "stars" | "ascent";
+
+export const STREAK_ENV_PATTERNS: { id: StreakEnvPatternId; label: string; emoji: string }[] = [
+  { id: "none",    label: "Clean",    emoji: "◽" },
+  { id: "lowpoly", label: "Low poly", emoji: "🔷" },
+  { id: "waves",   label: "Waves",    emoji: "🌊" },
+  { id: "stars",   label: "Stars",    emoji: "✨" },
+  { id: "ascent",  label: "Ascent",   emoji: "⛰️" },
+];
+
+/** CSS layers for the picked pattern. null = no pattern layer. */
+export function streakEnvPatternCss(id: string | null | undefined): React.CSSProperties | null {
+  switch (id) {
+    case "lowpoly":
+      return {
+        backgroundImage:
+          "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.05) 30%, transparent 30%)," +
+          "linear-gradient(315deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.04) 22%, transparent 22%)," +
+          "linear-gradient(225deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.03) 45%, transparent 45%)",
+        backgroundSize: "180px 180px, 260px 260px, 340px 340px",
+      };
+    case "waves":
+      return {
+        backgroundImage:
+          "repeating-linear-gradient(100deg, rgba(255,255,255,0.045) 0px, rgba(255,255,255,0.045) 2px, transparent 2px, transparent 36px)," +
+          "repeating-linear-gradient(82deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 52px)",
+      };
+    case "stars":
+      return {
+        backgroundImage:
+          "radial-gradient(1.6px 1.6px at 22% 26%, rgba(255,255,255,0.5), transparent 65%)," +
+          "radial-gradient(1.1px 1.1px at 66% 12%, rgba(255,255,255,0.4), transparent 65%)," +
+          "radial-gradient(1.3px 1.3px at 84% 52%, rgba(255,255,255,0.35), transparent 65%)," +
+          "radial-gradient(1px 1px at 38% 68%, rgba(255,255,255,0.3), transparent 65%)," +
+          "radial-gradient(1.4px 1.4px at 10% 84%, rgba(255,255,255,0.3), transparent 65%)",
+        backgroundSize: "260px 300px",
+        backgroundRepeat: "repeat",
+      };
+    case "ascent":
+      return {
+        backgroundImage:
+          "repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 10px, transparent 10px, transparent 64px)," +
+          "repeating-linear-gradient(-45deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 10px, transparent 10px, transparent 64px)",
+      };
+    default:
+      return null;
+  }
+}

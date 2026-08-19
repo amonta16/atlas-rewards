@@ -14,7 +14,7 @@ import { BANNER_OPTIONS, bannerStyle } from "@/lib/banner-styles";
 import { CARD_STYLES, BUTTON_STYLES, designVars } from "@/lib/design-styles";
 // CP-65: one-click theme presets + themable streak.
 import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
-import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
+import { STREAK_THEMES, STREAK_ENV_PATTERNS, resolveStreakTheme, streakGradient, streakEnvColors, streakEnvPatternCss } from "@/lib/streak-themes";
 // CP-65.1: poppy offer-card styles.
 import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-store panel presets.
@@ -226,8 +226,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           button_style: b.button_style ?? null,
           /* CP-65: streak surface theme. */
           streak_theme: b.streak_theme ?? null,
-          /* CP-99: streak page environment color. */
+          /* CP-99: streak page environment color + pattern. */
           streak_env_color: b.streak_env_color ?? null,
+          streak_env_pattern: b.streak_env_pattern ?? null,
           /* CP-65.1: customer offer-card style. */
           offer_card_style: b.offer_card_style ?? null,
           /* CP-99: reward-store panel style. */
@@ -1094,6 +1095,37 @@ export function BrandEditor({ initial }: { initial: Business }) {
                   <p className="text-[11px] text-muted-foreground">
                     The deep backdrop behind the streak reward road. Your pick is automatically darkened and softened so the road, flame, and white reward cards always stay clear.
                   </p>
+                </div>
+                {/* CP-99: faint atmosphere pattern for the streak environment.
+                    Masked out of the center corridor, so the road stays clean. */}
+                <div className="space-y-2 mt-4">
+                  <Label className="text-xs text-muted-foreground">Streak page pattern</Label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {STREAK_ENV_PATTERNS.map(p => {
+                      const selected = (b.streak_env_pattern ?? "none") === p.id;
+                      const envSwatch = streakEnvColors(b.streak_env_color);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => update("streak_env_pattern", p.id === "none" ? null : p.id)}
+                          className={cn(
+                            "rounded-xl border-2 overflow-hidden text-left transition",
+                            selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                          )}
+                          title={p.label}
+                        >
+                          <div className="h-9 flex items-center justify-center text-sm"
+                            style={{ background: envSwatch.mid, ...(streakEnvPatternCss(p.id) ?? {}) }}>
+                            {p.emoji}
+                          </div>
+                          <div className={cn("text-[10px] font-semibold px-1.5 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                            {p.label}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </Section>
 

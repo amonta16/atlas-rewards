@@ -33,7 +33,7 @@ import {
   Flame, Gift, Trophy, Lock, Check, CalendarDays, QrCode, Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { resolveStreakTheme, streakEnvColors, type StreakEnv, type StreakTheme } from "@/lib/streak-themes";
+import { resolveStreakTheme, streakEnvColors, streakEnvPatternCss, type StreakEnv, type StreakTheme } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = {
@@ -100,6 +100,7 @@ export function StreaksClient({
   // Cool environment — ocean default, or a SAFE derivation of the client's
   // configured color (businesses.streak_env_color; clamped dark+desaturated).
   const env = streakEnvColors(business.streak_env_color);
+  const envPattern = streakEnvPatternCss(business.streak_env_pattern);
 
   useEffect(() => {
     if (!membershipId) { setLoaded(true); return; }
@@ -137,7 +138,7 @@ export function StreaksClient({
 
   if (!loaded) {
     return (
-      <Shell env={env}>
+      <Shell env={env} pattern={envPattern}>
         <div className="px-4 pt-10 pb-4 flex justify-center">
           <div className="bg-white rounded-2xl px-6 py-4 text-sm text-zinc-600 shadow-sm border">Loading your streak…</div>
         </div>
@@ -147,7 +148,7 @@ export function StreaksClient({
 
   if (!membershipId || !s || !s.is_enabled) {
     return (
-      <Shell env={env}>
+      <Shell env={env} pattern={envPattern}>
         <div className="px-4 pt-8 pb-4">
           <div className="rounded-3xl bg-white border shadow-sm p-8 text-center">
             <Flame className="h-10 w-10 mx-auto text-zinc-300" />
@@ -173,14 +174,29 @@ export function StreaksClient({
   const nextMilestone = milestones.find(m => m.count > current) ?? null;
   const remaining = nextMilestone ? nextMilestone.count - current : null;
 
-  // Real eligibility from the engine — never assume daily.
+  // ── TIMING, derived from the ENGINE's real period window (never a
+  // frontend-invented cadence). Two different clocks:
+  //  · next QUALIFYING check-in: already credited this period → the next
+  //    one that counts opens when the next period starts (period_end).
+  //  · streak EXPIRATION: not yet checked in → the streak dies at the end
+  //    of THIS period; already checked in → safe through the NEXT period
+  //    (period_end + one period length).
   const canCheckIn = !s.checked_in_this_period;
   const periodEndMs = s.period_end ? new Date(s.period_end).getTime() : null;
-  const msLeft = periodEndMs ? periodEndMs - now : null;
-  const urgent = canCheckIn && msLeft !== null && msLeft < 12 * 3600_000 && current > 0;
+  const periodStartMs = s.period_start ? new Date(s.period_start).getTime() : null;
+  const periodLenMs = periodEndMs && periodStartMs ? periodEndMs - periodStartMs : null;
+  const nextEligibleMs = canCheckIn ? 0 : periodEndMs ? Math.max(0, periodEndMs - now) : null;
+  const expiresMs =
+    current > 0 && periodEndMs
+      ? s.checked_in_this_period && periodLenMs
+        ? Math.max(0, periodEndMs + periodLenMs - now)
+        : Math.max(0, periodEndMs - now)
+      : null;
+  const expiryTone: "calm" | "warm" | "risk" =
+    expiresMs === null ? "calm" : expiresMs < 12 * 3600_000 ? "risk" : expiresMs < 24 * 3600_000 ? "warm" : "calm";
 
   return (
-    <Shell env={env}>
+    <Shell env={env} pattern={envPattern}>
       {/* ═══════════ HERO HUD (state-aware, flows into the road) ═══════════ */}
       <div className="px-4 pt-4">
         <div className="flex items-center gap-3.5">
@@ -224,27 +240,13 @@ export function StreaksClient({
 
           {/* eligibility chip — engine-driven, never a dead button */}
           <div className="shrink-0">
-            {!canCheckIn ? (
+            {!canCheckIn && (
               <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200">
                 <Check className="h-3 w-3" /> Checked in
               </span>
-            ) : msLeft !== null && current > 0 ? (
-              <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full ${
-                urgent ? "bg-red-500 text-white animate-pulse" : "bg-white text-slate-700 ring-1 ring-black/10 shadow-sm"
-              }`}>
-                <CalendarDays className="h-3 w-3" /> {timeLeftLabel(msLeft)} left
-              </span>
-            ) : null}
+            )}
           </div>
         </div>
-
-        {/* keep-alive line */}
-        {canCheckIn && msLeft !== null && current > 0 && (
-          <div className="mt-2 text-[11px] font-bold text-white/75">
-            {urgent ? "Your streak is about to reset — " : "Keep your streak alive — "}
-            check in within <span className="tabular-nums text-white">{timeLeftLabel(msLeft)}</span>.
-          </div>
-        )}
 
         {/* NEXT REWARD — tangible: big image, readable name, plain distance */}
         {nextMilestone ? (
@@ -284,6 +286,34 @@ export function StreaksClient({
           </div>
         ) : null}
 
+        {/* ── TIMING: when I CAN act vs when I MUST act — engine-derived. ── */}
+        {(nextEligibleMs !== null || expiresMs !== null) && (
+          <div className="mt-2 flex gap-2">
+            <div className="flex-1 rounded-xl bg-white/10 ring-1 ring-white/15 px-3 py-2">
+              <div className="text-[8px] font-black uppercase tracking-[0.14em] text-white/50">Next check-in</div>
+              <div className="text-[13px] font-extrabold text-white mt-0.5 tabular-nums">
+                {canCheckIn ? "Available now" : nextEligibleMs !== null ? `in ${timeLeftLabel(nextEligibleMs)}` : "—"}
+              </div>
+            </div>
+            {expiresMs !== null && (
+              <div className={`flex-1 rounded-xl px-3 py-2 ring-1 ${
+                expiryTone === "risk"
+                  ? "bg-red-500/25 ring-red-400/50"
+                  : expiryTone === "warm"
+                    ? "bg-amber-400/15 ring-amber-300/40"
+                    : "bg-white/10 ring-white/15"
+              }`}>
+                <div className={`text-[8px] font-black uppercase tracking-[0.14em] ${
+                  expiryTone === "risk" ? "text-red-200" : expiryTone === "warm" ? "text-amber-200/90" : "text-white/50"
+                }`}>Streak expires</div>
+                <div className={`text-[13px] font-extrabold mt-0.5 tabular-nums ${
+                  expiryTone === "risk" ? "text-red-100" : expiryTone === "warm" ? "text-amber-100" : "text-white"
+                }`}>in {timeLeftLabel(expiresMs)}</div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* CTA — only when the engine allows a check-in */}
         {canCheckIn && (
           <>
@@ -316,6 +346,7 @@ export function StreaksClient({
           unit={unit}
           slug={business.slug}
           canCheckIn={canCheckIn}
+          nextEligibleMs={nextEligibleMs}
         />
       ) : (
         // Program not configured — a true empty state (never fake rewards).
@@ -343,7 +374,12 @@ export function StreaksClient({
    component would remount the road, and its animation refs, on every
    state tick).
    ════════════════════════════════════════════════════════════════════ */
-function Shell({ env, children }: { env: StreakEnv; children: React.ReactNode }) {
+// Mask that clears the pattern out of the protected center corridor — the
+// route always gets a clean vertical lane no matter which pattern is picked.
+const CORRIDOR_MASK =
+  "linear-gradient(to right, black 0%, black calc(50% - 4.6rem), transparent calc(50% - 4.1rem), transparent calc(50% + 4.1rem), black calc(50% + 4.6rem), black 100%)";
+
+function Shell({ env, pattern, children }: { env: StreakEnv; pattern?: React.CSSProperties | null; children: React.ReactNode }) {
   return (
     <div
       className="relative"
@@ -356,6 +392,12 @@ function Shell({ env, children }: { env: StreakEnv; children: React.ReactNode })
         marginBottom: "-5rem",
       }}
     >
+      {/* optional atmosphere pattern — environment only, masked away from
+          the center corridor so the road stays calm */}
+      {pattern && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ ...pattern, maskImage: CORRIDOR_MASK, WebkitMaskImage: CORRIDOR_MASK }} />
+      )}
       {/* faint center illumination + darker-edge vignette */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,0.07), transparent 70%)" }} />
@@ -373,13 +415,25 @@ function Shell({ env, children }: { env: StreakEnv; children: React.ReactNode })
 const PAD_TOP = 56;
 // Room below the track for START + its own small check-in CTA.
 const PAD_BOTTOM = 132;
+/** Deterministic spark field inside the corridor (SSR-safe, no random) —
+ *  denser and brighter toward the summit. Percent tops / lefts. */
+const CORRIDOR_SPARKS = [
+  { t: "3%",  l: "26%", s: 4,   o: 0.55 },
+  { t: "6%",  l: "66%", s: 3,   o: 0.45 },
+  { t: "10%", l: "44%", s: 2.5, o: 0.4 },
+  { t: "16%", l: "70%", s: 2.5, o: 0.32 },
+  { t: "22%", l: "30%", s: 2,   o: 0.28 },
+  { t: "30%", l: "60%", s: 2,   o: 0.22 },
+  { t: "42%", l: "38%", s: 1.5, o: 0.16 },
+  { t: "56%", l: "64%", s: 1.5, o: 0.12 },
+];
 const MIN_GAP = 118;
 /** Pilot-flame height (px) shown at zero streak — VISUAL ONLY, never
  *  affects real progression, unlocking, or counts. */
 const STARTER_PX = 20;
 
 function RewardRoad({
-  milestones, current, claimed, nextCount, theme, logoUrl, unit, slug, canCheckIn,
+  milestones, current, claimed, nextCount, theme, logoUrl, unit, slug, canCheckIn, nextEligibleMs,
 }: {
   milestones: Milestone[];
   current: number;
@@ -391,6 +445,8 @@ function RewardRoad({
   /** For the secondary check-in CTA under START (same behavior as the hero CTA). */
   slug: string;
   canCheckIn: boolean;
+  /** ms until the next QUALIFYING check-in (engine period math); null = n/a. */
+  nextEligibleMs: number | null;
 }) {
   const range = Math.max(milestones.at(-1)?.count ?? 1, current, 1);
   const targetFrac = Math.min(1, current / range);
@@ -524,15 +580,26 @@ function RewardRoad({
             than the track, much narrower than the screen — a runway, not
             another giant card. ── */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2.5rem] pointer-events-none"
+          className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2.5rem] pointer-events-none overflow-hidden"
           style={{
             width: "8.25rem",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0.09) 100%)",
-            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.09), inset 0 0 34px rgba(255,255,255,0.05)",
+            // Escalating lane: calm at the base, faint golden atmosphere at
+            // the summit — higher streak = higher-value territory.
+            background: "linear-gradient(180deg, rgba(253,230,138,0.15) 0%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0.08) 100%)",
+            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 30px 44px -22px rgba(253,230,138,0.22), inset 0 0 34px rgba(255,255,255,0.05)",
             backdropFilter: "blur(2px)",
             WebkitBackdropFilter: "blur(2px)",
           }}
-        />
+        >
+          {/* sparse spark field — denser + brighter toward the top */}
+          {CORRIDOR_SPARKS.map((sp, i) => (
+            <span key={i} className="absolute rounded-full bg-white"
+              style={{
+                top: sp.t, left: sp.l, width: sp.s, height: sp.s, opacity: sp.o,
+                boxShadow: sp.o > 0.35 ? "0 0 6px 1px rgba(253,230,138,0.55)" : undefined,
+              }} />
+          ))}
+        </div>
         {/* warm ambient light around the active part of the road */}
         <div
           className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
@@ -616,6 +683,11 @@ function RewardRoad({
                 className={`absolute left-1/2 z-10 ${pulsing ? "atlas-node-pop" : ""}`}
                 style={{ transform: "translate(-50%, -50%)" }}
               >
+                {/* the summit milestone gets a quiet golden aura */}
+                {i === milestones.length - 1 && (
+                  <div className="absolute -inset-2.5 rounded-full pointer-events-none"
+                    style={{ background: "radial-gradient(circle, rgba(253,230,138,0.32), transparent 70%)" }} />
+                )}
                 {unlocked ? (
                   <div className="h-6 w-6 rounded-full ring-4 ring-white flex items-center justify-center"
                     style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 0 12px 2px rgba(245,158,11,0.6)" }}>
@@ -658,7 +730,13 @@ function RewardRoad({
                     isNext
                       ? { borderColor: "rgba(245,158,11,0.6)", boxShadow: "0 0 0 2px rgba(245,158,11,0.35), 0 10px 22px -12px rgba(245,158,11,0.5)" }
                       : unlocked
-                        ? { borderColor: "rgba(245,158,11,0.45)" }
+                        // EARNED: the card itself goes warm — a visible trail
+                        // of achievement, readable from card color alone.
+                        ? {
+                            background: "linear-gradient(160deg, #fffdf4 0%, #fdf6e3 55%, #f9ecc8 100%)",
+                            borderColor: "rgba(217,164,65,0.55)",
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95), 0 8px 20px -12px rgba(245,158,11,0.55)",
+                          }
                         : undefined
                   }
                 >
@@ -687,23 +765,27 @@ function RewardRoad({
                       </div>
                       <div className="mt-1">
                         {isClaimed ? (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full text-white shadow-sm"
+                            style={{ background: "linear-gradient(90deg, #f59e0b, #d97706)" }}>
                             <Trophy className="h-2.5 w-2.5" /> Claimed
                           </span>
                         ) : unlocked ? (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                            <Check className="h-2.5 w-2.5" /> Unlocked
+                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full text-white shadow-sm"
+                            style={{ background: "linear-gradient(90deg, #fbbf24, #f59e0b)" }}>
+                            <Check className="h-2.5 w-2.5" /> Earned
                           </span>
-                        ) : (
-                          <span className={`text-[10px] font-extrabold ${away === 1 ? "text-amber-600" : isNext ? "text-slate-600" : "text-slate-400"}`}>
+                        ) : isNext ? (
+                          // Distance only where it adds information — the
+                          // milestone label already tells the story elsewhere.
+                          <span className={`text-[10px] font-extrabold ${away === 1 ? "text-amber-600" : "text-slate-600"}`}>
                             {away === 1 ? "One check-in away!" : `${away} more check-ins`}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>
                   {/* milestone label — how it's earned, quietly last */}
-                  <div className="mt-1 text-[8px] font-black tracking-wider uppercase" style={{ color: "#4a7ba6" }}>
+                  <div className="mt-1 text-[8px] font-black tracking-wider uppercase" style={{ color: unlocked ? "#b45309" : "#4a7ba6" }}>
                     {m.count} {unit}{m.count === 1 ? "" : "s"}
                   </div>
                 </div>
@@ -738,8 +820,15 @@ function RewardRoad({
               <QrCode className="h-3 w-3" /> Check in now
             </a>
           ) : (
-            <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-300/90 whitespace-nowrap">
-              <Check className="h-3 w-3" /> Checked in
+            <span className="mt-2 inline-flex flex-col items-center gap-0.5 whitespace-nowrap">
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-300/90">
+                <Check className="h-3 w-3" /> Checked in
+              </span>
+              {nextEligibleMs !== null && nextEligibleMs > 0 && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-white/60 tabular-nums">
+                  <CalendarDays className="h-2.5 w-2.5" /> Next check-in in {timeLeftLabel(nextEligibleMs)}
+                </span>
+              )}
             </span>
           )}
         </div>

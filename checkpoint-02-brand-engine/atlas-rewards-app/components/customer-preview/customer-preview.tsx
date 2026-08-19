@@ -3,7 +3,7 @@ import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Cale
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
-import { resolveStreakTheme, streakGradient, streakEnvColors } from "@/lib/streak-themes";
+import { resolveStreakTheme, streakGradient, streakEnvColors, streakEnvPatternCss } from "@/lib/streak-themes";
 // CP-65.1 + CP-66: mirror the offer-card skin + section layouts live.
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-panel presets mirrored in the preview store mock.
@@ -835,6 +835,7 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
 function StreaksBody({ business: b, rewards = [] }: { business: Business; rewards?: PreviewReward[] }) {
   const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
   const env = streakEnvColors(b.streak_env_color);
+  const envPattern = streakEnvPatternCss(b.streak_env_pattern);
   // Demo program: 10-day range, member at day 7, milestones at 3 / 7 / 10.
   const current = 7, range = 10;
   const fill = (current / range) * 100;
@@ -850,6 +851,14 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
 
   return (
     <div className="relative -mx-0" style={{ background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)` }}>
+      {envPattern && (
+        <div className="absolute inset-0 pointer-events-none"
+          style={{
+            ...envPattern,
+            maskImage: "linear-gradient(to right, black 0%, black calc(50% - 3.8rem), transparent calc(50% - 3.4rem), transparent calc(50% + 3.4rem), black calc(50% + 3.8rem), black 100%)",
+            WebkitMaskImage: "linear-gradient(to right, black 0%, black calc(50% - 3.8rem), transparent calc(50% - 3.4rem), transparent calc(50% + 3.4rem), black calc(50% + 3.8rem), black 100%)",
+          }} />
+      )}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,0.07), transparent 70%)" }} />
       <div className="relative z-10 px-3 pt-4 pb-5">
@@ -891,6 +900,18 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
           </div>
         </div>
 
+        {/* timing: when I CAN act vs when I MUST act */}
+        <div className="mt-2 flex gap-2">
+          <div className="flex-1 rounded-xl bg-white/10 ring-1 ring-white/15 px-2.5 py-1.5">
+            <div className="text-[7px] font-black uppercase tracking-[0.14em] text-white/50">Next check-in</div>
+            <div className="text-[11px] font-extrabold text-white mt-0.5">Available now</div>
+          </div>
+          <div className="flex-1 rounded-xl bg-amber-400/15 ring-1 ring-amber-300/40 px-2.5 py-1.5">
+            <div className="text-[7px] font-black uppercase tracking-[0.14em] text-amber-200/90">Streak expires</div>
+            <div className="text-[11px] font-extrabold text-amber-100 mt-0.5">in 5h 12m</div>
+          </div>
+        </div>
+
         {/* CTA */}
         <div className="mt-2.5 w-full flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-xs font-extrabold text-white shadow-lg"
           style={{ background: `linear-gradient(135deg, ${theme.cell[1]} 0%, ${theme.cell[2]} 100%)`, boxShadow: `0 8px 20px -8px ${theme.glow}` }}>
@@ -904,8 +925,12 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
         </div>
         <div className="relative" style={{ height: H }}>
           {/* protected corridor around the route */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2rem] pointer-events-none"
-            style={{ width: "6.5rem", background: "linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06))", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.09)" }} />
+          <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2rem] pointer-events-none overflow-hidden"
+            style={{ width: "6.5rem", background: "linear-gradient(180deg, rgba(253,230,138,0.15) 0%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.06) 60%, rgba(255,255,255,0.08) 100%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 24px 36px -20px rgba(253,230,138,0.22)" }}>
+            {[{ t: "4%", l: "28%", s: 3, o: 0.5 }, { t: "8%", l: "64%", s: 2.5, o: 0.4 }, { t: "16%", l: "42%", s: 2, o: 0.3 }, { t: "30%", l: "62%", s: 1.5, o: 0.2 }].map((sp, i) => (
+              <span key={i} className="absolute rounded-full bg-white" style={{ top: sp.t, left: sp.l, width: sp.s, height: sp.s, opacity: sp.o }} />
+            ))}
+          </div>
           {/* casing + channel + fill */}
           <div className="absolute left-1/2 -translate-x-1/2 w-4 rounded-full bg-white ring-1 ring-black/10"
             style={{ top: PT, bottom: PB, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
@@ -948,7 +973,11 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                   <div className="rounded-xl border bg-white shadow-sm ring-1 ring-black/5 p-2"
                     style={m.state === "next"
                       ? { borderColor: "rgba(245,158,11,0.6)", boxShadow: "0 0 0 2px rgba(245,158,11,0.35)" }
-                      : { borderColor: "rgba(245,158,11,0.45)" }}>
+                      : {
+                          background: "linear-gradient(160deg, #fffdf4 0%, #fdf6e3 55%, #f9ecc8 100%)",
+                          borderColor: "rgba(217,164,65,0.55)",
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.95), 0 6px 16px -10px rgba(245,158,11,0.55)",
+                        }}>
                     {m.state === "next" && (
                       <div className="text-[7px] font-black tracking-[0.16em] uppercase mb-0.5 text-amber-600">Next reward</div>
                     )}
@@ -965,16 +994,16 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                         <div className="text-[9px] font-bold text-slate-900 leading-tight line-clamp-2">{m.r?.name ?? "Reward"}</div>
                         <div className="mt-0.5">
                           {m.state === "claimed" ? (
-                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><Trophy className="h-2 w-2" /> Claimed</span>
+                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full text-white" style={{ background: "linear-gradient(90deg, #f59e0b, #d97706)" }}><Trophy className="h-2 w-2" /> Claimed</span>
                           ) : m.state === "unlocked" ? (
-                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full bg-amber-100 text-amber-700"><Check className="h-2 w-2" /> Unlocked</span>
+                            <span className="inline-flex items-center gap-0.5 text-[7px] font-extrabold px-1 py-0.5 rounded-full text-white" style={{ background: "linear-gradient(90deg, #fbbf24, #f59e0b)" }}><Check className="h-2 w-2" /> Earned</span>
                           ) : (
                             <span className="text-[8px] font-extrabold text-slate-600">3 more check-ins</span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="mt-0.5 text-[7px] font-black tracking-wider uppercase" style={{ color: "#4a7ba6" }}>{m.count} days</div>
+                    <div className="mt-0.5 text-[7px] font-black tracking-wider uppercase" style={{ color: m.state === "next" ? "#4a7ba6" : "#b45309" }}>{m.count} days</div>
                   </div>
                 </div>
               </div>
