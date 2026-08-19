@@ -1,30 +1,32 @@
 "use client";
 /**
- * StreaksClient — CP-99 Phase 4
+ * StreaksClient — CP-99 Phase 4 (redesigned per Andrew's Reward Road brief)
  *
- * The full-page STREAK ROADMAP at /<slug>/app/streaks. A vertical,
- * battle-pass style path (top → bottom) of every check-in period, with
- * milestone rewards as big photo nodes along the way, plus a sticky hero
- * that always shows: the streak count, the personal best, a live
- * "keep it alive" expiration countdown, and progress to the next reward.
+ * /<slug>/app/streaks. The STREAK is the centerpiece, not the reward list:
+ * a centered vertical "burning" progress track climbs BOTTOM → TOP from a
+ * START marker to the member's current position, with reward milestones
+ * branching off the track on alternating sides as compact cards.
  *
- * ADDITIVE ONLY (roadmap Phase 4 rule): reads the exact same
- * get_streak_status RPC + realtime pattern as StreakWidget/StreakMini —
- * the streak ENGINE (streak_config, gift_kind, triggers, notifications)
- * is untouched, and the existing widget/mini stay exactly as they are.
- * Nothing links here yet; the quick-action retarget (#9) ships after this
- * page is verified live.
+ * Key behaviors:
+ *  - REPLAY: every time the page is entered, the fill burns upward from
+ *    START to the current streak (rAF-driven, eased, 1.5–4.5s scaled to
+ *    progress — never per-unit). The camera follows the flame head.
+ *    Milestones pulse ONCE, exactly when the fill crosses them.
+ *  - DATA-DRIVEN: no "Week N" hardcoding — labels derive from the
+ *    engine's period_type (day/week/month) and configured milestone
+ *    counts. Positions are proportional to milestone values over the
+ *    program range (a 365-day road is no taller than a 30-day one).
+ *  - prefers-reduced-motion: no replay/camera — state renders instantly.
  *
- * Visual language matches StreakWidget: streak theme gradient (CP-65),
- * white milestone cells w/ gold rim (CP-69), gift_kind-authoritative
- * reward rendering (CP-49), lucide icons only (CP-94 emoji sweep).
+ * ENGINE UNTOUCHED: same get_streak_status RPC + check_in_events realtime
+ * listener as StreakWidget; gift_kind stays authoritative (CP-49).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Flame, Gift, Trophy, Lock, Check, CalendarDays, ChevronRight, QrCode,
+  Flame, Gift, Trophy, Lock, Check, CalendarDays, QrCode, Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
+import { resolveStreakTheme, streakGradient, type StreakTheme } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = {
@@ -81,10 +83,7 @@ export function StreaksClient({
 }) {
   const [s, setS] = useState<StreakStatus | null>(null);
   const [loaded, setLoaded] = useState(false);
-  // Ticking clock for the live expiration countdown (1-min resolution).
   const [now, setNow] = useState(() => Date.now());
-  const currentRef = useRef<HTMLDivElement | null>(null);
-  const scrolledRef = useRef(false);
 
   const theme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
   const primary = business.brand_colors.primary;
@@ -118,15 +117,6 @@ export function StreaksClient({
     return () => clearInterval(t);
   }, []);
 
-  // Auto-scroll the path to the member's current position, once, after load.
-  useEffect(() => {
-    if (!s || scrolledRef.current || !currentRef.current) return;
-    scrolledRef.current = true;
-    const el = currentRef.current;
-    const t = setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 400);
-    return () => clearTimeout(t);
-  }, [s]);
-
   const milestones = useMemo<Milestone[]>(
     () => (s ? [...(s.milestones ?? [])].sort((a, b) => a.count - b.count) : []),
     [s],
@@ -157,7 +147,8 @@ export function StreaksClient({
   const current = s.current_streak ?? 0;
   const longest = Math.max(s.longest_streak ?? 0, current);
   const atPersonalBest = current > 0 && current >= (s.longest_streak ?? 0);
-  const periodWord =
+  // Data-driven unit terminology — never hardcode "week"/"day".
+  const unit =
     s.period_type === "weekly" ? "week" :
     s.period_type === "monthly" ? "month" : "day";
 
@@ -166,28 +157,15 @@ export function StreaksClient({
     ? Math.min(100, (current / nextMilestone.count) * 100)
     : 100;
 
-  // Live expiration countdown: period_end is the start of the NEXT period.
-  // Not checked in yet → that's the deadline to keep the streak alive.
-  // Already checked in → it's when the next check-in window opens.
   const periodEndMs = s.period_end ? new Date(s.period_end).getTime() : null;
   const msLeft = periodEndMs ? periodEndMs - now : null;
   const urgent = !s.checked_in_this_period && msLeft !== null && msLeft < 12 * 3600_000 && current > 0;
-
-  // Path length: through the last milestone, with a little runway past the
-  // member's position; minimum one week-like stretch so new members still
-  // see a path.
-  const lastMilestoneCount = milestones.at(-1)?.count ?? 0;
-  const totalNodes = Math.max(lastMilestoneCount, current + 3, 7);
-  const nodes = Array.from({ length: totalNodes }, (_, i) => i + 1);
-  const milestoneByCount = new Map<number, Milestone>(milestones.map(m => [m.count, m]));
 
   return (
     <div className="pb-6">
       {/* ============ STICKY HERO ============ */}
       <div
         className="sticky top-0 z-30 px-3 pt-2 pb-2"
-        // Native notch: when stuck, the hero sits at the physical top of the
-        // screen — pad it so content clears the status bar (0 in browsers).
         style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top, 0px))" }}
       >
         <div
@@ -196,7 +174,6 @@ export function StreaksClient({
         >
           <Flame className="absolute -top-5 -right-5 h-24 w-24 text-white/10 rotate-12 pointer-events-none" />
           <Flame className="absolute -bottom-6 -left-4 h-16 w-16 text-white/10 -rotate-12 pointer-events-none" />
-          {/* soft top highlight — gives the gradient a glossy feel */}
           <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
             style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)" }} />
 
@@ -208,18 +185,16 @@ export function StreaksClient({
               <div className="flex items-end gap-2">
                 <span className="text-5xl font-black leading-none tabular-nums drop-shadow">{current}</span>
                 <span className="text-[11px] uppercase tracking-[0.18em] font-extrabold opacity-90 mb-1">
-                  {periodWord} streak
+                  {unit} streak
                 </span>
               </div>
-              {/* CP-99 4b: personal best, straight from get_streak_status. */}
               <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold">
                 <Trophy className="h-3.5 w-3.5 text-amber-200" />
                 {atPersonalBest
-                  ? <span className="text-amber-100">Personal best — keep it going!</span>
-                  : <span className="opacity-90">Best: {longest} {periodWord}{longest === 1 ? "" : "s"}</span>}
+                  ? <span className="text-amber-100">Personal best — keep it alive.</span>
+                  : <span className="opacity-90">Best: {longest} {unit}{longest === 1 ? "" : "s"}</span>}
               </div>
             </div>
-            {/* Checked-in / countdown chip */}
             <div className="shrink-0 text-right">
               {s.checked_in_this_period ? (
                 <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full bg-emerald-400 text-emerald-950">
@@ -237,7 +212,6 @@ export function StreaksClient({
             </div>
           </div>
 
-          {/* Expiration line — the live "keep it alive" timer. */}
           {!s.checked_in_this_period && msLeft !== null && current > 0 && (
             <div className="mt-2 text-[11px] font-bold text-white/95">
               {urgent ? "Your streak is about to reset — " : "Keep your streak alive — "}
@@ -245,7 +219,6 @@ export function StreaksClient({
             </div>
           )}
 
-          {/* Next-reward progress bar */}
           {nextMilestone && (
             <div className="mt-3">
               <div className="flex items-baseline justify-between text-[11px] mb-1 opacity-95">
@@ -265,7 +238,6 @@ export function StreaksClient({
             </div>
           )}
 
-          {/* Check-in CTA when the period is still open */}
           {!s.checked_in_this_period && (
             <a
               href={`/${business.slug}/app/scan`}
@@ -277,213 +249,377 @@ export function StreaksClient({
         </div>
       </div>
 
-      {/* ============ VERTICAL ROADMAP ============ */}
-      <div className="px-4 mt-4">
-        {/* Section title — plain words, readable by anyone. */}
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-bold" style={{ color: "var(--surf-fg, #18181b)" }}>
-            Your reward road
-          </h2>
-          <span className="text-[10px] font-extrabold text-white px-2.5 py-1 rounded-full"
-            style={{ background: streakGradient(theme) }}>
-            Check in every {periodWord} to climb
-          </span>
+      {/* ============ THE REWARD ROAD ============ */}
+      {milestones.length > 0 ? (
+        <RewardRoad
+          milestones={milestones}
+          current={current}
+          claimed={s.claimed_milestones ?? []}
+          nextCount={nextMilestone?.count ?? null}
+          theme={theme}
+          primary={primary}
+          secondary={business.brand_colors.secondary}
+          logoUrl={business.logo_url}
+          unit={unit}
+        />
+      ) : (
+        // No configured milestones — never show fake placeholder rewards.
+        <div className="px-4 mt-4">
+          <div className="rounded-3xl bg-white border shadow-sm p-8 text-center">
+            <Sparkles className="h-8 w-8 mx-auto text-zinc-300" />
+            <div className="mt-3 text-sm font-bold text-zinc-800">Your reward road is being built</div>
+            <p className="mt-1 text-xs text-zinc-500">
+              Keep checking in — {business.name} is adding streak rewards soon, and your streak already counts.
+            </p>
+          </div>
         </div>
-        <div className="relative">
-          {nodes.map(n => {
-            const m = milestoneByCount.get(n) ?? null;
-            const filled = n <= current;
-            const isNext = n === current + 1;
-            const locked = n > current + 1;
-            const claimed = !!m && (s.claimed_milestones ?? []).includes(m.count);
-            const rewardGift = !!m && isReward(m);
-            const pointsGift = !!m && !rewardGift && (m.points ?? 0) > 0;
+      )}
+    </div>
+  );
+}
 
-            // Connector above every node except the first — lit through the
-            // member's progress, faint beyond it.
-            const connector = n > 1 && (
-              <div className="flex justify-center" style={{ width: "3.5rem" }}>
-                <div
-                  className="w-1.5 rounded-full"
-                  style={{
-                    height: "1.1rem",
-                    background: filled
-                      ? `linear-gradient(180deg, ${theme.from}, ${theme.to})`
-                      : "rgba(0,0,0,0.08)",
-                  }}
-                />
-              </div>
-            );
+/* ════════════════════════════════════════════════════════════════════
+   RewardRoad — the centered burning track with branching milestones.
+   ════════════════════════════════════════════════════════════════════ */
 
-            return (
-              <div key={n} ref={isNext ? currentRef : undefined}>
-                {connector}
-                <div className="flex items-center gap-3">
-                  {/* Node on the spine */}
-                  <div className="shrink-0 flex justify-center" style={{ width: "3.5rem" }}>
-                    {m ? (
-                      // MILESTONE node — white cell + gold rim (CP-69 language),
-                      // with the shimmer halo + ★ REWARD tag from the widget.
-                      <div className="relative">
-                        <div className="absolute -inset-1.5 rounded-3xl pointer-events-none animate-pulse"
-                          style={{ background: "radial-gradient(circle, rgba(255,215,0,0.35) 0%, transparent 70%)" }} />
-                        <div
-                          className={`relative h-14 w-14 rounded-2xl overflow-hidden flex items-center justify-center ${locked ? "saturate-50 opacity-80" : ""}`}
-                          style={{
-                            background: "#ffffff",
-                            boxShadow: filled || claimed
-                              ? "0 0 0 2.5px #fff, 0 8px 20px -6px rgba(245,158,11,0.9)"
-                              : "0 0 0 2px rgba(245,158,11,0.85), 0 4px 12px -6px rgba(0,0,0,0.25)",
-                          }}
-                        >
-                          {rewardGift && m.reward_image_url ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={m.reward_image_url} alt={m.reward_name ?? m.label} className="absolute inset-0 h-full w-full object-cover" style={{ opacity: filled ? 1 : 0.65 }} />
-                          ) : pointsGift && business.logo_url ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={business.logo_url} alt="" className="h-9 w-9 object-contain" />
-                          ) : (
-                            <Gift className="h-6 w-6" style={{ color: theme.to }} />
-                          )}
-                          {claimed && (
-                            <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-emerald-400 ring-2 ring-white flex items-center justify-center">
-                              <Check className="h-3 w-3 text-white" />
-                            </span>
-                          )}
-                        </div>
-                        {!claimed && (
-                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 text-[8px] font-black tracking-wider px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-400 text-amber-900 ring-1 ring-white shadow-md whitespace-nowrap">
-                            ★ REWARD
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      // Regular period node.
-                      <div
-                        className={`h-9 w-9 rounded-full flex items-center justify-center ${isNext ? "animate-pulse" : ""}`}
-                        style={{
-                          background: filled
-                            ? `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 60%, ${theme.cell[2]} 100%)`
-                            : "#ffffff",
-                          boxShadow: filled
-                            ? `0 4px 12px -4px ${theme.glow}`
-                            : isNext
-                              // "you are here" halo in the brand color.
-                              ? `inset 0 0 0 1.5px rgba(0,0,0,0.12), 0 0 0 4px ${primary}40`
-                              : "inset 0 0 0 1.5px rgba(0,0,0,0.12)",
-                        }}
-                      >
-                        {filled ? (
-                          <Flame className="h-4 w-4 text-white drop-shadow" />
-                        ) : locked ? (
-                          <Lock className="h-3.5 w-3.5 text-zinc-300" />
-                        ) : (
-                          <Flame className="h-4 w-4 text-zinc-300" />
-                        )}
-                      </div>
-                    )}
-                  </div>
+const PAD_TOP = 56;      // room for the finish glow
+const PAD_BOTTOM = 84;   // room for the START marker
+const MIN_GAP = 104;     // min vertical px between milestone nodes
 
-                  {/* Row content */}
-                  {m ? (
-                    <div
-                      className={`flex-1 rounded-2xl border bg-white shadow-sm ring-1 ring-black/5 overflow-hidden my-1 ${locked ? "opacity-80" : ""}`}
-                      style={
-                        !claimed && filled
-                          // Ready-to-claim: the card glows in the brand color.
-                          ? { borderColor: `${primary}55`, boxShadow: `0 0 0 2px ${primary}40, 0 12px 26px -12px ${primary}88` }
-                          : filled || claimed
-                            ? { borderColor: `${primary}45` }
-                            : undefined
-                      }
-                    >
-                      {/* Big photo banner — the reward should look worth chasing. */}
-                      {rewardGift && m.reward_image_url && (
-                        <div className="relative">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={m.reward_image_url}
-                            alt={m.reward_name ?? m.label}
-                            className="h-16 w-full object-cover"
-                            style={{ opacity: filled ? 1 : 0.8 }}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
-                          <div className="absolute bottom-1 left-2.5 right-2.5 text-white text-sm font-black leading-tight truncate drop-shadow">
-                            {m.reward_name ?? m.label}
-                          </div>
-                        </div>
-                      )}
-                      <div className="p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-[9px] font-black tracking-wider uppercase" style={{ color: primary }}>
-                              ★ {periodWord} {m.count} reward
-                            </div>
-                            {/* Name lives on the banner when there's a photo. */}
-                            {!(rewardGift && m.reward_image_url) && (
-                              <div className="text-sm font-bold text-zinc-900 leading-tight truncate mt-0.5">
-                                {rewardGift
-                                  ? (m.reward_name ?? m.label)
-                                  : `${(m.points ?? 0).toLocaleString()} bonus points`}
-                              </div>
-                            )}
-                          </div>
-                          <div className="shrink-0">
-                            {claimed ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                                <Trophy className="h-3 w-3" /> Claimed
-                              </span>
-                            ) : filled ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full text-white animate-pulse"
-                                style={{ background: `linear-gradient(90deg, ${primary}, ${business.brand_colors.secondary})` }}>
-                                Ready to claim
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">
-                                {m.count - current} more check-in{m.count - current === 1 ? "" : "s"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={`flex-1 py-1.5 text-xs font-bold ${filled ? "text-zinc-700" : isNext ? "text-zinc-800" : "text-zinc-400"}`}>
-                      {periodWord.charAt(0).toUpperCase() + periodWord.slice(1)} {n}
-                      {filled && <Check className="inline-block h-3.5 w-3.5 ml-1.5 -mt-0.5 text-emerald-500" />}
-                      {isNext && <span className="ml-1.5 text-[10px] font-extrabold" style={{ color: primary }}>← you are here</span>}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+function RewardRoad({
+  milestones, current, claimed, nextCount, theme, primary, secondary, logoUrl, unit,
+}: {
+  milestones: Milestone[];
+  current: number;
+  claimed: number[];
+  nextCount: number | null;
+  theme: StreakTheme;
+  primary: string;
+  secondary: string;
+  logoUrl: string | null;
+  unit: string;
+}) {
+  // The whole program range: proportional layout, never one node per unit —
+  // a 365-day road renders the same height as a 30-day one.
+  const range = Math.max(milestones.at(-1)?.count ?? 1, current, 1);
+  const targetFrac = Math.min(1, current / range);
 
-          {/* Footer past the last node */}
-          {current >= lastMilestoneCount && lastMilestoneCount > 0 ? (
-            <div className="flex items-center gap-3 mt-3">
-              <div className="shrink-0 flex justify-center" style={{ width: "3.5rem" }}>
-                <div className="h-11 w-11 rounded-full flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 6px 16px -6px rgba(245,158,11,0.8)" }}>
-                  <Trophy className="h-5 w-5 text-white drop-shadow" />
-                </div>
-              </div>
-              <div className="text-xs font-extrabold py-1" style={{ color: "var(--surf-fg, #18181b)" }}>
-                You reached every reward on the road — amazing! Keep the flame alive.
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 mt-2">
-              <div className="shrink-0 flex justify-center" style={{ width: "3.5rem" }}>
-                <ChevronRight className="h-4 w-4 text-zinc-300 rotate-90" />
-              </div>
-              <div className="text-[11px] font-bold text-zinc-400 py-1">
-                Keep checking in to climb the road.
+  // Proportional Y for each milestone (bottom = 0, top = range), then a
+  // spacing pass so close-together milestones never collide.
+  const height = Math.max(440, milestones.length * (MIN_GAP + 26) + PAD_TOP + PAD_BOTTOM);
+  const trackLen = height - PAD_TOP - PAD_BOTTOM;
+  const rawY = (count: number) => PAD_TOP + (1 - count / range) * trackLen;
+  const ys: number[] = milestones.map(m => rawY(m.count));
+  // Collision pass: keep the lowest milestone above the START area, then
+  // walk upward guaranteeing MIN_GAP between neighbours (ascending counts
+  // sit at descending y). The height formula reserves enough room.
+  if (ys.length > 0) {
+    ys[0] = Math.min(ys[0], height - PAD_BOTTOM - 16);
+    for (let i = 1; i < ys.length; i++) {
+      ys[i] = Math.min(ys[i], ys[i - 1] - MIN_GAP);
+    }
+  }
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const headRef = useRef<HTMLDivElement | null>(null);
+  const playedRef = useRef(false);
+  // Milestones the replay flame has crossed (drives the one-shot pulse).
+  const [crossed, setCrossed] = useState<Set<number>>(() => new Set());
+  const [settled, setSettled] = useState(false);
+
+  // ── REPLAY: burn from START to the current position, once per entry. ──
+  useEffect(() => {
+    if (playedRef.current) return;
+    playedRef.current = true;
+
+    const reduced = typeof window !== "undefined"
+      && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    const finish = () => {
+      if (fillRef.current) fillRef.current.style.height = `${targetFrac * 100}%`;
+      if (headRef.current) headRef.current.style.bottom = `${targetFrac * 100}%`;
+      setCrossed(new Set(milestones.filter(m => m.count <= current).map(m => m.count)));
+      setSettled(true);
+    };
+
+    if (reduced || current <= 0) { finish(); return; }
+
+    // Duration scales with how far they've climbed, capped 1.5–4.5s.
+    const T = Math.min(4500, Math.max(1500, 1200 + targetFrac * 3300));
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+    const done = new Set<number>();
+    let raf = 0;
+    const start = performance.now();
+
+    const step = (nowTs: number) => {
+      const k = Math.min(1, (nowTs - start) / T);
+      const prog = ease(k) * targetFrac; // 0 → targetFrac
+      if (fillRef.current) fillRef.current.style.height = `${prog * 100}%`;
+      if (headRef.current) headRef.current.style.bottom = `${prog * 100}%`;
+
+      // Milestone crossings — pulse each EXACTLY once, when reached.
+      const reachedCount = prog * range;
+      let newly = false;
+      for (const m of milestones) {
+        if (m.count <= reachedCount + 1e-6 && m.count <= current && !done.has(m.count)) {
+          done.add(m.count); newly = true;
+        }
+      }
+      if (newly) setCrossed(new Set(done));
+
+      // Camera follows the flame head up the road (we scroll, per-frame,
+      // so the motion is continuous — transform/opacity stay GPU-cheap).
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const headViewportY = rect.top + PAD_TOP + (1 - prog) * (rect.height - PAD_TOP - PAD_BOTTOM);
+        const target = Math.max(0, window.scrollY + headViewportY - window.innerHeight * 0.55);
+        window.scrollTo({ top: target });
+      }
+
+      if (k < 1) { raf = requestAnimationFrame(step); }
+      else { finish(); }
+    };
+
+    // Open on the START of the road, then climb: jump the camera to the
+    // base first, breathe for a beat, then run the burn upward.
+    const kick = window.setTimeout(() => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const base = Math.max(0, window.scrollY + rect.top + rect.height - PAD_BOTTOM - window.innerHeight * 0.6);
+        window.scrollTo({ top: base });
+      }
+      raf = requestAnimationFrame(step);
+    }, 350);
+    return () => { window.clearTimeout(kick); cancelAnimationFrame(raf); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fine tick marks for short programs (a sense of every step) — skipped on
+  // long roads where proportional distance carries the meaning.
+  const ticks = range <= 21 ? Array.from({ length: range }, (_, i) => i + 1) : [];
+
+  const fillGradient = `linear-gradient(to top, ${theme.cell[2]} 0%, ${theme.cell[1]} 55%, ${theme.cell[0]} 100%)`;
+
+  return (
+    <div className="px-3 mt-4">
+      <div className="flex items-center justify-between mb-1 px-1">
+        <h2 className="text-sm font-bold" style={{ color: "var(--surf-fg, #18181b)" }}>
+          Your reward road
+        </h2>
+        <span className="text-[10px] font-extrabold text-white px-2.5 py-1 rounded-full"
+          style={{ background: streakGradient(theme) }}>
+          Check in every {unit} to climb
+        </span>
+      </div>
+
+      <div ref={containerRef} className="relative" style={{ height }}>
+        {/* ── CENTRAL TRACK ── */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 w-3.5 rounded-full"
+          style={{
+            top: PAD_TOP, bottom: PAD_BOTTOM,
+            background: "rgba(0,0,0,0.07)",
+            boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)",
+          }}
+        >
+          {/* burning fill — height driven by the replay (rAF) */}
+          <div
+            ref={fillRef}
+            className="absolute bottom-0 left-0 right-0 rounded-full"
+            // During the replay, rAF drives height directly on the DOM node;
+            // once settled, React owns it — so later re-renders (countdown
+            // ticks, realtime refetches) can never collapse the fill.
+            style={{
+              height: settled ? `${targetFrac * 100}%` : "0%",
+              background: fillGradient,
+              boxShadow: `0 0 14px 1px ${theme.glow}`,
+            }}
+          />
+          {/* unit ticks (short programs only) */}
+          {ticks.map(i => (
+            <div key={i} className="absolute left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-white/70"
+              style={{ bottom: `${(i / range) * 100}%` }} />
+          ))}
+          {/* flame head — the member's current position, breathing softly */}
+          {current > 0 && (
+            <div
+              ref={headRef}
+              className="absolute left-1/2 z-20"
+              style={{ bottom: settled ? `${targetFrac * 100}%` : "0%", transform: "translate(-50%, 50%)" }}
+            >
+              <div
+                className="atlas-flame-head h-11 w-11 rounded-full flex items-center justify-center ring-4 ring-white"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 55%, ${theme.cell[2]} 100%)`,
+                  boxShadow: `0 0 20px 4px ${theme.glow}, 0 6px 16px -4px rgba(0,0,0,0.3)`,
+                }}
+              >
+                <Flame className="h-6 w-6 text-white drop-shadow" />
               </div>
             </div>
           )}
         </div>
+
+        {/* ── MILESTONES branching off the track ── */}
+        {milestones.map((m, i) => {
+          const y = ys[i];
+          const left = i % 2 === 0; // alternate: first milestone → left
+          const unlocked = m.count <= current;
+          const isClaimed = claimed.includes(m.count);
+          const isNext = nextCount === m.count;
+          const pulsing = crossed.has(m.count);
+          const rewardGift = isReward(m);
+          const pointsGift = !rewardGift && (m.points ?? 0) > 0;
+
+          return (
+            <div key={m.count} className="absolute inset-x-0" style={{ top: y }}>
+              {/* node on the track */}
+              <div
+                className={`absolute left-1/2 z-10 ${pulsing ? "atlas-node-pop" : ""}`}
+                style={{ transform: "translate(-50%, -50%)" }}
+              >
+                <div
+                  className="h-6 w-6 rounded-full ring-4 ring-white flex items-center justify-center"
+                  style={{
+                    background: unlocked
+                      ? "linear-gradient(135deg, #facc15, #f59e0b)"
+                      : "#e4e4e7",
+                    boxShadow: unlocked ? "0 0 12px 2px rgba(245,158,11,0.6)" : "0 1px 3px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  {unlocked
+                    ? <Check className="h-3.5 w-3.5 text-white" />
+                    : <Lock className="h-3 w-3 text-zinc-400" />}
+                </div>
+              </div>
+
+              {/* connector to the card */}
+              <div
+                className="absolute top-0 h-0.5 -translate-y-1/2"
+                style={{
+                  [left ? "right" : "left"]: "50%",
+                  [left ? "marginRight" : "marginLeft"]: "0.9rem",
+                  width: "1.1rem",
+                  background: unlocked ? "linear-gradient(90deg, #facc15, #f59e0b)" : "rgba(0,0,0,0.10)",
+                } as React.CSSProperties}
+              />
+
+              {/* compact reward card */}
+              <div
+                className={`absolute -translate-y-1/2 ${left ? "left-0 text-right" : "right-0"} ${pulsing ? "atlas-card-flash" : ""}`}
+                style={{ top: 0, width: "calc(50% - 2.1rem)" }}
+              >
+                <div
+                  className={`inline-block w-full rounded-2xl border bg-white shadow-sm ring-1 ring-black/5 overflow-hidden text-left ${
+                    !unlocked && !isNext ? "opacity-75" : ""
+                  }`}
+                  style={
+                    isNext
+                      ? { borderColor: `${primary}66`, boxShadow: `0 0 0 2px ${primary}40, 0 10px 22px -12px ${primary}88` }
+                      : unlocked
+                        ? { borderColor: "rgba(245,158,11,0.5)" }
+                        : undefined
+                  }
+                >
+                  <div className="p-2.5">
+                    {isNext && (
+                      <div className="text-[8px] font-black tracking-[0.14em] uppercase mb-0.5" style={{ color: primary }}>
+                        Next reward
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      {/* small thumb — supports the road, never dominates */}
+                      <div className="h-9 w-9 rounded-lg overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center">
+                        {rewardGift && m.reward_image_url ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={m.reward_image_url} alt="" className="h-full w-full object-cover"
+                            style={{ opacity: unlocked || isNext ? 1 : 0.6, filter: unlocked || isNext ? undefined : "saturate(0.6)" }} />
+                        ) : pointsGift && logoUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={logoUrl} alt="" className="h-full w-full object-contain p-0.5" />
+                        ) : (
+                          <Gift className="h-4 w-4 text-zinc-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[8px] font-black tracking-wider uppercase text-zinc-400">
+                          {m.count} {unit}{m.count === 1 ? "" : "s"}
+                        </div>
+                        <div className="text-[11px] font-bold text-zinc-900 leading-tight truncate">
+                          {rewardGift
+                            ? (m.reward_name ?? m.label)
+                            : `${(m.points ?? 0).toLocaleString()} bonus points`}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-1.5">
+                      {isClaimed ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                          <Trophy className="h-2.5 w-2.5" /> Claimed
+                        </span>
+                      ) : unlocked ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                          <Check className="h-2.5 w-2.5" /> Unlocked
+                        </span>
+                      ) : (
+                        <span className={`text-[9px] font-bold ${isNext ? "" : "text-zinc-400"}`}
+                          style={isNext ? { color: primary } : undefined}>
+                          {m.count - current} more check-in{m.count - current === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── FINISH glow at the top when everything is earned ── */}
+        {settled && current >= range && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ top: PAD_TOP - 48 }}>
+            <div className="h-10 w-10 rounded-full flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 0 18px 4px rgba(245,158,11,0.6)" }}>
+              <Trophy className="h-5 w-5 text-white drop-shadow" />
+            </div>
+            <span className="mt-1 text-[9px] font-black tracking-widest uppercase text-amber-600">Complete</span>
+          </div>
+        )}
+
+        {/* ── START marker at the base of the climb ── */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ bottom: PAD_BOTTOM - 62 }}>
+          <div className="h-8 w-8 rounded-full bg-white ring-1 ring-black/10 shadow-sm flex items-center justify-center -mt-1">
+            <Flame className="h-4 w-4" style={{ color: theme.to }} />
+          </div>
+          <span className="mt-1 text-[9px] font-black tracking-[0.2em] uppercase text-zinc-400">Start</span>
+        </div>
       </div>
+
+      {/* One-shot pulse + flash + breathing keyframes. Breathing is disabled
+          for reduced-motion users; the replay itself is skipped in JS. */}
+      <style>{`
+        @keyframes atlasNodePop {
+          0%   { transform: translate(-50%, -50%) scale(1); }
+          40%  { transform: translate(-50%, -50%) scale(1.45); }
+          100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        .atlas-node-pop { animation: atlasNodePop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+        @keyframes atlasCardFlash {
+          0%   { filter: brightness(1); transform: translateY(-50%) scale(1); }
+          35%  { filter: brightness(1.12); transform: translateY(-52%) scale(1.03); }
+          100% { filter: brightness(1); transform: translateY(-50%) scale(1); }
+        }
+        .atlas-card-flash { animation: atlasCardFlash 0.7s ease-out 1; }
+        @keyframes atlasFlameBreath {
+          0%, 100% { transform: scale(1); }
+          50%      { transform: scale(1.07); }
+        }
+        .atlas-flame-head { animation: atlasFlameBreath 2.6s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .atlas-flame-head, .atlas-node-pop, .atlas-card-flash { animation: none !important; }
+        }
+      `}</style>
     </div>
   );
 }
