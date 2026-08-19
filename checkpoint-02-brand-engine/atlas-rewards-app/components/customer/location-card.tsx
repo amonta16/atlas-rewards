@@ -37,13 +37,23 @@ export function LocationCard({ business }: { business: Business }) {
     // not the page pattern. CP-55.1: extra bottom padding + a negative margin
     // that cancels the page's nav-clearance padding, so the white runs all the
     // way down behind the bottom nav (no patterned strip in the gap).
-    <div
-      className="bg-white border-t border-zinc-100 mt-6 px-4 pt-5"
-      // CP-69: was 7rem, which left a big empty white strip between the
-      // Call-now button and the bottom nav. 5.5rem still runs the white
-      // fully behind the nav (~3.75rem tall) with a tight, deliberate gap.
-      style={{ paddingBottom: "5.5rem", marginBottom: "-5rem" }}
-    >
+    // CP-99 3c: the band's hard border-t edge read as a rough cut against
+    // the page pattern. Now a short transparent→white fade melts the pattern
+    // out, and the band opens with a large-radius curve + a whisper of an
+    // upward shadow — smooth and intentional, still subtle.
+    <div className="mt-6">
+      <div className="h-8 bg-gradient-to-b from-transparent to-white/70 pointer-events-none" />
+      <div
+        className="bg-white rounded-t-[2.5rem] px-4 pt-6"
+        // CP-69: was 7rem, which left a big empty white strip between the
+        // Call-now button and the bottom nav. 5.5rem still runs the white
+        // fully behind the nav (~3.75rem tall) with a tight, deliberate gap.
+        style={{
+          paddingBottom: "5.5rem",
+          marginBottom: "-5rem",
+          boxShadow: "0 -10px 24px -20px rgba(0,0,0,0.25)",
+        }}
+      >
       <div className="rounded-2xl overflow-hidden border bg-white shadow-sm ring-1 ring-black/5">
         {embedSrc ? (
           <a href={directionsUrl ?? undefined} target="_blank" rel="noopener noreferrer" className="block relative">
@@ -99,6 +109,7 @@ export function LocationCard({ business }: { business: Business }) {
             <Phone className="h-4 w-4" /> Call now
           </a>
         )}
+        </div>
       </div>
     </div>
   );

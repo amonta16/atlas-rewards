@@ -285,16 +285,30 @@ export function RewardsClient({
                     onClick={() => !locked && setRedeemingReward(r)}
                     disabled={locked}
                     className="w-full flex items-center gap-3 rounded-2xl border bg-white p-2.5 text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
+                    /* CP-99 3b: unlocked rows carry a brand-tinted border +
+                       soft ambient glow so "ready" reads at a glance; locked
+                       rows keep the quiet style-system shadow. */
+                    style={locked ? undefined : {
+                      borderColor: `${business.brand_colors.primary}45`,
+                      boxShadow: `0 1px 2px rgba(0,0,0,0.05), 0 8px 18px -10px ${business.brand_colors.primary}66`,
+                    }}
                   >
-                    {r.image_url ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={r.image_url} alt={r.name} className="h-14 w-14 rounded-xl object-cover shrink-0" />
-                    ) : (
-                      <div className="h-14 w-14 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}>
-                        <Gift className="h-6 w-6" style={{ color: business.brand_colors.primary }} />
-                      </div>
-                    )}
+                    <div className="relative shrink-0">
+                      {r.image_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={r.image_url} alt={r.name} className="h-14 w-14 rounded-xl object-cover" />
+                      ) : (
+                        <div className="h-14 w-14 rounded-xl flex items-center justify-center"
+                          style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}>
+                          <Gift className="h-6 w-6" style={{ color: business.brand_colors.primary }} />
+                        </div>
+                      )}
+                      {locked && (
+                        <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-white/95 backdrop-blur-sm shadow-sm ring-1 ring-black/10 flex items-center justify-center">
+                          <Lock className="h-2.5 w-2.5 text-zinc-500" />
+                        </span>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold leading-tight truncate">{r.name}</div>
                       <div className="text-[10px] font-bold mt-0.5" style={{ color: business.brand_colors.primary }}>
@@ -340,23 +354,45 @@ export function RewardsClient({
                   className={`rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow ${
                     storeLayout === "carousel" ? "w-40 shrink-0 snap-start" : ""
                   } ${big ? "col-span-2" : ""}`}
+                  /* CP-99 3b: premium depth pass. Unlocked = brand-tinted
+                     border + ambient brand glow + faint gradient wash (the
+                     card "wants" to be tapped). Locked keeps the quiet
+                     style-system shadow so the hierarchy is instant. Radius
+                     and base shadow stay class-driven → the per-business
+                     card_style presets (CP-58) keep working. */
+                  style={locked ? undefined : {
+                    borderColor: `${business.brand_colors.primary}45`,
+                    background: `linear-gradient(180deg, #ffffff 55%, ${business.brand_colors.primary}0d 100%)`,
+                    boxShadow: `0 1px 2px rgba(0,0,0,0.05), 0 12px 26px -12px ${business.brand_colors.primary}77`,
+                  }}
                 >
                   {/* CP-24: render the reward image (was hardcoded Gift icon) so
                       Rewards tab matches Home tab. Falls back to brand gradient
-                      with Gift icon only when no image was uploaded. */}
-                  {r.image_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={r.image_url}
-                      alt={r.name}
-                      className={`${big ? "aspect-video" : "aspect-[4/3]"} w-full object-cover`}
-                    />
-                  ) : (
-                    <div className={`${big ? "aspect-video" : "aspect-[4/3]"} flex items-center justify-center`}
-                      style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}>
-                      <Gift className="h-10 w-10" style={{ color: business.brand_colors.primary }} />
-                    </div>
-                  )}
+                      with Gift icon only when no image was uploaded.
+                      CP-99 3b: subtle bottom scrim for depth + a frosted lock
+                      chip on locked cards — the photo stays full-color (food
+                      should look delicious even when locked). */}
+                  <div className="relative">
+                    {r.image_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={r.image_url}
+                        alt={r.name}
+                        className={`${big ? "aspect-video" : "aspect-[4/3]"} w-full object-cover`}
+                      />
+                    ) : (
+                      <div className={`${big ? "aspect-video" : "aspect-[4/3]"} flex items-center justify-center`}
+                        style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}>
+                        <Gift className="h-10 w-10" style={{ color: business.brand_colors.primary }} />
+                      </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/15 to-transparent pointer-events-none" />
+                    {locked && (
+                      <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-white/90 backdrop-blur-sm px-2 py-0.5 text-[9px] font-black tracking-wide text-zinc-600 shadow-sm ring-1 ring-black/10">
+                        <Lock className="h-2.5 w-2.5" /> LOCKED
+                      </span>
+                    )}
+                  </div>
                   <div className="p-3">
                     <div className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
