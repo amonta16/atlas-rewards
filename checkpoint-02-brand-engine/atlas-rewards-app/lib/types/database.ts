@@ -138,6 +138,9 @@ export type Business = {
   /** CP-73: Home points-card design preset. See lib/points-card-styles.ts
    *  (classic/shiny/fun/sleek/simple). NULL = classic white. */
   points_card_style?: string | null;
+  /** CP-99: reward-store panel preset. See lib/reward-card-styles.ts
+   *  (classic/outline/glow/tint/midnight/luxe). NULL = classic. */
+  reward_card_style?: string | null;
   /** CP-68: demo app — reward game replayable (no check-in/cooldown gates). */
   is_demo?: boolean | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.

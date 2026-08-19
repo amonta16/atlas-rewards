@@ -18,6 +18,7 @@ import { LimitedOffersSection } from "./limited-offers-section";
 // as Limited offers, with a more premium treatment + live countdown.
 import { RafflesSection } from "./raffle-section";
 import { rewardsLayout } from "@/lib/section-layouts";
+import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 // CP-67: element pack — themed headings, dividers, badges.
 import { SectionDivider, SectionHeading } from "./section-elements";
 import { badgeCss } from "@/lib/element-styles";
@@ -43,6 +44,11 @@ export function RewardsClient({
   const [featuredOffer, setFeaturedOffer] = useState<FeaturedOffer | null>(initialFeaturedOffer);
   // CP-66: rewards-store layout preset (grid / list / carousel / spotlight).
   const storeLayout = rewardsLayout(business.rewards_layout);
+  // CP-99 3b.1: reward-panel style preset (classic/outline/glow/tint/
+  // midnight/luxe) — picked in the brand editor. Dark presets flip the
+  // card text to white.
+  const rcStyle = business.reward_card_style ?? null;
+  const rcDark = rewardCardMeta(rcStyle).dark;
   const initialPts = membership?.points_balance ?? 0;
   const [points, setPoints] = useState(initialPts);
   // CP-73: tier state removed — Bronze/Silver/Gold tiers are gone.
@@ -285,13 +291,10 @@ export function RewardsClient({
                     onClick={() => !locked && setRedeemingReward(r)}
                     disabled={locked}
                     className="w-full flex items-center gap-3 rounded-2xl border bg-white p-2.5 text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
-                    /* CP-99 3b: unlocked rows carry a brand-tinted border +
-                       soft ambient glow so "ready" reads at a glance; locked
-                       rows keep the quiet style-system shadow. */
-                    style={locked ? undefined : {
-                      borderColor: `${business.brand_colors.primary}45`,
-                      boxShadow: `0 1px 2px rgba(0,0,0,0.05), 0 8px 18px -10px ${business.brand_colors.primary}66`,
-                    }}
+                    /* CP-99 3b.1: row shell chrome from the business's
+                       reward-panel preset (default "classic" keeps the 3b
+                       look — quiet locked rows, brand accents when ready). */
+                    style={rewardCardChrome(rcStyle, business.brand_colors.primary, business.brand_colors.secondary, locked)}
                   >
                     <div className="relative shrink-0">
                       {r.image_url ? (
@@ -310,11 +313,11 @@ export function RewardsClient({
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold leading-tight truncate">{r.name}</div>
-                      <div className="text-[10px] font-bold mt-0.5" style={{ color: business.brand_colors.primary }}>
+                      <div className={`text-sm font-bold leading-tight truncate ${rcDark ? "text-white" : ""}`}>{r.name}</div>
+                      <div className="text-[10px] font-bold mt-0.5" style={{ color: rcDark ? "#ffffff" : business.brand_colors.primary }}>
                         {r.point_cost.toLocaleString()} POINTS
                       </div>
-                      <div className="mt-1.5 h-1 rounded-full bg-zinc-100 overflow-hidden">
+                      <div className={`mt-1.5 h-1 rounded-full overflow-hidden ${rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
                         <div
                           className="h-full rounded-full transition-all duration-700"
                           style={{
@@ -328,7 +331,7 @@ export function RewardsClient({
                     </div>
                     {/* CP-95: claimable = gradient chip (matches Home), no emoji. */}
                     {locked ? (
-                      <span className="shrink-0 text-[10px] font-extrabold text-zinc-400">
+                      <span className={`shrink-0 text-[10px] font-extrabold ${rcDark ? "text-white/50" : "text-zinc-400"}`}>
                         {remaining.toLocaleString()} to go
                       </span>
                     ) : (
@@ -354,17 +357,12 @@ export function RewardsClient({
                   className={`rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow ${
                     storeLayout === "carousel" ? "w-40 shrink-0 snap-start" : ""
                   } ${big ? "col-span-2" : ""}`}
-                  /* CP-99 3b: premium depth pass. Unlocked = brand-tinted
-                     border + ambient brand glow + faint gradient wash (the
-                     card "wants" to be tapped). Locked keeps the quiet
-                     style-system shadow so the hierarchy is instant. Radius
-                     and base shadow stay class-driven → the per-business
-                     card_style presets (CP-58) keep working. */
-                  style={locked ? undefined : {
-                    borderColor: `${business.brand_colors.primary}45`,
-                    background: `linear-gradient(180deg, #ffffff 55%, ${business.brand_colors.primary}0d 100%)`,
-                    boxShadow: `0 1px 2px rgba(0,0,0,0.05), 0 12px 26px -12px ${business.brand_colors.primary}77`,
-                  }}
+                  /* CP-99 3b.1: card shell chrome comes from the business's
+                     reward-panel preset (lib/reward-card-styles.ts). Default
+                     "classic" = the 3b look: quiet locked cards, brand glow
+                     when ready. Radius and base shadow stay class-driven →
+                     the per-business card_style presets (CP-58) keep working. */
+                  style={rewardCardChrome(rcStyle, business.brand_colors.primary, business.brand_colors.secondary, locked)}
                 >
                   {/* CP-24: render the reward image (was hardcoded Gift icon) so
                       Rewards tab matches Home tab. Falls back to brand gradient
@@ -395,12 +393,14 @@ export function RewardsClient({
                   </div>
                   <div className="p-3">
                     <div className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
+                      style={rcDark
+                        ? { background: "rgba(255,255,255,0.15)", color: "#ffffff" }
+                        : { background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
                       {locked
                         ? <Lock className="h-2.5 w-2.5" />
                         : <Zap className="h-2.5 w-2.5" />} {r.point_cost.toLocaleString()} POINTS
                     </div>
-                    <div className={`${big ? "text-base" : "text-sm"} font-bold mt-1 leading-tight`}>{r.name}</div>
+                    <div className={`${big ? "text-base" : "text-sm"} font-bold mt-1 leading-tight ${rcDark ? "text-white" : ""}`}>{r.name}</div>
 
                     {/* CP-27: progress to this reward.
                         CP-95: claimable cards trade the 10px whisper for a
@@ -408,7 +408,7 @@ export function RewardsClient({
                     <div className="mt-2">
                       {locked ? (
                         <>
-                          <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                          <div className={`h-1.5 rounded-full overflow-hidden ${rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
                             <div
                               className="h-full rounded-full transition-all duration-700"
                               style={{
@@ -417,7 +417,7 @@ export function RewardsClient({
                               }}
                             />
                           </div>
-                          <div className="text-[10px] font-bold mt-1 tabular-nums text-zinc-500">
+                          <div className={`text-[10px] font-bold mt-1 tabular-nums ${rcDark ? "text-white/60" : "text-zinc-500"}`}>
                             {`${displayed.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`}
                           </div>
                         </>

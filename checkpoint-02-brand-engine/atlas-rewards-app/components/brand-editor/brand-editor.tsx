@@ -17,6 +17,8 @@ import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
 import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 // CP-65.1: poppy offer-card styles.
 import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
+// CP-99: reward-store panel presets.
+import { REWARD_CARD_STYLES, rewardCardChrome } from "@/lib/reward-card-styles";
 // CP-73: Home points-card presets (classic/shiny/fun/sleek/simple).
 import { POINTS_CARD_STYLES, pointsCardStyle } from "@/lib/points-card-styles";
 // CP-66: section layout presets (rewards store + limited offers).
@@ -226,6 +228,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           streak_theme: b.streak_theme ?? null,
           /* CP-65.1: customer offer-card style. */
           offer_card_style: b.offer_card_style ?? null,
+          /* CP-99: reward-store panel style. */
+          reward_card_style: b.reward_card_style ?? null,
           /* CP-66: section layout presets. */
           rewards_layout: b.rewards_layout ?? null,
           offers_layout: b.offers_layout ?? null,
@@ -726,6 +730,60 @@ export function BrandEditor({ initial }: { initial: Business }) {
                               20% off
                             </span>
                           </div>
+                        </div>
+                        <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.emoji} {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* CP-99: reward-panel style — how the reward store CARDS look.
+                  Same grammar as the offer-card picker above. */}
+              <Section title="Reward panel style" subtitle="How the reward cards in the store look — from quiet classic to bold glow to dark luxe.">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {REWARD_CARD_STYLES.map(opt => {
+                    const selected = (b.reward_card_style ?? "classic") === opt.id;
+                    const readyCss  = rewardCardChrome(opt.id, b.brand_colors.primary, b.brand_colors.secondary, false);
+                    const lockedCss = rewardCardChrome(opt.id, b.brand_colors.primary, b.brand_colors.secondary, true);
+                    const dark = opt.dark;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("reward_card_style", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-1.5 text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        {/* mini store mock: one READY card + one locked card */}
+                        <div className="grid grid-cols-2 gap-1">
+                          {[readyCss, lockedCss].map((css, mi) => (
+                            <div key={mi} className="rounded-lg border overflow-hidden bg-white" style={css}>
+                              <div className="h-6" style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}30, ${b.brand_colors.secondary}18)` }} />
+                              <div className="p-1">
+                                <div className={cn("text-[7px] font-extrabold truncate", dark ? "text-white" : "text-zinc-900")}>
+                                  {mi === 0 ? "Free drink" : "Free tee"}
+                                </div>
+                                {mi === 0 ? (
+                                  <span
+                                    className="mt-0.5 block text-center text-[6px] font-black rounded text-white py-px"
+                                    style={{ background: `linear-gradient(90deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})` }}
+                                  >
+                                    REDEEM
+                                  </span>
+                                ) : (
+                                  <div className={cn("mt-1 h-0.5 rounded-full overflow-hidden", dark ? "bg-white/20" : "bg-zinc-100")}>
+                                    <div className="h-full w-1/2 rounded-full" style={{ background: b.brand_colors.primary }} />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                         <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
                           {opt.emoji} {opt.label}

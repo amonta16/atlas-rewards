@@ -6,6 +6,8 @@ import { bannerStyle } from "@/lib/banner-styles";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 // CP-65.1 + CP-66: mirror the offer-card skin + section layouts live.
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
+// CP-99: reward-panel presets mirrored in the preview store mock.
+import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 import { offersLayout, rewardsLayout } from "@/lib/section-layouts";
 // CP-67: element pack mirrored in the mock.
 import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
@@ -685,9 +687,14 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                 ? Math.min(100, (demoPoints / r.point_cost) * 100)
                 : 100;
               const rl = rewardsLayout(b.rewards_layout);
+              // CP-99: mirror the reward-panel preset. First card previews
+              // as "ready" so the picker's louder treatment is visible.
+              const rcLocked = ri !== 0;
+              const rcCss = rewardCardChrome(b.reward_card_style, b.brand_colors.primary, b.brand_colors.secondary, rcLocked);
+              const rcDark = rewardCardMeta(b.reward_card_style).dark;
               if (rl === "list") {
                 return (
-                  <div key={r.id} className="flex items-center gap-2.5 rounded-2xl border bg-white p-2">
+                  <div key={r.id} className="flex items-center gap-2.5 rounded-2xl border bg-white p-2" style={rcCss}>
                     {r.image_url ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={r.image_url} alt={r.name} className="h-10 w-10 rounded-lg object-cover shrink-0" />
@@ -697,10 +704,10 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold truncate">{r.name}</div>
-                      <div className="text-[9px] font-bold" style={{ color: b.brand_colors.primary }}>{r.point_cost} POINTS</div>
+                      <div className={`text-xs font-bold truncate ${rcDark ? "text-white" : ""}`}>{r.name}</div>
+                      <div className="text-[9px] font-bold" style={{ color: rcDark ? "#ffffff" : b.brand_colors.primary }}>{r.point_cost} POINTS</div>
                     </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-zinc-300 shrink-0" />
+                    <ChevronRight className={`h-3.5 w-3.5 shrink-0 ${rcDark ? "text-white/40" : "text-zinc-300"}`} />
                   </div>
                 );
               }
@@ -710,6 +717,7 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                   className={`rounded-2xl border bg-white overflow-hidden ${rl === "carousel" ? "w-32 shrink-0" : ""} ${
                     rl === "spotlight" && ri === 0 ? "col-span-2" : ""
                   }`}
+                  style={rcCss}
                 >
                   {r.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -722,12 +730,14 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                   )}
                   <div className="p-3">
                     <div className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: `${b.brand_colors.primary}15`, color: b.brand_colors.primary }}>
+                      style={rcDark
+                        ? { background: "rgba(255,255,255,0.15)", color: "#ffffff" }
+                        : { background: `${b.brand_colors.primary}15`, color: b.brand_colors.primary }}>
                       <Lock className="h-2.5 w-2.5" /> {r.point_cost.toLocaleString()} POINTS
                     </div>
-                    <div className="text-sm font-bold mt-1 leading-tight">{r.name}</div>
+                    <div className={`text-sm font-bold mt-1 leading-tight ${rcDark ? "text-white" : ""}`}>{r.name}</div>
                     <div className="mt-2">
-                      <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                      <div className={`h-1.5 rounded-full overflow-hidden ${rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
                         <div
                           className="h-full rounded-full"
                           style={{
@@ -736,7 +746,7 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                           }}
                         />
                       </div>
-                      <div className="text-[10px] font-bold mt-0.5 tabular-nums text-zinc-500">
+                      <div className={`text-[10px] font-bold mt-0.5 tabular-nums ${rcDark ? "text-white/60" : "text-zinc-500"}`}>
                         {demoPoints} / {r.point_cost}
                       </div>
                     </div>
