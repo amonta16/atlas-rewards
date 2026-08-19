@@ -232,6 +232,7 @@ export default async function CustomerHome({ params }: { params: { business: str
             points={points}
             primary={business.brand_colors.primary}
             secondary={business.brand_colors.secondary}
+            cardStyle={business.reward_card_style ?? null}
           />
 
           {/* CP-52.1: jump STRAIGHT to the full rewards catalog (no double-step

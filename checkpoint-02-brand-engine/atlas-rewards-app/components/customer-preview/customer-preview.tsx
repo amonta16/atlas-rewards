@@ -1,5 +1,5 @@
 "use client";
-import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles } from "lucide-react";
+import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles, MapPin, Phone } from "lucide-react";
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
@@ -293,7 +293,7 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {rewards.slice(0, 2).map(r => {
+            {rewards.slice(0, 2).map((r, ri) => {
               // CP-27: representative progress in the preview — uses the
               // 50-point demo balance shown on the member card above so the
               // agency sees what the bar will look like.
@@ -301,8 +301,13 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
               const pct = r.point_cost > 0
                 ? Math.min(100, (demoPoints / r.point_cost) * 100)
                 : 100;
+              // CP-99 3b.1: Home mock mirrors the reward-panel preset too —
+              // first card previews the "ready" chrome, second the locked one.
+              const rcLocked = ri !== 0;
+              const rcCss = rewardCardChrome(b.reward_card_style, b.brand_colors.primary, b.brand_colors.secondary, rcLocked);
+              const rcDark = rewardCardMeta(b.reward_card_style).dark;
               return (
-                <div key={r.id} className="rounded-xl border bg-white overflow-hidden">
+                <div key={r.id} className="rounded-xl border bg-white overflow-hidden" style={rcCss}>
                   {r.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img src={r.image_url} alt={r.name} className="aspect-[4/3] w-full object-cover" />
@@ -313,12 +318,12 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
                     </div>
                   )}
                   <div className="p-2.5">
-                    <div className="text-[10px] font-bold" style={{ color: b.brand_colors.primary }}>
+                    <div className="text-[10px] font-bold" style={{ color: rcDark ? "#ffffff" : b.brand_colors.primary }}>
                       {r.point_cost} POINTS
                     </div>
-                    <div className="text-xs font-bold mt-0.5">{r.name}</div>
+                    <div className={`text-xs font-bold mt-0.5 ${rcDark ? "text-white" : ""}`}>{r.name}</div>
                     <div className="mt-1.5">
-                      <div className="h-1 rounded-full bg-zinc-100 overflow-hidden">
+                      <div className={`h-1 rounded-full overflow-hidden ${rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
                         <div
                           className="h-full rounded-full"
                           style={{
@@ -327,7 +332,7 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
                           }}
                         />
                       </div>
-                      <div className="text-[9px] font-bold mt-0.5 tabular-nums text-zinc-500">
+                      <div className={`text-[9px] font-bold mt-0.5 tabular-nums ${rcDark ? "text-white/60" : "text-zinc-500"}`}>
                         {demoPoints} / {r.point_cost}
                       </div>
                     </div>
@@ -425,6 +430,43 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* CP-99 3c.1: location band mock — mirrors the adjustable band color
+          behind the map card at the bottom of the real Home. */}
+      {b.widget_config.location && (
+        <div className="mt-5">
+          <div
+            className="h-6"
+            style={{ background: `linear-gradient(to bottom, transparent, ${(b.location_card_color ?? "").trim() || "#ffffff"}b3)` }}
+          />
+          <div
+            className="rounded-t-[2rem] px-4 pt-5 pb-5"
+            style={{ background: (b.location_card_color ?? "").trim() || "#ffffff" }}
+          >
+            <div className="rounded-2xl overflow-hidden border bg-white shadow-sm ring-1 ring-black/5">
+              <div className="h-20 flex items-center justify-center"
+                style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}22, ${b.brand_colors.secondary}22)` }}>
+                <MapPin className="h-6 w-6" style={{ color: b.brand_colors.primary }} />
+              </div>
+              <div className="p-3">
+                <div className="text-sm font-extrabold leading-tight" style={{ color: b.brand_colors.primary }}>
+                  {b.name}
+                </div>
+                <div className="mt-1 flex items-start gap-1.5 text-[11px] text-zinc-600">
+                  <MapPin className="h-3 w-3 mt-0.5 shrink-0 text-zinc-400" />
+                  <span>{(b.contact_info?.address ?? "").trim() || "123 Main St, Your City"}</span>
+                </div>
+              </div>
+              <div
+                className="flex items-center justify-center gap-1.5 m-3 mt-0 py-2.5 rounded-2xl text-white text-xs font-extrabold"
+                style={{ background: `linear-gradient(135deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})` }}
+              >
+                <Phone className="h-3 w-3" /> Call now
+              </div>
+            </div>
           </div>
         </div>
       )}

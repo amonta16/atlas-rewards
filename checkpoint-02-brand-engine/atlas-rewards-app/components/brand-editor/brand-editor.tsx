@@ -230,6 +230,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           offer_card_style: b.offer_card_style ?? null,
           /* CP-99: reward-store panel style. */
           reward_card_style: b.reward_card_style ?? null,
+          /* CP-99: location/map band color (Home bottom). */
+          location_card_color: b.location_card_color ?? null,
           /* CP-66: section layout presets. */
           rewards_layout: b.rewards_layout ?? null,
           offers_layout: b.offers_layout ?? null,
@@ -1114,6 +1116,25 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     placeholder="Opens at 9:00 AM"
                   />
                 </Field>
+                {/* CP-99 3c.1: the band behind the map card was fixed white —
+                    now adjustable per business. Blank = white (original look). */}
+                <div className="space-y-2 mt-4">
+                  <Label className="text-xs text-muted-foreground">Section background color</Label>
+                  <div className="flex gap-2 items-center">
+                    <input type="color" value={b.location_card_color ?? "#ffffff"}
+                      onChange={e => update("location_card_color", e.target.value)}
+                      className="h-10 w-12 rounded border cursor-pointer" />
+                    <Input value={b.location_card_color ?? ""} placeholder="#ffffff (default)"
+                      onChange={e => update("location_card_color", e.target.value || null)} />
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={() => update("location_card_color", null)}>
+                      Reset
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    The full-width band behind the map + Call-now card at the bottom of Home. The map card itself stays white so the address is always readable.
+                  </p>
+                </div>
               </Section>
 
               <Section title="Customer-app features" subtitle="Turn features on or off — the customer app re-shapes its tabs and Home layout to match.">

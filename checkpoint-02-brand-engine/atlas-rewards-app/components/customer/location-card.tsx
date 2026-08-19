@@ -19,6 +19,14 @@ export function LocationCard({ business }: { business: Business }) {
   const hours = (c.hours ?? "").trim();
   const mapUrl = (c.map_url ?? "").trim();
   const primary = business.brand_colors.primary;
+  // CP-99 3c.1: the band behind the map card is now brand-adjustable
+  // (businesses.location_card_color, picked in the brand editor). NULL =
+  // white = the exact look this section has always had. The inner card
+  // stays white so the address/hours text stays readable on any band color.
+  const band = (business.location_card_color ?? "").trim() || "#ffffff";
+  // 70%-alpha version for the fade — only append the alpha byte when the
+  // value is a 6-digit hex (the brand editor's color input always is).
+  const bandFade = /^#[0-9a-fA-F]{6}$/.test(band) ? `${band}b3` : band;
 
   // Nothing to show → render nothing (keeps Home tidy when not configured).
   if (!address && !phone && !mapUrl) return null;
@@ -42,13 +50,19 @@ export function LocationCard({ business }: { business: Business }) {
     // out, and the band opens with a large-radius curve + a whisper of an
     // upward shadow — smooth and intentional, still subtle.
     <div className="mt-6">
-      <div className="h-8 bg-gradient-to-b from-transparent to-white/70 pointer-events-none" />
       <div
-        className="bg-white rounded-t-[2.5rem] px-4 pt-6"
+        className="h-8 pointer-events-none"
+        // CP-99 3c.1: fade melts the page pattern into the band's color
+        // (was a fixed to-white/70 Tailwind gradient).
+        style={{ background: `linear-gradient(to bottom, transparent, ${bandFade})` }}
+      />
+      <div
+        className="rounded-t-[2.5rem] px-4 pt-6"
         // CP-69: was 7rem, which left a big empty white strip between the
         // Call-now button and the bottom nav. 5.5rem still runs the white
         // fully behind the nav (~3.75rem tall) with a tight, deliberate gap.
         style={{
+          background: band,
           paddingBottom: "5.5rem",
           marginBottom: "-5rem",
           boxShadow: "0 -10px 24px -20px rgba(0,0,0,0.25)",

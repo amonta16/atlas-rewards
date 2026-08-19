@@ -141,6 +141,9 @@ export type Business = {
   /** CP-99: reward-store panel preset. See lib/reward-card-styles.ts
    *  (classic/outline/glow/tint/midnight/luxe). NULL = classic. */
   reward_card_style?: string | null;
+  /** CP-99: background color of the location/map band at the bottom of
+   *  Home (hex). NULL = white (the original look). */
+  location_card_color?: string | null;
   /** CP-68: demo app — reward game replayable (no check-in/cooldown gates). */
   is_demo?: boolean | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.

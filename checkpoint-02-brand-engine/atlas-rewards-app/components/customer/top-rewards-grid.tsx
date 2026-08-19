@@ -18,6 +18,7 @@
 import { useState } from "react";
 import { Gift, Lock, X, Zap } from "lucide-react";
 import { ImageCarousel, rewardGallery } from "@/components/customer/image-carousel";
+import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 
 export type TopReward = {
   id: string; name: string; point_cost: number; image_url: string | null;
@@ -26,15 +27,21 @@ export type TopReward = {
 };
 
 export function TopRewardsGrid({
-  businessSlug, rewards, points, primary, secondary,
+  businessSlug, rewards, points, primary, secondary, cardStyle,
 }: {
   businessSlug: string;
   rewards: TopReward[];
   points: number;
   primary: string;
   secondary: string;
+  /** CP-99 3b.1: the business's reward-panel preset (businesses.reward_card_style)
+   *  so Home's "Top rewards" cards match the Rewards tab. NULL = classic = unchanged. */
+  cardStyle?: string | null;
 }) {
   const [detail, setDetail] = useState<TopReward | null>(null);
+  const rcMeta = rewardCardMeta(cardStyle);
+  const rcDark = rcMeta.dark;
+  const rcClassic = rcMeta.id === "classic";
 
   return (
     <>
@@ -66,12 +73,12 @@ export function TopRewardsGrid({
                 )}
               </div>
               <div className="p-2.5">
-                <div className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: primary }}>
+                <div className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: rcDark ? "#ffffff" : primary }}>
                   {unlocked
                     ? <Zap className="h-2.5 w-2.5" />
                     : <Lock className="h-2.5 w-2.5" />} {r.point_cost.toLocaleString()} POINTS
                 </div>
-                <div className="text-xs font-bold mt-0.5">{r.name}</div>
+                <div className={`text-xs font-bold mt-0.5 ${rcDark ? "text-white" : ""}`}>{r.name}</div>
                 <div className="mt-1.5">
                   {unlocked ? (
                     // CP-94: a real call-to-action instead of 9px whisper text.
@@ -86,7 +93,7 @@ export function TopRewardsGrid({
                     </span>
                   ) : (
                     <>
-                      <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                      <div className={`h-1.5 rounded-full overflow-hidden ${rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
                         <div
                           className="h-full rounded-full transition-all duration-700"
                           style={{
@@ -95,7 +102,7 @@ export function TopRewardsGrid({
                           }}
                         />
                       </div>
-                      <div className="text-[9px] font-bold mt-0.5 tabular-nums text-zinc-500">
+                      <div className={`text-[9px] font-bold mt-0.5 tabular-nums ${rcDark ? "text-white/60" : "text-zinc-500"}`}>
                         {`${points.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`}
                       </div>
                     </>
@@ -107,13 +114,22 @@ export function TopRewardsGrid({
 
           const cls = "rounded-xl border bg-white overflow-hidden block text-left w-full shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow";
 
+          /* CP-99 3b.1: shell chrome from the business preset. Classic keeps
+             the exact CP-94 look (borderColor + breathing claim pulse); the
+             other presets use their own ready treatment — the pulse keyframes
+             would clobber a preset's box-shadow ring (e.g. luxe's gold rim). */
+          const readyStyle: React.CSSProperties = rcClassic
+            ? { borderColor: `${primary}55`, animation: "atlasClaimPulse 2.2s ease-in-out infinite" }
+            : rewardCardChrome(cardStyle, primary, secondary, false);
+
           return unlocked ? (
             <a key={r.id} href={`/${businessSlug}/app/rewards?redeem=${r.id}`} className={cls}
-              style={{ borderColor: `${primary}55`, animation: "atlasClaimPulse 2.2s ease-in-out infinite" }}>
+              style={readyStyle}>
               {inner}
             </a>
           ) : (
-            <button key={r.id} onClick={() => setDetail(r)} className={cls}>
+            <button key={r.id} onClick={() => setDetail(r)} className={cls}
+              style={rewardCardChrome(cardStyle, primary, secondary, true)}>
               {inner}
             </button>
           );
