@@ -44,6 +44,9 @@ export type AdminRaffle = CustomerRaffle & {
   unique_participants: number;
   /** CP-85.1: featured raffles take over the sticky banner + Home featured card. */
   is_featured: boolean;
+  /** CP-99: set when the manager archives a finished raffle. Archiving is a
+   *  flag, never a status change — historical results stay immutable. */
+  archived_at: string | null;
 };
 
 /** Row shape from featured_raffle (sticky banner + Home featured card). */

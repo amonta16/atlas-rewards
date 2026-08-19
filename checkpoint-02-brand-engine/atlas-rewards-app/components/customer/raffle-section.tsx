@@ -83,6 +83,10 @@ export function RafflesSection({
   const [entryErr, setEntryErr] = useState<string | null>(null);
   const [justEntered, setJustEntered] = useState<string | null>(null);
   const [resultFor, setResultFor] = useState<CustomerRaffle | null>(null);
+  // CP-99: true only for the FIRST reveal (auto-open) — plays the drawing
+  // animation. Re-opening a finished raffle from its card skips straight
+  // to the result.
+  const [revealDraw, setRevealDraw] = useState(false);
   const autoOpened = useRef(false);
 
   const primary = business.brand_colors.primary;
@@ -167,6 +171,7 @@ export function RafflesSection({
     const fresh = rows.find(r => r.state === "winner_selected" && r.my_entry_count > 0 && !seen.has(r.id));
     if (fresh) {
       autoOpened.current = true;
+      setRevealDraw(true); // first look → play the drawing animation
       setResultFor(fresh);
       markSeen(business.id, fresh.id);
     }
@@ -259,7 +264,7 @@ export function RafflesSection({
             return (
               <div
                 key={r.id}
-                onClick={finished ? () => setResultFor(r) : undefined}
+                onClick={finished ? () => { setRevealDraw(false); setResultFor(r); } : undefined}
                 className={`relative rounded-2xl overflow-hidden transition-transform ${flash ? "scale-[1.015]" : ""} ${finished ? "cursor-pointer active:scale-[0.99]" : ""}`}
                 style={{
                   background: `linear-gradient(150deg, ${primary}0f 0%, #ffffff 38%, ${sec}14 100%)`,
@@ -512,6 +517,7 @@ export function RafflesSection({
         <RaffleResultOverlay
           raffle={resultFor}
           business={business}
+          reveal={revealDraw}
           onClose={() => setResultFor(null)}
         />
       )}
@@ -524,19 +530,45 @@ export function RafflesSection({
  * ──────────────────────────────────────────────────────────────────── */
 
 function RaffleResultOverlay({
-  raffle, business, onClose,
+  raffle, business, onClose, reveal = false,
 }: {
   raffle: CustomerRaffle;
   business: Business;
   onClose: () => void;
+  /** CP-99: play the drawing animation before showing the result. */
+  reveal?: boolean;
 }) {
   const primary = business.brand_colors.primary;
   const sec = business.brand_colors.secondary || primary;
   const won = raffle.i_won;
 
-  // Confetti ONLY on the winner screen (design requirement).
+  // ── CP-99: "drawing" stage — pure theater in front of a result the
+  // server already decided (finalize_raffle's CSPRNG draw). Ticket numbers
+  // cycle and decelerate for ~2.6s, then the real result screen shows.
+  // The animation NEVER influences the outcome.
+  const [drawing, setDrawing] = useState(reveal && raffle.total_entries > 0);
+  const [ticket, setTicket] = useState(1);
   useEffect(() => {
-    if (!won) return;
+    if (!drawing) return;
+    const total = Math.max(raffle.total_entries, 1);
+    let delay = 70;
+    let elapsed = 0;
+    let t: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      setTicket(1 + Math.floor(Math.random() * total));
+      elapsed += delay;
+      delay = Math.min(delay * 1.14, 420); // decelerate
+      if (elapsed < 2600) t = setTimeout(tick, delay);
+      else setDrawing(false);
+    };
+    t = setTimeout(tick, delay);
+    return () => clearTimeout(t);
+  }, [drawing, raffle.total_entries]);
+
+  // Confetti ONLY on the winner screen (design requirement) — and only
+  // once the drawing stage has finished.
+  useEffect(() => {
+    if (!won || drawing) return;
     const fire = (origin: { x: number; y: number }) => confetti({
       particleCount: 90,
       spread: 75,
@@ -547,7 +579,37 @@ function RaffleResultOverlay({
     const t1 = setTimeout(() => fire({ x: 0.5, y: 0.35 }), 180);
     const t2 = setTimeout(() => fire({ x: 0.75, y: 0.45 }), 360);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [won]);
+  }, [won, drawing]);
+
+  // ── CP-99: drawing screen (shown before either result) ──
+  if (drawing) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6"
+        style={{ background: `linear-gradient(160deg, ${primary} 0%, ${sec} 100%)` }}
+      >
+        <div className="flex flex-col items-center text-center w-full max-w-xs">
+          <Ticket className="h-9 w-9 text-white/85 animate-pulse" />
+          <div className="text-[11px] font-black uppercase tracking-widest text-white/75 mt-4">
+            {raffle.title}
+          </div>
+          <h2 className="text-white font-extrabold text-2xl mt-1">Drawing the winner…</h2>
+          <div className="mt-6 w-full rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 py-6">
+            <div className="text-[10px] font-black uppercase tracking-widest text-white/70">Ticket</div>
+            <div
+              className="text-white font-black tabular-nums mt-1"
+              style={{ fontSize: "clamp(40px, 14vw, 56px)", lineHeight: 1 }}
+            >
+              #{ticket}
+            </div>
+          </div>
+          <p className="text-white/70 text-xs font-semibold mt-4">
+            {raffle.total_entries.toLocaleString()} entr{raffle.total_entries === 1 ? "y" : "ies"} · winner already drawn fair &amp; square
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const claimBy =
     won && raffle.claim_deadline_days && raffle.drawn_at

@@ -17,8 +17,8 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle, Ban, CheckCircle2, Clock, Crown, Edit2, RefreshCw,
-  Save, Search, Star, Ticket, Trophy, Users, X,
+  AlertCircle, Archive, ArchiveRestore, Ban, CheckCircle2, Clock, Copy,
+  Crown, Edit2, RefreshCw, Save, Search, Star, Ticket, Trophy, Users, X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -378,12 +378,32 @@ export function RaffleList({
   const [rows, setRows] = useState<AdminRaffle[]>([]);
   const [editing, setEditing] = useState<AdminRaffle | null>(null);
   const [managing, setManaging] = useState<AdminRaffle | null>(null);
+  // CP-99: lifecycle controls. "current" hides archived raffles; the
+  // Archived view lets managers review/restore them.
+  const [view, setView] = useState<"current" | "archived">("current");
+  const [lifecycleBusy, setLifecycleBusy] = useState<string | null>(null);
 
   async function load() {
     const supabase = createClient();
     const { data, error } = await supabase.rpc("list_raffles_for_business", { p_business_id: business.id });
     if (error) { console.error("raffles load:", error.message); return; }
     setRows((data ?? []) as AdminRaffle[]);
+  }
+
+  // CP-99: archive / restore / duplicate. Archive is only offered for
+  // finished raffles (the RPC also enforces it server-side); nothing here
+  // touches draw results — archiving is a visibility flag.
+  async function lifecycle(action: "archive" | "unarchive" | "duplicate", r: AdminRaffle) {
+    if (lifecycleBusy) return;
+    setLifecycleBusy(`${action}:${r.id}`);
+    const supabase = createClient();
+    const { error } = await supabase.rpc(`${action}_raffle`, {
+      p_raffle_id: r.id, p_business_id: business.id,
+    });
+    setLifecycleBusy(null);
+    if (error) { alert(`Could not ${action} raffle: ${error.message}`); return; }
+    await load();
+    onChanged?.();
   }
 
   useEffect(() => {
@@ -396,14 +416,32 @@ export function RaffleList({
 
   if (rows.length === 0) return null;
 
+  // CP-99: split by archive flag; the list shows one view at a time.
+  const archivedRows = rows.filter(r => r.archived_at);
+  const currentRows  = rows.filter(r => !r.archived_at);
+  const shownRows    = view === "archived" ? archivedRows : currentRows;
+
   return (
     <>
       <div className="mt-4">
         <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
           <Ticket className="h-3 w-3" /> Raffle giveaways
+          {archivedRows.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setView(view === "archived" ? "current" : "archived")}
+              className="ml-auto normal-case tracking-normal text-[11px] font-semibold text-violet-700 hover:text-violet-900 flex items-center gap-1"
+            >
+              <Archive className="h-3 w-3" />
+              {view === "archived" ? "Back to raffles" : `Archived (${archivedRows.length})`}
+            </button>
+          )}
         </div>
+        {view === "archived" && shownRows.length === 0 && (
+          <p className="text-[11px] text-muted-foreground">No archived raffles.</p>
+        )}
         <div className="space-y-2">
-          {rows.map(r => {
+          {shownRows.map(r => {
             const meta = RAFFLE_STATE_META[r.state] ?? RAFFLE_STATE_META.ended;
             return (
               <div key={r.id} className="rounded-xl border p-3"
@@ -452,6 +490,27 @@ export function RaffleList({
                     <Button size="sm" variant="outline" onClick={() => setManaging(r)}>
                       <Users className="h-3 w-3 mr-1" /> Entries
                     </Button>
+                    {/* CP-99 lifecycle: duplicate any raffle; archive finished
+                        ones; restore from the Archived view. Draw results are
+                        never touched by any of these. */}
+                    <Button size="sm" variant="outline" title="Duplicate — copies this setup into a new raffle starting tomorrow"
+                      disabled={lifecycleBusy === `duplicate:${r.id}`}
+                      onClick={() => lifecycle("duplicate", r)}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    {r.archived_at ? (
+                      <Button size="sm" variant="outline" title="Restore from archive"
+                        disabled={lifecycleBusy === `unarchive:${r.id}`}
+                        onClick={() => lifecycle("unarchive", r)}>
+                        <ArchiveRestore className="h-3 w-3" />
+                      </Button>
+                    ) : (r.state !== "scheduled" && r.state !== "open") ? (
+                      <Button size="sm" variant="outline" title="Archive — hides it here and removes it from the customer app; results are kept"
+                        disabled={lifecycleBusy === `archive:${r.id}`}
+                        onClick={() => lifecycle("archive", r)}>
+                        <Archive className="h-3 w-3" />
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </div>
