@@ -27,7 +27,6 @@ import { jitteredPollMs } from "@/lib/realtime-jitter";
 import { readableTextColor } from "@/lib/patterns";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import { DailyMysteryModal } from "./daily-mystery-modal";
-import { StreakWidget } from "./streak-widget";
 import type { Business, Membership } from "@/lib/types/database";
 
 type StreakSnap = {
@@ -76,10 +75,8 @@ export function HeaderActions({
     ? Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
     : null;
   const [mysteryOpen, setMysteryOpen] = useState(false);
-  // CP-24: open the streak widget MODAL directly when the flame icon is
-  // tapped instead of navigating to /app/rewards (which Andrew reported as
-  // "doesn't display the widget").
-  const [streakOpen, setStreakOpen] = useState(false);
+  // CP-24 opened a modal here; CP-99 Phase 4 (#9) navigates to the
+  // /app/streaks roadmap page instead (see handleStreakClick).
   // CP-25: a direct read of the business's streak_config row. This is the
   // single source of truth for "does the agency want streaks?". We use it
   // to render the flame icon even before the member has a member_streaks
@@ -268,8 +265,10 @@ export function HeaderActions({
     // CP-65.1: opening the panel counts as "seen" — the red "!" clears.
     try { window.localStorage.setItem(streakSeenKey, "1"); } catch { /* ignore */ }
     setStreakNudgeSeen(true);
-    // CP-24: open the streak widget modal in place — no more navigating away.
-    setStreakOpen(true);
+    // CP-99 Phase 4 (#9): the flame chip now opens the full-page streak
+    // ROADMAP (/app/streaks) instead of the old modal — the page shows
+    // everything the modal did, plus the battle-pass path.
+    router.push(`/${business.slug}/app/streaks`);
   }
 
   function handleSpinClick() {
@@ -433,14 +432,8 @@ export function HeaderActions({
         />
       )}
 
-      {/* CP-24: Compact orange streak widget — opens from the flame icon. */}
-      {streakOpen && membershipId && (
-        <StreakWidget
-          business={business}
-          membershipId={membershipId}
-          onClose={() => setStreakOpen(false)}
-        />
-      )}
+      {/* CP-99 Phase 4 (#9): the flame chip navigates to /app/streaks now —
+          the modal StreakWidget no longer mounts from the header. */}
     </>
   );
 }

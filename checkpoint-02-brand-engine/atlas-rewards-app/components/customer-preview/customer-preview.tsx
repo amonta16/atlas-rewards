@@ -1,5 +1,5 @@
 "use client";
-import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles, MapPin, Phone } from "lucide-react";
+import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles, MapPin, Phone, Trophy, Check, CalendarDays } from "lucide-react";
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
@@ -16,7 +16,7 @@ import { designVars } from "@/lib/design-styles";
 // CP-73: points-card presets mirrored in the mock.
 import { pointsCardStyle } from "@/lib/points-card-styles";
 
-export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "profile";
+export type PreviewTab = "home" | "shop" | "book" | "scan" | "rewards" | "streaks" | "profile";
 
 export type PreviewOffer = { title: string; description?: string | null; image_url?: string | null; days_left?: number };
 export type PreviewReward = { id: string; name: string; point_cost: number; image_url?: string | null };
@@ -151,6 +151,7 @@ export function CustomerPreview({
       {activeTab === "book"    && <BookBody business={b} tags={bookingTags} />}
       {activeTab === "scan"    && <ScanBody business={b} />}
       {activeTab === "rewards" && <RewardsBody business={b} rewards={rewards} membershipImageUrl={membershipImageUrl} />}
+      {activeTab === "streaks" && <StreaksBody business={b} rewards={rewards} />}
       {activeTab === "profile" && <ProfileBody business={b} />}
 
       <div className="flex-1 min-h-[20px]" />
@@ -164,6 +165,10 @@ export function CustomerPreview({
           // Shop + Book tabs removed — Atlas is loyalty-only.
           tabs.push({ id: "scan",    label: "Scan",    icon: <ScanLine className="h-5 w-5" /> });
           tabs.push({ id: "rewards", label: "Rewards", icon: <Gift     className="h-5 w-5" /> });
+          // CP-99 Phase 4: streak roadmap page preview. (In the live app it's
+          // reached from the flame chip + Home streak card; Phase 5 gives it
+          // the real nav slot.)
+          tabs.push({ id: "streaks", label: "Streaks", icon: <Flame className="h-5 w-5" /> });
           if (tabs.length < 5) tabs.push({ id: "profile", label: "Profile", icon: <User className="h-5 w-5" /> });
           return tabs.map(t => (
             <TabItem
@@ -822,6 +827,149 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
 }
 
 /* ===================== PROFILE ===================== */
+/* ===================== STREAKS (CP-99 Phase 4) ===================== */
+/** Mock of the /app/streaks roadmap page: sticky-style hero (count,
+ *  personal best, live-countdown chip, next-reward bar) + a short
+ *  vertical battle-pass path. Mirrors the streak theme + first two
+ *  preview rewards so agencies see their own colors/photos. */
+function StreaksBody({ business: b, rewards = [] }: { business: Business; rewards?: PreviewReward[] }) {
+  const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
+  const primary = b.brand_colors.primary;
+  const current = 5; // demo position on the path
+  const NODES = 7;
+  const m1 = rewards[0] ?? null; // day-3 reward (earned)
+  const m2 = rewards[1] ?? rewards[0] ?? null; // day-7 reward (coming up)
+
+  const milestoneAt = (n: number) => (n === 3 ? m1 : n === 7 ? m2 : null);
+
+  return (
+    <div className="px-3 pt-3 pb-4">
+      {/* HERO */}
+      <div className="rounded-3xl px-4 pt-3.5 pb-4 text-white shadow-xl ring-1 ring-black/10 relative overflow-hidden"
+        style={{ background: streakGradient(theme, 160) }}>
+        <Flame className="absolute -top-5 -right-5 h-20 w-20 text-white/10 rotate-12 pointer-events-none" />
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/40 shrink-0">
+            <Flame className="h-7 w-7 drop-shadow-lg" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-end gap-2">
+              <span className="text-4xl font-black leading-none tabular-nums drop-shadow">{current}</span>
+              <span className="text-[10px] uppercase tracking-[0.18em] font-extrabold opacity-90 mb-0.5">day streak</span>
+            </div>
+            <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold">
+              <Trophy className="h-3.5 w-3.5 text-amber-200" />
+              <span className="text-amber-100">Personal best — keep it going!</span>
+            </div>
+          </div>
+          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full bg-white text-zinc-900">
+            <CalendarDays className="h-3 w-3" /> 5h 12m left
+          </span>
+        </div>
+        <div className="mt-2 text-[11px] font-bold text-white/95">
+          Keep your streak alive — check in within <span className="tabular-nums">5h 12m</span>.
+        </div>
+        <div className="mt-3">
+          <div className="flex items-baseline justify-between text-[11px] mb-1 opacity-95">
+            <span className="font-bold truncate mr-2">Next: {m2?.name ?? "Free reward"}</span>
+            <span className="tabular-nums font-extrabold shrink-0">{current} / 7</span>
+          </div>
+          <div className="h-2.5 rounded-full bg-white/20 overflow-hidden ring-1 ring-white/30">
+            <div className="h-full rounded-full bg-white" style={{ width: `${(current / 7) * 100}%`, boxShadow: "0 0 10px rgba(255,255,255,0.7)" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* PATH */}
+      <div className="flex items-center justify-between mt-4 mb-2">
+        <h2 className="text-sm font-bold">Your reward road</h2>
+        <span className="text-[9px] font-extrabold text-white px-2 py-0.5 rounded-full" style={{ background: streakGradient(theme) }}>
+          Check in every day to climb
+        </span>
+      </div>
+      {Array.from({ length: NODES }, (_, i) => i + 1).map(n => {
+        const m = milestoneAt(n);
+        const filled = n <= current;
+        const isNext = n === current + 1;
+        const claimed = !!m && n < current;
+        return (
+          <div key={n}>
+            {n > 1 && (
+              <div className="flex justify-center" style={{ width: "3rem" }}>
+                <div className="w-1 rounded-full" style={{ height: "0.8rem", background: filled ? `linear-gradient(180deg, ${theme.from}, ${theme.to})` : "rgba(0,0,0,0.08)" }} />
+              </div>
+            )}
+            <div className="flex items-center gap-2.5">
+              <div className="shrink-0 flex justify-center" style={{ width: "3rem" }}>
+                {m ? (
+                  <div className="relative">
+                    <div className="relative h-11 w-11 rounded-xl overflow-hidden flex items-center justify-center bg-white"
+                      style={{ boxShadow: filled ? "0 0 0 2px #fff, 0 6px 14px -5px rgba(245,158,11,0.9)" : "0 0 0 2px rgba(245,158,11,0.85)" }}>
+                      {m.image_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={m.image_url} alt={m.name} className="absolute inset-0 h-full w-full object-cover" style={{ opacity: filled ? 1 : 0.65 }} />
+                      ) : (
+                        <Gift className="h-5 w-5" style={{ color: theme.to }} />
+                      )}
+                      {claimed && (
+                        <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-emerald-400 ring-2 ring-white flex items-center justify-center">
+                          <Check className="h-2.5 w-2.5 text-white" />
+                        </span>
+                      )}
+                    </div>
+                    {!claimed && (
+                      <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 z-10 text-[6px] font-black tracking-wider px-1 py-px rounded-full bg-gradient-to-r from-amber-300 to-yellow-400 text-amber-900 ring-1 ring-white shadow whitespace-nowrap">
+                        ★ REWARD
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center ${isNext ? "animate-pulse" : ""}`}
+                    style={{
+                      background: filled ? `linear-gradient(135deg, ${theme.cell[0]} 0%, ${theme.cell[1]} 60%, ${theme.cell[2]} 100%)` : "#ffffff",
+                      boxShadow: filled ? `0 3px 9px -3px ${theme.glow}` : isNext ? `inset 0 0 0 1.5px rgba(0,0,0,0.12), 0 0 0 3px ${primary}40` : "inset 0 0 0 1.5px rgba(0,0,0,0.12)",
+                    }}>
+                    {filled ? <Flame className="h-3.5 w-3.5 text-white drop-shadow" /> : isNext ? <Flame className="h-3.5 w-3.5 text-zinc-300" /> : <Lock className="h-3 w-3 text-zinc-300" />}
+                  </div>
+                )}
+              </div>
+              {m ? (
+                <div className="flex-1 rounded-xl border bg-white shadow-sm overflow-hidden my-0.5"
+                  style={filled && !claimed ? { borderColor: `${primary}55`, boxShadow: `0 0 0 2px ${primary}40` } : undefined}>
+                  {m.image_url && (
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.image_url} alt={m.name} className="h-10 w-full object-cover" style={{ opacity: filled ? 1 : 0.8 }} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      <div className="absolute bottom-0.5 left-2 right-2 text-white text-[10px] font-black leading-tight truncate drop-shadow">{m.name}</div>
+                    </div>
+                  )}
+                  <div className="px-2 py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[8px] font-black tracking-wider uppercase" style={{ color: primary }}>★ Day {n} reward</span>
+                    {claimed ? (
+                      <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><Trophy className="h-2.5 w-2.5" /> Claimed</span>
+                    ) : filled ? (
+                      <span className="text-[8px] font-extrabold px-1.5 py-0.5 rounded-full text-white" style={{ background: `linear-gradient(90deg, ${primary}, ${b.brand_colors.secondary})` }}>Ready to claim</span>
+                    ) : (
+                      <span className="text-[8px] font-bold text-zinc-400">{n - current} more check-ins</span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className={`flex-1 py-1 text-[10px] font-bold ${filled ? "text-zinc-700" : isNext ? "text-zinc-800" : "text-zinc-400"}`}>
+                  Day {n}
+                  {filled && <Check className="inline-block h-3 w-3 ml-1 -mt-0.5 text-emerald-500" />}
+                  {isNext && <span className="ml-1 text-[8px] font-extrabold" style={{ color: primary }}>← you are here</span>}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProfileBody({ business: b }: { business: Business }) {
   return (
     <>

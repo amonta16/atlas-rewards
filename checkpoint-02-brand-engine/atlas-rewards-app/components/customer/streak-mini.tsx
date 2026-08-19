@@ -8,7 +8,8 @@
  * whatever the streak period is), filled in white for every period the
  * member has completed. The next cube pulses so you can see exactly where
  * you are; milestone cubes wear a tiny gift so the reward is visible in
- * the tray itself. Tapping still opens the full StreakWidget panel.
+ * the tray itself. CP-99 Phase 4 (#9): tapping now navigates to the
+ * full-page streak ROADMAP (/app/streaks) instead of the old modal.
  *
  * The tray shows the current 7-period window (1–7, then 8–14, …) so long
  * streaks never squish the cubes.
@@ -16,7 +17,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Flame, Gift, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { StreakWidget } from "./streak-widget";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
@@ -42,7 +42,6 @@ export function StreakMini({
   compact?: boolean;
 }) {
   const [s, setS] = useState<StreakStatus | null>(null);
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!membershipId) return;
@@ -127,8 +126,8 @@ export function StreakMini({
   if (compact) {
     return (
       <>
-        <button
-          onClick={() => setOpen(true)}
+        <a
+          href={`/${business.slug}/app/streaks`}
           className="w-full h-full min-h-[172px] rounded-3xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-lg ring-1 ring-black/10 p-4 flex flex-col"
           style={{ background: streakBg }}
         >
@@ -156,10 +155,7 @@ export function StreakMini({
           <div className="mt-auto pt-3 flex gap-1.5">
             {cells.map(cube)}
           </div>
-        </button>
-        {open && (
-          <StreakWidget business={business} membershipId={membershipId} onClose={() => setOpen(false)} />
-        )}
+        </a>
       </>
     );
   }
@@ -167,9 +163,9 @@ export function StreakMini({
   return (
     <>
       <div className="px-4 mt-4">
-        <button
-          onClick={() => setOpen(true)}
-          className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform shadow-sm p-3.5"
+        <a
+          href={`/${business.slug}/app/streaks`}
+          className="block w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform shadow-sm p-3.5"
           style={{ background: streakBg }}
         >
           <div className="flex items-center justify-between text-white">
@@ -192,16 +188,8 @@ export function StreakMini({
           <div className="mt-3 flex gap-1.5">
             {cells.map(cube)}
           </div>
-        </button>
+        </a>
       </div>
-
-      {open && (
-        <StreakWidget
-          business={business}
-          membershipId={membershipId}
-          onClose={() => setOpen(false)}
-        />
-      )}
     </>
   );
 }

@@ -195,15 +195,19 @@ export function StreaksClient({
           style={{ background: streakGradient(theme, 160) }}
         >
           <Flame className="absolute -top-5 -right-5 h-24 w-24 text-white/10 rotate-12 pointer-events-none" />
+          <Flame className="absolute -bottom-6 -left-4 h-16 w-16 text-white/10 -rotate-12 pointer-events-none" />
+          {/* soft top highlight — gives the gradient a glossy feel */}
+          <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)" }} />
 
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/40 shrink-0">
-              <Flame className="h-7 w-7 drop-shadow-lg" />
+            <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/40 shrink-0">
+              <Flame className="h-8 w-8 drop-shadow-lg" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-end gap-2">
-                <span className="text-4xl font-black leading-none tabular-nums drop-shadow">{current}</span>
-                <span className="text-[11px] uppercase tracking-[0.18em] font-extrabold opacity-90 mb-0.5">
+                <span className="text-5xl font-black leading-none tabular-nums drop-shadow">{current}</span>
+                <span className="text-[11px] uppercase tracking-[0.18em] font-extrabold opacity-90 mb-1">
                   {periodWord} streak
                 </span>
               </div>
@@ -274,7 +278,17 @@ export function StreaksClient({
       </div>
 
       {/* ============ VERTICAL ROADMAP ============ */}
-      <div className="px-4 mt-3">
+      <div className="px-4 mt-4">
+        {/* Section title — plain words, readable by anyone. */}
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-bold" style={{ color: "var(--surf-fg, #18181b)" }}>
+            Your reward road
+          </h2>
+          <span className="text-[10px] font-extrabold text-white px-2.5 py-1 rounded-full"
+            style={{ background: streakGradient(theme) }}>
+            Check in every {periodWord} to climb
+          </span>
+        </div>
         <div className="relative">
           {nodes.map(n => {
             const m = milestoneByCount.get(n) ?? null;
@@ -308,28 +322,38 @@ export function StreaksClient({
                   {/* Node on the spine */}
                   <div className="shrink-0 flex justify-center" style={{ width: "3.5rem" }}>
                     {m ? (
-                      // MILESTONE node — white cell + gold rim (CP-69 language).
-                      <div
-                        className={`relative h-14 w-14 rounded-2xl overflow-hidden flex items-center justify-center ${locked ? "saturate-50 opacity-80" : ""}`}
-                        style={{
-                          background: "#ffffff",
-                          boxShadow: filled || claimed
-                            ? "0 0 0 2.5px #fff, 0 8px 20px -6px rgba(245,158,11,0.9)"
-                            : "0 0 0 2px rgba(245,158,11,0.85), 0 4px 12px -6px rgba(0,0,0,0.25)",
-                        }}
-                      >
-                        {rewardGift && m.reward_image_url ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={m.reward_image_url} alt={m.reward_name ?? m.label} className="absolute inset-0 h-full w-full object-cover" style={{ opacity: filled ? 1 : 0.65 }} />
-                        ) : pointsGift && business.logo_url ? (
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={business.logo_url} alt="" className="h-9 w-9 object-contain" />
-                        ) : (
-                          <Gift className="h-6 w-6" style={{ color: theme.to }} />
-                        )}
-                        {claimed && (
-                          <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-emerald-400 ring-2 ring-white flex items-center justify-center">
-                            <Check className="h-3 w-3 text-white" />
+                      // MILESTONE node — white cell + gold rim (CP-69 language),
+                      // with the shimmer halo + ★ REWARD tag from the widget.
+                      <div className="relative">
+                        <div className="absolute -inset-1.5 rounded-3xl pointer-events-none animate-pulse"
+                          style={{ background: "radial-gradient(circle, rgba(255,215,0,0.35) 0%, transparent 70%)" }} />
+                        <div
+                          className={`relative h-14 w-14 rounded-2xl overflow-hidden flex items-center justify-center ${locked ? "saturate-50 opacity-80" : ""}`}
+                          style={{
+                            background: "#ffffff",
+                            boxShadow: filled || claimed
+                              ? "0 0 0 2.5px #fff, 0 8px 20px -6px rgba(245,158,11,0.9)"
+                              : "0 0 0 2px rgba(245,158,11,0.85), 0 4px 12px -6px rgba(0,0,0,0.25)",
+                          }}
+                        >
+                          {rewardGift && m.reward_image_url ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={m.reward_image_url} alt={m.reward_name ?? m.label} className="absolute inset-0 h-full w-full object-cover" style={{ opacity: filled ? 1 : 0.65 }} />
+                          ) : pointsGift && business.logo_url ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={business.logo_url} alt="" className="h-9 w-9 object-contain" />
+                          ) : (
+                            <Gift className="h-6 w-6" style={{ color: theme.to }} />
+                          )}
+                          {claimed && (
+                            <span className="absolute -top-0.5 -right-0.5 h-5 w-5 rounded-full bg-emerald-400 ring-2 ring-white flex items-center justify-center">
+                              <Check className="h-3 w-3 text-white" />
+                            </span>
+                          )}
+                        </div>
+                        {!claimed && (
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 text-[8px] font-black tracking-wider px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-400 text-amber-900 ring-1 ring-white shadow-md whitespace-nowrap">
+                            ★ REWARD
                           </span>
                         )}
                       </div>
@@ -363,35 +387,63 @@ export function StreaksClient({
                   {/* Row content */}
                   {m ? (
                     <div
-                      className={`flex-1 rounded-2xl border bg-white shadow-sm ring-1 ring-black/5 p-3 my-1 ${locked ? "opacity-80" : ""}`}
-                      style={filled || claimed ? { borderColor: `${primary}45` } : undefined}
+                      className={`flex-1 rounded-2xl border bg-white shadow-sm ring-1 ring-black/5 overflow-hidden my-1 ${locked ? "opacity-80" : ""}`}
+                      style={
+                        !claimed && filled
+                          // Ready-to-claim: the card glows in the brand color.
+                          ? { borderColor: `${primary}55`, boxShadow: `0 0 0 2px ${primary}40, 0 12px 26px -12px ${primary}88` }
+                          : filled || claimed
+                            ? { borderColor: `${primary}45` }
+                            : undefined
+                      }
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-[9px] font-black tracking-wider uppercase" style={{ color: primary }}>
-                            ★ {periodWord} {m.count} reward
-                          </div>
-                          <div className="text-sm font-bold text-zinc-900 leading-tight truncate mt-0.5">
-                            {rewardGift
-                              ? (m.reward_name ?? m.label)
-                              : `${(m.points ?? 0).toLocaleString()} bonus points`}
+                      {/* Big photo banner — the reward should look worth chasing. */}
+                      {rewardGift && m.reward_image_url && (
+                        <div className="relative">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={m.reward_image_url}
+                            alt={m.reward_name ?? m.label}
+                            className="h-16 w-full object-cover"
+                            style={{ opacity: filled ? 1 : 0.8 }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent pointer-events-none" />
+                          <div className="absolute bottom-1 left-2.5 right-2.5 text-white text-sm font-black leading-tight truncate drop-shadow">
+                            {m.reward_name ?? m.label}
                           </div>
                         </div>
-                        <div className="shrink-0">
-                          {claimed ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
-                              <Trophy className="h-3 w-3" /> Claimed
-                            </span>
-                          ) : filled ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full text-white"
-                              style={{ background: `linear-gradient(90deg, ${primary}, ${business.brand_colors.secondary})` }}>
-                              Ready
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">
-                              {m.count - current} to go
-                            </span>
-                          )}
+                      )}
+                      <div className="p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-[9px] font-black tracking-wider uppercase" style={{ color: primary }}>
+                              ★ {periodWord} {m.count} reward
+                            </div>
+                            {/* Name lives on the banner when there's a photo. */}
+                            {!(rewardGift && m.reward_image_url) && (
+                              <div className="text-sm font-bold text-zinc-900 leading-tight truncate mt-0.5">
+                                {rewardGift
+                                  ? (m.reward_name ?? m.label)
+                                  : `${(m.points ?? 0).toLocaleString()} bonus points`}
+                              </div>
+                            )}
+                          </div>
+                          <div className="shrink-0">
+                            {claimed ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+                                <Trophy className="h-3 w-3" /> Claimed
+                              </span>
+                            ) : filled ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-1 rounded-full text-white animate-pulse"
+                                style={{ background: `linear-gradient(90deg, ${primary}, ${business.brand_colors.secondary})` }}>
+                                Ready to claim
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-zinc-400 whitespace-nowrap">
+                                {m.count - current} more check-in{m.count - current === 1 ? "" : "s"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -408,16 +460,28 @@ export function StreaksClient({
           })}
 
           {/* Footer past the last node */}
-          <div className="flex items-center gap-3 mt-2">
-            <div className="shrink-0 flex justify-center" style={{ width: "3.5rem" }}>
-              <ChevronRight className="h-4 w-4 text-zinc-300 rotate-90" />
+          {current >= lastMilestoneCount && lastMilestoneCount > 0 ? (
+            <div className="flex items-center gap-3 mt-3">
+              <div className="shrink-0 flex justify-center" style={{ width: "3.5rem" }}>
+                <div className="h-11 w-11 rounded-full flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 6px 16px -6px rgba(245,158,11,0.8)" }}>
+                  <Trophy className="h-5 w-5 text-white drop-shadow" />
+                </div>
+              </div>
+              <div className="text-xs font-extrabold py-1" style={{ color: "var(--surf-fg, #18181b)" }}>
+                You reached every reward on the road — amazing! Keep the flame alive.
+              </div>
             </div>
-            <div className="text-[11px] font-bold text-zinc-400 py-1">
-              {current > lastMilestoneCount && lastMilestoneCount > 0
-                ? "You've earned every streak reward — keep the flame alive!"
-                : "Keep checking in to climb the path."}
+          ) : (
+            <div className="flex items-center gap-3 mt-2">
+              <div className="shrink-0 flex justify-center" style={{ width: "3.5rem" }}>
+                <ChevronRight className="h-4 w-4 text-zinc-300 rotate-90" />
+              </div>
+              <div className="text-[11px] font-bold text-zinc-400 py-1">
+                Keep checking in to climb the road.
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
