@@ -29,7 +29,11 @@ import type { Business, Membership } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
-type TopReward = { id: string; name: string; point_cost: number; image_url: string | null };
+type TopReward = {
+  id: string; name: string; point_cost: number; image_url: string | null;
+  // CP-99: additional gallery photos returned by top_rewards_public.
+  images?: string[] | null;
+};
 
 type NewsRow = {
   id: string; title: string; body: string | null;

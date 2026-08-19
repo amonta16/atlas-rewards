@@ -18,6 +18,9 @@ type Reward = {
   // CP-87: false = "prize only" — usable as a wheel prize / streak gift /
   // offer gift, but never listed in the customer reward store.
   show_in_store?: boolean | null;
+  // CP-99: ADDITIONAL gallery photos (cover = image_url stays separate).
+  // Customers swipe through [image_url, ...images] in reward detail views.
+  images?: string[] | null;
 };
 
 // CP-42: starter category suggestions surfaced as quick-pick chips when
@@ -82,6 +85,7 @@ export function RewardsManager({ business }: { business: Business }) {
       p_sort_order: editing.sort_order ?? 0,
       p_category: (editing.category ?? "").trim() || null,  // CP-42
       p_show_in_store: editing.show_in_store ?? true,       // CP-87
+      p_images: (editing.images ?? []).length > 0 ? editing.images : null,  // CP-99
     });
     if (error) { alert("Save failed: " + error.message); return; }
     setEditing(null);
@@ -190,6 +194,51 @@ export function RewardsManager({ business }: { business: Business }) {
                   aspectClass="aspect-[4/3]"
                   library={{ category: "reward", industry: business.industry }}
                 />
+              </div>
+
+              {/* CP-99: extra gallery photos. The image above stays the COVER
+                  (cards, wheel wedges, front desk all keep using it) — these
+                  extras join it in a swipe carousel on the customer's reward
+                  detail view. */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  More photos (optional) — front, back, lifestyle…
+                </Label>
+                {(editing.images ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {(editing.images ?? []).map((url, i) => (
+                      <div key={`${url}-${i}`} className="relative h-16 w-16 rounded-lg overflow-hidden border">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt="" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          title="Remove photo"
+                          onClick={() => setEditing({
+                            ...editing,
+                            images: (editing.images ?? []).filter((_, j) => j !== i),
+                          })}
+                          className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-black/60 text-white flex items-center justify-center"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <ImageUploader
+                  bucket="reward-images"
+                  pathPrefix={business.id}
+                  value={null}
+                  onChange={(url) => {
+                    if (url) setEditing({ ...editing, images: [...(editing.images ?? []), url] });
+                  }}
+                  label="Add photo"
+                  aspectClass="aspect-video"
+                  library={{ category: "reward", industry: business.industry }}
+                />
+                <p className="text-[10px] text-zinc-500">
+                  Customers swipe through the main image plus these on the reward page.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Name</Label>

@@ -4,11 +4,14 @@ import { X, Gift, Check, Copy } from "lucide-react";
 import QRCode from "react-qr-code";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { ImageCarousel, rewardGallery } from "@/components/customer/image-carousel";
 import type { Business } from "@/lib/types/database";
 
 type Reward = {
   id: string; name: string; description: string | null;
   reward_type: string; point_cost: number; image_url: string | null;
+  // CP-99: additional gallery photos (cover = image_url).
+  images?: string[] | null;
 };
 
 type Stage = "confirm" | "loading" | "success" | null;
@@ -63,11 +66,12 @@ export function RedeemFlow({
                   even when the reward had a great product photo). */}
               {reward.image_url ? (
                 <div className="h-40 rounded-2xl overflow-hidden ring-1 ring-black/5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={reward.image_url}
+                  {/* CP-99: swipe carousel when the reward has extra photos;
+                      renders the identical single <img> otherwise. */}
+                  <ImageCarousel
+                    images={rewardGallery(reward.image_url, reward.images)}
                     alt={reward.name}
-                    className="h-full w-full object-cover"
+                    imgClassName="h-40 w-full object-cover"
                   />
                 </div>
               ) : (

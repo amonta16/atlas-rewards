@@ -17,8 +17,13 @@
  */
 import { useState } from "react";
 import { Gift, Lock, X, Zap } from "lucide-react";
+import { ImageCarousel, rewardGallery } from "@/components/customer/image-carousel";
 
-export type TopReward = { id: string; name: string; point_cost: number; image_url: string | null };
+export type TopReward = {
+  id: string; name: string; point_cost: number; image_url: string | null;
+  /** CP-99: additional gallery photos (cover = image_url). */
+  images?: string[] | null;
+};
 
 export function TopRewardsGrid({
   businessSlug, rewards, points, primary, secondary,
@@ -156,8 +161,13 @@ function LockedRewardModal({
       <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="relative">
           {reward.image_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={reward.image_url} alt={reward.name} className="h-44 w-full object-cover" />
+            /* CP-99: swipe carousel when extra photos exist; identical
+               single <img> otherwise. */
+            <ImageCarousel
+              images={rewardGallery(reward.image_url, reward.images)}
+              alt={reward.name}
+              imgClassName="h-44 w-full object-cover"
+            />
           ) : (
             <div className="h-44 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>
               <Gift className="h-14 w-14 text-white/80" />
