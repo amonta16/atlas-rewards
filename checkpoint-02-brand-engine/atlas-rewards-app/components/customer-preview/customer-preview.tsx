@@ -438,13 +438,13 @@ function HomeBody({ business: b, liveOffer, rewards, greeting, news = [] }: {
           behind the map card at the bottom of the real Home. */}
       {b.widget_config.location && (
         <div className="mt-5">
-          <div
-            className="h-6"
-            style={{ background: `linear-gradient(to bottom, transparent, ${(b.location_card_color ?? "").trim() || "#ffffff"}b3)` }}
-          />
+          {/* 3c.2: no fade strip (matches the live card) — curved sheet + shadow only. */}
           <div
             className="rounded-t-[2rem] px-4 pt-5 pb-5"
-            style={{ background: (b.location_card_color ?? "").trim() || "#ffffff" }}
+            style={{
+              background: (b.location_card_color ?? "").trim() || "#ffffff",
+              boxShadow: "0 -12px 28px -18px rgba(0,0,0,0.3)",
+            }}
           >
             <div className="rounded-2xl overflow-hidden border bg-white shadow-sm ring-1 ring-black/5">
               <div className="h-20 flex items-center justify-center"

@@ -24,9 +24,6 @@ export function LocationCard({ business }: { business: Business }) {
   // white = the exact look this section has always had. The inner card
   // stays white so the address/hours text stays readable on any band color.
   const band = (business.location_card_color ?? "").trim() || "#ffffff";
-  // 70%-alpha version for the fade — only append the alpha byte when the
-  // value is a 6-digit hex (the brand editor's color input always is).
-  const bandFade = /^#[0-9a-fA-F]{6}$/.test(band) ? `${band}b3` : band;
 
   // Nothing to show → render nothing (keeps Home tidy when not configured).
   if (!address && !phone && !mapUrl) return null;
@@ -46,16 +43,13 @@ export function LocationCard({ business }: { business: Business }) {
     // that cancels the page's nav-clearance padding, so the white runs all the
     // way down behind the bottom nav (no patterned strip in the gap).
     // CP-99 3c: the band's hard border-t edge read as a rough cut against
-    // the page pattern. Now a short transparent→white fade melts the pattern
-    // out, and the band opens with a large-radius curve + a whisper of an
-    // upward shadow — smooth and intentional, still subtle.
+    // the page pattern → replaced with a large-radius curved top + upward
+    // shadow (bottom-sheet look). 3c.1 made the band color adjustable.
     <div className="mt-6">
-      <div
-        className="h-8 pointer-events-none"
-        // CP-99 3c.1: fade melts the page pattern into the band's color
-        // (was a fixed to-white/70 Tailwind gradient).
-        style={{ background: `linear-gradient(to bottom, transparent, ${bandFade})` }}
-      />
+      {/* CP-99 3c.2: the fade strip is GONE — its straight bottom edge fought
+          the band's rounded corners (ugly notches, worst with colored bands).
+          The curved band now sits directly on the page pattern like a bottom
+          sheet; the upward shadow alone lifts it off the page. */}
       <div
         className="rounded-t-[2.5rem] px-4 pt-6"
         // CP-69: was 7rem, which left a big empty white strip between the
@@ -65,7 +59,9 @@ export function LocationCard({ business }: { business: Business }) {
           background: band,
           paddingBottom: "5.5rem",
           marginBottom: "-5rem",
-          boxShadow: "0 -10px 24px -20px rgba(0,0,0,0.25)",
+          // 3c.2: a touch stronger now that the fade is gone — the shadow
+          // alone separates the sheet from the page pattern.
+          boxShadow: "0 -12px 28px -18px rgba(0,0,0,0.3)",
         }}
       >
       <div className="rounded-2xl overflow-hidden border bg-white shadow-sm ring-1 ring-black/5">

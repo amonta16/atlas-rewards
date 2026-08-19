@@ -17,7 +17,8 @@
  */
 
 export type RewardCardStyleId =
-  | "classic" | "outline" | "glow" | "tint" | "midnight" | "luxe";
+  | "classic" | "outline" | "glow" | "tint" | "midnight" | "luxe"
+  | "gradient" | "chrome" | "prism" | "sticker";
 
 export type RewardCardStyle = {
   id: RewardCardStyleId;
@@ -35,6 +36,12 @@ export const REWARD_CARD_STYLES: RewardCardStyle[] = [
   { id: "tint",     label: "Brand tint",  emoji: "🎨", hint: "Wash of your colors on every card", dark: false },
   { id: "midnight", label: "Midnight",    emoji: "🌙", hint: "Dark glass cards, white text", dark: true },
   { id: "luxe",     label: "Luxe noir",   emoji: "🖤", hint: "Near-black with a gold rim", dark: true },
+  // CP-99 3b.2: higher-contrast pack — white cards can read flat on light
+  // pages, these bring their own color/texture.
+  { id: "gradient", label: "Brand gradient", emoji: "🌈", hint: "Full wash of your two colors, white text", dark: true },
+  { id: "chrome",   label: "Chrome",      emoji: "🪞", hint: "Polished metallic shine", dark: false },
+  { id: "prism",    label: "Low poly",    emoji: "🔺", hint: "Angular facets in your colors", dark: false },
+  { id: "sticker",  label: "Sticker pop", emoji: "💥", hint: "Thick ink border with a punchy offset shadow", dark: false },
 ];
 
 export function rewardCardMeta(id: string | null | undefined): RewardCardStyle {
@@ -109,6 +116,53 @@ export function rewardCardChrome(
             borderColor: "transparent",
             boxShadow: "0 0 0 2px rgba(245,158,11,0.7), 0 14px 30px -12px rgba(0,0,0,0.8)",
           };
+    case "gradient":
+      // Same brand-gradient body in both states (the midnight pattern) —
+      // ready cards pop via a white ring + bigger glow.
+      return locked
+        ? {
+            background: `linear-gradient(160deg, ${primary} 0%, ${sec} 100%)`,
+            borderColor: "rgba(255,255,255,0.25)",
+            boxShadow: `0 10px 24px -12px ${primary}66`,
+          }
+        : {
+            background: `linear-gradient(160deg, ${primary} 0%, ${sec} 100%)`,
+            borderColor: "rgba(255,255,255,0.45)",
+            boxShadow: `0 0 0 2px rgba(255,255,255,0.35), 0 14px 30px -12px ${primary}99`,
+          };
+    case "chrome":
+      return locked
+        ? {
+            background: "linear-gradient(150deg, #f8fafc 0%, #e2e8f0 30%, #b6c2d1 50%, #e6ebf2 70%, #ffffff 100%)",
+            borderColor: "#cbd5e1",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 20px -12px rgba(100,116,139,0.5)",
+          }
+        : {
+            background: "linear-gradient(150deg, #f8fafc 0%, #e2e8f0 30%, #b6c2d1 50%, #e6ebf2 70%, #ffffff 100%)",
+            borderColor: "#94a3b8",
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.9), 0 0 0 2px ${primary}8c, 0 14px 28px -12px rgba(100,116,139,0.6)`,
+          };
+    case "prism": {
+      // Hard-stop angled gradients = flat low-poly facets in soft brand
+      // tints over white — texture without hurting text contrast.
+      const facets =
+        `linear-gradient(135deg, ${primary}21 0%, ${primary}21 28%, transparent 28%), ` +
+        `linear-gradient(315deg, ${sec}1c 0%, ${sec}1c 22%, transparent 22%), ` +
+        `linear-gradient(245deg, ${primary}12 0%, ${primary}12 45%, transparent 45%), ` +
+        `linear-gradient(65deg, ${sec}0f 0%, ${sec}0f 18%, transparent 18%), #ffffff`;
+      return locked
+        ? { background: facets, borderColor: `${primary}26` }
+        : {
+            background: facets,
+            borderColor: `${primary}59`,
+            boxShadow: `0 12px 26px -12px ${primary}77`,
+          };
+    }
+    case "sticker":
+      // Comic/sticker look: thick ink border + hard offset shadow (no blur).
+      return locked
+        ? { border: "2px solid #18181b", background: "#ffffff", boxShadow: "3px 3px 0 #18181b" }
+        : { border: "2px solid #18181b", background: "#ffffff", boxShadow: `5px 5px 0 ${primary}` };
     case "classic":
     default:
       // CP-99 3b default: locked = quiet class-driven card (no overrides);
