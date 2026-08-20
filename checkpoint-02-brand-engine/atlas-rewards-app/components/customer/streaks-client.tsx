@@ -101,7 +101,9 @@ export function StreaksClient({
   // Cool environment — ocean default, or a SAFE derivation of the client's
   // configured color (businesses.streak_env_color; clamped dark+desaturated).
   const env = streakEnvColors(business.streak_env_color);
-  const envPattern = streakEnvPatternCss(business.streak_env_pattern);
+  const envPattern = streakEnvPatternCss(business.streak_env_pattern, !!env.light);
+  // Light environments flip on-environment text from white to deep slate.
+  const lightEnv = !!env.light;
   // CP-99: progress color mode — "brand" derives a tonal range from the
   // brand primary (same math as the CP-65 "Match my brand" streak theme,
   // so it has depth, never a flat color); default = the streak theme.
@@ -221,26 +223,26 @@ export function StreaksClient({
           <div className="min-w-0 flex-1">
             {zero ? (
               <>
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Start your streak</div>
+                <div className={`text-[10px] font-black uppercase tracking-[0.18em] ${lightEnv ? "text-amber-600" : "text-amber-300"}`}>Start your streak</div>
                 <div className="flex items-end gap-1.5 mt-0.5">
-                  <span className="text-4xl font-black leading-none tabular-nums text-white">0</span>
-                  <span className="text-[11px] uppercase tracking-[0.14em] font-extrabold text-white/60 mb-0.5">check-ins</span>
+                  <span className={`text-4xl font-black leading-none tabular-nums ${lightEnv ? "text-slate-900" : "text-white"}`}>0</span>
+                  <span className={`text-[11px] uppercase tracking-[0.14em] font-extrabold mb-0.5 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>check-ins</span>
                 </div>
-                <div className="text-[11px] font-bold text-white/60 mt-1">One check-in lights the flame.</div>
+                <div className={`text-[11px] font-bold mt-1 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>One check-in lights the flame.</div>
               </>
             ) : (
               <>
                 <div className="flex items-end gap-2">
-                  <span className="text-5xl font-black leading-none tabular-nums text-white">{current}</span>
-                  <span className="text-[11px] uppercase tracking-[0.16em] font-extrabold text-white/60 mb-1">
+                  <span className={`text-5xl font-black leading-none tabular-nums ${lightEnv ? "text-slate-900" : "text-white"}`}>{current}</span>
+                  <span className={`text-[11px] uppercase tracking-[0.16em] font-extrabold mb-1 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>
                     {unit} streak
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold">
-                  <Trophy className="h-3.5 w-3.5 text-amber-300" />
+                  <Trophy className={`h-3.5 w-3.5 ${lightEnv ? "text-amber-500" : "text-amber-300"}`} />
                   {atPersonalBest
-                    ? <span className="text-amber-300">Personal best — keep it alive.</span>
-                    : <span className="text-white/60">Best: {longest} {unit}{longest === 1 ? "" : "s"}</span>}
+                    ? <span className={lightEnv ? "text-amber-600" : "text-amber-300"}>Personal best — keep it alive.</span>
+                    : <span className={lightEnv ? "text-slate-500" : "text-white/60"}>Best: {longest} {unit}{longest === 1 ? "" : "s"}</span>}
                 </div>
               </>
             )}
@@ -363,6 +365,7 @@ export function StreaksClient({
           slug={business.slug}
           canCheckIn={canCheckIn}
           nextEligibleMs={nextEligibleMs}
+          light={lightEnv}
         />
       ) : (
         // Program not configured — a true empty state (never fake rewards).
@@ -400,11 +403,12 @@ function Shell({ env, pattern, children }: { env: StreakEnv; pattern?: React.CSS
     <div
       className="relative"
       style={{
-        // CP-99: cool, deep environment (default = premium ocean blue;
-        // client color is derived/clamped in streakEnvColors, never literal)
-        // so white cards pop and the warm flame stays the hottest thing.
+        // CP-99: controlled environment (ocean default, LIGHT presets, or a
+        // safe-derived client color) so white cards pop and the warm flame
+        // stays the hottest thing. Bottom padding clears the fixed nav +
+        // device safe area so START never crowds the tab bar.
         background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)`,
-        paddingBottom: "7rem",
+        paddingBottom: "calc(8.5rem + env(safe-area-inset-bottom, 0px))",
         marginBottom: "-5rem",
       }}
     >
@@ -414,11 +418,11 @@ function Shell({ env, pattern, children }: { env: StreakEnv; pattern?: React.CSS
         <div className="absolute inset-0 pointer-events-none"
           style={{ ...pattern, maskImage: CORRIDOR_MASK, WebkitMaskImage: CORRIDOR_MASK }} />
       )}
-      {/* faint center illumination + darker-edge vignette */}
+      {/* faint center illumination + darker-edge vignette (softened on light) */}
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,0.07), transparent 70%)" }} />
+        style={{ background: `radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,${env.light ? 0.4 : 0.07}), transparent 70%)` }} />
       <div className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(130% 90% at 50% 55%, transparent 58%, rgba(0,0,0,0.28) 100%)" }} />
+        style={{ background: `radial-gradient(130% 90% at 50% 55%, transparent 58%, ${env.light ? "rgba(15,23,42,0.10)" : "rgba(0,0,0,0.28)"} 100%)` }} />
       <div className="relative z-10">{children}</div>
     </div>
   );
@@ -428,9 +432,13 @@ function Shell({ env, pattern, children }: { env: StreakEnv; pattern?: React.CSS
    RewardRoad — layered central track + branching milestone cards.
    ════════════════════════════════════════════════════════════════════ */
 
-const PAD_TOP = 56;
-// Room below the track for START + its own small check-in CTA.
-const PAD_BOTTOM = 132;
+// Top breathing room: the highest reward card (banner image + body) is
+// vertically centered on its node — reserve enough headroom that it can
+// never crowd the hero/status area above the road.
+const PAD_TOP = 150;
+// Room below the track for START + its own small check-in CTA (the Shell
+// adds nav-height + safe-area padding beneath this).
+const PAD_BOTTOM = 152;
 /** Deterministic spark field inside the corridor (SSR-safe, no random) —
  *  denser and brighter toward the summit. Percent tops / lefts. */
 const CORRIDOR_SPARKS = [
@@ -449,7 +457,7 @@ const MIN_GAP = 170;
 const STARTER_PX = 20;
 
 function RewardRoad({
-  milestones, current, claimed, nextCount, theme, logoUrl, unit, slug, canCheckIn, nextEligibleMs,
+  milestones, current, claimed, nextCount, theme, logoUrl, unit, slug, canCheckIn, nextEligibleMs, light,
 }: {
   milestones: Milestone[];
   current: number;
@@ -463,6 +471,8 @@ function RewardRoad({
   canCheckIn: boolean;
   /** ms until the next QUALIFYING check-in (engine period math); null = n/a. */
   nextEligibleMs: number | null;
+  /** Light environment → on-environment text flips to deep slate. */
+  light: boolean;
 }) {
   const range = Math.max(milestones.at(-1)?.count ?? 1, current, 1);
   const targetFrac = Math.min(1, current / range);
@@ -614,8 +624,8 @@ function RewardRoad({
   return (
     <div className="px-3 mt-4">
       <div className="flex items-center justify-between mb-1 px-1">
-        <h2 className="text-sm font-bold text-white/90">Your reward road</h2>
-        <span className="text-[10px] font-extrabold text-white/50">
+        <h2 className={`text-sm font-bold ${light ? "text-slate-800" : "text-white/90"}`}>Your reward road</h2>
+        <span className={`text-[10px] font-extrabold ${light ? "text-slate-500" : "text-white/50"}`}>
           Check in every {unit} to climb
         </span>
       </div>
@@ -631,17 +641,22 @@ function RewardRoad({
             width: "10rem",
             // Escalating lane: calm at the base, faint golden atmosphere at
             // the summit — higher streak = higher-value territory.
-            background: "linear-gradient(180deg, rgba(253,230,138,0.15) 0%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0.08) 100%)",
-            boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 30px 44px -22px rgba(253,230,138,0.22), inset 0 0 34px rgba(255,255,255,0.05)",
+            background: light
+              ? "linear-gradient(180deg, rgba(253,230,138,0.35) 0%, rgba(255,255,255,0.5) 18%, rgba(255,255,255,0.38) 55%, rgba(255,255,255,0.45) 100%)"
+              : "linear-gradient(180deg, rgba(253,230,138,0.15) 0%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0.08) 100%)",
+            boxShadow: light
+              ? "inset 0 0 0 1px rgba(255,255,255,0.7), inset 0 30px 44px -22px rgba(253,230,138,0.35)"
+              : "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 30px 44px -22px rgba(253,230,138,0.22), inset 0 0 34px rgba(255,255,255,0.05)",
             backdropFilter: "blur(2px)",
             WebkitBackdropFilter: "blur(2px)",
           }}
         >
           {/* sparse spark field — denser + brighter toward the top */}
           {CORRIDOR_SPARKS.map((sp, i) => (
-            <span key={i} className="absolute rounded-full bg-white"
+            <span key={i} className="absolute rounded-full"
               style={{
                 top: sp.t, left: sp.l, width: sp.s, height: sp.s, opacity: sp.o,
+                background: light ? "#d4a017" : "#ffffff",
                 boxShadow: sp.o > 0.35 ? "0 0 6px 1px rgba(253,230,138,0.55)" : undefined,
               }} />
           ))}
@@ -721,10 +736,13 @@ function RewardRoad({
           const done = n <= current;
           return (
             <div key={`mk-${n}`} className="absolute inset-x-0 pointer-events-none" style={{ top: y }}>
-              <div className="absolute left-1/2 h-0.5 w-3 -translate-y-1/2 rounded-full"
-                style={{ marginLeft: "1.5rem", background: done ? "rgba(74,222,128,0.75)" : "rgba(255,255,255,0.32)" }} />
-              <span className="absolute left-1/2 -translate-y-1/2 text-[9px] font-extrabold uppercase tracking-[0.12em] whitespace-nowrap"
-                style={{ marginLeft: "2.6rem", color: done ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.42)" }}>
+              {/* track notch — a real tick on the road, not just side text */}
+              <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full"
+                style={{ background: done ? "rgba(74,222,128,0.9)" : light ? "rgba(51,65,85,0.35)" : "rgba(255,255,255,0.5)" }} />
+              <div className="absolute left-1/2 h-[3px] w-5 -translate-y-1/2 rounded-full"
+                style={{ marginLeft: "1.4rem", background: done ? "rgba(74,222,128,0.8)" : light ? "rgba(51,65,85,0.28)" : "rgba(255,255,255,0.38)" }} />
+              <span className="absolute left-1/2 -translate-y-1/2 text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap"
+                style={{ marginLeft: "3rem", color: done ? (light ? "#15803d" : "rgba(255,255,255,0.9)") : light ? "rgba(51,65,85,0.6)" : "rgba(255,255,255,0.55)" }}>
                 {unit} {n}
               </span>
             </div>
@@ -786,7 +804,7 @@ function RewardRoad({
                     ? "linear-gradient(90deg, #4ade80, #16a34a)"
                     : isNext
                       ? "linear-gradient(90deg, #facc15, #f59e0b)"
-                      : "rgba(255,255,255,0.28)",
+                      : light ? "rgba(51,65,85,0.2)" : "rgba(255,255,255,0.28)",
                 } as React.CSSProperties}
               />
 
@@ -897,7 +915,7 @@ function RewardRoad({
               style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 0 18px 4px rgba(245,158,11,0.6)" }}>
               <Trophy className="h-5 w-5 text-white drop-shadow" />
             </div>
-            <span className="mt-1 text-[9px] font-black tracking-widest uppercase text-amber-300">Complete</span>
+            <span className={`mt-1 text-[9px] font-black tracking-widest uppercase ${light ? "text-amber-600" : "text-amber-300"}`}>Complete</span>
           </div>
         )}
 
@@ -907,21 +925,23 @@ function RewardRoad({
           <div className="h-8 w-8 rounded-full bg-white ring-1 ring-black/10 shadow-sm flex items-center justify-center">
             <Flame className="h-4 w-4" style={{ color: theme.to }} />
           </div>
-          <span className="mt-1 text-[9px] font-black tracking-[0.2em] uppercase text-white/60">Start</span>
+          <span className={`mt-1 text-[9px] font-black tracking-[0.2em] uppercase ${light ? "text-slate-500" : "text-white/60"}`}>Start</span>
           {canCheckIn ? (
             <a
               href={`/${slug}/app/scan`}
-              className="mt-2 inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-extrabold text-white bg-white/15 ring-1 ring-white/30 backdrop-blur-sm shadow-sm active:scale-95 transition whitespace-nowrap"
+              className={`mt-2 inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-extrabold ring-1 backdrop-blur-sm shadow-sm active:scale-95 transition whitespace-nowrap ${
+                light ? "text-slate-800 bg-white ring-black/10" : "text-white bg-white/15 ring-white/30"
+              }`}
             >
               <QrCode className="h-3 w-3" /> Check in now
             </a>
           ) : (
             <span className="mt-2 inline-flex flex-col items-center gap-0.5 whitespace-nowrap">
-              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-300/90">
+              <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold ${light ? "text-emerald-600" : "text-emerald-300/90"}`}>
                 <Check className="h-3 w-3" /> Checked in
               </span>
               {nextEligibleMs !== null && nextEligibleMs > 0 && (
-                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-white/60 tabular-nums">
+                <span className={`inline-flex items-center gap-1 text-[9px] font-bold tabular-nums ${light ? "text-slate-500" : "text-white/60"}`}>
                   <CalendarDays className="h-2.5 w-2.5" /> Next check-in in {timeLeftLabel(nextEligibleMs)}
                 </span>
               )}

@@ -148,12 +148,25 @@ export function streakGradient(theme: StreakTheme, angle = 135): string {
    be destroyed by a bright / neon / near-white pick.
    ──────────────────────────────────────────────────────────────────── */
 
-export type StreakEnv = { top: string; mid: string; edge: string };
+export type StreakEnv = { top: string; mid: string; edge: string; light?: boolean };
 
 const OCEAN_ENV: StreakEnv = { top: "#1e3d59", mid: "#16324a", edge: "#0e2233" };
 
+/** LIGHT environment presets — tinted enough that white reward cards still
+ *  pop (never pure white-on-white). Stored in the same streak_env_color
+ *  column as their preset id (plain text, no CHECK — by design). */
+export const STREAK_ENV_LIGHT_PRESETS: { id: string; label: string; env: StreakEnv }[] = [
+  { id: "sky",   label: "Soft sky", env: { top: "#d3e5f8", mid: "#bcd5ee", edge: "#9cbfdf", light: true } },
+  { id: "ice",   label: "Ice",      env: { top: "#e0e9f0", mid: "#cbd9e4", edge: "#aec1d1", light: true } },
+  { id: "sand",  label: "Sand",     env: { top: "#f0e7d9", mid: "#e4d6c1", edge: "#cfbca1", light: true } },
+  { id: "pearl", label: "Pearl",    env: { top: "#edeae7", mid: "#dfdad5", edge: "#c7c0b9", light: true } },
+  { id: "mist",  label: "Mist",     env: { top: "#e3e9f0", mid: "#d2dce6", edge: "#b9c6d4", light: true } },
+];
+
 export function streakEnvColors(input?: string | null): StreakEnv {
   const raw = (input ?? "").trim();
+  const preset = STREAK_ENV_LIGHT_PRESETS.find(p => p.id === raw);
+  if (preset) return preset.env;
   if (!/^#?[0-9a-fA-F]{6}$/.test(raw)) return OCEAN_ENV;
   const p = raw.startsWith("#") ? raw : `#${raw}`;
   // Desaturate ~35% toward gray, then clamp relative luminance into a deep,
@@ -180,59 +193,84 @@ export function streakEnvColors(input?: string | null): StreakEnv {
 
 export type StreakEnvPatternId =
   | "none" | "lowpoly" | "waves" | "stars" | "ascent"
-  | "confetti" | "sparkle" | "deco";
+  | "confetti" | "sparkle" | "deco" | "grid" | "topo" | "flow";
 
 export const STREAK_ENV_PATTERNS: { id: StreakEnvPatternId; label: string; emoji: string }[] = [
   { id: "none",     label: "Clean",        emoji: "◽" },
   { id: "lowpoly",  label: "Low poly",     emoji: "🔷" },
+  { id: "grid",     label: "Subtle grid",  emoji: "🔳" },
+  { id: "topo",     label: "Topo lines",   emoji: "🗺️" },
   { id: "waves",    label: "Waves",        emoji: "🌊" },
-  { id: "stars",    label: "Stars",        emoji: "✨" },
+  { id: "flow",     label: "Flow lines",   emoji: "💫" },
   { id: "ascent",   label: "Ascent",       emoji: "⛰️" },
+  { id: "stars",    label: "Stars",        emoji: "✨" },
   { id: "confetti", label: "Confetti",     emoji: "🎊" },
   { id: "sparkle",  label: "Fine sparkle", emoji: "💎" },
   { id: "deco",     label: "Art deco",     emoji: "🏛️" },
 ];
 
-/** CSS layers for the picked pattern. null = no pattern layer. */
-export function streakEnvPatternCss(id: string | null | undefined): React.CSSProperties | null {
+/** CSS layers for the picked pattern. null = no pattern layer.
+ *  `light` flips the base ink from white to deep slate so patterns stay
+ *  visible (but equally subtle) on the LIGHT environment presets. */
+export function streakEnvPatternCss(id: string | null | undefined, light = false): React.CSSProperties | null {
+  // pattern "ink" at a given alpha — white on dark envs, slate on light.
+  const ink = (a: number) => (light ? `rgba(51,65,85,${(a * 0.9).toFixed(3)})` : `rgba(255,255,255,${a})`);
   switch (id) {
     case "lowpoly":
       return {
         backgroundImage:
-          "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.05) 30%, transparent 30%)," +
-          "linear-gradient(315deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.04) 22%, transparent 22%)," +
-          "linear-gradient(225deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.03) 45%, transparent 45%)",
+          `linear-gradient(135deg, ${ink(0.05)} 0%, ${ink(0.05)} 30%, transparent 30%),` +
+          `linear-gradient(315deg, ${ink(0.04)} 0%, ${ink(0.04)} 22%, transparent 22%),` +
+          `linear-gradient(225deg, ${ink(0.03)} 0%, ${ink(0.03)} 45%, transparent 45%)`,
         backgroundSize: "180px 180px, 260px 260px, 340px 340px",
+      };
+    case "grid":
+      return {
+        backgroundImage:
+          `repeating-linear-gradient(0deg, ${ink(0.04)} 0px, ${ink(0.04)} 1px, transparent 1px, transparent 36px),` +
+          `repeating-linear-gradient(90deg, ${ink(0.04)} 0px, ${ink(0.04)} 1px, transparent 1px, transparent 36px)`,
+      };
+    case "topo":
+      return {
+        backgroundImage:
+          `repeating-radial-gradient(ellipse 420px 300px at 18% 22%, transparent 0px, transparent 30px, ${ink(0.035)} 30px, ${ink(0.035)} 31px),` +
+          `repeating-radial-gradient(ellipse 520px 380px at 85% 75%, transparent 0px, transparent 38px, ${ink(0.03)} 38px, ${ink(0.03)} 39px)`,
       };
     case "waves":
       return {
         backgroundImage:
-          "repeating-linear-gradient(100deg, rgba(255,255,255,0.045) 0px, rgba(255,255,255,0.045) 2px, transparent 2px, transparent 36px)," +
-          "repeating-linear-gradient(82deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 52px)",
+          `repeating-linear-gradient(100deg, ${ink(0.045)} 0px, ${ink(0.045)} 2px, transparent 2px, transparent 36px),` +
+          `repeating-linear-gradient(82deg, ${ink(0.03)} 0px, ${ink(0.03)} 2px, transparent 2px, transparent 52px)`,
+      };
+    case "flow":
+      return {
+        backgroundImage:
+          `repeating-linear-gradient(115deg, ${ink(0.05)} 0px, transparent 3px, transparent 26px, ${ink(0.028)} 29px, transparent 32px, transparent 74px),` +
+          `repeating-linear-gradient(65deg, ${ink(0.022)} 0px, transparent 2px, transparent 48px)`,
       };
     case "stars":
       return {
         backgroundImage:
-          "radial-gradient(1.6px 1.6px at 22% 26%, rgba(255,255,255,0.5), transparent 65%)," +
-          "radial-gradient(1.1px 1.1px at 66% 12%, rgba(255,255,255,0.4), transparent 65%)," +
-          "radial-gradient(1.3px 1.3px at 84% 52%, rgba(255,255,255,0.35), transparent 65%)," +
-          "radial-gradient(1px 1px at 38% 68%, rgba(255,255,255,0.3), transparent 65%)," +
-          "radial-gradient(1.4px 1.4px at 10% 84%, rgba(255,255,255,0.3), transparent 65%)",
+          `radial-gradient(1.6px 1.6px at 22% 26%, ${ink(0.5)}, transparent 65%),` +
+          `radial-gradient(1.1px 1.1px at 66% 12%, ${ink(0.4)}, transparent 65%),` +
+          `radial-gradient(1.3px 1.3px at 84% 52%, ${ink(0.35)}, transparent 65%),` +
+          `radial-gradient(1px 1px at 38% 68%, ${ink(0.3)}, transparent 65%),` +
+          `radial-gradient(1.4px 1.4px at 10% 84%, ${ink(0.3)}, transparent 65%)`,
         backgroundSize: "260px 300px",
         backgroundRepeat: "repeat",
       };
     case "ascent":
       return {
         backgroundImage:
-          "repeating-linear-gradient(45deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 10px, transparent 10px, transparent 64px)," +
-          "repeating-linear-gradient(-45deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 10px, transparent 10px, transparent 64px)",
+          `repeating-linear-gradient(45deg, ${ink(0.035)} 0px, ${ink(0.035)} 10px, transparent 10px, transparent 64px),` +
+          `repeating-linear-gradient(-45deg, ${ink(0.035)} 0px, ${ink(0.035)} 10px, transparent 10px, transparent 64px)`,
       };
     case "confetti":
       // Sparse celebratory pieces — achievement energy, NOT a birthday party.
       return {
         backgroundImage:
           "radial-gradient(2px 4px at 15% 18%, rgba(251,191,36,0.24), transparent 65%)," +
-          "radial-gradient(2px 3px at 68% 38%, rgba(255,255,255,0.20), transparent 65%)," +
+          `radial-gradient(2px 3px at 68% 38%, ${ink(0.20)}, transparent 65%),` +
           "radial-gradient(3px 2px at 40% 72%, rgba(96,165,250,0.18), transparent 65%)," +
           "radial-gradient(2px 3px at 86% 82%, rgba(244,114,182,0.16), transparent 65%)," +
           "radial-gradient(2px 2px at 8% 55%, rgba(74,222,128,0.16), transparent 65%)",
@@ -244,9 +282,9 @@ export function streakEnvPatternCss(id: string | null | undefined): React.CSSPro
       return {
         backgroundImage:
           "radial-gradient(1.4px 1.4px at 28% 20%, rgba(253,230,138,0.55), transparent 65%)," +
-          "radial-gradient(1px 1px at 74% 58%, rgba(255,255,255,0.45), transparent 65%)," +
+          `radial-gradient(1px 1px at 74% 58%, ${ink(0.45)}, transparent 65%),` +
           "radial-gradient(1.6px 1.6px at 12% 80%, rgba(253,230,138,0.4), transparent 65%)," +
-          "radial-gradient(0.9px 0.9px at 55% 40%, rgba(255,255,255,0.3), transparent 65%)",
+          `radial-gradient(0.9px 0.9px at 55% 40%, ${ink(0.3)}, transparent 65%)`,
         backgroundSize: "340px 400px",
         backgroundRepeat: "repeat",
       };

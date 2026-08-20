@@ -14,7 +14,7 @@ import { BANNER_OPTIONS, bannerStyle } from "@/lib/banner-styles";
 import { CARD_STYLES, BUTTON_STYLES, designVars } from "@/lib/design-styles";
 // CP-65: one-click theme presets + themable streak.
 import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
-import { STREAK_THEMES, STREAK_ENV_PATTERNS, resolveStreakTheme, streakGradient, streakEnvColors, streakEnvPatternCss } from "@/lib/streak-themes";
+import { STREAK_THEMES, STREAK_ENV_PATTERNS, STREAK_ENV_LIGHT_PRESETS, resolveStreakTheme, streakGradient, streakEnvColors, streakEnvPatternCss } from "@/lib/streak-themes";
 // CP-65.1: poppy offer-card styles.
 import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-store panel presets.
@@ -1082,11 +1082,37 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     reward cards and the flame always stay readable. */}
                 <div className="space-y-2 mt-4">
                   <Label className="text-xs text-muted-foreground">Streak page background</Label>
+                  {/* CP-99: curated LIGHT presets + Ocean default. Light options
+                      stay tinted (never pure white) so white cards keep contrast. */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[{ id: null as string | null, label: "Ocean", env: streakEnvColors(null) },
+                      ...STREAK_ENV_LIGHT_PRESETS.map(p => ({ id: p.id as string | null, label: p.label, env: p.env }))].map(opt => {
+                      const selected = (b.streak_env_color ?? null) === opt.id;
+                      return (
+                        <button
+                          key={opt.label}
+                          type="button"
+                          onClick={() => update("streak_env_color", opt.id)}
+                          className={cn(
+                            "rounded-xl border-2 overflow-hidden text-left transition",
+                            selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                          )}
+                          title={opt.label}
+                        >
+                          <div className="h-7" style={{ background: `linear-gradient(135deg, ${opt.env.top}, ${opt.env.mid}, ${opt.env.edge})` }} />
+                          <div className={cn("text-[10px] font-semibold px-1.5 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                            {opt.label}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <div className="flex gap-2 items-center">
-                    <input type="color" value={b.streak_env_color ?? "#16324a"}
+                    <input type="color"
+                      value={/^#[0-9a-fA-F]{6}$/.test(b.streak_env_color ?? "") ? (b.streak_env_color as string) : "#16324a"}
                       onChange={e => update("streak_env_color", e.target.value)}
                       className="h-10 w-12 rounded border cursor-pointer" />
-                    <Input value={b.streak_env_color ?? ""} placeholder="Ocean blue (default)"
+                    <Input value={b.streak_env_color ?? ""} placeholder="Ocean blue (default) — or pick a custom color"
                       onChange={e => update("streak_env_color", e.target.value || null)} />
                     <Button type="button" variant="outline" size="sm"
                       onClick={() => update("streak_env_color", null)}>
@@ -1094,7 +1120,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     </Button>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    The deep backdrop behind the streak reward road. Your pick is automatically darkened and softened so the road, flame, and white reward cards always stay clear.
+                    The backdrop behind the streak reward road. Custom colors are automatically darkened and softened; the Light presets are tuned so the road, flame, and white reward cards always stay clear.
                   </p>
                 </div>
                 {/* CP-99: faint atmosphere pattern for the streak environment.

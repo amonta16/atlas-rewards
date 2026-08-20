@@ -835,7 +835,8 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
 function StreaksBody({ business: b, rewards = [] }: { business: Business; rewards?: PreviewReward[] }) {
   const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
   const env = streakEnvColors(b.streak_env_color);
-  const envPattern = streakEnvPatternCss(b.streak_env_pattern);
+  const envPattern = streakEnvPatternCss(b.streak_env_pattern, !!env.light);
+  const lightEnv = !!env.light;
   const roadTheme = b.streak_progress_mode === "brand" ? resolveStreakTheme("brand", b.brand_colors?.primary) : theme;
   // Demo program: 10-day range, member at day 7, milestones at 3 / 7 / 10.
   const current = 7, range = 10;
@@ -871,12 +872,12 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-end gap-1.5">
-              <span className="text-4xl font-black leading-none tabular-nums text-white">{current}</span>
-              <span className="text-[10px] uppercase tracking-[0.16em] font-extrabold text-white/60 mb-0.5">day streak</span>
+              <span className={`text-4xl font-black leading-none tabular-nums ${lightEnv ? "text-slate-900" : "text-white"}`}>{current}</span>
+              <span className={`text-[10px] uppercase tracking-[0.16em] font-extrabold mb-0.5 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>day streak</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-[10px] font-bold">
               <Trophy className="h-3 w-3 text-amber-300" />
-              <span className="text-amber-300">Personal best — keep it alive.</span>
+              <span className={lightEnv ? "text-amber-600" : "text-amber-300"}>Personal best — keep it alive.</span>
             </div>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-1 rounded-full bg-white text-slate-700 ring-1 ring-black/10 shadow-sm">
@@ -923,8 +924,8 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
 
         {/* ROAD */}
         <div className="flex items-center justify-between mt-4 mb-1 px-1">
-          <h2 className="text-xs font-bold text-white/90">Your reward road</h2>
-          <span className="text-[8px] font-extrabold text-white/50">Check in every day to climb</span>
+          <h2 className={`text-xs font-bold ${lightEnv ? "text-slate-800" : "text-white/90"}`}>Your reward road</h2>
+          <span className={`text-[8px] font-extrabold ${lightEnv ? "text-slate-500" : "text-white/50"}`}>Check in every day to climb</span>
         </div>
         <div className="relative" style={{ height: H }}>
           {/* protected corridor around the route */}
@@ -941,7 +942,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
               <div className="absolute left-1/2 h-0.5 w-2.5 -translate-y-1/2 rounded-full"
                 style={{ marginLeft: "1.1rem", background: mk.done ? "rgba(74,222,128,0.75)" : "rgba(255,255,255,0.32)" }} />
               <span className="absolute left-1/2 -translate-y-1/2 text-[7px] font-extrabold uppercase tracking-[0.12em] whitespace-nowrap"
-                style={{ marginLeft: "1.9rem", color: mk.done ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.42)" }}>
+                style={{ marginLeft: "1.9rem", color: mk.done ? (lightEnv ? "#15803d" : "rgba(255,255,255,0.85)") : lightEnv ? "rgba(51,65,85,0.6)" : "rgba(255,255,255,0.5)" }}>
                 Day {mk.n}
               </span>
             </div>
@@ -1031,7 +1032,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
             <div className="h-7 w-7 rounded-full bg-white ring-1 ring-black/10 shadow-sm flex items-center justify-center">
               <Flame className="h-3.5 w-3.5" style={{ color: theme.to }} />
             </div>
-            <span className="mt-0.5 text-[8px] font-black tracking-[0.2em] uppercase text-white/60">Start</span>
+            <span className={`mt-0.5 text-[8px] font-black tracking-[0.2em] uppercase ${lightEnv ? "text-slate-500" : "text-white/60"}`}>Start</span>
             <span className="mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-extrabold text-white bg-white/15 ring-1 ring-white/30 whitespace-nowrap">
               <ScanLine className="h-2.5 w-2.5" /> Check in now
             </span>

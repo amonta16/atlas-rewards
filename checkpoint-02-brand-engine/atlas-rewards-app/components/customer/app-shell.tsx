@@ -1,5 +1,5 @@
 "use client";
-import { Home, ShoppingBag, ScanLine, Gift, User, CalendarClock } from "lucide-react";
+import { Home, ShoppingBag, ScanLine, Gift, User, CalendarClock, Flame } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,10 @@ const BOOK:    TabDef = { href: "/book",    label: "Book",    icon: CalendarCloc
 // "checks in"). Same /scan route under the hood.
 const SCAN:    TabDef = { href: "/scan",    label: "Check in", icon: ScanLine };
 const REWARDS: TabDef = { href: "/rewards", label: "Rewards", icon: Gift };
+// CP-99 Phase 4/5: the streak Reward Road is a first-class destination.
+// (Check in = "record my visit" action; Streaks = progress/motivation —
+// deliberately separate tabs.)
+const STREAKS: TabDef = { href: "/streaks", label: "Streaks", icon: Flame };
 const PROFILE: TabDef = { href: "/profile", label: "Profile", icon: User };
 
 /**
@@ -32,7 +36,8 @@ const PROFILE: TabDef = { href: "/profile", label: "Profile", icon: User };
 export function tabsForConfig(_w: WidgetConfig): TabDef[] {
   // Atlas is loyalty-only — Shop and Book tabs were removed in CP-06.
   // The flags still exist on stale data but we no longer surface them.
-  const base: TabDef[] = [HOME, SCAN, REWARDS, PROFILE];
+  // CP-99: Streaks joins the bar (5 tabs — the readable cap).
+  const base: TabDef[] = [HOME, SCAN, REWARDS, STREAKS, PROFILE];
   return base;
 }
 
