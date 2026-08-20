@@ -1,5 +1,5 @@
 "use client";
-import { Home, ShoppingBag, ScanLine, Gift, User, CalendarClock, Flame } from "lucide-react";
+import { Home, ShoppingBag, ScanLine, Gift, CalendarClock, Flame } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,8 @@ const REWARDS: TabDef = { href: "/rewards", label: "Rewards", icon: Gift };
 // (Check in = "record my visit" action; Streaks = progress/motivation —
 // deliberately separate tabs.)
 const STREAKS: TabDef = { href: "/streaks", label: "Streaks", icon: Flame };
-const PROFILE: TabDef = { href: "/profile", label: "Profile", icon: User };
+// CP-99: Profile moved to the header hamburger menu (header-actions.tsx) —
+// the /profile route is unchanged, it just left the bar.
 
 /**
  * Build the tab list based on enabled features.
@@ -36,8 +37,8 @@ const PROFILE: TabDef = { href: "/profile", label: "Profile", icon: User };
 export function tabsForConfig(_w: WidgetConfig): TabDef[] {
   // Atlas is loyalty-only — Shop and Book tabs were removed in CP-06.
   // The flags still exist on stale data but we no longer surface them.
-  // CP-99: Streaks joins the bar (5 tabs — the readable cap).
-  const base: TabDef[] = [HOME, SCAN, REWARDS, STREAKS, PROFILE];
+  // CP-99: Streaks joined the bar; Profile moved to the header hamburger.
+  const base: TabDef[] = [HOME, SCAN, REWARDS, STREAKS];
   return base;
 }
 

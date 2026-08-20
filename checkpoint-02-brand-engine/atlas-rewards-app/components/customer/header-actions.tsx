@@ -1,26 +1,22 @@
 "use client";
 /**
- * HeaderActions — three smart icon buttons that live in the top-right of the
- * customer home page header.
+ * HeaderActions — CP-99: the quick-action pills are GONE. The header now
+ * shows a single hamburger button (cleaner look, Andrew's call); the menu
+ * inside carries everything the pills did, plus Profile (which left the
+ * bottom nav to make room for Streaks):
  *
- *  [🎁 Mystery]  [👤/👑 Member]  [🔥 Streak]
+ *   ☰ →  Daily check-in (spin, cooldown label, red "!" nudge)
+ *        My streak      (→ /app/streaks, count / urgent state)
+ *        VIP membership (crown when paid)
+ *        Profile        (→ /app/profile)
  *
- * • Mystery gift: locked (with padlock badge) until checked in today.
- *   Once checked in, a red pulsing dot appears. Tap to open the daily spin.
- *
- * • Member crown/icon: golden crown if the customer is on a paid plan.
- *   Tapping scrolls to the membership section (free members) or does
- *   nothing visible (paid — icon is a status badge).
- *
- * • Streak flame: hidden when streaks are disabled.
- *   Red bubble shows streak count; orange urgency badge when streak > 0
- *   but not yet checked in today. Taps navigate to the Rewards tab.
- *
+ * All nudge/cooldown/eligibility logic is unchanged — the hamburger shows
+ * a red dot whenever anything inside wants attention.
  * Data is fetched client-side so the server page stays fast.
  */
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Crown, Flame, Gift, Lock, Star } from "lucide-react";
+import { AlertTriangle, ChevronRight, Crown, Flame, Gift, Lock, Menu, Star, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { jitteredPollMs } from "@/lib/realtime-jitter";
@@ -75,6 +71,8 @@ export function HeaderActions({
     ? Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
     : null;
   const [mysteryOpen, setMysteryOpen] = useState(false);
+  // CP-99: single hamburger replaces the quick-action pills.
+  const [menuOpen, setMenuOpen] = useState(false);
   // CP-24 opened a modal here; CP-99 Phase 4 (#9) navigates to the
   // /app/streaks roadmap page instead (see handleStreakClick).
   // CP-25: a direct read of the business's streak_config row. This is the
@@ -280,145 +278,142 @@ export function HeaderActions({
 
   // ─── render ──────────────────────────────────────────────────────────────
 
+  const cooldown = secondsLeft != null && secondsLeft > 0;
+  const cooldownLabel = cooldown
+    ? (secondsLeft! >= 3600
+        ? `${Math.ceil(secondsLeft! / 3600)} Hr`
+        : `${Math.max(1, Math.ceil(secondsLeft! / 60))} min`)
+    : null;
+  // Anything in the menu wanting attention → red dot on the hamburger.
+  const anyNudge = spinNudge || streakNudge || streakUrgent;
+
+  const closeThen = (fn: () => void) => () => { setMenuOpen(false); fn(); };
+
   return (
     <>
-      {/* CP-28: further pill shrink — h-8→h-7, icon 15→13, text 11→10,
-          gap 2→1.5. Matches the admin preview at phone width so the
-          three pills always fit comfortably on a 320–360px header. */}
-      <div className="flex items-center gap-1.5">
-
-        {/* ── 🎁 Daily Check-in (CP-36: 12h cooldown w/ live timer) ────── */}
-        {(() => {
-          // Cooldown labels: "6 Hr" / "45 min" — matches Andrew's mock.
-          // When the user is inside the 12-hour cooldown, we show the
-          // remaining time on the pill instead of "Check in" so they
-          // know exactly when they can next be scanned.
-          const cooldown = secondsLeft != null && secondsLeft > 0;
-          const cooldownLabel =
-            cooldown
-              ? (secondsLeft >= 3600
-                  ? `${Math.ceil(secondsLeft / 3600)} Hr`
-                  : `${Math.max(1, Math.ceil(secondsLeft / 60))} min`)
-              : null;
-          return (
-            <button
-              onClick={handleSpinClick}
-              className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
-              style={{
-                background: checkedInToday
-                  ? `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`
-                  // CP-55: on a dark header the faint brand tint vanished — use a
-                  // translucent white pill so "Check in" stays legible.
-                  : onDark
-                    ? "rgba(255,255,255,0.18)"
-                    : `linear-gradient(135deg, ${primary}33 0%, ${primary}1a 100%)`,
-              }}
-              aria-label={
-                cooldown
-                  ? `Next check-in in ${cooldownLabel}`
-                  : checkedInToday
-                    ? "Claim your daily spin!"
-                    : "Check in to unlock daily spin"
-              }
-            >
-              <Gift
-                className="h-[13px] w-[13px] shrink-0"
-                style={{ color: checkedInToday || onDark ? "#ffffff" : primary }}
-              />
-              <span
-                className="text-[10px] font-extrabold leading-none whitespace-nowrap tabular-nums"
-                style={{ color: checkedInToday || onDark ? "#ffffff" : primary }}
-              >
-                {cooldownLabel ?? "Check in"}
-              </span>
-
-              {/* Locked badge — only when they have NOT checked in today
-                  AND there's no active cooldown countdown. */}
-              {!checkedInToday && !cooldown && (
-                <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-white ring-1 ring-zinc-200 flex items-center justify-center pointer-events-none shadow">
-                  <Lock className="h-1.5 w-1.5 text-zinc-500" />
-                </span>
-              )}
-              {/* CP-65.1: red "!" — your check-in reward (spin) is ready.
-                  Same visual language as the Google-review nudge. Clears
-                  once the spin is opened today. */}
-              {spinNudge && (
-                <span className="absolute -top-1.5 -right-1.5 h-[16px] w-[16px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce pointer-events-none">
-                  <span className="text-[10px] font-black text-white leading-none">!</span>
-                </span>
-              )}
-              {checkedInToday && !cooldown && !spinNudge && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse pointer-events-none" />
-              )}
-            </button>
-          );
-        })()}
-
-        {/* ── 🔥 Streak (CP-39: moved to middle position) ─────────────── */}
-        {streakEnabled && (
-          <button
-            onClick={handleStreakClick}
-            className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
-            style={{
-              // CP-65: themable streak chip (businesses.streak_theme).
-              background: streakGradient(resolveStreakTheme(business.streak_theme, primary)),
-            }}
-            aria-label={
-              streakUrgent ? "Streak expiring — come in today!" : `${streakCount} day streak`
-            }
-          >
-            <Flame
-              className={`h-[13px] w-[13px] text-white shrink-0 ${streakUrgent ? "animate-pulse" : ""}`}
-            />
-            <span className="text-[10px] font-extrabold leading-none whitespace-nowrap text-white">
-              Streak
-            </span>
-
-            {/* CP-65.1: red "!" — streak just grew, tap to watch it add up.
-                Clears when the panel is opened; re-arms on the next check-in. */}
-            {streakNudge && !streakUrgent && (
-              <span className="absolute -top-1.5 -right-1.5 h-[16px] w-[16px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce pointer-events-none">
-                <span className="text-[10px] font-black text-white leading-none">!</span>
-              </span>
-            )}
-            {/* Count bubble — matches Andrew's mock */}
-            {streakCount > 0 && !streakUrgent && !streakNudge && (
-              <span
-                className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] rounded-full bg-zinc-900 text-white text-[9px] font-extrabold flex items-center justify-center px-1 ring-2 ring-white leading-none"
-                style={{ lineHeight: 1 }}
-              >
-                {streakCount > 99 ? "99+" : streakCount}
-              </span>
-            )}
-            {streakUrgent && (
-              <span className="absolute -top-1.5 -right-1.5 h-[16px] w-[16px] rounded-full bg-orange-500 ring-2 ring-white flex items-center justify-center animate-bounce pointer-events-none">
-                <AlertTriangle className="h-2 w-2 text-white" />
-              </span>
-            )}
-          </button>
-        )}
-
-        {/* ── 👑 VIP / Membership ─ CP-52: only when membership is live ── */}
-        {vipEnabled && (
+      <div className="relative">
+        {/* ── ☰ the one header control ── */}
         <button
-          onClick={handleMemberClick}
-          className={`relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full transition-all active:scale-95 shadow-md hover:shadow-lg ring-1 ${ringCls} select-none`}
-          style={{
-            background: isPaid
-              ? "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
-              : `linear-gradient(135deg, ${primary} 0%, ${primary}cc 100%)`,
-          }}
-          aria-label={isPaid ? "VIP member" : "Become a VIP"}
+          onClick={() => setMenuOpen(o => !o)}
+          className={`relative h-9 w-9 rounded-full flex items-center justify-center transition active:scale-95 shadow-md ring-1 ${ringCls} select-none`}
+          style={{ background: onDark ? "rgba(255,255,255,0.18)" : "#ffffff" }}
+          aria-label="Menu"
+          aria-expanded={menuOpen}
         >
-          {isPaid ? (
-            <Crown className="h-[13px] w-[13px] text-white fill-white shrink-0" />
-          ) : (
-            <Star className="h-[13px] w-[13px] text-white fill-white shrink-0" />
+          <Menu className="h-5 w-5" style={{ color: onDark ? "#ffffff" : "#334155" }} />
+          {anyNudge && !menuOpen && (
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse pointer-events-none" />
           )}
-          <span className="text-[10px] font-extrabold leading-none whitespace-nowrap text-white">
-            VIP
-          </span>
         </button>
+
+        {menuOpen && (
+          <>
+            {/* click-away layer */}
+            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+            <div className="absolute right-0 top-11 z-50 w-64 rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 overflow-hidden">
+              {/* Daily check-in / spin */}
+              <button
+                onClick={closeThen(handleSpinClick)}
+                className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-zinc-50 active:bg-zinc-100 transition"
+              >
+                <span className="relative h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: checkedInToday ? `linear-gradient(135deg, ${primary}, ${primary}cc)` : `${primary}15` }}>
+                  <Gift className="h-[18px] w-[18px]" style={{ color: checkedInToday ? "#ffffff" : primary }} />
+                  {!checkedInToday && !cooldown && (
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-white ring-1 ring-zinc-200 flex items-center justify-center shadow">
+                      <Lock className="h-2 w-2 text-zinc-500" />
+                    </span>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-bold text-zinc-900">Daily check-in</span>
+                  <span className="block text-[11px] font-semibold text-zinc-500 tabular-nums">
+                    {cooldown ? `Next check-in in ${cooldownLabel}` : checkedInToday ? "Spin your reward!" : "Check in to unlock your spin"}
+                  </span>
+                </span>
+                {spinNudge ? (
+                  <span className="h-[18px] w-[18px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce shrink-0">
+                    <span className="text-[10px] font-black text-white leading-none">!</span>
+                  </span>
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0" />
+                )}
+              </button>
+
+              {/* My streak */}
+              {streakEnabled && (
+                <button
+                  onClick={closeThen(handleStreakClick)}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-zinc-50 active:bg-zinc-100 transition"
+                >
+                  <span className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: streakGradient(resolveStreakTheme(business.streak_theme, primary)) }}>
+                    <Flame className={`h-[18px] w-[18px] text-white ${streakUrgent ? "animate-pulse" : ""}`} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-bold text-zinc-900">My streak</span>
+                    <span className={`block text-[11px] font-semibold tabular-nums ${streakUrgent ? "text-orange-600" : "text-zinc-500"}`}>
+                      {streakUrgent
+                        ? "Don't lose it — check in today!"
+                        : streakCount > 0
+                          ? `${streakCount} in a row`
+                          : "Start your streak"}
+                    </span>
+                  </span>
+                  {streakNudge && !streakUrgent ? (
+                    <span className="h-[18px] w-[18px] rounded-full bg-red-500 ring-2 ring-white flex items-center justify-center animate-bounce shrink-0">
+                      <span className="text-[10px] font-black text-white leading-none">!</span>
+                    </span>
+                  ) : streakUrgent ? (
+                    <span className="h-[18px] w-[18px] rounded-full bg-orange-500 ring-2 ring-white flex items-center justify-center animate-bounce shrink-0">
+                      <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                    </span>
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0" />
+                  )}
+                </button>
+              )}
+
+              {/* VIP membership */}
+              {vipEnabled && (
+                <button
+                  onClick={closeThen(handleMemberClick)}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-zinc-50 active:bg-zinc-100 transition"
+                >
+                  <span className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: isPaid ? "linear-gradient(135deg, #f59e0b, #d97706)" : `linear-gradient(135deg, ${primary}, ${primary}cc)` }}>
+                    {isPaid
+                      ? <Crown className="h-[18px] w-[18px] text-white fill-white" />
+                      : <Star className="h-[18px] w-[18px] text-white fill-white" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-bold text-zinc-900">VIP membership</span>
+                    <span className="block text-[11px] font-semibold text-zinc-500">
+                      {isPaid ? "Active VIP member" : "See VIP benefits"}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0" />
+                </button>
+              )}
+
+              <div className="h-px bg-zinc-100 mx-3.5" />
+
+              {/* Profile — moved here from the bottom nav (CP-99). */}
+              <button
+                onClick={closeThen(() => router.push(`/${business.slug}/app/profile`))}
+                className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-zinc-50 active:bg-zinc-100 transition"
+              >
+                <span className="h-9 w-9 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0">
+                  <User className="h-[18px] w-[18px] text-zinc-600" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-bold text-zinc-900">Profile</span>
+                  <span className="block text-[11px] font-semibold text-zinc-500">Account & settings</span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0" />
+              </button>
+            </div>
+          </>
         )}
       </div>
 
@@ -431,9 +426,6 @@ export function HeaderActions({
           onClose={() => setMysteryOpen(false)}
         />
       )}
-
-      {/* CP-99 Phase 4 (#9): the flame chip navigates to /app/streaks now —
-          the modal StreakWidget no longer mounts from the header. */}
     </>
   );
 }

@@ -266,10 +266,10 @@ export function StreaksClient({
               {zero ? "First reward" : "Next reward"}
             </div>
             <div className="mt-1.5 flex items-center gap-3">
-              <div className="h-20 w-20 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
+              <div className="h-24 w-24 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
                 {isReward(nextMilestone) && nextMilestone.reward_image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={nextMilestone.reward_image_url} alt={rewardTitle(nextMilestone)} className="h-full w-full object-cover" />
+                  <img src={nextMilestone.reward_image_url} alt={rewardTitle(nextMilestone)} className="h-full w-full object-contain" />
                 ) : !isReward(nextMilestone) && business.logo_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={business.logo_url} alt="" className="h-full w-full object-contain p-1.5" />
@@ -841,11 +841,12 @@ function RewardRoad({
                       POINTS rewards: the number IS the prize, shown large. */}
                   {rewardGift && m.reward_image_url ? (
                     <>
-                      <div className="relative">
+                      {/* CP-99: object-CONTAIN on a filler surface — the whole
+                          photo shows, never a forced crop. */}
+                      <div className={`relative flex items-center justify-center ${unlocked ? "bg-white/15" : "bg-slate-100"}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={m.reward_image_url} alt="" className={`w-full object-cover ${isNext ? "h-24" : "h-20"}`}
+                        <img src={m.reward_image_url} alt="" className={`w-full object-contain ${isNext ? "h-24" : "h-20"}`}
                           style={{ opacity: unlocked || isNext ? 1 : 0.7, filter: unlocked || isNext ? undefined : "saturate(0.55)" }} />
-                        <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-black/25 to-transparent pointer-events-none" />
                       </div>
                       <div className="p-2.5">
                         {isNext && (

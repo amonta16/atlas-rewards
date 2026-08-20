@@ -101,47 +101,19 @@ export function CustomerPreview({
         style={{ backgroundColor: b.header_color ?? "#ffffff" }}>
         <BusinessLogo business={b} />
         <div className="flex items-center gap-1.5">
-          {/* Daily check-in */}
+          {/* CP-99: quick-action pills replaced by ONE hamburger — the menu
+              inside carries Check in / Streak / VIP / Profile. */}
           <div
-            className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full shadow-md ring-1 ring-black/5"
-            style={{
-              background: `linear-gradient(135deg, ${b.brand_colors.primary}33 0%, ${b.brand_colors.primary}1a 100%)`,
-            }}
-            title="Daily check-in"
+            className="relative h-9 w-9 rounded-full flex items-center justify-center shadow-md ring-1 ring-black/5 bg-white"
+            title="Menu"
           >
-            <Gift className="h-[13px] w-[13px]" style={{ color: b.brand_colors.primary }} />
-            <span className="text-[10px] font-extrabold leading-none" style={{ color: b.brand_colors.primary }}>
-              Check in
+            <span className="flex flex-col gap-[3px]">
+              <span className="block h-[2px] w-4 rounded-full bg-slate-600" />
+              <span className="block h-[2px] w-4 rounded-full bg-slate-600" />
+              <span className="block h-[2px] w-4 rounded-full bg-slate-600" />
             </span>
-            <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-white ring-1 ring-zinc-200 flex items-center justify-center shadow">
-              <Lock className="h-2.5 w-2.5 text-zinc-500" />
-            </span>
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
           </div>
-          {/* Membership (Star icon, NOT profile) */}
-          <div
-            className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full shadow-md ring-1 ring-black/5"
-            style={{
-              background: `linear-gradient(135deg, ${b.brand_colors.primary} 0%, ${b.brand_colors.primary}cc 100%)`,
-            }}
-            title="Membership"
-          >
-            <Star className="h-[13px] w-[13px] text-white fill-white" />
-            <span className="text-[10px] font-extrabold leading-none text-white">Member</span>
-          </div>
-          {/* Streak */}
-          {(b.widget_config as { streaks?: boolean }).streaks !== false && (
-            <div
-              className="relative inline-flex items-center gap-1 h-7 pl-1.5 pr-2 rounded-full shadow-md ring-1 ring-black/5"
-              style={{
-                // CP-65: preview mirrors the picked streak theme live.
-                background: streakGradient(resolveStreakTheme(b.streak_theme, b.brand_colors?.primary)),
-              }}
-              title="Streak"
-            >
-              <Flame className="h-[13px] w-[13px] text-white" />
-              <span className="text-[10px] font-extrabold leading-none text-white">Streak</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -169,7 +141,7 @@ export function CustomerPreview({
           // reached from the flame chip + Home streak card; Phase 5 gives it
           // the real nav slot.)
           tabs.push({ id: "streaks", label: "Streaks", icon: <Flame className="h-5 w-5" /> });
-          if (tabs.length < 5) tabs.push({ id: "profile", label: "Profile", icon: <User className="h-5 w-5" /> });
+          // CP-99: Profile lives in the header hamburger now, not the bar.
           return tabs.map(t => (
             <TabItem
               key={t.id}

@@ -61,8 +61,10 @@ export function ScanClient({
   return (
     <div className="p-4 pt-6">
       <div className="text-center mb-4">
-        <h1 className="text-lg font-bold">Show this to staff</h1>
-        <p className="text-xs text-muted-foreground mt-1">They'll scan it to find your account.</p>
+        {/* CP-99: use the shell's auto-contrast color (--surf-fg) so this
+            heading never blends into a dark/patterned page background. */}
+        <h1 className="text-lg font-bold" style={{ color: "var(--surf-fg, #18181b)" }}>Show this to staff</h1>
+        <p className="text-xs mt-1" style={{ color: "var(--surf-fg, #18181b)", opacity: 0.72 }}>They'll scan it to find your account.</p>
       </div>
 
       {/* Branded QR card */}
