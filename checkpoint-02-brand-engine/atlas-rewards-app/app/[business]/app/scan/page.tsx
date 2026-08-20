@@ -3,6 +3,9 @@ import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getMyMembership } from "@/lib/data/customer-app";
 import { ScanClient } from "@/components/customer/scan-client";
 import { CheckinCountdownChip } from "@/components/customer/checkin-countdown-chip";
+// CP-99: the daily spin lives on the Check-in tab too — right where the
+// check-in just happened (it moved out of the header quick actions).
+import { DailySpinButton } from "@/components/customer/daily-spin-button";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,10 @@ export default async function ScanTab({ params }: { params: { business: string }
         primary={business.brand_colors.primary}
       />
       <ScanClient business={business} membership={mem} fullName={profile?.full_name ?? user!.email ?? "Member"} />
+      {/* CP-99: spin the wheel right after checking in — full-width card
+          (renders its own px-4 wrapper; cooldown-aware). */}
+      {mem?.id && <DailySpinButton business={business} membershipId={mem.id} />}
+      <div className="pb-4" />
     </>
   );
 }

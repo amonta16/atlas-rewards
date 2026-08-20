@@ -87,7 +87,7 @@ export default async function CustomerHome({ params }: { params: { business: str
           it appears on every tab — not just here. */}
 
       {/* Hero */}
-      <div className="relative h-44 overflow-hidden">
+      <div className="relative h-56 overflow-hidden">
         {business.hero_image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={business.hero_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -233,6 +233,7 @@ export default async function CustomerHome({ params }: { params: { business: str
             primary={business.brand_colors.primary}
             secondary={business.brand_colors.secondary}
             cardStyle={business.reward_card_style ?? null}
+            layout={business.home_rewards_layout ?? null}
           />
 
           {/* CP-52.1: jump STRAIGHT to the full rewards catalog (no double-step

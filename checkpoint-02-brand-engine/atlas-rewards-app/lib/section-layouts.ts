@@ -43,3 +43,23 @@ export function rewardsLayout(id: string | null | undefined): RewardsLayoutId {
 export function offersLayout(id: string | null | undefined): OffersLayoutId {
   return (OFFERS_LAYOUTS.find((l) => l.id === id)?.id ?? "stack") as OffersLayoutId;
 }
+
+/* CP-99: two more shaped sections.
+ *   home_rewards_layout — the Home "Top rewards" section reuses
+ *     REWARDS_LAYOUTS (grid/list/carousel/spotlight) via rewardsLayout().
+ *   saved_gifts_layout — the Rewards-tab "Your saved gifts" section:
+ *     stack (default, gradient rows) | grid | carousel. */
+
+export type SavedGiftsLayoutId = "stack" | "grid" | "carousel";
+
+export const SAVED_GIFTS_LAYOUTS: {
+  id: SavedGiftsLayoutId; label: string; emoji: string; hint: string;
+}[] = [
+  { id: "stack",    label: "Stacked rows", emoji: "🥞", hint: "Full-width gradient rows (default)" },
+  { id: "grid",     label: "Card grid",    emoji: "🔲", hint: "2-column gift cards, image on top" },
+  { id: "carousel", label: "Carousel",     emoji: "🎠", hint: "Swipe sideways through gifts" },
+];
+
+export function savedGiftsLayout(id: string | null | undefined): SavedGiftsLayoutId {
+  return (SAVED_GIFTS_LAYOUTS.find((l) => l.id === id)?.id ?? "stack") as SavedGiftsLayoutId;
+}

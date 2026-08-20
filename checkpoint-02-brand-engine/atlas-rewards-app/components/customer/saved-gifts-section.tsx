@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 import { Gift, Clock, Sparkles, QrCode, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SavedGiftDetail } from "./saved-gift-detail";
+import { savedGiftsLayout } from "@/lib/section-layouts";
 
 type SavedOffer = {
   saved_id: string;
@@ -47,11 +48,15 @@ export function SavedGiftsSection({
   primary,
   secondary,
   membershipId,
+  layout,
 }: {
   businessId: string;
   primary: string;
   secondary?: string | null;
   membershipId: string | null;
+  /** CP-99: section shape (businesses.saved_gifts_layout) —
+   *  stack (default, unchanged) / grid / carousel. */
+  layout?: string | null;
 }) {
   const [rows, setRows] = useState<SavedOffer[] | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -59,6 +64,7 @@ export function SavedGiftsSection({
   // 7-char code so the front desk can scan/type to fulfill.
   const [open, setOpen] = useState<SavedOffer | null>(null);
   const sec = secondary || primary;
+  const lay = savedGiftsLayout(layout);
 
   // Tick once a minute for the countdown.
   useEffect(() => {
@@ -140,7 +146,13 @@ export function SavedGiftsSection({
         </span>
       </div>
 
-      <div className="space-y-2.5">
+      <div className={
+        lay === "grid"
+          ? "grid grid-cols-2 gap-2.5"
+          : lay === "carousel"
+            ? "flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory -mx-4 px-4"
+            : "space-y-2.5"
+      }>
         {visible.map(o => {
           const expires = o.expires_at ? new Date(o.expires_at).getTime() : null;
           const remainMs = expires ? Math.max(0, expires - now) : null;
@@ -149,6 +161,54 @@ export function SavedGiftsSection({
           const discount = discountLabel(o);
 
           const fulfilled = !!o.fulfilled_at;
+
+          // CP-99: grid / carousel = vertical gift card (image on top, big
+          // and scannable); stack keeps the classic full-width gradient row.
+          if (lay !== "stack") {
+            return (
+              <button
+                key={o.saved_id}
+                onClick={() => setOpen(o)}
+                className={`text-left rounded-2xl overflow-hidden relative shadow-lg active:scale-[0.99] transition-transform ${
+                  lay === "carousel" ? "w-44 shrink-0 snap-start" : "w-full"
+                }`}
+                style={{
+                  background: fulfilled
+                    ? `linear-gradient(135deg, #6b7280 0%, #4b5563dd 100%)`
+                    : `linear-gradient(135deg, ${primary} 0%, ${sec}dd 100%)`,
+                  boxShadow: `0 10px 24px ${primary}33`,
+                }}
+              >
+                <div className="h-24 bg-white/10 flex items-center justify-center overflow-hidden">
+                  {o.image_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={o.image_url} alt="" className="h-full w-full object-contain" />
+                  ) : (
+                    <Gift className="h-9 w-9 text-white/90" />
+                  )}
+                </div>
+                <div className="p-2.5 text-white">
+                  <div className="text-[9px] font-black tracking-widest uppercase text-white/80">
+                    {fulfilled ? "Redeemed" : "Saved gift"}
+                  </div>
+                  <div className="text-[13px] font-extrabold leading-tight line-clamp-2 mt-0.5">{o.title}</div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {discount && (
+                      <span className="inline-flex items-center text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-white text-zinc-900">
+                        {discount}
+                      </span>
+                    )}
+                    {countdown && !expired && !fulfilled && (
+                      <span className="inline-flex items-center gap-1 bg-white text-red-600 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">
+                        <Clock className="h-2.5 w-2.5" /> {countdown}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          }
+
           return (
             <button
               key={o.saved_id}

@@ -221,6 +221,7 @@ export function RewardsClient({
         primary={business.brand_colors.primary}
         secondary={business.brand_colors.secondary}
         membershipId={membership?.id ?? null}
+        layout={business.saved_gifts_layout ?? null}
       />
 
       {/* Active redemptions (above store) */}

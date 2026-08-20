@@ -22,7 +22,7 @@ import { REWARD_CARD_STYLES, rewardCardChrome } from "@/lib/reward-card-styles";
 // CP-73: Home points-card presets (classic/shiny/fun/sleek/simple).
 import { POINTS_CARD_STYLES, pointsCardStyle } from "@/lib/points-card-styles";
 // CP-66: section layout presets (rewards store + limited offers).
-import { REWARDS_LAYOUTS, OFFERS_LAYOUTS } from "@/lib/section-layouts";
+import { OFFERS_LAYOUTS, REWARDS_LAYOUTS, SAVED_GIFTS_LAYOUTS } from "@/lib/section-layouts";
 // CP-67: element pack (badges, headings, dividers, CTA glow).
 import { BADGE_STYLES, HEADING_STYLES, DIVIDER_STYLES, CTA_GLOWS, badgeCss } from "@/lib/element-styles";
 // CP-68: reward game presets — CP-72: picker removed, every business plays
@@ -239,6 +239,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           /* CP-66: section layout presets. */
           rewards_layout: b.rewards_layout ?? null,
           offers_layout: b.offers_layout ?? null,
+          /* CP-99: home top-rewards + saved-gifts layouts. */
+          home_rewards_layout: b.home_rewards_layout ?? null,
+          saved_gifts_layout: b.saved_gifts_layout ?? null,
           /* CP-67: element pack. */
           badge_style: b.badge_style ?? null,
           heading_style: b.heading_style ?? null,
@@ -844,6 +847,59 @@ export function BrandEditor({ initial }: { initial: Business }) {
                         </div>
                         <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
                           {opt.emoji} {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* CP-99: the Home "Top rewards" section gets the same four
+                  shapes as the store. */}
+              <Section title="Home rewards layout" subtitle="How the Top rewards section is arranged on the customer Home page.">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {REWARDS_LAYOUTS.map(opt => {
+                    const selected = (b.home_rewards_layout ?? "grid") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("home_rewards_layout", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-2 text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        <div className="text-lg">{opt.emoji}</div>
+                        <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.label}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* CP-99: saved gifts get a shape too — stack / grid / carousel. */}
+              <Section title="Saved gifts layout" subtitle="How “Your saved gifts” renders on the customer Rewards tab.">
+                <div className="grid grid-cols-3 gap-2.5">
+                  {SAVED_GIFTS_LAYOUTS.map(opt => {
+                    const selected = (b.saved_gifts_layout ?? "stack") === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => update("saved_gifts_layout", opt.id)}
+                        className={cn(
+                          "rounded-xl border-2 p-2 text-left transition",
+                          selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                        title={opt.hint}
+                      >
+                        <div className="text-lg">{opt.emoji}</div>
+                        <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.label}
                         </div>
                       </button>
                     );

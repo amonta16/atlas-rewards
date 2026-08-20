@@ -19,6 +19,8 @@ import { useState } from "react";
 import { Gift, Lock, X, Zap } from "lucide-react";
 import { ImageCarousel, rewardGallery } from "@/components/customer/image-carousel";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
+import { rewardsLayout } from "@/lib/section-layouts";
+import { ChevronRight } from "lucide-react";
 
 export type TopReward = {
   id: string; name: string; point_cost: number; image_url: string | null;
@@ -27,7 +29,7 @@ export type TopReward = {
 };
 
 export function TopRewardsGrid({
-  businessSlug, rewards, points, primary, secondary, cardStyle,
+  businessSlug, rewards, points, primary, secondary, cardStyle, layout,
 }: {
   businessSlug: string;
   rewards: TopReward[];
@@ -37,16 +39,18 @@ export function TopRewardsGrid({
   /** CP-99 3b.1: the business's reward-panel preset (businesses.reward_card_style)
    *  so Home's "Top rewards" cards match the Rewards tab. NULL = classic = unchanged. */
   cardStyle?: string | null;
+  /** CP-99: Home top-rewards layout (businesses.home_rewards_layout) —
+   *  same shapes as the store: grid (default) / list / carousel / spotlight. */
+  layout?: string | null;
 }) {
   const [detail, setDetail] = useState<TopReward | null>(null);
   const rcMeta = rewardCardMeta(cardStyle);
   const rcDark = rcMeta.dark;
   const rcClassic = rcMeta.id === "classic";
+  const lay = rewardsLayout(layout);
 
-  return (
-    <>
-      <div className="grid grid-cols-2 gap-2">
-        {rewards.map(r => {
+  // One card, reused by every layout. `big` = spotlight hero treatment.
+  const renderCard = (r: TopReward, big = false) => {
           const pct = r.point_cost > 0 ? Math.min(100, (points / r.point_cost) * 100) : 100;
           const unlocked = points >= r.point_cost;
           const remaining = Math.max(0, r.point_cost - points);
@@ -56,9 +60,9 @@ export function TopRewardsGrid({
               <div className="relative">
                 {r.image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={r.image_url} alt={r.name} className="aspect-[4/3] w-full object-cover" />
+                  <img src={r.image_url} alt={r.name} className={`${big ? "aspect-video" : "aspect-[4/3]"} w-full object-cover`} />
                 ) : (
-                  <div className="aspect-[4/3] flex items-center justify-center" style={{ background: `${primary}15` }}>
+                  <div className={`${big ? "aspect-video" : "aspect-[4/3]"} flex items-center justify-center`} style={{ background: `${primary}15` }}>
                     <Gift className="h-8 w-8" style={{ color: primary }} />
                   </div>
                 )}
@@ -123,18 +127,84 @@ export function TopRewardsGrid({
             : rewardCardChrome(cardStyle, primary, secondary, false);
 
           return unlocked ? (
-            <a key={r.id} href={`/${businessSlug}/app/rewards?redeem=${r.id}`} className={cls}
+            <a key={r.id} href={`/${businessSlug}/app/rewards?redeem=${r.id}`} className={`${cls} ${big ? "col-span-2" : ""}`}
               style={readyStyle}>
               {inner}
             </a>
           ) : (
-            <button key={r.id} onClick={() => setDetail(r)} className={cls}
+            <button key={r.id} onClick={() => setDetail(r)} className={`${cls} ${big ? "col-span-2" : ""}`}
               style={rewardCardChrome(cardStyle, primary, secondary, true)}>
               {inner}
             </button>
           );
-        })}
-      </div>
+  };
+
+  // Compact row for the "list" layout — image left, progress right.
+  const renderRow = (r: TopReward) => {
+    const unlocked = points >= r.point_cost;
+    const pct = r.point_cost > 0 ? Math.min(100, (points / r.point_cost) * 100) : 100;
+    const rowInner = (
+      <>
+        <div className="h-14 w-14 rounded-lg overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center">
+          {r.image_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={r.image_url} alt={r.name} className="h-full w-full object-cover" />
+          ) : (
+            <Gift className="h-6 w-6" style={{ color: primary }} />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className={`text-[13px] font-bold leading-tight truncate ${rcDark ? "text-white" : "text-zinc-900"}`}>{r.name}</div>
+          <div className="text-[10px] font-bold mt-0.5" style={{ color: rcDark ? "#ffffff" : primary }}>
+            {r.point_cost.toLocaleString()} POINTS
+          </div>
+          {!unlocked && (
+            <div className={`mt-1 h-1 rounded-full overflow-hidden ${rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
+              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${primary}, ${secondary})` }} />
+            </div>
+          )}
+        </div>
+        {unlocked ? (
+          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-black text-white rounded-full px-2.5 py-1"
+            style={{ background: `linear-gradient(90deg, ${primary}, ${secondary})` }}>
+            <Gift className="h-3 w-3" /> REDEEM
+          </span>
+        ) : (
+          <ChevronRight className={`h-4 w-4 shrink-0 ${rcDark ? "text-white/40" : "text-zinc-300"}`} />
+        )}
+      </>
+    );
+    const rowCls = "w-full flex items-center gap-2.5 rounded-xl border bg-white p-2 text-left shadow-sm ring-1 ring-black/5";
+    return unlocked ? (
+      <a key={r.id} href={`/${businessSlug}/app/rewards?redeem=${r.id}`} className={rowCls}
+        style={rcClassic ? { borderColor: `${primary}55` } : rewardCardChrome(cardStyle, primary, secondary, false)}>
+        {rowInner}
+      </a>
+    ) : (
+      <button key={r.id} onClick={() => setDetail(r)} className={rowCls}
+        style={rewardCardChrome(cardStyle, primary, secondary, true)}>
+        {rowInner}
+      </button>
+    );
+  };
+
+  return (
+    <>
+      {lay === "list" ? (
+        <div className="space-y-2">{rewards.map(r => renderRow(r))}</div>
+      ) : lay === "carousel" ? (
+        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory -mx-4 px-4">
+          {rewards.map(r => (
+            <div key={r.id} className="w-36 shrink-0 snap-start">{renderCard(r)}</div>
+          ))}
+        </div>
+      ) : lay === "spotlight" ? (
+        <div className="grid grid-cols-2 gap-2">
+          {rewards.map((r, i) => renderCard(r, i === 0))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">{rewards.map(r => renderCard(r))}</div>
+      )}
 
       {/* CP-94: breathing glow for claimable cards — brand-tinted, subtle,
           and CSS-only (no re-renders). */}

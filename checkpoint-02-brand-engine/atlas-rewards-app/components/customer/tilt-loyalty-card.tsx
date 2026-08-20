@@ -94,7 +94,7 @@ export function TiltLoyaltyCard({
       style={{ perspective: "1200px" }}
     >
       <div
-        className="relative rounded-2xl p-5 text-white overflow-hidden transition-transform duration-150 will-change-transform"
+        className="relative rounded-2xl p-6 min-h-[212px] flex flex-col justify-between text-white overflow-hidden transition-transform duration-150 will-change-transform"
         style={{
           transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
           transformStyle: "preserve-3d",

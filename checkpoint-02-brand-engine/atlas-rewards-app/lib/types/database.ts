@@ -137,6 +137,12 @@ export type Business = {
   /** CP-66: limited-offers layout. See lib/section-layouts.ts
    *  (stack/coupon/carousel/billboard). NULL = stack. */
   offers_layout?: string | null;
+  /** CP-99: Home "Top rewards" layout — reuses RewardsLayoutId
+   *  (grid/list/carousel/spotlight). NULL = grid. */
+  home_rewards_layout?: string | null;
+  /** CP-99: "Your saved gifts" layout. See lib/section-layouts.ts
+   *  SavedGiftsLayoutId (stack/grid/carousel). NULL = stack. */
+  saved_gifts_layout?: string | null;
   /** CP-67: element pack. See lib/element-styles.ts. All NULL = defaults. */
   badge_style?: string | null;    // gradient/solid/outline/dark/glow
   heading_style?: string | null;  // plain/bar/underline/sticker
