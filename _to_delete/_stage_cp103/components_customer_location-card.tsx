@@ -57,9 +57,8 @@ export function LocationCard({ business }: { business: Business }) {
         // fully behind the nav (~3.75rem tall) with a tight, deliberate gap.
         style={{
           background: band,
-          // CP-103: bumped with the taller bottom nav (cancel = pb-24 = 6rem).
-          paddingBottom: "6.5rem",
-          marginBottom: "-6rem",
+          paddingBottom: "5.5rem",
+          marginBottom: "-5rem",
           // 3c.2: a touch stronger now that the fade is gone — the shadow
           // alone separates the sheet from the page pattern.
           boxShadow: "0 -12px 28px -18px rgba(0,0,0,0.3)",

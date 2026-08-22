@@ -28,18 +28,13 @@
  * ENGINE UNTOUCHED: get_streak_status RPC + check_in_events realtime;
  * gift_kind stays authoritative (CP-49).
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Flame, Gift, Trophy, Lock, Check, CalendarDays, QrCode, Sparkles, ChevronUp, Star, Crown, Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { resolveStreakTheme, type StreakTheme } from "@/lib/streak-themes";
-import {
-  resolveStreakPage, resolveProgressTheme, shadeHex as shade, alphaHex as alpha,
-  streakTopBand, STREAK_TOP_BAND_H,
-  type ResolvedStreakPage, type StreakDecor,
-} from "@/lib/streak-page-themes";
-import { readableTextColor } from "@/lib/patterns";
+import { resolveStreakPage, resolveProgressTheme, type ResolvedStreakPage, type StreakDecor } from "@/lib/streak-page-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = {
@@ -103,27 +98,14 @@ export function StreaksClient({
   const [loaded, setLoaded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
+  const theme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
   // CP-99 simplified visual system: ONE page-theme choice (curated library,
   // app-background option, legacy fields as fallback) + ONE progress choice
   // (default / brand / custom hex, luminance-clamped).
-  //
-  // CP-103: the PROGRESS color now drives this entire page — hero emblem,
-  // CTA, the road, unlocked rewards, the corridor glow and the top band.
-  // (streak_theme still themes the Home teaser / header chip / trail; it is
-  // just no longer a second, competing palette on the streaks page itself.)
-  const baseTheme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
-  const theme = resolveProgressTheme(business.streak_progress_mode, business.brand_colors?.primary, baseTheme);
   const page = resolveStreakPage(business);
   const env = page.env;
-  const roadTheme = theme;
-  // CP-103: a solid brand band covers the TOP of the page (behind the hero
-  // only — it fades out well above the road, so the roadmap keeps its calm
-  // ground). Hero text contrast follows the BAND, not the environment.
-  const topBand = streakTopBand(theme);
-  // Hero text sits on the BAND; road text sits on the ENVIRONMENT. Two
-  // different surfaces, so two different contrast flags.
-  const heroLight = readableTextColor(shade(theme.cell[2], 0.12)) === "#18181b";
   const lightEnv = !!env.light;
+  const roadTheme = resolveProgressTheme(business.streak_progress_mode, business.brand_colors?.primary, theme);
 
   useEffect(() => {
     if (!membershipId) { setLoaded(true); return; }
@@ -161,7 +143,7 @@ export function StreaksClient({
 
   if (!loaded) {
     return (
-      <Shell page={page} topBand={topBand}>
+      <Shell page={page}>
         <div className="px-4 pt-10 pb-4 flex justify-center">
           <div className="bg-white rounded-2xl px-6 py-4 text-sm text-zinc-600 shadow-sm border">Loading your streak…</div>
         </div>
@@ -171,7 +153,7 @@ export function StreaksClient({
 
   if (!membershipId || !s || !s.is_enabled) {
     return (
-      <Shell page={page} topBand={topBand}>
+      <Shell page={page}>
         <div className="px-4 pt-8 pb-4">
           <div className="rounded-3xl bg-white border shadow-sm p-8 text-center">
             <Flame className="h-10 w-10 mx-auto text-zinc-300" />
@@ -219,7 +201,7 @@ export function StreaksClient({
     expiresMs === null ? "calm" : expiresMs < 12 * 3600_000 ? "risk" : expiresMs < 24 * 3600_000 ? "warm" : "calm";
 
   return (
-    <Shell page={page} topBand={topBand}>
+    <Shell page={page}>
       {/* ═══════════ HERO HUD (state-aware, flows into the road) ═══════════ */}
       <div className="px-4 pt-4">
         <div className="flex items-center gap-3.5">
@@ -236,26 +218,26 @@ export function StreaksClient({
           <div className="min-w-0 flex-1">
             {zero ? (
               <>
-                <div className={`text-[10px] font-black uppercase tracking-[0.18em] ${heroLight ? "text-amber-600" : "text-amber-300"}`}>Start your streak</div>
+                <div className={`text-[10px] font-black uppercase tracking-[0.18em] ${lightEnv ? "text-amber-600" : "text-amber-300"}`}>Start your streak</div>
                 <div className="flex items-end gap-1.5 mt-0.5">
-                  <span className={`text-4xl font-black leading-none tabular-nums ${heroLight ? "text-slate-900" : "text-white"}`}>0</span>
-                  <span className={`text-[11px] uppercase tracking-[0.14em] font-extrabold mb-0.5 ${heroLight ? "text-slate-500" : "text-white/60"}`}>check-ins</span>
+                  <span className={`text-4xl font-black leading-none tabular-nums ${lightEnv ? "text-slate-900" : "text-white"}`}>0</span>
+                  <span className={`text-[11px] uppercase tracking-[0.14em] font-extrabold mb-0.5 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>check-ins</span>
                 </div>
-                <div className={`text-[11px] font-bold mt-1 ${heroLight ? "text-slate-500" : "text-white/60"}`}>One check-in lights the flame.</div>
+                <div className={`text-[11px] font-bold mt-1 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>One check-in lights the flame.</div>
               </>
             ) : (
               <>
                 <div className="flex items-end gap-2">
-                  <span className={`text-5xl font-black leading-none tabular-nums ${heroLight ? "text-slate-900" : "text-white"}`}>{current}</span>
-                  <span className={`text-[11px] uppercase tracking-[0.16em] font-extrabold mb-1 ${heroLight ? "text-slate-500" : "text-white/60"}`}>
+                  <span className={`text-5xl font-black leading-none tabular-nums ${lightEnv ? "text-slate-900" : "text-white"}`}>{current}</span>
+                  <span className={`text-[11px] uppercase tracking-[0.16em] font-extrabold mb-1 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>
                     {unit} streak
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold">
-                  <Trophy className={`h-3.5 w-3.5 ${heroLight ? "text-amber-500" : "text-amber-300"}`} />
+                  <Trophy className={`h-3.5 w-3.5 ${lightEnv ? "text-amber-500" : "text-amber-300"}`} />
                   {atPersonalBest
-                    ? <span className={heroLight ? "text-amber-600" : "text-amber-300"}>Personal best — keep it alive.</span>
-                    : <span className={heroLight ? "text-slate-500" : "text-white/60"}>Best: {longest} {unit}{longest === 1 ? "" : "s"}</span>}
+                    ? <span className={lightEnv ? "text-amber-600" : "text-amber-300"}>Personal best — keep it alive.</span>
+                    : <span className={lightEnv ? "text-slate-500" : "text-white/60"}>Best: {longest} {unit}{longest === 1 ? "" : "s"}</span>}
                 </div>
               </>
             )}
@@ -415,7 +397,7 @@ const DECOR_ICONS = {
   flame: Flame, star: Star, sparkle: Sparkles, trophy: Trophy, crown: Crown, zap: Zap,
 } as const;
 
-function Shell({ page, topBand, children }: { page: ResolvedStreakPage; topBand?: string; children: React.ReactNode }) {
+function Shell({ page, children }: { page: ResolvedStreakPage; children: React.ReactNode }) {
   const { env, pattern, decor, appBg } = page;
   return (
     <div
@@ -425,10 +407,8 @@ function Shell({ page, topBand, children }: { page: ResolvedStreakPage; topBand?
         // otherwise the picked streak environment. Bottom padding clears the
         // fixed nav + device safe area so START never crowds the tab bar.
         ...(appBg ?? { background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)` }),
-        // CP-103: nav grew, so both numbers grew with it (clearance 8.5→9.5rem,
-        // and the cancel must match app-shell's pb-24 = 6rem).
-        paddingBottom: "calc(9.5rem + env(safe-area-inset-bottom, 0px))",
-        marginBottom: "-6rem",
+        paddingBottom: "calc(8.5rem + env(safe-area-inset-bottom, 0px))",
+        marginBottom: "-5rem",
       }}
     >
       {/* pattern + decor art live in the ENVIRONMENT only — both are masked
@@ -481,12 +461,6 @@ function Shell({ page, topBand, children }: { page: ResolvedStreakPage; topBand?
             style={{ background: `radial-gradient(130% 90% at 50% 55%, transparent 58%, ${env.light ? "rgba(15,23,42,0.10)" : "rgba(0,0,0,0.28)"} 100%)` }} />
         </>
       )}
-      {/* CP-103: TOP BAND — sits above the environment art but under all
-          content, and stops well short of the road. */}
-      {topBand && (
-        <div className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{ height: STREAK_TOP_BAND_H, background: topBand }} />
-      )}
       <div className="relative z-10">{children}</div>
     </div>
   );
@@ -516,9 +490,6 @@ const CORRIDOR_SPARKS = [
   { t: "56%", l: "64%", s: 1.5, o: 0.12 },
 ];
 const MIN_GAP = 170;
-/** useLayoutEffect on the client, useEffect during SSR (no hydration warning).
- *  Chosen once per environment, so hook order is always stable. */
-const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 /** Pilot-flame height (px) shown at zero streak — VISUAL ONLY, never
  *  affects real progression, unlocking, or counts. */
 const STARTER_PX = 20;
@@ -541,15 +512,6 @@ function RewardRoad({
   /** Light environment → on-environment text flips to deep slate. */
   light: boolean;
 }) {
-  // CP-103: every "earned"/"glow" accent on the road is derived from the
-  // PROGRESS color — no more hard-coded green unlocks or amber fence.
-  const cLight = theme.cell[0], cMid = theme.cell[1], cDeep = theme.cell[2];
-  const earnedNodeBg = `linear-gradient(135deg, ${cMid}, ${cDeep})`;
-  const earnedCardBg = `linear-gradient(160deg, ${shade(cMid, 0.04)} 0%, ${cDeep} 55%, ${shade(cDeep, 0.28)} 100%)`;
-  const earnedConnector = `linear-gradient(90deg, ${cMid}, ${cDeep})`;
-  /** Ink for the white completion seal + point-gift icon on earned cards. */
-  const earnedInk = shade(cDeep, 0.22);
-
   const range = Math.max(milestones.at(-1)?.count ?? 1, current, 1);
   const targetFrac = Math.min(1, current / range);
   const nextFrac = nextCount ? Math.min(1, nextCount / range) : null;
@@ -638,29 +600,6 @@ function RewardRoad({
     rafRef.current = requestAnimationFrame(step);
   };
 
-  // ── CP-103 NO-FLASH ENTRY: park the viewport at the BOTTOM of the road
-  // BEFORE the browser paints. Previously the page painted at scroll 0 (the
-  // far summit) and only jumped down 120–350ms later, which read as a glitch
-  // every single time the Streaks tab was opened. useLayoutEffect runs after
-  // layout but before paint, so the first frame the user ever sees is the
-  // start of the climb. ──
-  const positionedRef = useRef(false);
-  useIsoLayoutEffect(() => {
-    if (positionedRef.current) return;
-    const el = containerRef.current;
-    if (!el || typeof window === "undefined") return;
-    positionedRef.current = true;
-    // Replay starts from the base; reduced-motion / zero-streak opens at the
-    // user's real position instead. Same formula, different fraction.
-    const still = reducedMotion() || current <= 0;
-    const frac = still ? targetFrac : 0;
-    const rect = el.getBoundingClientRect();
-    const headY = rect.top + window.scrollY + PAD_TOP + (1 - frac) * (rect.height - PAD_TOP - PAD_BOTTOM);
-    const top = Math.max(0, headY - window.innerHeight * (still ? 0.55 : 0.6));
-    if (top > 4) window.scrollTo({ top, behavior: "auto" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // ── ENTRY REPLAY: burn from START to current position, once per mount. ──
   useEffect(() => {
     if (playedRef.current) return;
@@ -671,12 +610,25 @@ function RewardRoad({
       setCrossed(new Set(crossedRef.current));
       setDisplayFrac(targetFrac);
       setSettled(true);
-      return;
+      // Still open at the user's position (START at zero) — never leave a
+      // long road showing its far summit first.
+      const t = window.setTimeout(() => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const headY = rect.top + PAD_TOP + (1 - targetFrac) * (rect.height - PAD_TOP - PAD_BOTTOM);
+        const target = Math.max(0, window.scrollY + headY - window.innerHeight * 0.55);
+        if (target > 4) window.scrollTo({ top: target });
+      }, 120);
+      return () => window.clearTimeout(t);
     }
     const T = Math.min(4500, Math.max(1500, 1200 + targetFrac * 3300));
-    // The viewport is already parked at the base (layout effect above), so
-    // this timer only paces the burn — it never moves the page.
-    const kick = window.setTimeout(() => runAnim(0, targetFrac, T, true), 350);
+    const kick = window.setTimeout(() => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        window.scrollTo({ top: Math.max(0, window.scrollY + rect.top + rect.height - PAD_BOTTOM - window.innerHeight * 0.6) });
+      }
+      runAnim(0, targetFrac, T, true);
+    }, 350);
     return () => { window.clearTimeout(kick); cancelAnimationFrame(rafRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -728,15 +680,12 @@ function RewardRoad({
             width: "10rem",
             // Escalating lane: calm at the base, faint golden atmosphere at
             // the summit — higher streak = higher-value territory.
-            // CP-103: the escalating summit glow now burns in the business's
-            // PROGRESS color, and burns noticeably harder — calm at the base,
-            // real heat at the top of the climb.
             background: light
-              ? `linear-gradient(180deg, ${alpha(cMid, 0.55)} 0%, ${alpha(cLight, 0.42)} 10%, rgba(255,255,255,0.52) 28%, rgba(255,255,255,0.38) 62%, rgba(255,255,255,0.45) 100%)`
-              : `linear-gradient(180deg, ${alpha(cMid, 0.42)} 0%, ${alpha(cLight, 0.24)} 11%, rgba(255,255,255,0.11) 30%, rgba(255,255,255,0.06) 62%, rgba(255,255,255,0.08) 100%)`,
+              ? "linear-gradient(180deg, rgba(253,230,138,0.35) 0%, rgba(255,255,255,0.5) 18%, rgba(255,255,255,0.38) 55%, rgba(255,255,255,0.45) 100%)"
+              : "linear-gradient(180deg, rgba(253,230,138,0.15) 0%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.06) 55%, rgba(255,255,255,0.08) 100%)",
             boxShadow: light
-              ? `inset 0 0 0 1px rgba(255,255,255,0.7), inset 0 56px 72px -30px ${alpha(cMid, 0.6)}, inset 0 18px 30px -16px ${alpha(cDeep, 0.35)}`
-              : `inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 56px 72px -30px ${alpha(cMid, 0.5)}, inset 0 18px 30px -16px ${alpha(cDeep, 0.3)}, inset 0 0 34px rgba(255,255,255,0.05)`,
+              ? "inset 0 0 0 1px rgba(255,255,255,0.7), inset 0 30px 44px -22px rgba(253,230,138,0.35)"
+              : "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 30px 44px -22px rgba(253,230,138,0.22), inset 0 0 34px rgba(255,255,255,0.05)",
             backdropFilter: "blur(2px)",
             WebkitBackdropFilter: "blur(2px)",
           }}
@@ -746,8 +695,8 @@ function RewardRoad({
             <span key={i} className="absolute rounded-full"
               style={{
                 top: sp.t, left: sp.l, width: sp.s, height: sp.s, opacity: sp.o,
-                background: light ? shade(cDeep, 0.1) : "#ffffff",
-                boxShadow: sp.o > 0.35 ? `0 0 8px 2px ${alpha(cLight, 0.7)}` : undefined,
+                background: light ? "#d4a017" : "#ffffff",
+                boxShadow: sp.o > 0.35 ? "0 0 6px 1px rgba(253,230,138,0.55)" : undefined,
               }} />
           ))}
         </div>
@@ -777,10 +726,10 @@ function RewardRoad({
                   style={{
                     bottom: `${displayFrac * 100}%`,
                     height: `${(nextFrac - displayFrac) * 100}%`,
-                    backgroundImage: `repeating-linear-gradient(to top, ${alpha(cMid, 0.9)} 0px, ${alpha(cMid, 0.9)} 4px, transparent 4px, transparent 11px)`,
+                    backgroundImage: "repeating-linear-gradient(to top, rgba(251,191,36,0.85) 0px, rgba(251,191,36,0.85) 4px, transparent 4px, transparent 11px)",
                   }} />
-                <ChevronUp className="absolute left-1/2 -translate-x-1/2 h-3.5 w-3.5 z-[5]"
-                  style={{ bottom: `calc(${nextFrac * 100}% - 24px)`, color: cMid }} />
+                <ChevronUp className="absolute left-1/2 -translate-x-1/2 h-3.5 w-3.5 text-amber-300 z-[5]"
+                  style={{ bottom: `calc(${nextFrac * 100}% - 24px)` }} />
               </>
             )}
             {/* burning fill — rAF drives it in flight, React owns it at rest */}
@@ -828,11 +777,11 @@ function RewardRoad({
             <div key={`mk-${n}`} className="absolute inset-x-0 pointer-events-none" style={{ top: y }}>
               {/* track notch — a real tick on the road, not just side text */}
               <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full"
-                style={{ background: done ? alpha(cMid, 0.95) : light ? "rgba(51,65,85,0.35)" : "rgba(255,255,255,0.5)" }} />
+                style={{ background: done ? "rgba(74,222,128,0.9)" : light ? "rgba(51,65,85,0.35)" : "rgba(255,255,255,0.5)" }} />
               <div className="absolute left-1/2 h-[3px] w-5 -translate-y-1/2 rounded-full"
-                style={{ marginLeft: "1.4rem", background: done ? alpha(cMid, 0.85) : light ? "rgba(51,65,85,0.28)" : "rgba(255,255,255,0.38)" }} />
+                style={{ marginLeft: "1.4rem", background: done ? "rgba(74,222,128,0.8)" : light ? "rgba(51,65,85,0.28)" : "rgba(255,255,255,0.38)" }} />
               <span className="absolute left-1/2 -translate-y-1/2 text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap"
-                style={{ marginLeft: "3rem", color: done ? (light ? earnedInk : "rgba(255,255,255,0.9)") : light ? "rgba(51,65,85,0.6)" : "rgba(255,255,255,0.55)" }}>
+                style={{ marginLeft: "3rem", color: done ? (light ? "#15803d" : "rgba(255,255,255,0.9)") : light ? "rgba(51,65,85,0.6)" : "rgba(255,255,255,0.55)" }}>
                 {unit} {n}
               </span>
             </div>
@@ -863,11 +812,11 @@ function RewardRoad({
                 {/* the summit milestone gets a quiet golden aura */}
                 {i === milestones.length - 1 && (
                   <div className="absolute -inset-2.5 rounded-full pointer-events-none"
-                    style={{ background: `radial-gradient(circle, ${alpha(cLight, 0.45)}, transparent 70%)` }} />
+                    style={{ background: "radial-gradient(circle, rgba(253,230,138,0.32), transparent 70%)" }} />
                 )}
                 {unlocked ? (
                   <div className="h-6 w-6 rounded-full ring-4 ring-white flex items-center justify-center"
-                    style={{ background: earnedNodeBg, boxShadow: `0 0 12px 2px ${alpha(cMid, 0.6)}` }}>
+                    style={{ background: "linear-gradient(135deg, #4ade80, #16a34a)", boxShadow: "0 0 12px 2px rgba(34,197,94,0.55)" }}>
                     <Check className="h-3.5 w-3.5 text-white" />
                   </div>
                 ) : isNext ? (
@@ -891,7 +840,7 @@ function RewardRoad({
                   [left ? "marginRight" : "marginLeft"]: "1.1rem",
                   width: "1rem",
                   background: unlocked
-                    ? earnedConnector
+                    ? "linear-gradient(90deg, #4ade80, #16a34a)"
                     : isNext
                       ? "linear-gradient(90deg, #facc15, #f59e0b)"
                       : light ? "rgba(51,65,85,0.2)" : "rgba(255,255,255,0.28)",
@@ -914,11 +863,9 @@ function RewardRoad({
                         // EARNED: the whole card goes green — completed at a
                         // glance, no label needed (white ✓ circle seals it).
                         ? {
-                            // CP-103: earned cards wear the PROGRESS color,
-                            // not a hard-coded green.
-                            background: earnedCardBg,
+                            background: "linear-gradient(160deg, #22c55e 0%, #16a34a 55%, #15803d 100%)",
                             borderColor: "rgba(255,255,255,0.25)",
-                            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 10px 22px -12px ${alpha(cDeep, 0.65)}`,
+                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), 0 10px 22px -12px rgba(22,163,74,0.6)",
                           }
                         : undefined
                   }
@@ -926,7 +873,7 @@ function RewardRoad({
                   {/* white circle + green check — the completion seal */}
                   {unlocked && (
                     <span className="absolute top-2 right-2 z-10 h-6 w-6 rounded-full bg-white shadow-md flex items-center justify-center">
-                      <Check className="h-4 w-4" style={{ color: earnedInk }} />
+                      <Check className="h-4 w-4 text-green-600" />
                     </span>
                   )}
                   {/* PHOTO rewards: big banner image — a real prize preview.
@@ -975,8 +922,7 @@ function RewardRoad({
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" />
                           ) : (
-                            <Gift className={`h-6 w-6 ${unlocked ? "" : "text-slate-400"}`}
-                              style={unlocked ? { color: earnedInk } : undefined} />
+                            <Gift className={`h-6 w-6 ${unlocked ? "text-green-600" : "text-slate-400"}`} />
                           )}
                         </div>
                         <div className={`min-w-0 flex-1 ${unlocked ? "pr-6" : ""}`}>
@@ -1006,11 +952,10 @@ function RewardRoad({
         {settled && current >= range && (
           <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ top: PAD_TOP - 48 }}>
             <div className="h-10 w-10 rounded-full flex items-center justify-center"
-              style={{ background: earnedNodeBg, boxShadow: `0 0 18px 4px ${alpha(cMid, 0.65)}` }}>
+              style={{ background: "linear-gradient(135deg, #facc15, #f59e0b)", boxShadow: "0 0 18px 4px rgba(245,158,11,0.6)" }}>
               <Trophy className="h-5 w-5 text-white drop-shadow" />
             </div>
-            <span className="mt-1 text-[9px] font-black tracking-widest uppercase"
-              style={{ color: light ? earnedInk : cLight }}>Complete</span>
+            <span className={`mt-1 text-[9px] font-black tracking-widest uppercase ${light ? "text-amber-600" : "text-amber-300"}`}>Complete</span>
           </div>
         )}
 

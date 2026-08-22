@@ -367,28 +367,6 @@ export function resolveStreakPage(b: BizLike): ResolvedStreakPage {
  *   "#rrggbb"      → tonal range from a custom color, luminance-clamped so
  *                    a near-white or near-black pick still reads on the road
  */
-/* ── CP-103 shared accent helpers ─────────────────────────────────────
-   The streak page and the builder preview both derive their "earned",
-   corridor-glow and top-band colors from the resolved PROGRESS theme, so
-   one control in the app builder moves every accent together. Exported
-   here so both surfaces stay pixel-identical. ── */
-
-/** Darken a hex toward black (0 = unchanged, 1 = black). */
-export const shadeHex = (hex: string, t: number) => darken(hex, t);
-/** rgba() from a hex — for tints and glows where alpha must be tunable. */
-export function alphaHex(hex: string, a: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
-}
-/** The top band: a solid brand slab across the top of the streak screen
- *  that dissolves before the reward road begins, so the hero reads as one
- *  block of color and the roadmap keeps its calm ground. */
-export function streakTopBand(t: StreakTheme): string {
-  return `linear-gradient(180deg, ${darken(t.cell[2], 0.12)} 0%, ${t.cell[2]} 42%, ${alphaHex(t.cell[2], 0.82)} 62%, ${alphaHex(t.cell[1], 0.34)} 82%, ${alphaHex(t.cell[1], 0)} 100%)`;
-}
-/** How far down the band reaches (px) on the real streak page. */
-export const STREAK_TOP_BAND_H = 330;
-
 export function resolveProgressTheme(
   mode: string | null | undefined,
   brandPrimary: string | null | undefined,

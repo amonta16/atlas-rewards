@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, MailCheck, Shield, Eye, EyeOff } from "lucide-react";
+import { Mail, MailCheck, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,46 +58,6 @@ async function destinationAfterAuth(
       r.role === "business_manager" || r.role === "business_staff",
   );
   return `${appBase}${privileged ? "/manage" : "/app"}`;
-}
-
-/* CP-103 (QA S-01): password fields hid what was typed with no way to check
-   it, so a typo could only be found by failing to sign in. One small,
-   accessible eye toggle, shared by both forms on this route group. */
-function PasswordInput({
-  value, onChange, required, minLength, autoComplete, placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-  minLength?: number;
-  autoComplete?: string;
-  placeholder?: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Input
-        type={show ? "text" : "password"}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        required={required}
-        minLength={minLength}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        className="pr-11"
-      />
-      <button
-        type="button"
-        onClick={() => setShow(v => !v)}
-        aria-label={show ? "Hide password" : "Show password"}
-        aria-pressed={show}
-        className="absolute inset-y-0 right-0 px-3 flex items-center text-zinc-400 hover:text-zinc-700 transition-colors"
-        tabIndex={-1}
-      >
-        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  );
 }
 
 export default function CustomerLogin() {
@@ -276,7 +236,7 @@ export default function CustomerLogin() {
                 Forgot password?
               </Link>
             </div>
-            <PasswordInput value={password} onChange={setPassword} required autoComplete="current-password" />
+            <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}
           <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>

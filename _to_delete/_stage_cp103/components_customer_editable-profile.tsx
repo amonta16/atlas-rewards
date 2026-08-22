@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Mail, Phone, Calendar, Cake, Pencil, Check, Lock, AlertCircle } from "lucide-react";
+import { Mail, Phone, Calendar, Cake, Pencil, Check, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,10 +26,6 @@ export function EditableProfile({
   const [birthday, setBirthday] = useState(initial.birthday ?? "");
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
-  // CP-103 (QA M-01/M-02): Save used to accept anything — letters in the
-  // phone field and a blank name both persisted, even though Join rejects
-  // both. Validation now mirrors the signup form exactly.
-  const [err, setErr] = useState<string | null>(null);
 
   // CP-28: birthday is set-once to close the "edit DOB every year for free
   // bonus" loophole. Once a non-null date is on file, the field becomes
@@ -39,36 +35,18 @@ export function EditableProfile({
   const [birthdayLocked, setBirthdayLocked] = useState(!!initial.birthday);
 
   async function save() {
-    // Same rules as /signup: a name is required, and a phone (when given)
-    // must look like a real one — at least 10 digits and no letters.
-    const cleanName = name.trim();
-    const cleanPhone = phone.trim();
-    const phoneDigits = cleanPhone.replace(/\D/g, "");
-    if (!cleanName) {
-      setErr("Please enter your name.");
-      return;
-    }
-    if (cleanPhone && (phoneDigits.length < 10 || /[A-Za-z]/.test(cleanPhone))) {
-      setErr("Please enter a valid phone number.");
-      return;
-    }
-    setErr(null);
     setSaving(true);
     const supabase = createClient();
     // CP-28: don't even attempt to send a new birthday if one is already on
     // file — the DB will reject it, but skipping the field client-side keeps
     // the success path clean for users who just edited name/phone.
     const { error } = await supabase.rpc("update_my_profile", {
-      p_full_name: cleanName,
-      p_phone: cleanPhone || null,
+      p_full_name: name || null,
+      p_phone: phone || null,
       p_birthday: birthdayLocked ? null : (birthday || null),
     });
     setSaving(false);
     if (!error) {
-      // Persist the trimmed values in local state so the header/avatar match
-      // exactly what was saved.
-      setName(cleanName);
-      setPhone(cleanPhone);
       // CP-28: lock the birthday in the UI the instant the first save succeeds
       // so the user can't keep editing in the same session.
       if (!birthdayLocked && birthday) {
@@ -77,7 +55,7 @@ export function EditableProfile({
       setSavedAt(new Date());
       setEditing(false);
     } else {
-      setErr("Save failed: " + error.message);
+      alert("Save failed: " + error.message);
     }
   }
 
@@ -121,7 +99,7 @@ export function EditableProfile({
 
           {editing ? (
             <EditRow icon={<Pencil className="h-4 w-4" />} label="Name">
-              <Input value={name} onChange={e => { setName(e.target.value); setErr(null); }} placeholder="Your name" required />
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
             </EditRow>
           ) : (
             <Row icon={<Pencil className="h-4 w-4" />} label="Name" value={name || "—"} />
@@ -129,7 +107,7 @@ export function EditableProfile({
 
           {editing ? (
             <EditRow icon={<Phone className="h-4 w-4" />} label="Phone">
-              <Input type="tel" inputMode="tel" value={phone} onChange={e => { setPhone(e.target.value); setErr(null); }} placeholder="(555) 555-5555" />
+              <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" />
             </EditRow>
           ) : (
             <Row icon={<Phone className="h-4 w-4" />} label="Phone" value={phone || "—"} />
@@ -183,12 +161,6 @@ export function EditableProfile({
           {/* CP-73: Tier row removed. */}
           <Row icon={<Calendar className="h-4 w-4" />} label="Member since" value={initial.joined} />
         </div>
-
-        {err && (
-          <p className="text-[12px] text-red-600 mt-2 flex items-center justify-center gap-1.5 font-semibold">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {err}
-          </p>
-        )}
 
         {savedAt && !editing && (
           <p className="text-[11px] text-emerald-600 mt-2 text-center">

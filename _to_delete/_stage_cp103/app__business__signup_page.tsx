@@ -2,52 +2,12 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { Gift, Bell, Eye, EyeOff } from "lucide-react";
+import { Gift, Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
-
-/* CP-103 (QA S-01): password fields hid what was typed with no way to check
-   it, so a typo could only be found by failing to sign in. One small,
-   accessible eye toggle, shared by both forms on this route group. */
-function PasswordInput({
-  value, onChange, required, minLength, autoComplete, placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  required?: boolean;
-  minLength?: number;
-  autoComplete?: string;
-  placeholder?: string;
-}) {
-  const [show, setShow] = useState(false);
-  return (
-    <div className="relative">
-      <Input
-        type={show ? "text" : "password"}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        required={required}
-        minLength={minLength}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        className="pr-11"
-      />
-      <button
-        type="button"
-        onClick={() => setShow(v => !v)}
-        aria-label={show ? "Hide password" : "Show password"}
-        aria-pressed={show}
-        className="absolute inset-y-0 right-0 px-3 flex items-center text-zinc-400 hover:text-zinc-700 transition-colors"
-        tabIndex={-1}
-      >
-        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  );
-}
 
 export default function CustomerSignup() {
   const router = useRouter();
@@ -306,10 +266,7 @@ export default function CustomerSignup() {
               We only need the month and day to send you a birthday reward. Can't be changed later — pick carefully.
             </p>
           </Field>
-          <Field label="Choose a password">
-            <PasswordInput value={password} onChange={setPassword} required minLength={6} autoComplete="new-password" />
-            <p className="text-[10px] text-zinc-500 mt-1">At least 6 characters. Tap the eye to check it before you continue.</p>
-          </Field>
+          <Field label="Choose a password"><Input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} /></Field>
 
           {/* CP-36b: notification consent checkbox. Opt-OUT model so most
               members keep getting their streaks / offers / etc., but it's

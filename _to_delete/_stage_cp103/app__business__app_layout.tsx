@@ -76,11 +76,7 @@ export default async function CustomerAppLayout({
     // CP-58: `atlas-surface` scopes the card-style utility remaps (globals.css)
     // and designVars() supplies the card/button tokens for this business.
     <div
-      // CP-103 (QA M-04): landscape used to leave Home as a portrait strip
-      // with dead side margins and the featured offer clipped under the tab
-      // bar. The column now widens with the orientation (the bottom nav
-      // widens with it in app-shell), so a rotated phone gets a real layout.
-      className="atlas-surface max-w-md landscape:max-w-2xl mx-auto min-h-screen relative"
+      className="atlas-surface max-w-md mx-auto min-h-screen relative"
       // CP-92: start content below the iPhone status bar (safe-area inset)
       // while the background color/pattern still paints behind it — the
       // notch area blends with the app instead of eating the top banner.
@@ -139,8 +135,6 @@ export default async function CustomerAppLayout({
         /* CP-54: surface text color (auto-contrast) + chrome (header/nav) color. */
         surfaceFg={surfaceFg}
         chromeColor={headerColor}
-        /* CP-103 (QA S-03): no Google review link → no review nudge badge. */
-        reviewUrl={business.google_review_url}
         /* CP-52.4: shared header (logo + quick actions) on every tab. */
         header={
           <CustomerHeader

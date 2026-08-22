@@ -40,52 +40,7 @@ type StreakSnapshot = {
   longest_streak: number;
   checked_in_this_period: boolean;
   period_type: "daily" | "weekly" | "monthly";
-  // CP-103: already returned by get_streak_status — the desk just never read
-  // them, so staff could not answer "when should I come back?".
-  period_start?: string | null;
-  period_end?: string | null;
 };
-
-/* ── CP-103 front-desk check-in timing ──────────────────────────────────
-   Two different clocks, exactly as the customer's streak page computes them
-   (same engine fields, same math — no second source of truth):
-     · NEXT qualifying check-in: already credited this period → the next one
-       that counts opens when the next period starts (period_end).
-     · Streak EXPIRES: not checked in → dies at the end of THIS period;
-       checked in → safe through the NEXT period as well.
-   ──────────────────────────────────────────────────────────────────────── */
-function streakClocks(s: StreakSnapshot | null, nowMs: number) {
-  if (!s) return { nextMs: null as number | null, expiresMs: null as number | null, nextAt: null as Date | null };
-  const end = s.period_end ? new Date(s.period_end).getTime() : NaN;
-  const start = s.period_start ? new Date(s.period_start).getTime() : NaN;
-  const hasEnd = Number.isFinite(end);
-  const len = hasEnd && Number.isFinite(start) ? end - start : null;
-  const nextMs = !s.checked_in_this_period ? 0 : hasEnd ? Math.max(0, end - nowMs) : null;
-  const expiresMs =
-    (s.current_streak ?? 0) > 0 && hasEnd
-      ? s.checked_in_this_period && len
-        ? Math.max(0, end + len - nowMs)
-        : Math.max(0, end - nowMs)
-      : null;
-  return { nextMs, expiresMs, nextAt: hasEnd ? new Date(end) : null };
-}
-
-/** "2d 5h" / "5h 32m" / "42m" — compact time-left label. */
-function timeLeftLabel(ms: number): string {
-  if (ms <= 0) return "now";
-  const mins = Math.floor(ms / 60_000);
-  const days = Math.floor(mins / 1440);
-  const hours = Math.floor((mins % 1440) / 60);
-  const rem = mins % 60;
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${rem}m`;
-  return `${rem}m`;
-}
-
-/** "Mon, Aug 24 · 9:00 AM" — the concrete moment staff can say out loud. */
-function whenLabel(d: Date): string {
-  return d.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-}
 
 // CP-86: VIP membership status for the scanned member — so the front desk
 // instantly sees "this person is a member" and when the membership expires.
@@ -499,41 +454,6 @@ export function AwardPointsPanel({
                     </div>
                   )}
                 </button>
-
-                {/* CP-103: NEXT CHECK-IN — front desk can now answer "when
-                    should I come back?" without opening the customer app. */}
-                {(() => {
-                  const { nextMs, expiresMs, nextAt } = streakClocks(streak, Date.now());
-                  if (nextMs === null && expiresMs === null) return null;
-                  const urgent = expiresMs !== null && expiresMs < 24 * 3600_000;
-                  return (
-                    <div className="mt-2 rounded-xl border bg-white p-3 flex items-center gap-3 text-xs">
-                      <Calendar className="h-4 w-4 text-zinc-400 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-zinc-800">
-                          {nextMs === 0
-                            ? "Can check in right now"
-                            : nextMs !== null
-                              ? <>Next check-in counts in <strong>{timeLeftLabel(nextMs)}</strong></>
-                              : "Next check-in: any visit"}
-                        </div>
-                        {nextMs !== null && nextMs > 0 && nextAt && (
-                          <div className="text-[11px] text-zinc-500 mt-0.5">{whenLabel(nextAt)}</div>
-                        )}
-                      </div>
-                      {expiresMs !== null && (
-                        <div className="shrink-0 text-right">
-                          <div className={cn("text-[9px] font-black uppercase tracking-wider", urgent ? "text-red-600" : "text-zinc-400")}>
-                            Streak expires
-                          </div>
-                          <div className={cn("text-[12px] font-extrabold tabular-nums", urgent ? "text-red-600" : "text-zinc-700")}>
-                            {timeLeftLabel(expiresMs)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
 
                 {checkInResult && (
                   <div className="mt-2 rounded-xl border bg-white p-3 flex items-start gap-2 text-xs">

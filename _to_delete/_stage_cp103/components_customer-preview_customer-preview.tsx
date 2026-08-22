@@ -4,9 +4,7 @@ import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
-import {
-  resolveStreakPage, resolveProgressTheme, shadeHex, alphaHex, streakTopBand,
-} from "@/lib/streak-page-themes";
+import { resolveStreakPage, resolveProgressTheme } from "@/lib/streak-page-themes";
 // CP-65.1 + CP-66: mirror the offer-card skin + section layouts live.
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-panel presets mirrored in the preview store mock.
@@ -808,20 +806,12 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
  *  vertical battle-pass path. Mirrors the streak theme + first two
  *  preview rewards so agencies see their own colors/photos. */
 function StreaksBody({ business: b, rewards = [] }: { business: Business; rewards?: PreviewReward[] }) {
-  // CP-103: the PROGRESS color drives the whole streak surface (hero, CTA,
-  // road, earned rewards, corridor glow, top band) — mirrors streaks-client.
-  const baseTheme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
-  const theme = resolveProgressTheme(b.streak_progress_mode, b.brand_colors?.primary, baseTheme);
-  const roadTheme = theme;
+  const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
   const page = resolveStreakPage(b);
   const env = page.env;
   const envPattern = page.pattern;
   const lightEnv = !!env.light;
-  const heroLight = readableTextColor(shadeHex(theme.cell[2], 0.12)) === "#18181b";
-  const cLight = theme.cell[0], cMid = theme.cell[1], cDeep = theme.cell[2];
-  const earnedNodeBg = `linear-gradient(135deg, ${cMid}, ${cDeep})`;
-  const earnedCardBg = `linear-gradient(160deg, ${shadeHex(cMid, 0.04)} 0%, ${cDeep} 55%, ${shadeHex(cDeep, 0.28)} 100%)`;
-  const earnedInk = shadeHex(cDeep, 0.22);
+  const roadTheme = resolveProgressTheme(b.streak_progress_mode, b.brand_colors?.primary, theme);
   // Demo program: 10-day range, member at day 7, milestones at 3 / 7 / 10.
   const current = 7, range = 10;
   const fill = (current / range) * 100;
@@ -847,10 +837,6 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
       )}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,0.07), transparent 70%)" }} />
-      {/* CP-103: brand top band (same treatment as the live streak page,
-          scaled to the preview phone). */}
-      <div className="absolute inset-x-0 top-0 pointer-events-none"
-        style={{ height: 208, background: streakTopBand(theme) }} />
       <div className="relative z-10 px-3 pt-4 pb-5">
         {/* HERO HUD */}
         <div className="flex items-center gap-3">
@@ -860,12 +846,12 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-end gap-1.5">
-              <span className={`text-4xl font-black leading-none tabular-nums ${heroLight ? "text-slate-900" : "text-white"}`}>{current}</span>
-              <span className={`text-[10px] uppercase tracking-[0.16em] font-extrabold mb-0.5 ${heroLight ? "text-slate-500" : "text-white/60"}`}>day streak</span>
+              <span className={`text-4xl font-black leading-none tabular-nums ${lightEnv ? "text-slate-900" : "text-white"}`}>{current}</span>
+              <span className={`text-[10px] uppercase tracking-[0.16em] font-extrabold mb-0.5 ${lightEnv ? "text-slate-500" : "text-white/60"}`}>day streak</span>
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-[10px] font-bold">
               <Trophy className="h-3 w-3 text-amber-300" />
-              <span className={heroLight ? "text-amber-600" : "text-amber-300"}>Personal best — keep it alive.</span>
+              <span className={lightEnv ? "text-amber-600" : "text-amber-300"}>Personal best — keep it alive.</span>
             </div>
           </div>
           <span className="shrink-0 inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-1 rounded-full bg-white text-slate-700 ring-1 ring-black/10 shadow-sm">
@@ -918,13 +904,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
         <div className="relative" style={{ height: H }}>
           {/* protected corridor around the route */}
           <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 rounded-[2rem] pointer-events-none overflow-hidden"
-            style={{
-              width: "6.5rem",
-              background: lightEnv
-                ? `linear-gradient(180deg, ${alphaHex(cMid, 0.55)} 0%, ${alphaHex(cLight, 0.42)} 10%, rgba(255,255,255,0.52) 28%, rgba(255,255,255,0.38) 62%, rgba(255,255,255,0.45) 100%)`
-                : `linear-gradient(180deg, ${alphaHex(cMid, 0.42)} 0%, ${alphaHex(cLight, 0.24)} 11%, rgba(255,255,255,0.11) 30%, rgba(255,255,255,0.06) 62%, rgba(255,255,255,0.08) 100%)`,
-              boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.12), inset 0 44px 56px -26px ${alphaHex(cMid, 0.55)}, inset 0 14px 24px -14px ${alphaHex(cDeep, 0.3)}`,
-            }}>
+            style={{ width: "6.5rem", background: "linear-gradient(180deg, rgba(253,230,138,0.15) 0%, rgba(255,255,255,0.10) 18%, rgba(255,255,255,0.06) 60%, rgba(255,255,255,0.08) 100%)", boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 24px 36px -20px rgba(253,230,138,0.22)" }}>
             {[{ t: "4%", l: "28%", s: 3, o: 0.5 }, { t: "8%", l: "64%", s: 2.5, o: 0.4 }, { t: "16%", l: "42%", s: 2, o: 0.3 }, { t: "30%", l: "62%", s: 1.5, o: 0.2 }].map((sp, i) => (
               <span key={i} className="absolute rounded-full bg-white" style={{ top: sp.t, left: sp.l, width: sp.s, height: sp.s, opacity: sp.o }} />
             ))}
@@ -934,9 +914,9 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
           {[{ n: 5, done: true }, { n: 9, done: false }].map(mk => (
             <div key={`mk-${mk.n}`} className="absolute inset-x-0 pointer-events-none" style={{ top: PT + (1 - mk.n / range) * (H - PT - PB) }}>
               <div className="absolute left-1/2 h-0.5 w-2.5 -translate-y-1/2 rounded-full"
-                style={{ marginLeft: "1.1rem", background: mk.done ? alphaHex(cMid, 0.85) : "rgba(255,255,255,0.32)" }} />
+                style={{ marginLeft: "1.1rem", background: mk.done ? "rgba(74,222,128,0.75)" : "rgba(255,255,255,0.32)" }} />
               <span className="absolute left-1/2 -translate-y-1/2 text-[7px] font-extrabold uppercase tracking-[0.12em] whitespace-nowrap"
-                style={{ marginLeft: "1.9rem", color: mk.done ? (lightEnv ? earnedInk : "rgba(255,255,255,0.85)") : lightEnv ? "rgba(51,65,85,0.6)" : "rgba(255,255,255,0.5)" }}>
+                style={{ marginLeft: "1.9rem", color: mk.done ? (lightEnv ? "#15803d" : "rgba(255,255,255,0.85)") : lightEnv ? "rgba(51,65,85,0.6)" : "rgba(255,255,255,0.5)" }}>
                 Day {mk.n}
               </span>
             </div>
@@ -949,7 +929,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                 style={{ height: `${fill}%`, background: fillGradient, boxShadow: `0 0 10px 1px ${roadTheme.glow}` }} />
               {/* dotted directional segment toward the next reward */}
               <div className="absolute left-1/2 -translate-x-1/2 w-[2px]"
-                style={{ bottom: `${fill}%`, height: `${100 - fill}%`, backgroundImage: `repeating-linear-gradient(to top, ${alphaHex(cMid, 0.9)} 0px, ${alphaHex(cMid, 0.9)} 3px, transparent 3px, transparent 9px)` }} />
+                style={{ bottom: `${fill}%`, height: `${100 - fill}%`, backgroundImage: "repeating-linear-gradient(to top, rgba(251,191,36,0.85) 0px, rgba(251,191,36,0.85) 3px, transparent 3px, transparent 9px)" }} />
             </div>
             <div className="absolute left-1/2 z-20" style={{ bottom: `${fill}%`, transform: "translate(-50%, 50%)" }}>
               <div className="h-9 w-9 rounded-full flex items-center justify-center ring-4 ring-white"
@@ -968,7 +948,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                 <div className="absolute left-1/2 z-10" style={{ transform: "translate(-50%, -50%)" }}>
                   {unlocked ? (
                     <div className="h-5 w-5 rounded-full ring-4 ring-white flex items-center justify-center"
-                      style={{ background: earnedNodeBg, boxShadow: `0 0 10px 2px ${alphaHex(cMid, 0.55)}` }}>
+                      style={{ background: "linear-gradient(135deg, #4ade80, #16a34a)", boxShadow: "0 0 10px 2px rgba(34,197,94,0.5)" }}>
                       <Check className="h-3 w-3 text-white" />
                     </div>
                   ) : (
@@ -985,13 +965,13 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
                     style={m.state === "next"
                       ? { borderColor: "rgba(245,158,11,0.6)", boxShadow: "0 0 0 2px rgba(245,158,11,0.35)" }
                       : {
-                          background: earnedCardBg,
+                          background: "linear-gradient(160deg, #22c55e 0%, #16a34a 55%, #15803d 100%)",
                           borderColor: "rgba(255,255,255,0.25)",
-                          boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 16px -10px ${alphaHex(cDeep, 0.65)}`,
+                          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), 0 6px 16px -10px rgba(22,163,74,0.6)",
                         }}>
                     {m.state !== "next" && (
                       <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-white shadow flex items-center justify-center">
-                        <Check className="h-2.5 w-2.5" style={{ color: earnedInk }} />
+                        <Check className="h-2.5 w-2.5 text-green-600" />
                       </span>
                     )}
                     {m.state === "next" && (

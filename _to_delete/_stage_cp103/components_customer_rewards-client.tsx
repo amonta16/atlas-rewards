@@ -186,18 +186,9 @@ export function RewardsClient({
   }, [points]);
 
   const earnRules = business.point_rules;
-  // CP-103 (QA M-03): this used to floor elapsed MILLISECONDS and then
-  // clamp to a minimum of 1, so anyone who joined today was told "Joined 1
-  // day ago" while Profile showed today's date. Count CALENDAR days in the
-  // viewer's own timezone instead — same day now reads 0 → "Joined today".
-  const joined = (() => {
-    if (!membership?.joined_at) return 0;
-    const j = new Date(membership.joined_at);
-    const then = new Date(j.getFullYear(), j.getMonth(), j.getDate()).getTime();
-    const n = new Date();
-    const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
-    return Math.max(0, Math.round((today - then) / 86400000));
-  })();
+  const joined = membership?.joined_at
+    ? Math.max(1, Math.floor((Date.now() - new Date(membership.joined_at).getTime()) / 86400000))
+    : 0;
 
   const offerDaysLeft = featuredOffer?.expires_at
     ? Math.max(0, Math.ceil((new Date(featuredOffer.expires_at).getTime() - Date.now()) / 86_400_000))
@@ -506,10 +497,7 @@ export function RewardsClient({
               primary={business.brand_colors.primary}
               secondary={business.brand_colors.secondary} />
           )}
-          {/* CP-103 (QA S-03): the row only appears once the business has
-              actually set a Google review link — otherwise the customer was
-              promised points for a button that opens nothing. */}
-          {business.widget_config.reviews && !!business.google_review_url && (
+          {business.widget_config.reviews && (
             <EarnRow
               /* CP-35: anchor target for the Rewards-tab "!" badge nudge.
                  Combined with the useEffect at the top of this file that

@@ -55,7 +55,6 @@ export function CustomerAppShell({
   header,
   surfaceFg,
   chromeColor,
-  reviewUrl,
 }: {
   primary: string;
   widgetConfig: WidgetConfig;
@@ -72,9 +71,6 @@ export function CustomerAppShell({
   surfaceFg?: string;
   /** CP-54: header / bottom-nav background color (null = default white). */
   chromeColor?: string | null;
-  /** CP-103 (QA S-03): the Rewards "!" review nudge only makes sense once
-   *  the business has a Google review link to send people to. */
-  reviewUrl?: string | null;
 }) {
   const pathname = usePathname();
   // CP-45 404 fix: the nav used a hard-coded `/app` base. That works on the
@@ -104,13 +100,11 @@ export function CustomerAppShell({
   // surface the badge when widget_config.reviews is on AND the business
   // has a google_review_url-style URL set. We can't read that here without
   // a fetch, so we just gate on widget_config.reviews.
-  // CP-103: gated on the review LINK too — no link, no nudge.
-  const reviewsLive = !!widgetConfig?.reviews && !!reviewUrl;
   const reviewStatus = useReviewStatus(
-    reviewsLive ? (businessId ?? null) : null,
-    reviewsLive ? (membershipId ?? null) : null,
+    widgetConfig?.reviews ? (businessId ?? null) : null,
+    widgetConfig?.reviews ? (membershipId ?? null) : null,
   );
-  const reviewTone = reviewsLive ? reviewBadgeTone(reviewStatus) : false;
+  const reviewTone = widgetConfig?.reviews ? reviewBadgeTone(reviewStatus) : false;
 
   return (
     <div
@@ -126,14 +120,9 @@ export function CustomerAppShell({
       <EnablePushNudge primary={primary} businessId={businessId ?? null} />
       {/* CP-52.4: shared header across every tab. */}
       {header}
-      {/* CP-103: clearance grew with the taller nav (pb-20 → pb-24). Any
-          surface that cancels this padding must cancel 6rem, not 5rem. */}
-      <main className="flex-1 pb-24 landscape:pb-28">{children}</main>
-      {/* CP-103 (QA M-04): in landscape the column widens to match the app
-          wrapper, so the bar lines up with the content instead of floating
-          over empty side margins. */}
+      <main className="flex-1 pb-20">{children}</main>
       <nav
-        className="fixed bottom-0 left-0 right-0 max-w-md landscape:max-w-2xl mx-auto border-t px-1 py-2.5 flex items-center justify-around z-40"
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-1 py-1.5 flex items-center justify-around z-40"
         style={chromeColor
           ? { background: chromeColor, borderColor: "rgba(127,127,127,0.28)" }
           : { background: "#ffffff", borderColor: "#e4e4e7" }}
@@ -149,13 +138,13 @@ export function CustomerAppShell({
           const active = pathname === `${basePath}${t.href}` || (t.href === "" && pathname === basePath);
           const Icon = t.icon;
           return (
-            <Link key={t.label} href={href} className="flex flex-col items-center gap-1 py-0.5 px-2 flex-1 active:scale-95 transition-transform relative">
+            <Link key={t.label} href={href} className="flex flex-col items-center gap-0.5 py-1 px-2 flex-1 active:scale-95 transition-transform relative">
               {/* CP-69: active-tab pill — subtle tinted capsule behind the icon. */}
               <div
-                className="relative rounded-full px-4 py-1.5 transition-colors"
+                className="relative rounded-full px-3.5 py-1 transition-colors"
                 style={active ? { background: navPill } : undefined}
               >
-                <Icon className={cn("h-6 w-6")} style={{ color: active ? navActive : navInactive }} />
+                <Icon className={cn("h-5 w-5")} style={{ color: active ? navActive : navInactive }} />
                 {showBadge && (
                   <span
                     aria-label={reviewTone === "orange" ? "Review pending verification" : "Google review available"}
@@ -173,7 +162,7 @@ export function CustomerAppShell({
                   >!</span>
                 )}
               </div>
-              <span className={cn("text-[11px] leading-none", active ? "font-extrabold" : "font-semibold")} style={{ color: active ? navActive : navInactive }}>{t.label}</span>
+              <span className={cn("text-[10px]", active ? "font-extrabold" : "font-semibold")} style={{ color: active ? navActive : navInactive }}>{t.label}</span>
             </Link>
           );
         })}

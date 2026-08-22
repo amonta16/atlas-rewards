@@ -152,10 +152,7 @@ export function TiltLoyaltyCard({
             <div className="min-w-0">
               <div className="text-base font-semibold truncate">{fullName}</div>
               <div className="text-[10px] opacity-75 mt-0.5">
-                {/* CP-103 (QA M-03): 0 = joined today. */}
-                {joinedDays === 0
-                  ? "Joined today"
-                  : `Joined ${joinedDays} day${joinedDays === 1 ? "" : "s"} ago`}
+                Joined {joinedDays} day{joinedDays === 1 ? "" : "s"} ago
               </div>
             </div>
             {/* CP-73: tier badge removed (tiers are gone). A quiet MEMBER
