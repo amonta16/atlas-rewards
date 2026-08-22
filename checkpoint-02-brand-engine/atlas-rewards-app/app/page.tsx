@@ -1,66 +1,96 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles } from "lucide-react";
+import type { Metadata } from "next";
+import { LandingPage } from "@/components/landing/landing-page";
+import { interClass } from "@/lib/landing/font";
+import { FAQS } from "@/lib/landing/faqs";
+import { IOS_APP_URL } from "@/lib/landing/config";
 
-export default function LandingPage() {
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
+/**
+ * CP-100 — Atlas Engine landing page (replaces the CP-2.5 placeholder).
+ *
+ * This file owns SEO (metadata + JSON-LD) and the typeface. The page body
+ * lives in components/landing/landing-page.tsx, which composes the sections
+ * in conversion order:
+ *
+ *   Navbar → Hero → LogoCloud → VSLSection → ProblemSection →
+ *   InteractiveDemo → RewardsDemo → FeatureShowcase → AnalyticsDemo →
+ *   HowItWorks → BeforeAfter → SocialProof → CaseStudy → PricingSection →
+ *   AgencyWaitlist → FAQ → FinalCTA → Footer
+ *
+ * Quick edits:
+ *   • VSL video / poster / embed ........ lib/landing/config.ts  (VSL)
+ *   • Demo CTA target (modal vs URL) .... lib/landing/config.ts  (DEMO_BOOKING_TARGET)
+ *   • Lead inbox ........................ lib/landing/config.ts  (CONTACT_EMAIL)
+ *   • Example brands in the phone ....... lib/landing/industries.ts
+ *   • FAQ copy .......................... lib/landing/faqs.ts
+ *   • Analytics fan-out ................. lib/landing/analytics.ts
+ *   • Backend (tables + RPC) ............ checkpoint-100-landing-redesign/cp100_landing.sql
+ *
+ * Nothing here touches the customer app ([business]/*), the agency portal,
+ * /login, or the API routes outside /api/landing/*.
+ */
+
+const TITLE = "Atlas Engine — Your own branded rewards app for local business";
+const DESCRIPTION =
+  "Give your business its own rewards app: points, streaks, a prize wheel, win-back offers, referrals and review requests — built in your brand, no developers. Book a free demo.";
+
+export const metadata: Metadata = {
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
+  alternates: { canonical: "https://www.atlas-engine.app/" },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://www.atlas-engine.app/",
+    siteName: "Atlas Engine",
+    type: "website",
+    locale: "en_US",
+    // Replace with a real 1200×630 image at public/og/atlas-og.png → "/og/atlas-og.png"
+    images: [{ url: "/atlas-icon-512.png", width: 512, height: 512, alt: "Atlas Engine" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/atlas-icon-512.png"],
+  },
+  robots: { index: true, follow: true },
+};
+
+export default function Page() {
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Atlas Engine",
+      url: "https://www.atlas-engine.app/",
+      logo: "https://www.atlas-engine.app/atlas-icon-512.png",
+      email: "andrew@atlas-engine.app",
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "Atlas Engine",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "iOS, Web",
+      description: DESCRIPTION,
+      url: "https://www.atlas-engine.app/",
+      installUrl: IOS_APP_URL,
+      offers: { "@type": "Offer", availability: "https://schema.org/InStock", priceCurrency: "USD" },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQS.filter((f) => !f.a.startsWith("[")).map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a.replace(/\s*\[ CONFIRM[^\]]*\]/g, "") },
+      })),
+    },
+  ];
   return (
-    <main className="min-h-screen flex flex-col bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 text-white">
-      <header className="border-b border-white/10">
-        <div className="container flex h-20 items-center justify-between">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/atlas-engine-logo.png" alt="Atlas Engine" className="h-10" />
-          <nav className="flex items-center gap-3">
-            <Link href="/login">
-              <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 hover:text-white">
-                Agency Login
-              </Button>
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      <section className="container flex-1 py-24 grid gap-12 lg:grid-cols-2 items-center">
-        <div className="space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-semibold tracking-wider uppercase">
-            <Sparkles className="h-3 w-3"/> White-label retention engine
-          </div>
-          <h1 className="text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]">
-            One platform.<br/>
-            <span className="bg-gradient-to-r from-cyan-300 to-indigo-300 bg-clip-text text-transparent">
-              Every business gets their own rewards app.
-            </span>
-          </h1>
-          <p className="text-lg text-zinc-300 max-w-xl">
-            Spin up a branded rewards app for any client in minutes. Points, rewards, referrals, reviews, birthdays, reactivation — all configurable per business.
-          </p>
-          <div className="flex gap-3 pt-2">
-            <Link href="/agency">
-              <Button size="lg" className="bg-white text-zinc-900 hover:bg-zinc-100">
-                Open agency dashboard <ArrowRight className="h-4 w-4 ml-2"/>
-              </Button>
-            </Link>
-            <a href={`${rootDomain.includes("lvh.me") ? "http" : "https"}://demo.${rootDomain}${rootDomain.includes("lvh.me") ? ":3000" : ""}`}>
-              <Button size="lg" variant="outline" className="border-white/30 text-white bg-transparent hover:bg-white/10 hover:text-white">
-                See the demo customer app
-              </Button>
-            </a>
-          </div>
-        </div>
-        <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur p-8">
-          <div className="text-xs uppercase tracking-widest text-zinc-400 mb-3">Try the demo</div>
-          <code className="block text-sm bg-black/40 px-4 py-3 rounded-lg border border-white/10 text-cyan-200">
-            demo.{rootDomain}{rootDomain.includes("lvh.me") ? ":3000" : ""}
-          </code>
-          <p className="text-sm text-zinc-300 mt-4 leading-relaxed">
-            That subdomain resolves to the demo business you seeded in Checkpoint 1. Change the brand colors in the agency editor and refresh — the customer app re-themes instantly.
-          </p>
-        </div>
-      </section>
-
-      <footer className="border-t border-white/10 py-6">
-        <div className="container text-xs text-zinc-500">Atlas Engine · Atlas Rewards · CP 2.5 build</div>
-      </footer>
-    </main>
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <LandingPage fontClassName={interClass} />
+    </>
   );
 }

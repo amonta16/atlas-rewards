@@ -1,0 +1,95 @@
+import { Megaphone, Repeat, Smartphone, TrendingDown } from "lucide-react";
+import { Reveal } from "./reveal";
+
+/**
+ * The "enemy" — CP-100. Mirrors the intro film's hook: chains have apps that
+ * pull customers back every week; independents are stuck buying attention.
+ */
+export function ProblemSection() {
+  return (
+    <section className="relative py-20 md:py-28" aria-labelledby="problem-title">
+      <div className="lp-container grid gap-12 lg:grid-cols-2 lg:items-center">
+        <Reveal>
+          <p className="lp-eyebrow">Why it matters</p>
+          <h2 id="problem-title" className="lp-h2 mt-4">
+            You pay to get a customer in the door. Then you hope they come back.
+          </h2>
+          <p className="mt-5 text-lg leading-relaxed text-zinc-400">
+            Starbucks, Chipotle and every big gym chain have an app on their customers&apos; phones nudging them back with
+            points, streaks and offers. Independents get a punch card and a prayer. Atlas closes that gap — with your
+            name on it, not ours.
+          </p>
+          <ul className="mt-8 space-y-4">
+            {[
+              { icon: Megaphone, t: "Acquisition is getting more expensive", d: "Ads, SEO and agencies all cost more every year — and none of them bring a customer back a second time." },
+              { icon: TrendingDown, t: "Most first-time customers never return", d: "Without a reason to come back, the visit you paid for is a one-time event." },
+              { icon: Smartphone, t: "The chains already solved this", d: "Their app is the retention engine. You can have one too — without building it." },
+            ].map(({ icon: I, t, d }) => (
+              <li key={t} className="flex gap-4">
+                <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.03] text-cyan-300">
+                  <I className="h-4 w-4" aria-hidden />
+                </span>
+                <div>
+                  <div className="font-semibold text-white">{t}</div>
+                  <div className="mt-1 text-[15px] text-zinc-400">{d}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        {/* Visual: the loop */}
+        <Reveal delay={120} className="relative">
+          <div className="lp-card relative overflow-hidden p-6 sm:p-8">
+            <div className="lp-grid absolute inset-0 opacity-30" aria-hidden />
+            <div className="relative">
+              <div className="flex items-center justify-between text-xs uppercase tracking-wider text-zinc-500">
+                <span>One customer&apos;s year</span>
+                <span className="rounded-md bg-white/5 px-2 py-1 font-mono text-[10px] text-zinc-400">illustrative</span>
+              </div>
+
+              <div className="mt-6 grid gap-5">
+                <LoopRow label="Without a rewards app" visits={[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]} tone="dim" note="1 visit · then silence" />
+                <LoopRow label="With their own app" visits={[1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1]} tone="on" note="points → streak → spin → offer → back again" />
+              </div>
+
+              <div className="mt-7 flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4">
+                <Repeat className="h-5 w-5 shrink-0 text-cyan-300" aria-hidden />
+                <p className="text-sm text-zinc-300">
+                  Atlas turns the visit you already paid for into the <span className="font-semibold text-white">first of many</span> — every mechanic in the app exists to earn the next one.
+                </p>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function LoopRow({ label, visits, tone, note }: { label: string; visits: number[]; tone: "dim" | "on"; note: string }) {
+  return (
+    <div>
+      <div className="mb-2 flex flex-col gap-0.5 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <span className={tone === "on" ? "font-semibold text-white" : "text-zinc-400"}>{label}</span>
+        <span className="text-xs text-zinc-500">{note}</span>
+      </div>
+      <div className="grid grid-cols-12 gap-1.5" aria-hidden>
+        {visits.map((v, i) => (
+          <span
+            key={i}
+            className={`h-9 rounded-md border transition-colors ${
+              v ? (tone === "on" ? "lp-visit border-cyan-300/40 bg-cyan-400/30" : "border-white/15 bg-white/15") : "border-white/[0.06] bg-white/[0.02]"
+            }`}
+            style={{ animationDelay: `${i * 90}ms` }}
+          />
+        ))}
+      </div>
+      <div className="mt-1 grid grid-cols-12 gap-1.5 text-center font-mono text-[9px] text-zinc-600" aria-hidden>
+        {["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"].map((m, i) => (
+          <span key={i}>{m}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
