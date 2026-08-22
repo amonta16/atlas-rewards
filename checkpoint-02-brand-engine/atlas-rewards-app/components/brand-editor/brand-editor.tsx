@@ -14,7 +14,8 @@ import { BANNER_OPTIONS, bannerStyle } from "@/lib/banner-styles";
 import { CARD_STYLES, BUTTON_STYLES, designVars } from "@/lib/design-styles";
 // CP-65: one-click theme presets + themable streak.
 import { THEME_PRESETS, presetPatch } from "@/lib/theme-presets";
-import { STREAK_THEMES, STREAK_ENV_PATTERNS, STREAK_ENV_LIGHT_PRESETS, resolveStreakTheme, streakGradient, streakEnvColors, streakEnvPatternCss } from "@/lib/streak-themes";
+import { STREAK_THEMES, resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
+import { STREAK_PAGE_THEMES, resolveStreakPage } from "@/lib/streak-page-themes";
 // CP-65.1: poppy offer-card styles.
 import { OFFER_CARD_STYLES, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-store panel presets.
@@ -230,6 +231,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           streak_env_color: b.streak_env_color ?? null,
           streak_env_pattern: b.streak_env_pattern ?? null,
           streak_progress_mode: b.streak_progress_mode ?? null,
+          /* CP-99 simplified: the one streak page-theme choice. */
+          streak_page_theme: b.streak_page_theme ?? null,
           /* CP-65.1: customer offer-card style. */
           offer_card_style: b.offer_card_style ?? null,
           /* CP-99: reward-store panel style. */
@@ -1133,115 +1136,103 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     );
                   })}
                 </div>
-                {/* CP-99: the streak PAGE environment color. Never used
-                    literally — the app desaturates + darkens it so white
-                    reward cards and the flame always stay readable. */}
+                {/* CP-99 SIMPLIFIED: one page-theme picker (visual thumbnails,
+                    minimal → wild) + one progress-color choice. The old
+                    env-color / pattern / etc. controls are gone — legacy
+                    values still render for apps that set them. */}
                 <div className="space-y-2 mt-4">
-                  <Label className="text-xs text-muted-foreground">Streak page background</Label>
-                  {/* CP-99: curated LIGHT presets + Ocean default. Light options
-                      stay tinted (never pure white) so white cards keep contrast. */}
+                  <Label className="text-xs text-muted-foreground">Streak page theme</Label>
                   <div className="grid grid-cols-3 gap-2">
-                    {[{ id: null as string | null, label: "Ocean", env: streakEnvColors(null) },
-                      ...STREAK_ENV_LIGHT_PRESETS.map(p => ({ id: p.id as string | null, label: p.label, env: p.env }))].map(opt => {
-                      const selected = (b.streak_env_color ?? null) === opt.id;
+                    {STREAK_PAGE_THEMES.map(t => {
+                      const selected = (b.streak_page_theme ?? null) === t.id;
+                      const env = t.brandTint
+                        ? resolveStreakPage({ ...b, streak_page_theme: t.id }).env
+                        : t.env;
                       return (
                         <button
-                          key={opt.label}
+                          key={t.id}
                           type="button"
-                          onClick={() => update("streak_env_color", opt.id)}
+                          onClick={() => update("streak_page_theme", t.id)}
                           className={cn(
                             "rounded-xl border-2 overflow-hidden text-left transition",
                             selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
                           )}
-                          title={opt.label}
+                          title={`${t.category} · ${t.label}`}
                         >
-                          <div className="h-7" style={{ background: `linear-gradient(135deg, ${opt.env.top}, ${opt.env.mid}, ${opt.env.edge})` }} />
-                          <div className={cn("text-[10px] font-semibold px-1.5 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
-                            {opt.label}
+                          {/* mini preview: environment + pattern + a tiny road */}
+                          <div className="relative h-12 overflow-hidden"
+                            style={{ background: `linear-gradient(160deg, ${env.top}, ${env.mid} 55%, ${env.edge})`, ...(t.pattern ?? {}) }}>
+                            {t.useAppBackground && (
+                              <div className="absolute inset-0" style={{
+                                background: b.surface_color ?? "#fafafa",
+                              }} />
+                            )}
+                            {/* decor hints */}
+                            {(t.decor ?? []).slice(0, 4).map((d, di) => (
+                              <span key={di} className="absolute rounded-full"
+                                style={{
+                                  top: `${15 + di * 20}%`, left: di % 2 === 0 ? "12%" : "78%",
+                                  width: 5, height: d.kind === "confetti" ? 8 : 5,
+                                  background: "color" in d ? d.color : "#fff",
+                                  opacity: Math.min(0.8, d.o + 0.2),
+                                  filter: d.kind === "circle" && d.blur ? "blur(1.5px)" : undefined,
+                                }} />
+                            ))}
+                            <div className="absolute inset-y-1 left-1/2 -translate-x-1/2 w-1.5 rounded-full bg-white/85" />
+                          </div>
+                          <div className="px-1.5 py-1">
+                            <div className={cn("text-[10px] font-semibold truncate", selected ? "text-brand-primary" : "text-zinc-700")}>
+                              {t.label}
+                            </div>
+                            <div className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">{t.category}</div>
                           </div>
                         </button>
                       );
                     })}
                   </div>
-                  <div className="flex gap-2 items-center">
-                    <input type="color"
-                      value={/^#[0-9a-fA-F]{6}$/.test(b.streak_env_color ?? "") ? (b.streak_env_color as string) : "#16324a"}
-                      onChange={e => update("streak_env_color", e.target.value)}
-                      className="h-10 w-12 rounded border cursor-pointer" />
-                    <Input value={b.streak_env_color ?? ""} placeholder="Ocean blue (default) — or pick a custom color"
-                      onChange={e => update("streak_env_color", e.target.value || null)} />
-                    <Button type="button" variant="outline" size="sm"
-                      onClick={() => update("streak_env_color", null)}>
-                      Reset
-                    </Button>
-                  </div>
                   <p className="text-[11px] text-muted-foreground">
-                    The backdrop behind the streak reward road. Custom colors are automatically darkened and softened; the Light presets are tuned so the road, flame, and white reward cards always stay clear.
+                    From clean big-brand minimal to full confetti mode. Whatever you pick, the road, rewards, and text stay protected and readable — patterns never cross the center lane.
                   </p>
                 </div>
-                {/* CP-99: faint atmosphere pattern for the streak environment.
-                    Masked out of the center corridor, so the road stays clean. */}
-                <div className="space-y-2 mt-4">
-                  <Label className="text-xs text-muted-foreground">Streak page pattern</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {STREAK_ENV_PATTERNS.map(p => {
-                      const selected = (b.streak_env_pattern ?? "none") === p.id;
-                      const envSwatch = streakEnvColors(b.streak_env_color);
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => update("streak_env_pattern", p.id === "none" ? null : p.id)}
-                          className={cn(
-                            "rounded-xl border-2 overflow-hidden text-left transition",
-                            selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
-                          )}
-                          title={p.label}
-                        >
-                          <div className="h-9 flex items-center justify-center text-sm"
-                            style={{ background: envSwatch.mid, ...(streakEnvPatternCss(p.id) ?? {}) }}>
-                            {p.emoji}
-                          </div>
-                          <div className={cn("text-[10px] font-semibold px-1.5 py-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
-                            {p.label}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                {/* CP-99: streak-road progress colors — classic fire vs a
-                    tonal range derived from the brand primary. */}
+
+                {/* Progress colors: default fire / brand / custom. */}
                 <div className="space-y-2 mt-4">
                   <Label className="text-xs text-muted-foreground">Progress colors</Label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {([
-                      { id: null, label: "Streak theme", hint: "Classic fire by default", theme: resolveStreakTheme(b.streak_theme, b.brand_colors.primary) },
-                      { id: "brand", label: "Brand color", hint: "Toned from your primary", theme: resolveStreakTheme("brand", b.brand_colors.primary) },
-                    ] as const).map(opt => {
-                      const selected = (b.streak_progress_mode ?? null) === opt.id;
-                      return (
-                        <button
-                          key={opt.label}
-                          type="button"
-                          onClick={() => update("streak_progress_mode", opt.id)}
-                          className={cn(
-                            "rounded-xl border-2 overflow-hidden text-left transition",
-                            selected ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
-                          )}
-                          title={opt.hint}
-                        >
-                          <div className="h-8 mx-2 mt-2 rounded-full"
-                            style={{ background: `linear-gradient(90deg, ${opt.theme.cell[2]}, ${opt.theme.cell[1]}, ${opt.theme.cell[0]})` }} />
-                          <div className={cn("text-[10px] font-semibold px-2 py-1.5", selected ? "text-brand-primary" : "text-zinc-600")}>
-                            {opt.label}
-                          </div>
-                        </button>
-                      );
-                    })}
+                      { key: "default", label: "Classic fire", theme: resolveStreakTheme(b.streak_theme, b.brand_colors.primary), active: !b.streak_progress_mode },
+                      { key: "brand", label: "Match brand", theme: resolveStreakTheme("brand", b.brand_colors.primary), active: b.streak_progress_mode === "brand" },
+                      { key: "custom", label: "Custom", theme: resolveStreakTheme("brand", /^#[0-9a-fA-F]{6}$/.test(b.streak_progress_mode ?? "") ? b.streak_progress_mode! : b.brand_colors.primary), active: /^#/.test(b.streak_progress_mode ?? "") },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => update("streak_progress_mode",
+                          opt.key === "default" ? null : opt.key === "brand" ? "brand" : (/^#/.test(b.streak_progress_mode ?? "") ? b.streak_progress_mode : b.brand_colors.primary))}
+                        className={cn(
+                          "rounded-xl border-2 overflow-hidden text-left transition",
+                          opt.active ? "border-brand-primary ring-2 ring-brand-primary/20" : "border-zinc-200 hover:border-zinc-300",
+                        )}
+                      >
+                        <div className="h-7 mx-2 mt-2 rounded-full"
+                          style={{ background: `linear-gradient(90deg, ${opt.theme.cell[2]}, ${opt.theme.cell[1]}, ${opt.theme.cell[0]})` }} />
+                        <div className={cn("text-[10px] font-semibold px-2 py-1.5", opt.active ? "text-brand-primary" : "text-zinc-600")}>
+                          {opt.label}
+                        </div>
+                      </button>
+                    ))}
                   </div>
+                  {/^#/.test(b.streak_progress_mode ?? "") && (
+                    <div className="flex gap-2 items-center">
+                      <input type="color" value={b.streak_progress_mode ?? "#f97316"}
+                        onChange={e => update("streak_progress_mode", e.target.value)}
+                        className="h-10 w-12 rounded border cursor-pointer" />
+                      <Input value={b.streak_progress_mode ?? ""}
+                        onChange={e => update("streak_progress_mode", e.target.value || null)} />
+                    </div>
+                  )}
                   <p className="text-[11px] text-muted-foreground">
-                    Colors the burning progress on the streak reward road. Brand mode builds a dark-to-bright range from your primary so it never looks flat.
+                    Colors the burning progress on the reward road. Brand and custom build a dark-to-bright range (never a flat line), and unreadable picks are auto-corrected.
                   </p>
                 </div>
               </Section>

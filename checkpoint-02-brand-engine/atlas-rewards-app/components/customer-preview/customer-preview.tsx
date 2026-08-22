@@ -3,7 +3,8 @@ import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Cale
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { bannerStyle } from "@/lib/banner-styles";
-import { resolveStreakTheme, streakGradient, streakEnvColors, streakEnvPatternCss } from "@/lib/streak-themes";
+import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
+import { resolveStreakPage, resolveProgressTheme } from "@/lib/streak-page-themes";
 // CP-65.1 + CP-66: mirror the offer-card skin + section layouts live.
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-panel presets mirrored in the preview store mock.
@@ -806,10 +807,11 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
  *  preview rewards so agencies see their own colors/photos. */
 function StreaksBody({ business: b, rewards = [] }: { business: Business; rewards?: PreviewReward[] }) {
   const theme = resolveStreakTheme(b.streak_theme, b.brand_colors?.primary);
-  const env = streakEnvColors(b.streak_env_color);
-  const envPattern = streakEnvPatternCss(b.streak_env_pattern, !!env.light);
+  const page = resolveStreakPage(b);
+  const env = page.env;
+  const envPattern = page.pattern;
   const lightEnv = !!env.light;
-  const roadTheme = b.streak_progress_mode === "brand" ? resolveStreakTheme("brand", b.brand_colors?.primary) : theme;
+  const roadTheme = resolveProgressTheme(b.streak_progress_mode, b.brand_colors?.primary, theme);
   // Demo program: 10-day range, member at day 7, milestones at 3 / 7 / 10.
   const current = 7, range = 10;
   const fill = (current / range) * 100;
@@ -824,7 +826,7 @@ function StreaksBody({ business: b, rewards = [] }: { business: Business; reward
   const fillGradient = `linear-gradient(to top, ${roadTheme.cell[2]} 0%, ${roadTheme.cell[1]} 55%, ${roadTheme.cell[0]} 100%)`;
 
   return (
-    <div className="relative -mx-0" style={{ background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)` }}>
+    <div className="relative -mx-0" style={page.appBg ?? { background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)` }}>
       {envPattern && (
         <div className="absolute inset-0 pointer-events-none"
           style={{

@@ -125,9 +125,14 @@ export type Business = {
   /** CP-99: streak PAGE environment pattern. See lib/streak-themes.ts
    *  StreakEnvPatternId (none/lowpoly/waves/stars/ascent). NULL = none. */
   streak_env_pattern?: string | null;
-  /** CP-99: streak-road progress colors. "brand" = tonal range derived from
-   *  brand primary; NULL/other = the streak theme's colors (fire default). */
+  /** CP-99: streak-road progress colors. NULL = the streak theme's colors
+   *  (fire default); "brand" = tonal range from brand primary; "#rrggbb" =
+   *  custom color (luminance-clamped app-side). */
   streak_progress_mode?: string | null;
+  /** CP-99 simplified visuals: ONE streak page theme from the curated
+   *  library in lib/streak-page-themes.ts (brand-app/clean-brand/confetti-
+   *  pop/bokeh/luxe-gold/…). NULL = legacy env fields or ocean default. */
+  streak_page_theme?: string | null;
   /** CP-65.1: customer offer-card style. See lib/offer-card-styles.ts
    *  (clean/tint/pop/gradient/midnight/luxe). NULL = clean white. */
   offer_card_style?: string | null;

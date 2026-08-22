@@ -30,10 +30,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Flame, Gift, Trophy, Lock, Check, CalendarDays, QrCode, Sparkles, ChevronUp,
+  Flame, Gift, Trophy, Lock, Check, CalendarDays, QrCode, Sparkles, ChevronUp, Star, Crown, Zap,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { resolveStreakTheme, streakEnvColors, streakEnvPatternCss, type StreakEnv, type StreakTheme } from "@/lib/streak-themes";
+import { resolveStreakTheme, type StreakTheme } from "@/lib/streak-themes";
+import { resolveStreakPage, resolveProgressTheme, type ResolvedStreakPage, type StreakDecor } from "@/lib/streak-page-themes";
 import type { Business } from "@/lib/types/database";
 
 type Milestone = {
@@ -98,19 +99,13 @@ export function StreaksClient({
   const [now, setNow] = useState(() => Date.now());
 
   const theme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
-  // Cool environment — ocean default, or a SAFE derivation of the client's
-  // configured color (businesses.streak_env_color; clamped dark+desaturated).
-  const env = streakEnvColors(business.streak_env_color);
-  const envPattern = streakEnvPatternCss(business.streak_env_pattern, !!env.light);
-  // Light environments flip on-environment text from white to deep slate.
+  // CP-99 simplified visual system: ONE page-theme choice (curated library,
+  // app-background option, legacy fields as fallback) + ONE progress choice
+  // (default / brand / custom hex, luminance-clamped).
+  const page = resolveStreakPage(business);
+  const env = page.env;
   const lightEnv = !!env.light;
-  // CP-99: progress color mode — "brand" derives a tonal range from the
-  // brand primary (same math as the CP-65 "Match my brand" streak theme,
-  // so it has depth, never a flat color); default = the streak theme.
-  const roadTheme =
-    business.streak_progress_mode === "brand"
-      ? resolveStreakTheme("brand", business.brand_colors?.primary)
-      : theme;
+  const roadTheme = resolveProgressTheme(business.streak_progress_mode, business.brand_colors?.primary, theme);
 
   useEffect(() => {
     if (!membershipId) { setLoaded(true); return; }
@@ -148,7 +143,7 @@ export function StreaksClient({
 
   if (!loaded) {
     return (
-      <Shell env={env} pattern={envPattern}>
+      <Shell page={page}>
         <div className="px-4 pt-10 pb-4 flex justify-center">
           <div className="bg-white rounded-2xl px-6 py-4 text-sm text-zinc-600 shadow-sm border">Loading your streak…</div>
         </div>
@@ -158,7 +153,7 @@ export function StreaksClient({
 
   if (!membershipId || !s || !s.is_enabled) {
     return (
-      <Shell env={env} pattern={envPattern}>
+      <Shell page={page}>
         <div className="px-4 pt-8 pb-4">
           <div className="rounded-3xl bg-white border shadow-sm p-8 text-center">
             <Flame className="h-10 w-10 mx-auto text-zinc-300" />
@@ -206,7 +201,7 @@ export function StreaksClient({
     expiresMs === null ? "calm" : expiresMs < 12 * 3600_000 ? "risk" : expiresMs < 24 * 3600_000 ? "warm" : "calm";
 
   return (
-    <Shell env={env} pattern={envPattern}>
+    <Shell page={page}>
       {/* ═══════════ HERO HUD (state-aware, flows into the road) ═══════════ */}
       <div className="px-4 pt-4">
         <div className="flex items-center gap-3.5">
@@ -398,31 +393,74 @@ export function StreaksClient({
 const CORRIDOR_MASK =
   "linear-gradient(to right, black 0%, black calc(50% - 5.7rem), transparent calc(50% - 5.1rem), transparent calc(50% + 5.1rem), black calc(50% + 5.7rem), black 100%)";
 
-function Shell({ env, pattern, children }: { env: StreakEnv; pattern?: React.CSSProperties | null; children: React.ReactNode }) {
+const DECOR_ICONS = {
+  flame: Flame, star: Star, sparkle: Sparkles, trophy: Trophy, crown: Crown, zap: Zap,
+} as const;
+
+function Shell({ page, children }: { page: ResolvedStreakPage; children: React.ReactNode }) {
+  const { env, pattern, decor, appBg } = page;
   return (
     <div
       className="relative"
       style={{
-        // CP-99: controlled environment (ocean default, LIGHT presets, or a
-        // safe-derived client color) so white cards pop and the warm flame
-        // stays the hottest thing. Bottom padding clears the fixed nav +
-        // device safe area so START never crowds the tab bar.
-        background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)`,
+        // "Use app theme" paints the business's own configured background;
+        // otherwise the picked streak environment. Bottom padding clears the
+        // fixed nav + device safe area so START never crowds the tab bar.
+        ...(appBg ?? { background: `linear-gradient(180deg, ${env.top} 0%, ${env.mid} 45%, ${env.edge} 100%)` }),
         paddingBottom: "calc(8.5rem + env(safe-area-inset-bottom, 0px))",
         marginBottom: "-5rem",
       }}
     >
-      {/* optional atmosphere pattern — environment only, masked away from
-          the center corridor so the road stays calm */}
+      {/* pattern + decor art live in the ENVIRONMENT only — both are masked
+          out of the protected center corridor, so however loud a theme is,
+          the road / rewards / labels always sit on calm ground. */}
       {pattern && (
         <div className="absolute inset-0 pointer-events-none"
           style={{ ...pattern, maskImage: CORRIDOR_MASK, WebkitMaskImage: CORRIDOR_MASK }} />
       )}
-      {/* faint center illumination + darker-edge vignette (softened on light) */}
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,${env.light ? 0.4 : 0.07}), transparent 70%)` }} />
-      <div className="absolute inset-0 pointer-events-none"
-        style={{ background: `radial-gradient(130% 90% at 50% 55%, transparent 58%, ${env.light ? "rgba(15,23,42,0.10)" : "rgba(0,0,0,0.28)"} 100%)` }} />
+      {decor && decor.length > 0 && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden"
+          style={{ maskImage: CORRIDOR_MASK, WebkitMaskImage: CORRIDOR_MASK }}>
+          {decor.map((d, i) => {
+            if (d.kind === "icon") {
+              const I = DECOR_ICONS[d.icon as keyof typeof DECOR_ICONS];
+              return (
+                <I key={i} className="absolute"
+                  style={{ top: d.t, left: d.l, width: d.s, height: d.s, color: d.color, opacity: d.o, transform: d.rot ? `rotate(${d.rot}deg)` : undefined }} />
+              );
+            }
+            if (d.kind === "circle") {
+              return (
+                <span key={i} className="absolute rounded-full"
+                  style={{ top: d.t, left: d.l, width: d.s, height: d.s, background: d.color, opacity: d.o, filter: d.blur ? `blur(${d.blur}px)` : undefined }} />
+              );
+            }
+            if (d.kind === "confetti") {
+              return (
+                <span key={i} className="absolute rounded-[2px]"
+                  style={{ top: d.t, left: d.l, width: d.w, height: d.h, background: d.color, opacity: d.o, transform: `rotate(${d.rot}deg)` }} />
+              );
+            }
+            // balloon: soft oval + a short string
+            return (
+              <span key={i} className="absolute flex flex-col items-center" style={{ top: d.t, left: d.l, opacity: d.o }}>
+                <span className="rounded-full" style={{ width: d.s, height: d.s * 1.18, background: d.color, boxShadow: "inset -4px -6px 10px rgba(0,0,0,0.15), inset 4px 5px 8px rgba(255,255,255,0.35)" }} />
+                <span style={{ width: 1, height: d.s * 0.7, background: "rgba(255,255,255,0.4)" }} />
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {/* faint center illumination + edge vignette — skipped for the app-
+          background option (keep the brand surface pure). */}
+      {!appBg && (
+        <>
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: `radial-gradient(120% 55% at 50% 18%, rgba(255,255,255,${env.light ? 0.4 : 0.07}), transparent 70%)` }} />
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: `radial-gradient(130% 90% at 50% 55%, transparent 58%, ${env.light ? "rgba(15,23,42,0.10)" : "rgba(0,0,0,0.28)"} 100%)` }} />
+        </>
+      )}
       <div className="relative z-10">{children}</div>
     </div>
   );
@@ -614,7 +652,8 @@ function RewardRoad({
   // Flame head grows with the streak: ember → lit → blazing.
   const ratio = current / range;
   const headSize = current <= 0 ? 0 : ratio < 0.34 ? 46 : 54;
-  const headGlow = ratio < 0.34 ? `0 0 16px 3px ${theme.glow}` : `0 0 24px 6px ${theme.glow}`;
+  // CP-99: restrained halo — the head should be bright, not a floodlight.
+  const headGlow = ratio < 0.34 ? `0 0 9px 2px ${theme.glow}` : `0 0 13px 3px ${theme.glow}`;
 
   const fillGradient = `linear-gradient(to top, ${theme.cell[2]} 0%, ${theme.cell[1]} 55%, ${theme.cell[0]} 100%)`;
   const fillPx = Math.max(displayFrac * trackLen, current > 0 ? 0 : STARTER_PX);
@@ -666,7 +705,7 @@ function RewardRoad({
           className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
           style={{
             bottom: haloBottom, width: 240, height: 220,
-            background: `radial-gradient(closest-side, ${theme.glow.replace(/, [\d.]+\)$/, ", 0.13)")}, transparent)`,
+            background: `radial-gradient(closest-side, ${theme.glow.replace(/, [\d.]+\)$/, ", 0.07)")}, transparent)`,
           }}
         />
 
@@ -697,7 +736,7 @@ function RewardRoad({
             <div
               ref={fillRef}
               className="absolute bottom-0 left-0 right-0 rounded-full"
-              style={{ height: `${fillPx}px`, background: fillGradient, boxShadow: `0 0 14px 2px ${theme.glow}, inset 2px 0 3px rgba(255,255,255,0.35), inset -2px 0 3px rgba(0,0,0,0.15)` }}
+              style={{ height: `${fillPx}px`, background: fillGradient, boxShadow: `0 0 7px 1px ${theme.glow}, inset 2px 0 3px rgba(255,255,255,0.35), inset -2px 0 3px rgba(0,0,0,0.15)` }}
             />
           </div>
 
@@ -723,7 +762,7 @@ function RewardRoad({
               <div className="atlas-flame-head h-9 w-9 rounded-full flex items-center justify-center ring-4 ring-white"
                 style={{
                   background: `linear-gradient(135deg, ${theme.cell[0]}, ${theme.cell[1]})`,
-                  boxShadow: `0 0 12px 2px ${theme.glow}`,
+                  boxShadow: `0 0 8px 1px ${theme.glow}`,
                 }}>
                 <Flame className="h-4 w-4 text-white drop-shadow" />
               </div>
