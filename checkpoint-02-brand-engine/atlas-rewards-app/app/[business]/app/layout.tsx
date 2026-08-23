@@ -71,6 +71,10 @@ export default async function CustomerAppLayout({
     surfaceColor,
   );
   const surfaceFg = readableTextColor(surfaceColor);
+  // CP-103.2: solid fill for the status-bar / notch strip. Every patternStyle
+  // branch sets backgroundColor, so this is always the same base the page is
+  // painted on — the strip stays visually identical to the at-rest layout.
+  const notchFill = (bgStyle.backgroundColor as string | undefined) ?? surfaceColor ?? "#faf9f7";
 
   return (
     // CP-58: `atlas-surface` scopes the card-style utility remaps (globals.css)
@@ -155,6 +159,28 @@ export default async function CustomerAppLayout({
       >
         {children}
       </CustomerAppShell>
+
+      {/* ═══════════ CP-103.2: STATUS-BAR STRIP ═══════════
+          BUG: FeaturedOfferBanner is `sticky` with `top: env(safe-area-inset-top)`
+          (CP-92, so it pins just under the clock rather than beneath it). That
+          leaves the band from y=0 to the inset with NOTHING pinned in it. The
+          wrapper's paddingTop paints that band only while the page is at rest —
+          it scrolls away with everything else, so as soon as you scroll past the
+          inset, page content slides up behind the clock/battery and appears to
+          "leak" above the banner. The same leak happens on tabs with no featured
+          offer at all, since nothing is pinned there either.
+
+          FIX: one fixed, non-interactive strip that always occupies exactly that
+          band and paints the page's own base color. Height is env(...) so it
+          collapses to 0px on Android, on notchless phones and in desktop
+          browsers — no device-specific numbers anywhere. z-40 matches the banner
+          (which starts BELOW this strip, so they never overlap) and stays under
+          the z-50 popups/toasts, which keep their own top spacing. */}
+      <div
+        aria-hidden
+        className="fixed top-0 left-0 right-0 max-w-md mx-auto z-40 pointer-events-none"
+        style={{ height: "env(safe-area-inset-top, 0px)", background: notchFill }}
+      />
     </div>
   );
 }
