@@ -71,10 +71,14 @@ export default async function CustomerAppLayout({
     surfaceColor,
   );
   const surfaceFg = readableTextColor(surfaceColor);
-  // CP-103.2: solid fill for the status-bar / notch strip. Every patternStyle
-  // branch sets backgroundColor, so this is always the same base the page is
-  // painted on — the strip stays visually identical to the at-rest layout.
-  const notchFill = (bgStyle.backgroundColor as string | undefined) ?? surfaceColor ?? "#faf9f7";
+  // CP-103.2: solid fill for the status-bar / notch strip.
+  // CP-103.3 (Andrew): use the HEADER color, not the page background. The page
+  // base is often a dark/tinted surface (or a pattern base), which read as a
+  // random band above the offer banner. The header color is the app's own top
+  // chrome, so the strip continues it and the whole top of the screen reads as
+  // one deliberate piece. Default matches CustomerHeader's own `#fcfcfd`
+  // fallback exactly, so an unconfigured business is seamless.
+  const notchFill = headerColor ?? "#fcfcfd";
 
   return (
     // CP-58: `atlas-surface` scopes the card-style utility remaps (globals.css)
@@ -175,7 +179,8 @@ export default async function CustomerAppLayout({
           collapses to 0px on Android, on notchless phones and in desktop
           browsers — no device-specific numbers anywhere. z-40 matches the banner
           (which starts BELOW this strip, so they never overlap) and stays under
-          the z-50 popups/toasts, which keep their own top spacing. */}
+          the z-50 popups/toasts, which keep their own top spacing.
+          Fill = the business's header color (see notchFill above). */}
       <div
         aria-hidden
         className="fixed top-0 left-0 right-0 max-w-md mx-auto z-40 pointer-events-none"
