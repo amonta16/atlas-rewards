@@ -76,11 +76,12 @@ export default async function CustomerAppLayout({
     // CP-58: `atlas-surface` scopes the card-style utility remaps (globals.css)
     // and designVars() supplies the card/button tokens for this business.
     <div
-      // CP-103 (QA M-04): landscape used to leave Home as a portrait strip
-      // with dead side margins and the featured offer clipped under the tab
-      // bar. The column now widens with the orientation (the bottom nav
-      // widens with it in app-shell), so a rotated phone gets a real layout.
-      className="atlas-surface max-w-md landscape:max-w-2xl mx-auto min-h-screen relative"
+      // CP-103.1 (QA M-04): the real fix is the NATIVE portrait lock
+      // (AndroidManifest screenOrientation + Info.plist), so the app simply
+      // never rotates. The column stays phone-width — an earlier
+      // `landscape:max-w-2xl` also matched DESKTOP browsers (they are
+      // landscape too) and blew the app out to 672px there.
+      className="atlas-surface max-w-md mx-auto min-h-screen relative"
       // CP-92: start content below the iPhone status bar (safe-area inset)
       // while the background color/pattern still paints behind it — the
       // notch area blends with the app instead of eating the top banner.
