@@ -21,6 +21,7 @@ import { rewardsLayout } from "@/lib/section-layouts";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 // CP-67: element pack — themed headings, dividers, badges.
 import { SectionDivider, SectionHeading } from "./section-elements";
+import { RewardDetailModal } from "./reward-detail-modal";
 import { badgeCss } from "@/lib/element-styles";
 import { SavedGiftsSection } from "./saved-gifts-section";
 import type { Business, Membership } from "@/lib/types/database";
@@ -28,6 +29,9 @@ import type { Business, Membership } from "@/lib/types/database";
 type Reward = {
   id: string; name: string; description: string | null;
   reward_type: string; point_cost: number; image_url: string | null;
+  /** CP-99 gallery photos (cover = image_url). The page selects *, so these
+   *  arrive already — the type just never declared them. */
+  images?: string[] | null;
 };
 
 type FeaturedOffer = {
@@ -55,6 +59,8 @@ export function RewardsClient({
   const [displayed, setDisplayed] = useState(initialPts);
   const prevRef = useRef(initialPts);
   const [redeemingReward, setRedeemingReward] = useState<Reward | null>(null);
+  // CP-105: the locked-reward detail sheet (shared with Home's Top rewards).
+  const [detailReward, setDetailReward] = useState<Reward | null>(null);
   const [referOpen, setReferOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewStatus, setReviewStatus] = useState<"none" | "pending" | "verified" | "rejected">("none");
@@ -301,8 +307,11 @@ export function RewardsClient({
                 return (
                   <button
                     key={r.id}
-                    onClick={() => !locked && setRedeemingReward(r)}
-                    disabled={locked}
+                    /* CP-105: locked rewards used to be `disabled`, which made
+                       the photo + description + progress unreachable. A locked
+                       reward is the one you most want to read about — it now
+                       opens the detail sheet instead. */
+                    onClick={() => (locked ? setDetailReward(r) : setRedeemingReward(r))}
                     className="w-full flex items-center gap-3 rounded-2xl border bg-white p-2.5 text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow"
                     /* CP-99 3b.1: row shell chrome from the business's
                        reward-panel preset (default "classic" keeps the 3b
@@ -365,8 +374,9 @@ export function RewardsClient({
               return (
                 <button
                   key={r.id}
-                  onClick={() => !locked && setRedeemingReward(r)}
-                  disabled={locked}
+                  /* CP-105: see the list branch above — locked is a state, not
+                     a dead end. Same handler for grid / carousel / spotlight. */
+                  onClick={() => (locked ? setDetailReward(r) : setRedeemingReward(r))}
                   className={`rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow ${
                     storeLayout === "carousel" ? "w-40 shrink-0 snap-start" : ""
                   } ${big ? "col-span-2" : ""}`}
@@ -552,6 +562,27 @@ export function RewardsClient({
           )}
         </div>
       </div>
+
+      {/* CP-105: locked-reward detail sheet — whole photo (swipeable when the
+          reward has extra images), the business's description, cost, and the
+          exact gap left. Same component Home uses. */}
+      {detailReward && (
+        <RewardDetailModal
+          reward={detailReward}
+          points={displayed}
+          primary={business.brand_colors.primary}
+          secondary={business.brand_colors.secondary}
+          businessSlug={business.slug}
+          onClose={() => setDetailReward(null)}
+          onRedeem={() => {
+            // Points can land while the sheet is open (realtime award) — if it
+            // became affordable, go straight into the redeem flow.
+            const r = detailReward;
+            setDetailReward(null);
+            setRedeemingReward(r);
+          }}
+        />
+      )}
 
       {/* Redeem flow modal */}
       {redeemingReward && (

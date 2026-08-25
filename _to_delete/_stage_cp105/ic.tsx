@@ -17,10 +17,6 @@ export function ImageCarousel({
   alt,
   imgClassName,
   className = "",
-  /** CP-105: which top corner the "2/5" counter sits in. Defaults to the
-   *  original right — the reward detail sheet moves it left because a close
-   *  button owns the right corner there. */
-  counterAlign = "right",
 }: {
   /** Ordered urls — cover first. Empty array renders nothing. */
   images: string[];
@@ -29,7 +25,6 @@ export function ImageCarousel({
   imgClassName: string;
   /** Optional wrapper classes (rounding/overflow live here). */
   className?: string;
-  counterAlign?: "left" | "right";
 }) {
   const [idx, setIdx] = useState(0);
 
@@ -63,7 +58,7 @@ export function ImageCarousel({
       </div>
 
       {/* image counter */}
-      <div className={`absolute top-2 ${counterAlign === "left" ? "left-2" : "right-2"} text-[10px] font-bold text-white bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 pointer-events-none`}>
+      <div className="absolute top-2 right-2 text-[10px] font-bold text-white bg-black/50 backdrop-blur-sm rounded-full px-2 py-0.5 pointer-events-none">
         {Math.min(idx + 1, images.length)}/{images.length}
       </div>
 
