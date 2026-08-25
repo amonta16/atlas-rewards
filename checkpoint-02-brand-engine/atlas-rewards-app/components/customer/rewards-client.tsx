@@ -21,6 +21,8 @@ import { rewardsLayout } from "@/lib/section-layouts";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 // CP-67: element pack — themed headings, dividers, badges.
 import { SectionDivider, SectionHeading } from "./section-elements";
+import Link from "next/link";
+import { useAppBase } from "@/lib/use-app-base";
 import { RewardDetailModal } from "./reward-detail-modal";
 import { badgeCss } from "@/lib/element-styles";
 import { SavedGiftsSection } from "./saved-gifts-section";
@@ -58,6 +60,8 @@ export function RewardsClient({
   // CP-73: tier state removed — Bronze/Silver/Gold tiers are gone.
   const [displayed, setDisplayed] = useState(initialPts);
   const prevRef = useRef(initialPts);
+  // CP-106: base-aware in-app href (path form vs subdomain/PWA).
+  const appBase = useAppBase(business.slug);
   const [redeemingReward, setRedeemingReward] = useState<Reward | null>(null);
   // CP-105: the locked-reward detail sheet (shared with Home's Top rewards).
   const [detailReward, setDetailReward] = useState<Reward | null>(null);
@@ -470,8 +474,8 @@ export function RewardsClient({
           {/* CP-52.1: same high-contrast "View more rewards" button as Home —
               goes straight to the full categorized catalog. */}
           {rewards.length > 0 && (
-            <a
-              href={`/${business.slug}/app/shop`}
+            <Link
+              href={`${appBase}/shop`}
               className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
               style={{
                 background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
@@ -479,7 +483,7 @@ export function RewardsClient({
               }}
             >
               View more rewards <ChevronRight className="h-4 w-4" />
-            </a>
+            </Link>
           )}
         </div>
       )}

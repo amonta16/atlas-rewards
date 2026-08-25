@@ -21,8 +21,6 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Tag, Play, Pause, Ticket } from "lucide-react";
-import Link from "next/link";
-import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
 import { bannerStyle } from "@/lib/banner-styles";
 // CP-85.1: a featured OPEN raffle takes over the banner (raffle > offer —
@@ -59,8 +57,6 @@ export function FeaturedOfferBanner({
    *  jumps to /{slug}/app/rewards where the entry flow lives. */
   slug?: string;
 }) {
-  // CP-106: base-aware in-app href (path form vs subdomain/PWA).
-  const appBase = useAppBase(slug);
   const [liveOffer, setLiveOffer] = useState<FeaturedBannerOffer | null>(offer);
   // CP-85.1: featured raffle (scheduled or open, not yet ended).
   const [liveRaffle, setLiveRaffle] = useState<FeaturedRaffle | null>(null);
@@ -152,9 +148,7 @@ export function FeaturedOfferBanner({
       </div>
     );
     // Whole banner is a tap target → Rewards tab, where the entry flow lives.
-    // CP-106: <Link>, not <a> — this banner sits on every tab, so a plain
-    // anchor here meant a full page reload from anywhere in the app.
-    return slug ? <Link href={`${appBase}/rewards`} className="block">{inner}</Link> : inner;
+    return slug ? <a href={`/${slug}/app/rewards`} className="block">{inner}</a> : inner;
   }
 
   if (!liveOffer) return null;

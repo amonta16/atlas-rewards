@@ -16,8 +16,6 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Flame, Gift, ChevronRight } from "lucide-react";
-import Link from "next/link";
-import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
@@ -43,8 +41,6 @@ export function StreakMini({
   /** CP-52: half-width vertical card for the side-by-side Home row. */
   compact?: boolean;
 }) {
-  // CP-106: base-aware in-app href (path form vs subdomain/PWA).
-  const appBase = useAppBase(business.slug);
   const [s, setS] = useState<StreakStatus | null>(null);
 
   useEffect(() => {
@@ -130,8 +126,8 @@ export function StreakMini({
   if (compact) {
     return (
       <>
-        <Link
-          href={`${appBase}/streaks`}
+        <a
+          href={`/${business.slug}/app/streaks`}
           className="w-full h-full min-h-[172px] rounded-3xl overflow-hidden text-left relative active:scale-[0.98] transition-transform shadow-lg ring-1 ring-black/10 p-4 flex flex-col"
           style={{ background: streakBg }}
         >
@@ -159,7 +155,7 @@ export function StreakMini({
           <div className="mt-auto pt-3 flex gap-1.5">
             {cells.map(cube)}
           </div>
-        </Link>
+        </a>
       </>
     );
   }
@@ -167,8 +163,8 @@ export function StreakMini({
   return (
     <>
       <div className="px-4 mt-4">
-        <Link
-          href={`${appBase}/streaks`}
+        <a
+          href={`/${business.slug}/app/streaks`}
           className="block w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform shadow-sm p-3.5"
           style={{ background: streakBg }}
         >
@@ -192,7 +188,7 @@ export function StreakMini({
           <div className="mt-3 flex gap-1.5">
             {cells.map(cube)}
           </div>
-        </Link>
+        </a>
       </div>
     </>
   );

@@ -17,6 +17,8 @@
  */
 import { useState } from "react";
 import { Gift, Lock, Zap } from "lucide-react";
+import Link from "next/link";
+import { useAppBase } from "@/lib/use-app-base";
 import { RewardDetailModal } from "@/components/customer/reward-detail-modal";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 import { rewardsLayout } from "@/lib/section-layouts";
@@ -47,6 +49,9 @@ export function TopRewardsGrid({
    *  same shapes as the store: grid (default) / list / carousel / spotlight. */
   layout?: string | null;
 }) {
+  // CP-106: base-aware in-app hrefs + <Link> — these tiles were plain
+  // anchors, so every "tap a reward" on Home was a full page reload.
+  const appBase = useAppBase(businessSlug);
   const [detail, setDetail] = useState<TopReward | null>(null);
   const rcMeta = rewardCardMeta(cardStyle);
   const rcDark = rcMeta.dark;
@@ -131,10 +136,10 @@ export function TopRewardsGrid({
             : rewardCardChrome(cardStyle, primary, secondary, false);
 
           return unlocked ? (
-            <a key={r.id} href={`/${businessSlug}/app/rewards?redeem=${r.id}`} className={`${cls} ${big ? "col-span-2" : ""}`}
+            <Link key={r.id} href={`${appBase}/rewards?redeem=${r.id}`} className={`${cls} ${big ? "col-span-2" : ""}`}
               style={readyStyle}>
               {inner}
-            </a>
+            </Link>
           ) : (
             <button key={r.id} onClick={() => setDetail(r)} className={`${cls} ${big ? "col-span-2" : ""}`}
               style={rewardCardChrome(cardStyle, primary, secondary, true)}>
@@ -180,10 +185,10 @@ export function TopRewardsGrid({
     );
     const rowCls = "w-full flex items-center gap-2.5 rounded-xl border bg-white p-2 text-left shadow-sm ring-1 ring-black/5";
     return unlocked ? (
-      <a key={r.id} href={`/${businessSlug}/app/rewards?redeem=${r.id}`} className={rowCls}
+      <Link key={r.id} href={`${appBase}/rewards?redeem=${r.id}`} className={rowCls}
         style={rcClassic ? { borderColor: `${primary}55` } : rewardCardChrome(cardStyle, primary, secondary, false)}>
         {rowInner}
-      </a>
+      </Link>
     ) : (
       <button key={r.id} onClick={() => setDetail(r)} className={rowCls}
         style={rewardCardChrome(cardStyle, primary, secondary, true)}>

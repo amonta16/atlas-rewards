@@ -20,8 +20,6 @@
  */
 import { useEffect, useState } from "react";
 import { Sparkles, Clock, Gift } from "lucide-react";
-import Link from "next/link";
-import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
 import { jitteredPollMs } from "@/lib/realtime-jitter";
 
@@ -43,8 +41,6 @@ export function SpinHomeWidget({
   primary: string;
   secondary?: string | null;
 }) {
-  // CP-106: base-aware in-app href (path form vs subdomain/PWA).
-  const appBase = useAppBase(businessSlug);
   const [status, setStatus] = useState<Status | null | "loading">("loading");
   const [, forceRerender] = useState(0);
   const sec = secondary || primary;
@@ -110,8 +106,8 @@ export function SpinHomeWidget({
   return (
     <div className="px-4 mt-4">
       {ready ? (
-        <Link
-          href={`${appBase}/rewards#mystery-reward`}
+        <a
+          href={`/${businessSlug}/app/rewards#mystery-reward`}
           className="block relative rounded-3xl overflow-hidden text-white shadow-xl active:scale-[0.98] transition-transform"
           style={{
             background: `linear-gradient(135deg, ${primary} 0%, ${sec} 60%, ${primary} 100%)`,
@@ -146,7 +142,7 @@ export function SpinHomeWidget({
               75% { transform: rotate(6deg); }
             }
           `}</style>
-        </Link>
+        </a>
       ) : (
         <div
           className="rounded-3xl overflow-hidden border bg-white shadow-sm"

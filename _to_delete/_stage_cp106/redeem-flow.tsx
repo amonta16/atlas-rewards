@@ -65,18 +65,13 @@ export function RedeemFlow({
                   Gift icon — Andrew's customers saw a blank pink card
                   even when the reward had a great product photo). */}
               {reward.image_url ? (
-                /* CP-106: object-CONTAIN on a brand-tinted bed, matching the
-                   locked-reward detail sheet. `object-cover` cropped the photo
-                   here, so an affordable reward showed LESS of itself than a
-                   locked one — exactly backwards. */
-                <div className="rounded-2xl overflow-hidden ring-1 ring-black/5"
-                  style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}12, ${business.brand_colors.secondary}22)` }}>
+                <div className="h-40 rounded-2xl overflow-hidden ring-1 ring-black/5">
                   {/* CP-99: swipe carousel when the reward has extra photos;
                       renders the identical single <img> otherwise. */}
                   <ImageCarousel
                     images={rewardGallery(reward.image_url, reward.images)}
                     alt={reward.name}
-                    imgClassName="h-48 w-full object-contain"
+                    imgClassName="h-40 w-full object-cover"
                   />
                 </div>
               ) : (

@@ -39,6 +39,8 @@ import {
   streakTopBand, STREAK_TOP_BAND_H,
   type ResolvedStreakPage, type StreakDecor,
 } from "@/lib/streak-page-themes";
+import Link from "next/link";
+import { useAppBase } from "@/lib/use-app-base";
 import { readableTextColor } from "@/lib/patterns";
 import type { Business } from "@/lib/types/database";
 
@@ -111,6 +113,8 @@ export function StreaksClient({
   // CTA, the road, unlocked rewards, the corridor glow and the top band.
   // (streak_theme still themes the Home teaser / header chip / trail; it is
   // just no longer a second, competing palette on the streaks page itself.)
+  // CP-106: base-aware in-app href (path form vs subdomain/PWA).
+  const appBase = useAppBase(business.slug);
   const baseTheme = resolveStreakTheme(business.streak_theme, business.brand_colors?.primary);
   const theme = resolveProgressTheme(business.streak_progress_mode, business.brand_colors?.primary, baseTheme);
   const page = resolveStreakPage(business);
@@ -348,8 +352,8 @@ export function StreaksClient({
         {/* CTA — only when the engine allows a check-in */}
         {canCheckIn && (
           <>
-            <a
-              href={`/${business.slug}/app/scan`}
+            <Link
+              href={`${appBase}/scan`}
               className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
               style={{
                 background: `linear-gradient(135deg, ${theme.cell[1]} 0%, ${theme.cell[2]} 100%)`,
@@ -357,7 +361,7 @@ export function StreaksClient({
               }}
             >
               <QrCode className="h-4 w-4" /> Check in now
-            </a>
+            </Link>
             {/* small energy drip connecting the CTA to the road below */}
             <div className="mx-auto mt-1 h-5 w-1 rounded-full"
               style={{ background: `linear-gradient(180deg, ${theme.cell[1]}66, transparent)` }} />
@@ -549,6 +553,9 @@ function RewardRoad({
   const earnedConnector = `linear-gradient(90deg, ${cMid}, ${cDeep})`;
   /** Ink for the white completion seal + point-gift icon on earned cards. */
   const earnedInk = shade(cDeep, 0.22);
+
+  // CP-106: base-aware in-app href (RewardRoad is its own component).
+  const appBase = useAppBase(slug);
 
   const range = Math.max(milestones.at(-1)?.count ?? 1, current, 1);
   const targetFrac = Math.min(1, current / range);
@@ -1022,14 +1029,14 @@ function RewardRoad({
           </div>
           <span className={`mt-1 text-[9px] font-black tracking-[0.2em] uppercase ${light ? "text-slate-500" : "text-white/60"}`}>Start</span>
           {canCheckIn ? (
-            <a
-              href={`/${slug}/app/scan`}
+            <Link
+              href={`${appBase}/scan`}
               className={`mt-2 inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[11px] font-extrabold ring-1 backdrop-blur-sm shadow-sm active:scale-95 transition whitespace-nowrap ${
                 light ? "text-slate-800 bg-white ring-black/10" : "text-white bg-white/15 ring-white/30"
               }`}
             >
               <QrCode className="h-3 w-3" /> Check in now
-            </a>
+            </Link>
           ) : (
             <span className="mt-2 inline-flex flex-col items-center gap-0.5 whitespace-nowrap">
               <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold ${light ? "text-emerald-600" : "text-emerald-300/90"}`}>

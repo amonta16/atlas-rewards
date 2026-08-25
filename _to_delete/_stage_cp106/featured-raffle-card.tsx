@@ -15,8 +15,6 @@
  */
 import { useEffect, useState } from "react";
 import { Clock, Ticket, Trophy } from "lucide-react";
-import Link from "next/link";
-import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
 import { type FeaturedRaffle, formatCountdown, formatRaffleTime } from "@/lib/raffles";
 import type { Business } from "@/lib/types/database";
@@ -28,8 +26,6 @@ export function FeaturedRaffleCard({
   /** URL slug — the Enter button links to /{slug}/app/rewards. */
   slug: string;
 }) {
-  // CP-106: base-aware in-app href (path form vs subdomain/PWA).
-  const appBase = useAppBase(slug);
   const [raffle, setRaffle] = useState<FeaturedRaffle | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -144,8 +140,8 @@ export function FeaturedRaffleCard({
 
             {/* The button — jumps to the Rewards tab where the entry flow
                 (confirmation + atomic charge) lives. */}
-            <Link
-              href={`${appBase}/rewards`}
+            <a
+              href={`/${slug}/app/rewards`}
               className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
               style={{
                 background: `linear-gradient(135deg, ${primary}, ${sec})`,
@@ -154,7 +150,7 @@ export function FeaturedRaffleCard({
             >
               <Ticket className="h-4 w-4" />
               {open ? "Enter the giveaway" : `Opens ${formatRaffleTime(raffle.starts_at, raffle.timezone)}`}
-            </Link>
+            </a>
           </div>
         </div>
       </div>

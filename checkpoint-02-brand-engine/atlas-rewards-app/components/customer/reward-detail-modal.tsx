@@ -1,5 +1,7 @@
 "use client";
 import { Gift, Lock, X } from "lucide-react";
+import Link from "next/link";
+import { useAppBase } from "@/lib/use-app-base";
 import { ImageCarousel, rewardGallery } from "@/components/customer/image-carousel";
 
 /**
@@ -50,6 +52,8 @@ export function RewardDetailModal({
   /** Supplied when the viewer can already afford it. */
   onRedeem?: () => void;
 }) {
+  // CP-106: base-aware in-app href (path form vs subdomain/PWA).
+  const appBase = useAppBase(businessSlug);
   const locked = points < reward.point_cost;
   const pct = reward.point_cost > 0 ? Math.min(100, (points / reward.point_cost) * 100) : 100;
   const remaining = Math.max(0, reward.point_cost - points);
@@ -141,13 +145,13 @@ export function RewardDetailModal({
               </p>
               {/* CP-80: land on the "Need more points?" earn section with the
                   same scroll+flash the review "!" uses — not just page top. */}
-              <a
-                href={`/${businessSlug}/app/rewards?focus=earn`}
+              <Link
+                href={`${appBase}/rewards?focus=earn`}
                 className="mt-4 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-md active:scale-[0.99] transition"
                 style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})`, boxShadow: `0 10px 22px -8px ${primary}aa` }}
               >
                 See ways to earn
-              </a>
+              </Link>
             </>
           ) : onRedeem ? (
             <button
