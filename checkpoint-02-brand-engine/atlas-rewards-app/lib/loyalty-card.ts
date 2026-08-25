@@ -102,19 +102,35 @@ export function loyaltyCardRamp(primary: string | null | undefined): LoyaltyCard
 }
 
 /**
- * Container styles for the card: the diagonal ramp, one grounded shadow and
- * a faint brand-tinted lift. Deliberately NOT the six stacked shadows the
- * old card carried — that pile-up is most of why it read busy next to a
- * calmer reference like Dermis.
+ * Container styles for the card.
+ *
+ * CP-104.1 (Andrew: "make the outer border also like Dermis, a bit detailed
+ * giving it a real 3D look"): the edge is now a single coherent LIGHT MODEL
+ * rather than a pile of decorative shadows. One light source, upper-left:
+ *
+ *   • the top and left rims CATCH that light (bright, crisp, 1px)
+ *   • the bottom and right faces fall into the card's own shade — that
+ *     disagreement is what the eye reads as thickness
+ *   • a solid 3px extrusion under the bottom edge gives the slab a real side
+ *   • a hairline rim + a faint outer ring separate it from the page
+ *
+ * The old card also carried six shadows, but they pointed in no particular
+ * direction and were fighting a blown-out radial, so they read as noise. The
+ * count was never the problem; the incoherence was.
  */
 export function loyaltyCardSurface(r: LoyaltyCardRamp): CSSProperties {
   return {
     background: `linear-gradient(145deg, ${r.hi} 0%, ${r.base} 46%, ${r.lo} 100%)`,
     boxShadow: [
-      "inset 0 1px 0 rgba(255,255,255,0.26)",      // top bevel, barely there
-      "inset 0 0 0 1px rgba(255,255,255,0.10)",    // inner rim
-      "0 20px 40px -20px rgba(15,23,42,0.55)",     // grounded drop shadow
-      `0 6px 18px -14px ${r.lo}`,                  // faint brand tint underneath
+      "inset 0 2px 1px -1px rgba(255,255,255,0.55)",   // top bevel catches the light
+      "inset 2px 0 1px -1px rgba(255,255,255,0.22)",   // left rim, quieter
+      "inset 0 -16px 16px -12px rgba(0,0,0,0.48)",     // bottom face in shade = thickness
+      "inset -16px 0 16px -13px rgba(0,0,0,0.30)",     // right face in shade
+      "inset 0 0 0 1px rgba(255,255,255,0.16)",        // continuous hairline rim
+      `0 3px 0 -1px ${r.lo}`,                          // extruded side wall
+      "0 0 0 1px rgba(15,23,42,0.06)",                 // outer separation ring
+      "0 22px 44px -22px rgba(15,23,42,0.55)",         // grounded drop shadow
+      `0 8px 20px -16px ${r.lo}`,                      // faint brand tint underneath
     ].join(", "),
   };
 }
