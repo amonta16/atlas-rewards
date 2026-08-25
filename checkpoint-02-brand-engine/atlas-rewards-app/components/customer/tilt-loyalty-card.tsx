@@ -1,19 +1,29 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import {
+  loyaltyCardRamp, loyaltyCardSurface, loyaltyCardSheen, loyaltyCardVolume,
+} from "@/lib/loyalty-card";
 import type { Business } from "@/lib/types/database";
 
 /**
- * 3D-realistic loyalty card.
+ * Membership card on the Rewards tab.
  *
- * Tilt behavior (no gyroscope permission needed):
+ * CP-104 redesign (Andrew, against the Dermis reference): the card used to
+ * feed raw brand colors into its gradient and then composite a white radial
+ * at 0.55 alpha in `overlay` blend mode. On a saturated brand that produced a
+ * blown-out hotspot — on a bright yellow or pale pink one it ate the member's
+ * own name. The color is now normalized first (lib/loyalty-card.ts) and lit
+ * with a broad low-alpha sheen instead of a spotlight, so EVERY brand color
+ * lands somewhere premium.
+ *
+ * Also from that pass: the watermark used to sit at `-right-6 -top-6`, i.e.
+ * deliberately cropped against two edges at once — it now sits fully inside
+ * the card. Radius 16 → 24px, and the six stacked box-shadows collapsed to
+ * one grounded shadow plus a faint brand tint.
+ *
+ * Tilt behavior is unchanged (no gyroscope permission needed):
  *   • Pointer / finger drag over the card → live parallax tilt
- *   • Idle → a continuous subtle "breathing" tilt animates the shine across
- *     the surface so the card never looks flat
- *
- * We *don't* request DeviceOrientation permission anymore — iOS 13+ requires
- * an explicit user tap to enable it which felt like a friction wart. The
- * pointer-based tilt + ambient idle animation give the same premium feel
- * cross-platform.
+ *   • Idle → a slow "breathing" tilt drifts the sheen across the surface
  */
 export function TiltLoyaltyCard({
   business,
@@ -33,8 +43,7 @@ export function TiltLoyaltyCard({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
   const [interacting, setInteracting] = useState(false);
-  const primary = business.brand_colors.primary;
-  const secondary = business.brand_colors.secondary;
+  const ramp = loyaltyCardRamp(business.brand_colors.primary);
 
   /* ----- Pointer / touch follow-the-finger tilt ----- */
   function handlePointer(clientX: number, clientY: number) {
@@ -78,9 +87,9 @@ export function TiltLoyaltyCard({
     return () => cancelAnimationFrame(raf);
   }, [interacting]);
 
-  // Move the shine in the opposite direction of the tilt for a believable highlight.
-  const shineX = 50 - tilt.ry * 2;
-  const shineY = 50 + tilt.rx * 3;
+  // The lit corner drifts against the tilt so the surface feels solid.
+  const volX = 14 + tilt.ry * 0.8;
+  const volY = 8 - tilt.rx * 0.6;
 
   return (
     <div
@@ -94,74 +103,61 @@ export function TiltLoyaltyCard({
       style={{ perspective: "1200px" }}
     >
       <div
-        className="relative rounded-2xl p-6 min-h-[212px] flex flex-col justify-between text-white overflow-hidden transition-transform duration-150 will-change-transform"
+        className="relative rounded-3xl p-6 min-h-[200px] flex flex-col justify-between text-white overflow-hidden transition-transform duration-150 will-change-transform"
         style={{
           transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
           transformStyle: "preserve-3d",
-          background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 60%, ${primary} 100%)`,
-          // CP-46: physical "edge" so the card reads as a raised object, like
-          // Andrew's reference. Layered shadows do the work:
-          //   • inset top highlight   → light catching the top bevel
-          //   • inset bottom shadow   → the card's own thickness in shade
-          //   • thin outer ring       → a crisp machined edge line
-          //   • deep soft drop shadow → it floats above the page
-          border: "1px solid rgba(255,255,255,0.18)",
-          boxShadow: [
-            "inset 0 1.5px 1px rgba(255,255,255,0.45)",   // top bevel highlight
-            "inset 0 -10px 18px -10px rgba(0,0,0,0.55)",  // bottom inner shade (thickness)
-            "inset 0 0 0 1px rgba(255,255,255,0.10)",     // inner rim
-            `0 1px 0 1px ${primary}aa`,                    // crisp edge line
-            `0 36px 60px -22px ${primary}88`,              // brand-tinted glow
-            "0 18px 34px -16px rgba(0,0,0,0.45)",          // grounded drop shadow
-          ].join(", "),
+          ...loyaltyCardSurface(ramp),
         }}
       >
-        {/* Background art (uploaded membership image, or logo watermark) */}
+        {/* Background art. An uploaded membership image still takes over the
+            whole face; otherwise the logo sits as a contained watermark in the
+            bottom-right — the corner this layout deliberately keeps free. */}
         {membershipImageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={membershipImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
         ) : business.logo_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={business.logo_url} alt="" className="absolute -right-6 -top-6 h-32 opacity-15 mix-blend-luminosity" />
+          <img
+            src={business.logo_url}
+            alt=""
+            className="absolute right-5 bottom-4 h-24 max-w-[45%] object-contain opacity-[0.13] pointer-events-none"
+          />
         ) : null}
 
-        {/* Moving shine sweep */}
-        <div
-          className="absolute inset-0 pointer-events-none transition-opacity"
-          style={{
-            background: `radial-gradient(circle at ${shineX}% ${shineY}%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.15) 25%, transparent 55%)`,
-            mixBlendMode: "overlay",
-          }}
-        />
+        {/* Soft corner volume, then the broad sheen — no blend modes. */}
+        <div className="absolute inset-0 pointer-events-none" style={loyaltyCardVolume(volX, volY)} />
+        <div className="absolute inset-0 pointer-events-none" style={loyaltyCardSheen(tilt.ry * 5)} />
 
-        {/* Subtle holographic stripe */}
         <div
-          className="absolute inset-0 opacity-25 pointer-events-none"
-          style={{
-            background: "linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%)",
-            transform: `translateX(${tilt.ry * 4}px)`,
-          }}
-        />
-
-        <div className="relative" style={{ transform: "translateZ(20px)", transformStyle: "preserve-3d" }}>
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-bold tracking-tight tabular-nums">{points.toLocaleString()}</span>
-            <span className="text-xs font-medium opacity-90">{business.name.split(" ")[0]} Points</span>
-          </div>
-          <div className="mt-6 flex items-end justify-between">
+          className="relative flex flex-col justify-between flex-1"
+          style={{ transform: "translateZ(20px)", transformStyle: "preserve-3d" }}
+        >
+          {/* Points stacked above their label (Dermis composition), with the
+              membership mark balancing the top-right. */}
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-base font-semibold truncate">{fullName}</div>
-              <div className="text-[10px] opacity-75 mt-0.5">
-                {/* CP-103 (QA M-03): 0 = joined today. */}
-                {joinedDays === 0
-                  ? "Joined today"
-                  : `Joined ${joinedDays} day${joinedDays === 1 ? "" : "s"} ago`}
+              <div className="text-[40px] font-extrabold leading-none tracking-tight tabular-nums">
+                {points.toLocaleString()}
+              </div>
+              <div className="text-xs font-medium opacity-80 mt-1.5 truncate">
+                {business.name.split(" ")[0]} Points
               </div>
             </div>
-            {/* CP-73: tier badge removed (tiers are gone). A quiet MEMBER
-                mark keeps the right slot balanced. */}
-            <div className="text-right shrink-0 ml-3">
-              <div className="text-[10px] opacity-75 uppercase tracking-widest font-bold">Member</div>
+            {/* CP-73: tier badge removed (tiers are gone) — an outlined
+                MEMBER pill keeps the top-right slot deliberate. */}
+            <div className="shrink-0 rounded-full border border-white/55 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.14em]">
+              Member
+            </div>
+          </div>
+
+          <div className="mt-auto pt-6 min-w-0">
+            <div className="text-base font-semibold truncate">{fullName}</div>
+            <div className="text-[10px] opacity-75 mt-0.5">
+              {/* CP-103 (QA M-03): 0 = joined today. */}
+              {joinedDays === 0
+                ? "Joined today"
+                : `Joined ${joinedDays} day${joinedDays === 1 ? "" : "s"} ago`}
             </div>
           </div>
         </div>

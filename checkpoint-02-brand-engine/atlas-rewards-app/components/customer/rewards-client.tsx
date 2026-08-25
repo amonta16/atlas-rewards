@@ -210,7 +210,10 @@ export function RewardsClient({
   return (
     <div className="pb-4">
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--surf-fg)" }}>Rewards</h1>
+        {/* CP-104: was a plain <h1>, so it ignored the business's picked
+            heading style while "Limited offers" right below it wore the
+            sticker/bar/underline treatment. Same element now. */}
+        <SectionHeading business={business} className="text-2xl tracking-tight">Rewards</SectionHeading>
       </div>
 
       {/* 3D tilt-with-device loyalty card — CP-28: cash slot removed */}

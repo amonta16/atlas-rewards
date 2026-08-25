@@ -2,6 +2,9 @@
 import { Home, ShoppingBag, ScanLine, Gift, User, ChevronRight, Lock, Star, Calendar, Users, CalendarClock, Tag, Flame, Sparkles, MapPin, Phone, Trophy, Check, CalendarDays } from "lucide-react";
 import type { Business } from "@/lib/types/database";
 import { patternStyle, readableTextColor } from "@/lib/patterns";
+import {
+  loyaltyCardRamp, loyaltyCardSurface, loyaltyCardSheen, loyaltyCardVolume,
+} from "@/lib/loyalty-card";
 import { bannerStyle } from "@/lib/banner-styles";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import {
@@ -579,39 +582,37 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
   return (
     <>
       <div className="px-4 pt-4">
-        <h1 className="text-2xl font-bold tracking-tight">Rewards</h1>
+        <SectionHeading business={b} className="text-2xl tracking-tight">Rewards</SectionHeading>
       </div>
 
-      {/* 3D loyalty card — uses membership image if uploaded */}
+      {/* CP-104 loyalty card — mirrors tilt-loyalty-card.tsx exactly (same
+          normalized ramp + sheen helpers), minus the tilt. Keep the two in
+          lockstep or the builder lies about what the customer sees. */}
       <div className="px-4 pt-3">
-        <div className="relative rounded-2xl p-5 text-white overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, ${b.brand_colors.primary} 0%, ${b.brand_colors.secondary} 60%, ${b.brand_colors.primary} 100%)`,
-            boxShadow: `0 20px 40px -12px ${b.brand_colors.primary}55`,
-          }}>
+        <div className="relative rounded-3xl p-5 min-h-[176px] text-white overflow-hidden flex flex-col"
+          style={loyaltyCardSurface(loyaltyCardRamp(b.brand_colors.primary))}>
           {membershipImageUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={membershipImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
           ) : b.logo_url && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={b.logo_url} alt="" className="absolute -right-6 -top-6 h-32 opacity-15 mix-blend-luminosity" />
+            <img src={b.logo_url} alt="" className="absolute right-4 bottom-3 h-20 max-w-[45%] object-contain opacity-[0.13]" />
           )}
-          <div className="absolute inset-0 opacity-25 pointer-events-none"
-            style={{ background: "linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.4) 50%, transparent 70%)" }} />
-          <div className="relative">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold tracking-tight">1,240</span>
-              <span className="text-xs font-medium opacity-90">Loyalty Points</span>
-            </div>
-            <div className="mt-6 flex items-end justify-between">
+          <div className="absolute inset-0 pointer-events-none" style={loyaltyCardVolume()} />
+          <div className="absolute inset-0 pointer-events-none" style={loyaltyCardSheen()} />
+          <div className="relative flex flex-col justify-between flex-1">
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-base font-semibold">Customer</div>
-                <div className="text-[10px] opacity-75 mt-0.5">Joined 1 day ago</div>
+                <div className="text-[34px] font-extrabold leading-none tracking-tight">1,240</div>
+                <div className="text-[11px] font-medium opacity-80 mt-1.5 truncate">Loyalty Points</div>
               </div>
-              {/* CP-73: tier badge removed — quiet MEMBER mark instead. */}
-              <div className="text-right shrink-0 ml-3">
-                <div className="text-[10px] opacity-75 uppercase tracking-widest font-bold">Member</div>
+              <div className="shrink-0 rounded-full border border-white/55 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em]">
+                Member
               </div>
+            </div>
+            <div className="mt-auto pt-5 min-w-0">
+              <div className="text-sm font-semibold truncate">Customer</div>
+              <div className="text-[10px] opacity-75 mt-0.5">Joined today</div>
             </div>
           </div>
         </div>
