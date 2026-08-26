@@ -82,16 +82,6 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  // CP-107: the last state we know is actually IN the database. Everything
-  // here is one shared `cfg` object behind a manual Save, so without this
-  // there was no way to tell a flipped switch from a persisted one — flip,
-  // navigate away, nothing happened, and it read as "the toggles are broken".
-  const [savedCfg, setSavedCfg] = useState<string>("");
-  // CP-107: set when the row comes back WITHOUT the CP-86 columns, i.e. the
-  // migration was never applied to this database. Passes and the monthly
-  // toggle cannot work in that state, so say so loudly instead of failing
-  // silently (which is exactly how this reached Andrew as "doesn't display").
-  const [legacySchema, setLegacySchema] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [newPerk, setNewPerk] = useState("");
@@ -108,13 +98,7 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
         .select("*")
         .eq("business_id", business.id)
         .maybeSingle();
-      if (data) {
-        setCfg(data as BillingConfig);
-        setSavedCfg(JSON.stringify(data));
-        // CP-86 added these columns; PostgREST simply omits columns that do
-        // not exist, so their absence IS the migration check.
-        setLegacySchema(!("offer_monthly" in data) || !("pass_options" in data));
-      }
+      if (data) setCfg(data as BillingConfig);
       setLoaded(true);
     })();
   }, [business.id]);
@@ -138,15 +122,10 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
       if (stripeErr) { setSaving(false); setErr(stripeErr.message); return; }
     }
 
-    // CP-107: a configuration that cannot be bought must never persist as
-    // enabled. The UI already prevents reaching that state, but coercing here
-    // is what makes it impossible — including for rows saved by older builds.
-    const enabled = cfg.is_enabled && canGoLive;
-
     // CP-86: v3 carries the pass options + monthly toggle.
     const { error } = await supabase.rpc("upsert_membership_billing_v3", {
       p_business_id:                business.id,
-      p_is_enabled:                 enabled,
+      p_is_enabled:                 cfg.is_enabled,
       p_membership_name:            cfg.membership_name,
       p_price_cents:                cfg.price_cents,
       p_perks:                      cfg.perks,
@@ -169,11 +148,6 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
       );
       return;
     }
-    // CP-107: reflect the coercion locally and re-baseline "what's in the DB",
-    // so the unsaved-changes bar clears honestly.
-    const persisted = { ...cfg, is_enabled: enabled };
-    setCfg(persisted);
-    setSavedCfg(JSON.stringify(persisted));
     setSaved(true); setTimeout(() => setSaved(false), 2000);
   }
 
@@ -220,67 +194,10 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
     cfg.payment_mode === "external_link" ? !!cfg.external_payment_url :
     /* in_person */                         true;
 
-  /* ── CP-107: BLOCKERS — the single source of truth for "can this be live?"
-     Previously the master switch only consulted `modeReady`, so two invalid
-     states could be saved and shipped to customers:
-       · switch the mode to Stripe with no key while membership is already ON
-         — the switch went `disabled` STUCK ON, and saved as enabled
-       · turn the monthly plan off with zero passes — enabled, but literally
-         nothing for a customer to buy
-     Both ended at a "Become a member" button that dead-ends. Now every reason
-     lives in one list, the switch reads from it, and save() coerces against
-     it so the database can never hold "on but unsellable". ── */
-  const monthlyOn = cfg.offer_monthly ?? true;
-  const blockers: string[] = [];
-  if (cfg.payment_mode === "stripe" && !isConnected) {
-    blockers.push("Paste your Stripe secret key below — without it nobody can check out.");
-  }
-  if (cfg.payment_mode === "external_link" && !cfg.external_payment_url) {
-    blockers.push("Add the payment link below — it's the page members get sent to.");
-  }
-  if (!monthlyOn && passes.length === 0) {
-    blockers.push("Nothing is for sale: switch the monthly plan back on, or add at least one pass.");
-  }
-  if (monthlyOn && cfg.price_cents <= 0) {
-    blockers.push("Set a monthly price above $0.");
-  }
-  const canGoLive = blockers.length === 0;
-
-  // CP-107: unsaved-changes tracking + a browser guard, because this panel
-  // holds billing config behind a manual Save.
-  const dirty = loaded && savedCfg !== "" && JSON.stringify(cfg) !== savedCfg;
-
-  // CP-107: warn before leaving with unsaved billing changes.
-  useEffect(() => {
-    if (!dirty) return;
-    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [dirty]);
-
   if (!loaded) return <div className="p-8 text-center text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></div>;
 
   return (
-    <div className="space-y-4 pb-24">
-
-      {/* ── CP-107: the migration check. Passes and the monthly toggle are
-          CP-86 columns; if they aren't in the row that came back, they don't
-          exist in this database and no amount of UI will make them work. Say
-          it here rather than letting the feature look broken. ── */}
-      {legacySchema && (
-        <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4 text-[12px] text-rose-900">
-          <div className="flex items-center gap-2 font-bold text-[13px]">
-            <AlertCircle className="h-4 w-4 shrink-0" /> This database is missing the membership passes migration
-          </div>
-          <p className="mt-1.5 leading-snug">
-            <code className="font-mono">pass_options</code> and{" "}
-            <code className="font-mono">offer_monthly</code> aren&apos;t in this
-            business&apos;s billing row, which means passes can&apos;t be sold and the
-            monthly toggle has no effect no matter what you set here. Apply{" "}
-            <code className="font-mono">cp86_migration.sql</code> in Supabase, then reload this page.
-          </p>
-        </div>
-      )}
+    <div className="space-y-4">
 
       {/* ── Status header ── */}
       <div className="rounded-2xl border bg-white p-5"
@@ -306,42 +223,19 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
                   ? (cfg.external_payment_url ? "Payment link set" : "Payment link missing")
                   : "In-person ready"}
             </span>
-            {/* CP-107: you can ALWAYS switch it off. You can only switch it
-                on when nothing is blocking — the old `disabled={!modeReady}`
-                could strand it stuck in the ON position. */}
             <Switch
               checked={cfg.is_enabled}
-              disabled={!cfg.is_enabled && !canGoLive}
+              disabled={!modeReady}
               onCheckedChange={v => setCfg(c => ({ ...c, is_enabled: v }))}
             />
           </div>
         </div>
-
-        {/* CP-107: every reason it can't go live, in one place, each one an
-            instruction rather than a symptom. */}
-        {!canGoLive && (
-          <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-900">
-            <div className="flex items-center gap-2 font-bold">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              {cfg.is_enabled
-                ? "Membership can't go live yet — it will save as OFF until these are fixed:"
-                : "Before you can switch this on:"}
-            </div>
-            <ul className="mt-1.5 ml-5 list-disc space-y-1">
-              {blockers.map(b => <li key={b}>{b}</li>)}
-            </ul>
-          </div>
-        )}
-        {canGoLive && cfg.is_enabled && (
-          <div className="mt-3 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-[11px] text-emerald-900 flex items-start gap-2">
-            <Check className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            Live for customers — they can buy{" "}
-            {monthlyOn && `the $${(cfg.price_cents / 100).toFixed(2)}/mo plan`}
-            {monthlyOn && passes.length > 0 && " or "}
-            {passes.length > 0 && `${passes.length} pass${passes.length === 1 ? "" : "es"}`}
-            {cfg.payment_mode === "in_person" && " — staff activate them at the desk."}
-            {cfg.payment_mode === "external_link" && " — they pay at your link, staff activate them."}
-            {cfg.payment_mode === "stripe" && " — Stripe activates them automatically."}
+        {!modeReady && (
+          <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-900 flex items-start gap-2">
+            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            {cfg.payment_mode === "stripe"
+              ? "Paste your Stripe secret key below to enable subscriptions."
+              : "Add your payment link below to enable subscriptions."}
           </div>
         )}
       </div>
@@ -641,29 +535,10 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
           <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> {err}
         </div>
       )}
-
-      {/* CP-107: nothing on this panel takes effect until Save, so an
-          unsaved change now announces itself instead of being silently
-          discarded when you navigate away. */}
-      <div className={`sticky bottom-3 z-20 rounded-2xl border p-2.5 flex items-center gap-3 shadow-lg backdrop-blur transition ${
-        dirty ? "bg-amber-50/95 border-amber-300" : "bg-white/95"
-      }`}>
-        <div className="flex-1 min-w-0 pl-1.5">
-          {dirty ? (
-            <div className="text-[12px] font-bold text-amber-900 flex items-center gap-1.5">
-              <AlertCircle className="h-3.5 w-3.5 shrink-0" /> Unsaved changes
-            </div>
-          ) : (
-            <div className="text-[12px] font-semibold text-zinc-500">
-              {saved ? "Saved." : "Everything here is saved."}
-            </div>
-          )}
-        </div>
-        <Button onClick={save} disabled={saving || !dirty} className="shrink-0">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : saved ? <Check className="h-4 w-4 mr-2" /> : null}
-          {saving ? "Saving…" : saved ? "Saved!" : "Save changes"}
-        </Button>
-      </div>
+      <Button className="w-full" onClick={save} disabled={saving}>
+        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : saved ? <Check className="h-4 w-4 mr-2" /> : null}
+        {saving ? "Saving…" : saved ? "Saved!" : "Save membership settings"}
+      </Button>
     </div>
   );
 }

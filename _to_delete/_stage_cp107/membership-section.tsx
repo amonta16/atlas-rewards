@@ -265,16 +265,6 @@ export function MembershipSection({
     return null;
   }
 
-  // CP-107: belt-and-braces — a business can be `is_enabled` with the monthly
-  // plan switched off and no passes configured, which renders a "Become a
-  // member" button that leads to an empty picker. The manager panel now makes
-  // that state unreachable and coerces it away on save, but rows written by
-  // older builds can still be sitting in the database, so refuse to render a
-  // membership nobody can actually buy.
-  const purchasable =
-    (billing.offer_monthly ?? true) || (billing.pass_options ?? []).length > 0;
-  if (!purchasable) return null;
-
   // ── Main: non-member, billing enabled — dark exclusive join card ───────────
   const { membership_name, price_cents, perks } = billing;
   // CP-28: joinCashCents removed — points-only product.
