@@ -1,369 +1,240 @@
 "use client";
 /**
- * MembershipSection — single-membership card for the customer home page.
+ * MembershipSection — CP-108 rebuild.
  *
- * Fetches billing info (price, name, perks, benefit fields) from
- * membership_billing_public() so the display always stays in sync with what
- * the manager configured.
+ * Andrew: "completely redo the membership and passes for the builder view and
+ * app view, because it is not displaying correctly."
  *
- * States:
- *  • Loading:           skeleton pulse
- *  • Not configured / disabled: soft promo card ("Coming soon")
- *  • Member (paid):     Dermis-style benefit grid + perks — "Membership benefits"
- *  • Non-member:        dark exclusive card with "Become a member" CTA
+ * What was actually wrong on this screen:
  *
- * The Join button opens <MembershipJoinModal> which handles the Stripe Checkout flow.
+ *  · PASSES WERE INVISIBLE. With a monthly plan plus passes the card said
+ *    "· or grab a pass" and never showed a single one — you had to open the
+ *    modal to discover what existed, or that any existed.
+ *  · The price line was inverted: one pass rendered "$25.00 one-time pass",
+ *    several rendered "$25.00 · passes from".
+ *  · The paid-member view invented benefits nobody configured ("Member
+ *    savings — exclusive discounts only members can see") and showed them
+ *    alongside the business's real perks list.
+ *  · A pass buyer was told "Cancel anytime" — there is nothing to cancel.
+ *
+ * Everything derived now comes from lib/membership.ts, shared with the
+ * builder panel, so this screen can only ever show what a business actually
+ * configured.
  */
-
 import { useEffect, useState } from "react";
 import {
-  // CP-28: Wallet removed — points-only product, no cash credit perk.
-  Crown, Sparkles, Check, ChevronRight, Zap, CalendarCheck, Tag,
-  // CP-42: badge / refresh icons for the active-member ribbon.
-  BadgeCheck, CalendarClock,
+  Crown, Sparkles, Check, ChevronRight, Zap, CalendarCheck,
+  BadgeCheck, CalendarClock, Ticket, Repeat,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { MembershipJoinModal } from "./membership-join-modal";
+import { readMembership, joinFinePrint, money, type MembershipRow } from "@/lib/membership";
 import type { Business, Membership } from "@/lib/types/database";
 
-type BillingPublic = {
-  is_enabled: boolean;
-  price_cents: number;
-  membership_name: string;
-  perks: string[];
-  // CP-22 — Dermis-style benefit fields; older databases may not return these
-  // (e.g. if the CP-22 migration hasn't been run yet), so we always default.
-  // CP-28: monthly_cash_balance_cents removed — points-only product.
-  points_multiplier?: number | null;
-  has_priority_booking?: boolean | null;
-  image_url?: string | null;
-  // CP-86: duration passes + monthly toggle.
-  pass_options?: { id: string; label: string; months: number; price_cents: number }[] | null;
-  offer_monthly?: boolean | null;
-  // CP-34/CP-99: how this business takes membership payment — drives the
-  // fine print so we never claim "Stripe checkout" for a business that
-  // collects in person or via its own external link.
-  payment_mode?: "stripe" | "external_link" | "in_person" | null;
+type PaidStatus = {
+  is_paid: boolean;
+  paid_at: string | null;
+  renewal_due_at: string | null;
+  expires_at?: string | null;
+  plan_label?: string | null;
 };
 
 export function MembershipSection({
-  business,
-  membership,
-  userId,
+  business, membership, userId,
 }: {
   business: Business;
   membership: Membership | null;
   userId: string;
 }) {
-  const [billing, setBilling] = useState<BillingPublic | null | "loading">("loading");
+  const [row, setRow] = useState<MembershipRow | "loading">("loading");
   const [modalOpen, setModalOpen] = useState(false);
+  const [paid, setPaid] = useState<PaidStatus | null>(null);
 
-  const primary   = business.brand_colors.primary;
+  const primary = business.brand_colors.primary;
   const secondary = business.brand_colors.secondary;
-
-  // CP-42: source of truth for "is this user a paid member" is now the
-  // business_memberships.membership_payment_status column (via the new
-  // member_membership_status RPC). The legacy `business.tiers` lookup
-  // was unreliable after the CP-22 single-membership refactor — it kept
-  // showing the Join CTA to paid members.
-  const [paidStatus, setPaidStatus] = useState<
-    {
-      is_paid: boolean; paid_at: string | null; renewal_due_at: string | null;
-      // CP-86: hard expiry (passes) + the plan they bought.
-      expires_at?: string | null; plan_label?: string | null;
-    } | null
-  >(null);
 
   useEffect(() => {
     const supabase = createClient();
     (async () => {
-      const { data } = await supabase.rpc("membership_billing_public", {
-        p_business_id: business.id,
-      });
-      const row = Array.isArray(data) ? data[0] : data;
-      setBilling(row ?? null);
+      const { data } = await supabase.rpc("membership_billing_public", { p_business_id: business.id });
+      setRow((Array.isArray(data) ? data[0] : data) ?? null);
     })();
-
-    // CP-42: query paid-member status separately. The RPC is brand new in
-    // cp42_membership_paid_at.sql. If it isn't installed yet we fall back
-    // to the legacy tier-table check so the page still renders correctly.
     (async () => {
-      const { data, error } = await supabase.rpc("member_membership_status", {
-        p_business_id: business.id,
-      });
+      const { data, error } = await supabase.rpc("member_membership_status", { p_business_id: business.id });
       if (error) {
-        setPaidStatus({
-          is_paid: !!(
-            membership &&
-            (business.tiers ?? []).find(t => t.name === membership.tier)?.monthly_price_cents
-          ),
-          paid_at: null,
-          renewal_due_at: null,
+        // Pre-CP-42 database — fall back to the legacy tier lookup so the
+        // page still renders something truthful.
+        setPaid({
+          is_paid: !!(membership && (business.tiers ?? []).find(t => t.name === membership.tier)?.monthly_price_cents),
+          paid_at: null, renewal_due_at: null,
         });
         return;
       }
-      const row = Array.isArray(data) ? data[0] : data;
-      setPaidStatus(row ?? { is_paid: false, paid_at: null, renewal_due_at: null });
+      const r = Array.isArray(data) ? data[0] : data;
+      setPaid(r ?? { is_paid: false, paid_at: null, renewal_due_at: null });
     })();
   }, [business.id, membership, business.tiers]);
 
-  const isPaid = !!paidStatus?.is_paid;
+  if (row === "loading") return null;          // avoid layout shift pre-hydration
+  const v = readMembership(row);
+  if (!v.enabled) return null;                 // CP-55: off means invisible
 
-  // Don't render the section at all if billing is still loading silently
-  // (avoid CLS — section appears after hydration)
-  if (billing === "loading") return null;
+  const isPaid = !!paid?.is_paid;
 
-  // ── Member (paid) — Dermis-style benefit grid ─────────────────────────────
+  /* ══════════════ MEMBER ══════════════ */
   if (isPaid) {
-    const name      = billing?.membership_name ?? "The Membership";
-    const perks     = billing?.perks ?? [];
-    // CP-28: cashCents removed — points-only product.
-    const mult      = billing?.points_multiplier ?? 1;
-    const priority  = !!billing?.has_priority_booking;
-
+    const onAPass = !!paid?.expires_at;
     return (
       <div className="px-4 mt-6" id="membership-benefits">
-        <div
-          className="rounded-3xl overflow-hidden border bg-white"
-          style={{ borderColor: `${primary}25`, boxShadow: `0 10px 30px ${primary}11` }}
-        >
-          {/* Header bar — branded */}
-          <div
-            className="px-5 pt-5 pb-4 flex items-start justify-between"
-            style={{ background: `linear-gradient(135deg, ${primary}10 0%, ${primary}03 100%)` }}
-          >
-            <div className="flex-1 min-w-0">
+        <div className="rounded-3xl overflow-hidden border bg-white"
+          style={{ borderColor: `${primary}25`, boxShadow: `0 10px 30px ${primary}11` }}>
+
+          <div className="px-5 pt-5 pb-4 flex items-start justify-between gap-3"
+            style={{ background: `linear-gradient(135deg, ${primary}10 0%, ${primary}03 100%)` }}>
+            <div className="min-w-0">
               <div className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase mb-1.5"
                 style={{ color: primary }}>
-                <Crown className="h-3 w-3" /> Member · {paidStatus?.plan_label ?? name}
+                <Crown className="h-3 w-3" /> Member
               </div>
-              <h2 className="text-lg font-extrabold text-zinc-900 leading-tight">Membership benefits</h2>
+              <h2 className="text-lg font-extrabold text-zinc-900 leading-tight truncate">
+                {paid?.plan_label || v.name}
+              </h2>
             </div>
-            <div
-              className="h-11 w-11 rounded-2xl flex items-center justify-center shrink-0"
-              style={{ background: `${primary}15`, color: primary }}
-            >
-              <Crown className="h-5 w-5" />
+            <div className="h-11 w-11 rounded-2xl flex items-center justify-center shrink-0"
+              style={{ background: `${primary}15`, color: primary }}>
+              {onAPass ? <Ticket className="h-5 w-5" /> : <Crown className="h-5 w-5" />}
             </div>
           </div>
 
-          {/* Perks bullet list — CP-28: cash credit row removed */}
-          {perks.length > 0 && (
+          {/* The business's OWN perks — no invented benefits. */}
+          {v.perks.length > 0 ? (
             <ul className="px-5 pt-4 space-y-2">
-              {perks.slice(0, 6).map((p, i) => (
+              {v.perks.slice(0, 8).map((p, i) => (
                 <li key={i} className="flex items-start gap-2.5">
-                  <span
-                    className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                    style={{ background: `${primary}18` }}
-                  >
+                  <span className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ background: `${primary}18` }}>
                     <Check className="h-3 w-3" style={{ color: primary }} />
                   </span>
                   <span className="text-sm text-zinc-700 leading-snug">{p}</span>
                 </li>
               ))}
             </ul>
-          )}
-
-          {/* Benefit grid — CP-28: cash credit tile removed (points-only) */}
-          <div className="grid grid-cols-2 gap-3 px-5 py-5">
-            <BenefitCard
-              primary={primary}
-              icon={<Tag className="h-5 w-5 text-white" />}
-              title="Member savings"
-              body="Exclusive discounts only members can see"
-            />
-            {priority && (
-              <BenefitCard
-                primary={primary}
-                icon={<CalendarCheck className="h-5 w-5 text-white" />}
-                title="Priority booking"
-                body="Skip the queue with member-only slots"
-              />
-            )}
-            {mult > 1 && (
-              <BenefitCard
-                primary={primary}
-                icon={<Zap className="h-5 w-5 text-white" />}
-                title={`x${mult.toFixed(mult % 1 === 0 ? 0 : 1)} Points`}
-                body={`Earn ${Math.round((mult - 1) * 100)}% more points on every visit`}
-              />
-            )}
-          </div>
-
-          {/* CP-42: Member-since + renewal-due bar — replaces the "you're in"
-              ribbon when we know the paid_at date from member_membership_status.
-              Doubles as a "you're already a member, no Join CTA" signal. */}
-          {(paidStatus?.paid_at || paidStatus?.renewal_due_at || paidStatus?.expires_at) ? (
-            <div
-              className="px-5 py-3 grid grid-cols-2 gap-3 text-[11px] border-t"
-              style={{ background: `${primary}06`, borderColor: `${primary}18` }}
-            >
-              {paidStatus?.paid_at && (
-                <div className="flex items-start gap-1.5">
-                  <BadgeCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} />
-                  <div>
-                    <div className="font-bold uppercase tracking-wider text-[9px]" style={{ color: primary }}>
-                      Member since
-                    </div>
-                    <div className="font-semibold text-zinc-800 leading-tight mt-0.5">
-                      {new Date(paidStatus.paid_at).toLocaleDateString(undefined, {
-                        month: "short", day: "numeric", year: "numeric",
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* CP-86: a pass shows its hard expiry; monthly keeps "Renews". */}
-              {paidStatus?.expires_at ? (
-                <div className="flex items-start gap-1.5">
-                  <CalendarClock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} />
-                  <div>
-                    <div className="font-bold uppercase tracking-wider text-[9px]" style={{ color: primary }}>
-                      Expires
-                    </div>
-                    <div className="font-semibold text-zinc-800 leading-tight mt-0.5">
-                      {new Date(paidStatus.expires_at).toLocaleDateString(undefined, {
-                        month: "short", day: "numeric", year: "numeric",
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ) : paidStatus?.renewal_due_at && (
-                <div className="flex items-start gap-1.5">
-                  <CalendarClock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} />
-                  <div>
-                    <div className="font-bold uppercase tracking-wider text-[9px]" style={{ color: primary }}>
-                      Renews
-                    </div>
-                    <div className="font-semibold text-zinc-800 leading-tight mt-0.5">
-                      {new Date(paidStatus.renewal_due_at).toLocaleDateString(undefined, {
-                        month: "short", day: "numeric", year: "numeric",
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
           ) : (
-            <div
-              className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-1.5"
-              style={{ background: `${primary}08`, color: primary }}
-            >
-              <Sparkles className="h-3 w-3" /> You're in — enjoy your perks
+            <p className="px-5 pt-4 text-sm text-zinc-500">Your membership is active.</p>
+          )}
+
+          {/* Only the multipliers a business actually set. */}
+          {(v.pointsMultiplier > 1 || v.priorityBooking) && (
+            <div className="flex flex-wrap gap-2 px-5 pt-4">
+              {v.pointsMultiplier > 1 && (
+                <Pill primary={primary} icon={<Zap className="h-3 w-3" />}>
+                  x{v.pointsMultiplier.toFixed(v.pointsMultiplier % 1 === 0 ? 0 : 1)} points
+                </Pill>
+              )}
+              {v.priorityBooking && (
+                <Pill primary={primary} icon={<CalendarCheck className="h-3 w-3" />}>Priority booking</Pill>
+              )}
             </div>
           )}
+
+          <div className="px-5 py-4 mt-4 grid grid-cols-2 gap-3 text-[11px] border-t"
+            style={{ background: `${primary}06`, borderColor: `${primary}18` }}>
+            {paid?.paid_at && (
+              <Stat primary={primary} icon={<BadgeCheck className="h-3.5 w-3.5" />} label="Member since"
+                value={fmt(paid.paid_at)} />
+            )}
+            {onAPass ? (
+              <Stat primary={primary} icon={<CalendarClock className="h-3.5 w-3.5" />} label="Expires"
+                value={fmt(paid!.expires_at!)} />
+            ) : paid?.renewal_due_at ? (
+              <Stat primary={primary} icon={<Repeat className="h-3.5 w-3.5" />} label="Renews"
+                value={fmt(paid.renewal_due_at)} />
+            ) : null}
+          </div>
         </div>
       </div>
     );
   }
 
-  // ── Billing not enabled or not set up ──
-  // CP-55: when membership isn't turned on, hide the section entirely for the
-  // customer (no "coming soon" teaser). Nothing should hint at a product the
-  // business hasn't enabled.
-  if (!billing || !billing.is_enabled) {
-    return null;
-  }
-
-  // CP-107: belt-and-braces — a business can be `is_enabled` with the monthly
-  // plan switched off and no passes configured, which renders a "Become a
-  // member" button that leads to an empty picker. The manager panel now makes
-  // that state unreachable and coerces it away on save, but rows written by
-  // older builds can still be sitting in the database, so refuse to render a
-  // membership nobody can actually buy.
-  const purchasable =
-    (billing.offer_monthly ?? true) || (billing.pass_options ?? []).length > 0;
-  if (!purchasable) return null;
-
-  // ── Main: non-member, billing enabled — dark exclusive join card ───────────
-  const { membership_name, price_cents, perks } = billing;
-  // CP-28: joinCashCents removed — points-only product.
-  const joinMult      = billing.points_multiplier ?? 1;
-  const joinPriority  = !!billing.has_priority_booking;
+  /* ══════════════ NON-MEMBER ══════════════ */
+  // Nothing purchasable → show nothing. A business can be `is_enabled` with
+  // the monthly plan off and no passes; older builds could save that state.
+  if (!v.purchasable) return null;
 
   return (
     <>
-      <div className="px-4 mt-6" id="membership-benefits">
-        {/* CP-24: switched from black ("looks off" — Andrew) to a soft branded
-            gradient that uses the business's primary color tints. Reads as
-            premium without looking dead. */}
-        <div
-          className="relative rounded-3xl overflow-hidden bg-white"
+      <div className="px-4 mt-6">
+        <div className="relative rounded-3xl overflow-hidden"
           style={{
-            background: `linear-gradient(160deg, ${primary}f2 0%, ${primary} 60%, ${primary}cc 100%)`,
-            border: `1px solid ${primary}44`,
+            background: `linear-gradient(150deg, ${primary} 0%, ${secondary} 100%)`,
             boxShadow: `0 16px 48px ${primary}33`,
-          }}
-        >
-          {/* top brand shimmer */}
-          <div
-            className="absolute top-0 left-0 right-0 h-px"
-            style={{ background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)` }}
-          />
-          <div
-            className="absolute -top-6 left-1/2 -translate-x-1/2 w-64 h-24 blur-3xl opacity-20 pointer-events-none"
-            style={{ background: "white" }}
-          />
+          }}>
+          <div className="absolute top-0 inset-x-0 h-px"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)" }} />
 
           <div className="p-5 relative">
-            {/* Header row */}
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div
-                  className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full mb-2 bg-white/25 text-white"
-                >
-                  <Sparkles className="h-2.5 w-2.5" /> EXCLUSIVE
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase px-2.5 py-1 rounded-full mb-2 bg-white/25 text-white">
+                  <Sparkles className="h-2.5 w-2.5" /> Exclusive
                 </div>
-                <h2 className="text-xl font-extrabold text-white leading-tight drop-shadow-sm">{membership_name}</h2>
-                {/* CP-86: price line adapts — monthly, passes, or both. */}
-                {(billing.offer_monthly ?? true) ? (
-                  <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-2xl font-extrabold text-white">
-                      ${(price_cents / 100).toFixed(2)}
-                    </span>
+                <h2 className="text-xl font-extrabold text-white leading-tight drop-shadow-sm">{v.name}</h2>
+                <div className="flex items-baseline gap-1.5 mt-1">
+                  {v.hasChoice && <span className="text-white/75 text-xs">from</span>}
+                  <span className="text-2xl font-extrabold text-white">{money(v.fromCents ?? 0)}</span>
+                  {!v.hasChoice && v.offers[0]?.kind === "monthly" && (
                     <span className="text-white/80 text-xs">/ month</span>
-                    {(billing.pass_options ?? []).length > 0 && (
-                      <span className="text-white/70 text-[11px] ml-1">· or grab a pass</span>
-                    )}
-                  </div>
-                ) : (billing.pass_options ?? []).length > 0 ? (
-                  <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-2xl font-extrabold text-white">
-                      ${(Math.min(...(billing.pass_options ?? []).map(p => p.price_cents)) / 100).toFixed(2)}
-                    </span>
-                    <span className="text-white/80 text-xs">
-                      {(billing.pass_options ?? []).length === 1 ? "one-time pass" : "· passes from"}
-                    </span>
-                  </div>
-                ) : null}
+                  )}
+                </div>
               </div>
-              <div
-                className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 bg-white/20 ring-1 ring-white/40"
-              >
+              <div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 bg-white/20 ring-1 ring-white/40">
                 <Crown className="h-7 w-7 fill-amber-300 text-amber-300" />
               </div>
             </div>
 
-            {/* Headline value pills — CP-28: cash credit pill removed
-                (points-only product). Only points-multiplier + priority
-                booking remain as signup levers above the perks list. */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {joinMult > 1 && (
-                <ValuePill primary={primary} icon={<Zap className="h-3 w-3" />}>
-                  x{joinMult.toFixed(joinMult % 1 === 0 ? 0 : 1)} Points
-                </ValuePill>
-              )}
-              {joinPriority && (
-                <ValuePill primary={primary} icon={<CalendarCheck className="h-3 w-3" />}>
-                  Priority booking
-                </ValuePill>
-              )}
+            {/* THE FIX: every way in is visible here, priced, before you tap.
+                With a single offer the headline price already says it, so the
+                list would just repeat itself. */}
+            {v.hasChoice && (
+            <div className="space-y-1.5 mb-4">
+              {v.offers.map(o => (
+                <div key={o.id}
+                  className="flex items-center gap-2.5 rounded-xl bg-white/15 ring-1 ring-white/25 px-3 py-2">
+                  <span className="h-6 w-6 rounded-lg bg-white/25 flex items-center justify-center shrink-0">
+                    {o.kind === "monthly"
+                      ? <Repeat className="h-3.5 w-3.5 text-white" />
+                      : <Ticket className="h-3.5 w-3.5 text-white" />}
+                  </span>
+                  <span className="flex-1 min-w-0 text-sm font-bold text-white truncate">{o.label}</span>
+                  <span className="text-sm font-extrabold text-white shrink-0">
+                    {money(o.priceCents)}
+                    <span className="text-white/70 text-[11px] font-semibold">
+                      {o.kind === "monthly" ? "/mo" : ` · ${o.months} mo`}
+                    </span>
+                  </span>
+                </div>
+              ))}
             </div>
+            )}
 
-            {/* Perks */}
-            {perks.length > 0 && (
+            {(v.pointsMultiplier > 1 || v.priorityBooking) && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {v.pointsMultiplier > 1 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/25 text-white">
+                    <Zap className="h-3 w-3" /> x{v.pointsMultiplier.toFixed(v.pointsMultiplier % 1 === 0 ? 0 : 1)} points
+                  </span>
+                )}
+                {v.priorityBooking && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/25 text-white">
+                    <CalendarCheck className="h-3 w-3" /> Priority booking
+                  </span>
+                )}
+              </div>
+            )}
+
+            {v.perks.length > 0 && (
               <ul className="space-y-2 mb-5">
-                {perks.slice(0, 5).map((p, i) => (
+                {v.perks.slice(0, 5).map((p, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-white/25">
                       <Check className="h-3 w-3 text-white" />
@@ -374,29 +245,16 @@ export function MembershipSection({
               </ul>
             )}
 
-            {/* Join CTA */}
             <button
               onClick={() => setModalOpen(true)}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-extrabold tracking-wide transition active:scale-95 bg-white"
-              style={{
-                color: primary,
-                boxShadow: `0 6px 20px rgba(0,0,0,0.15)`,
-              }}
+              style={{ color: primary, boxShadow: "0 6px 20px rgba(0,0,0,0.15)" }}
             >
-              Become a member
+              {v.hasChoice ? "See membership options" : "Become a member"}
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            {/* Fine print — CP-99: mode-aware. Only the Stripe payment mode
-                may claim Stripe checkout; other modes describe what actually
-                happens (mirrors the join modal's CP-34 branching). */}
-            <p className="text-center text-[10px] text-white/80 mt-2.5">
-              {(billing?.payment_mode ?? "stripe") === "stripe"
-                ? "Cancel anytime · Secure checkout via Stripe"
-                : (billing?.payment_mode === "external_link"
-                  ? "Cancel anytime · Payment handled by the business"
-                  : "Cancel anytime · Set up in person at the counter")}
-            </p>
+            <p className="text-center text-[10px] text-white/80 mt-2.5">{joinFinePrint(v)}</p>
           </div>
         </div>
       </div>
@@ -413,55 +271,31 @@ export function MembershipSection({
   );
 }
 
-/**
- * BenefitCard — Dermis-style colored tile for the member benefit grid.
- *
- * One per benefit (cash balance, savings, priority booking, points multiplier).
- * Uses the business's primary brand color as the background so the grid
- * always looks on-brand regardless of which industry the business is in.
- */
-function ValuePill({
-  primary, icon, children,
-}: {
-  primary: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
+/* ─────────────────────────── bits ─────────────────────────── */
+
+function fmt(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function Pill({ primary, icon, children }: { primary: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <span
-      className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/25 text-white"
-      style={{ border: `1px solid rgba(255,255,255,0.4)` }}
-    >
-      {icon}
-      {children}
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full"
+      style={{ background: `${primary}15`, color: primary }}>
+      {icon} {children}
     </span>
   );
 }
 
-function BenefitCard({
-  primary, icon, title, body,
-}: {
-  primary: string;
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-}) {
+function Stat({
+  primary, icon, label, value,
+}: { primary: string; icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div
-      className="rounded-2xl p-3.5 text-white relative overflow-hidden"
-      style={{
-        background: `linear-gradient(135deg, ${primary} 0%, ${primary}dd 100%)`,
-        boxShadow: `0 4px 14px ${primary}33`,
-      }}
-    >
-      <div
-        className="h-9 w-9 rounded-xl flex items-center justify-center mb-2"
-        style={{ background: "rgba(255,255,255,0.18)" }}
-      >
-        {icon}
+    <div className="flex items-start gap-1.5">
+      <span className="mt-0.5 shrink-0" style={{ color: primary }}>{icon}</span>
+      <div className="min-w-0">
+        <div className="font-bold uppercase tracking-wider text-[9px]" style={{ color: primary }}>{label}</div>
+        <div className="font-semibold text-zinc-800 leading-tight mt-0.5">{value}</div>
       </div>
-      <div className="text-sm font-extrabold leading-tight">{title}</div>
-      <div className="text-[10.5px] text-white/85 mt-0.5 leading-snug">{body}</div>
     </div>
   );
 }

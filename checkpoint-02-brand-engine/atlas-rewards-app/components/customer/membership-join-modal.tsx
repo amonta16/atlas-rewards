@@ -21,6 +21,7 @@ import {
   Zap, CalendarCheck,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { readMembership, joinFinePrint, money } from "@/lib/membership";
 import type { Business, Membership } from "@/lib/types/database";
 
 type PaymentMode = "stripe" | "external_link" | "in_person";
@@ -78,14 +79,18 @@ export function MembershipJoinModal({
 
   const primary = business.brand_colors.primary;
 
-  // CP-86: derived plan helpers.
-  const passOptions: PassOption[] = billing?.pass_options ?? [];
-  const offerMonthly = billing?.offer_monthly ?? true;
+  // CP-108: one shared reading of the config (lib/membership.ts) — the join
+  // card, this modal and the builder all render from the same numbers now.
+  const view = readMembership(billing);
+  const passOptions: PassOption[] = view.passes;
+  const offerMonthly = view.monthlyOffered;
   const selectedPass = selectedPlan === "monthly"
     ? null
     : passOptions.find(p => p.id === selectedPlan) ?? null;
-  const selectedPriceCents = selectedPass ? selectedPass.price_cents : (billing?.price_cents ?? 0);
-  const hasPlanChoice = passOptions.length > 0;
+  const selectedPriceCents = selectedPass ? selectedPass.price_cents : view.monthlyPriceCents;
+  const selectedOffer = view.offers.find(o => o.id === selectedPlan) ?? null;
+  // Only a real choice counts — a single pass with monthly off is not a menu.
+  const hasPlanChoice = view.hasChoice;
 
   // Check whether customer already has a paid tier
   const isPaid = !!(
@@ -106,10 +111,11 @@ export function MembershipJoinModal({
       const billRow = (Array.isArray(billingRes.data) ? billingRes.data[0] : billingRes.data) as BillingPublic | null;
       setBilling(billRow ?? null);
 
-      // CP-86: monthly off → preselect the first pass.
-      if (billRow && billRow.offer_monthly === false && (billRow.pass_options ?? []).length > 0) {
-        setSelectedPlan((billRow.pass_options as PassOption[])[0].id);
-      }
+      // CP-108: preselect whatever the first genuine offer is, rather than
+      // assuming "monthly" exists — with the monthly plan off that default
+      // priced the CTA at $0.
+      const firstOffer = readMembership(billRow).offers[0];
+      if (firstOffer) setSelectedPlan(firstOffer.id);
 
       const stateRow = Array.isArray(stateRes.data) ? stateRes.data[0] : stateRes.data;
       if (stateRow && (stateRow as any).has_row) {
@@ -388,7 +394,7 @@ export function MembershipJoinModal({
               </h2>
               <div className="flex items-baseline justify-center gap-1 mt-2">
                 <span className="text-3xl font-extrabold" style={{ color: primary }}>
-                  ${(selectedPriceCents / 100).toFixed(2)}
+                  {money(selectedPriceCents)}
                 </span>
                 <span className="text-zinc-400 text-sm">
                   {selectedPass ? ` one-time · ${selectedPass.months === 12 ? "1 year" : `${selectedPass.months} months`}` : "/ month"}
@@ -406,7 +412,7 @@ export function MembershipJoinModal({
                       onClick={() => setSelectedPlan("monthly")}
                       title="Monthly"
                       sub="Renews every month · cancel anytime"
-                      price={`$${(billing.price_cents / 100).toFixed(2)}/mo`}
+                      price={`${money(view.monthlyPriceCents)}/mo`}
                     />
                   )}
                   {passOptions.map(p => (
@@ -417,7 +423,7 @@ export function MembershipJoinModal({
                       onClick={() => setSelectedPlan(p.id)}
                       title={p.label}
                       sub={`One payment · good for ${p.months === 12 ? "a full year" : `${p.months} month${p.months === 1 ? "" : "s"}`}`}
-                      price={`$${(p.price_cents / 100).toFixed(2)}`}
+                      price={money(p.price_cents)}
                     />
                   ))}
                 </div>
@@ -489,11 +495,11 @@ export function MembershipJoinModal({
                   <>
                     {/* CP-86: CTA follows the selected plan. */}
                     {(billing.payment_mode ?? "stripe") === "stripe" && (selectedPass
-                      ? `Buy ${selectedPass.label} — $${(selectedPass.price_cents / 100).toFixed(2)}`
+                      ? `Buy ${selectedPass.label} — ${money(selectedPass.price_cents)}`
                       : `Subscribe — $${(billing.price_cents / 100).toFixed(2)}/mo`)}
-                    {(billing.payment_mode ?? "stripe") === "external_link" && `Pay $${(selectedPriceCents / 100).toFixed(2)} now`}
+                    {(billing.payment_mode ?? "stripe") === "external_link" && `Pay ${money(selectedPriceCents)} now`}
                     {(billing.payment_mode ?? "stripe") === "in_person" && (selectedPass
-                      ? `Get ${selectedPass.label} — $${(selectedPass.price_cents / 100).toFixed(2)}`
+                      ? `Get ${selectedPass.label} — ${money(selectedPass.price_cents)}`
                       : `Join — $${(billing.price_cents / 100).toFixed(2)}/mo`)}
                     <ChevronRight className="h-4 w-4" />
                   </>
@@ -504,14 +510,16 @@ export function MembershipJoinModal({
                   CP-39: in_person mode gets a BIG callout because it's the
                   critical "what happens next" info — easy to miss as fine
                   print. The other modes stay small. */}
+              {/* CP-108: "Cancel anytime" is a lie on a one-time pass, so the
+                  wording follows BOTH the payment mode and the chosen plan. */}
               {(billing.payment_mode ?? "stripe") === "stripe" && (
                 <p className="text-center text-[10px] text-zinc-600 mt-3">
-                  Secure checkout via Stripe · Cancel anytime
+                  {joinFinePrint(view, selectedOffer)}
                 </p>
               )}
               {(billing.payment_mode ?? "stripe") === "external_link" && (
                 <p className="text-center text-[10px] text-zinc-600 mt-3">
-                  Opens {business.name}'s payment page · Cancel anytime
+                  Opens {business.name}&apos;s payment page · {joinFinePrint(view, selectedOffer)}
                 </p>
               )}
               {(billing.payment_mode ?? "stripe") === "in_person" && (
