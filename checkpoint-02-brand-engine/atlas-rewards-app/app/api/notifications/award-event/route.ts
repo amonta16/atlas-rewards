@@ -86,6 +86,11 @@ export async function POST(req: Request) {
     .from("business_memberships")
     .select("user_id")
     .eq("id", membership_id)
+    // CP-109 tenant check: the membership must belong to the SAME business
+    // the caller staffs. Without this, staff of business A could pass a
+    // business-B membership id and land an A-branded notification row on
+    // B's customer.
+    .eq("business_id", business_id)
     .maybeSingle();
   const userId = (mem as any)?.user_id as string | undefined;
   if (!userId) {

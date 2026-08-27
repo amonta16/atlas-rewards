@@ -60,7 +60,21 @@ export async function POST(req: Request) {
 
   // Resolve the recipient user_ids.
   const admin = createAdminClient();
-  const userIds = new Set<string>((body.user_ids ?? []).filter(Boolean));
+  // CP-109 tenant check: raw user_ids used to be trusted as-given. Keep
+  // only ids that are actually enrolled members of THIS business, so a
+  // caller can never target another tenant's audience by id.
+  const userIds = new Set<string>();
+  const claimedUserIds = (body.user_ids ?? []).filter(Boolean);
+  if (claimedUserIds.length > 0) {
+    const { data: verified } = await admin
+      .from("business_memberships")
+      .select("user_id")
+      .eq("business_id", businessId)
+      .in("user_id", claimedUserIds);
+    for (const m of (verified ?? []) as Array<{ user_id: string | null }>) {
+      if (m.user_id) userIds.add(m.user_id);
+    }
+  }
 
   const membershipIds = (body.membership_ids ?? []).filter(Boolean);
   if (membershipIds.length > 0) {

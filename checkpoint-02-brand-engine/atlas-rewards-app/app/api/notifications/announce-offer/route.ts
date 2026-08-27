@@ -18,11 +18,17 @@ import { NextResponse } from "next/server";
 import { createClient as createServer } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToBusiness } from "@/lib/notifications/push-server";
+import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  // CP-109: same per-caller ceiling as announce-message — a compromised or
+  // buggy staff session can't hose every member's phone in a loop.
+  const rl = await rateLimit(clientKey(req, "announce-offer"), 10, 60);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   // CP-85: kind "raffle" reuses this exact proven path for raffle launches —
   // same master toggle, same in-app rows, same synchronous push — with a
   // giveaway-flavored heading instead of the offer one.

@@ -1,5 +1,5 @@
 /**
- * lib/api-auth.ts — CP-88
+ * lib/api-auth.ts — CP-88, split in CP-109
  *
  * Shared auth gates for machine-callable API routes (Vercel cron targets,
  * Supabase Database Webhooks, pg_net callers).
@@ -24,61 +24,20 @@
  *   • `x-atlas-secret: <CRON_SECRET>`       — for Supabase Database
  *     Webhooks, which let you set custom headers but not the Authorization
  *     header reliably.
+ *
+ * CP-109: the pure logic moved to lib/machine-secret.ts so `node --test`
+ * can verify the fail-closed behavior without a Next.js runtime. This
+ * module keeps the same public API (plus the session-aware gate, which
+ * needs the Supabase server client and so stays here).
  */
 import { createClient as createServer } from "@/lib/supabase/server";
+import {
+  machineSecret, hasMachineSecret, requireMachineSecret, safeEqual,
+  type GateResult,
+} from "@/lib/machine-secret";
 
-export type GateResult = { ok: true } | { ok: false; status: number; error: string };
-
-/**
- * Length-checked, branch-free comparison. Not a true constant-time compare
- * (JS strings make that impossible) but it doesn't early-exit on the first
- * differing byte, which is the leak worth closing here.
- */
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
-
-/** The configured machine secret, or null when the deployment has none. */
-export function machineSecret(): string | null {
-  const s = (process.env.CRON_SECRET ?? "").trim();
-  return s.length > 0 ? s : null;
-}
-
-/** Does this request carry the machine secret in either accepted header? */
-export function hasMachineSecret(req: Request): boolean {
-  const secret = machineSecret();
-  if (!secret) return false;
-
-  const auth = (req.headers.get("authorization") ?? "").trim();
-  if (auth.startsWith("Bearer ") && safeEqual(auth.slice(7).trim(), secret)) return true;
-
-  const custom = (req.headers.get("x-atlas-secret") ?? "").trim();
-  return custom.length > 0 && safeEqual(custom, secret);
-}
-
-/**
- * Machine-only routes (cron targets, DB webhooks). Fails closed.
- *
- * Returns 503 rather than 401 when no secret is configured, so a
- * misconfigured deployment is loud and distinguishable from a caller
- * presenting the wrong credential.
- */
-export function requireMachineSecret(req: Request): GateResult {
-  if (!machineSecret()) {
-    return {
-      ok: false,
-      status: 503,
-      error: "route disabled: CRON_SECRET is not configured on this deployment",
-    };
-  }
-  if (!hasMachineSecret(req)) {
-    return { ok: false, status: 401, error: "unauthorized" };
-  }
-  return { ok: true };
-}
+export { machineSecret, hasMachineSecret, requireMachineSecret, safeEqual };
+export type { GateResult };
 
 /**
  * Routes a machine calls on a schedule AND a signed-in staff member may

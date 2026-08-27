@@ -32,6 +32,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "not authenticated" }, { status: 401 });
   }
 
+  // ── CP-109 tenant check ─────────────────────────────────────────────
+  // The business tag on a push subscription decides WHICH tenant's
+  // announcements/offers reach this device, and it used to be taken from
+  // the client verbatim. Verify the caller actually belongs to the
+  // claimed business (member, staff of it, or global agency staff)
+  // before honoring it. Mirrors the DB guard trigger from
+  // cp109_notifications_hardening.sql.
+  async function mayTagBusiness(businessId: string | null): Promise<boolean> {
+    if (!businessId) return true;
+    const admin = createAdminClient();
+    const { data: mem } = await admin
+      .from("business_memberships")
+      .select("id").eq("user_id", user!.id).eq("business_id", businessId).limit(1);
+    if (mem && mem.length > 0) return true;
+    const { data: staff } = await admin
+      .from("business_users")
+      .select("role, business_id")
+      .eq("user_id", user!.id)
+      .or(`business_id.eq.${businessId},business_id.is.null`);
+    return (staff ?? []).some((r: any) =>
+      r.business_id === businessId || (r.business_id === null && (r.role === "agency_admin" || r.role === "agency_va")));
+  }
+
   // 2. Parse body
   let payload: any;
   try { payload = await req.json(); }
@@ -55,6 +78,10 @@ export async function POST(req: Request) {
       const { data: biz } = await admin2
         .from("businesses").select("id").eq("slug", payload.business_slug).maybeSingle();
       nativeBusinessId = biz?.id ?? null;
+    }
+    if (!(await mayTagBusiness(nativeBusinessId))) {
+      console.log("[subscribe] rejected native tag: user", user.id, "is not in business", nativeBusinessId);
+      return NextResponse.json({ error: "not a member of this business" }, { status: 403 });
     }
     const { error: nativeErr } = await admin2
       .from("push_subscriptions")
@@ -94,6 +121,10 @@ export async function POST(req: Request) {
   // 3. CP-42: use admin client to bypass any auth-context issues. We
   // already verified the caller is authenticated above, so passing
   // user.id explicitly is safe.
+  if (!(await mayTagBusiness(businessId))) {
+    console.log("[subscribe] rejected web tag: user", user.id, "is not in business", businessId);
+    return NextResponse.json({ error: "not a member of this business" }, { status: 403 });
+  }
   const admin = createAdminClient();
   const { error } = await admin
     .from("push_subscriptions")
