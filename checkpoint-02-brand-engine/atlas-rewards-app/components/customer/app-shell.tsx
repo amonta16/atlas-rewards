@@ -132,10 +132,19 @@ export function CustomerAppShell({
           can rotate (pre-portrait-lock native, or a mobile browser). */}
       <main className="flex-1 pb-24 landscape:pb-28">{children}</main>
       <nav
-        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-1 py-2.5 flex items-center justify-around z-40"
-        style={chromeColor
-          ? { background: chromeColor, borderColor: "rgba(127,127,127,0.28)" }
-          : { background: "#ffffff", borderColor: "#e4e4e7" }}
+        className="fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-1 pt-2.5 flex items-center justify-around z-40"
+        // CP-110 (mobile): the layout runs viewport-fit=cover, so on notched
+        // iPhones the tab bar sat in the home-indicator band and its hit
+        // targets fought the system swipe gesture. Pad the bottom by the
+        // safe-area inset (falls back to the original 0.625rem on devices
+        // without a home indicator). Content clearance above (pb-24) already
+        // accounts for the taller bar.
+        style={{
+          paddingBottom: "calc(0.625rem + env(safe-area-inset-bottom, 0px))",
+          ...(chromeColor
+            ? { background: chromeColor, borderColor: "rgba(127,127,127,0.28)" }
+            : { background: "#ffffff", borderColor: "#e4e4e7" }),
+        }}
       >
         {tabs.map(t => {
           // CP-32: red/orange "!" badge on the Rewards tab — itches the

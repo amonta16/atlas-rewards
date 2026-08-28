@@ -8,7 +8,11 @@ export default async function ManagerHome({ params }: { params: { business: stri
   const supabase = createClient();
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
-  const business = biz as Business;
+  // CP-110 (security): ManagerDashboard is a client component, so drop the
+  // server-only per-business credentials before the row is serialized to
+  // the browser (front-desk staff render this surface too). Nothing on the
+  // manager dashboard reads these columns.
+  const business = { ...(biz as Business), ghl_api_key: null, webhook_secret: null } as Business;
 
   // Recent ledger entries for the activity log, WITH the member's name.
   //

@@ -30,7 +30,7 @@ type Slot = { iso: string; reserved: boolean };
  *   • Otherwise we fall back to the Supabase RPCs (available_booking_slots
  *     + create_booking) so businesses without GHL still work day-1.
  */
-export function BookFlow({ business: b, tags }: { business: Business; tags: BookingTag[] }) {
+export function BookFlow({ business: b, tags, ghlOn }: { business: Business; tags: BookingTag[]; ghlOn: boolean }) {
   const [step, setStep]               = useState<Step>("pick-service");
   const [tag, setTag]                 = useState<BookingTag | null>(null);
   const [otherDuration, setOtherDur]  = useState<number>(30);
@@ -46,7 +46,8 @@ export function BookFlow({ business: b, tags }: { business: Business; tags: Book
   const [err, setErr]                 = useState<string | null>(null);
 
   const primary = b.brand_colors.primary;
-  const ghlOn = !!(b.ghl_calendar_id && b.ghl_api_key);
+  // CP-110: ghlOn is decided server-side (the ghl_api_key no longer ships
+  // to the browser); we just consume the boolean.
   const days = useMemo(() => nextNDays(14), []);
 
   // Autofill name/phone from profile when we first land

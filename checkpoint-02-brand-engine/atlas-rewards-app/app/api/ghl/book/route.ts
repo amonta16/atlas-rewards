@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { createAppointment, type GhlConfig } from "@/lib/ghl/client";
+import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,14 @@ export const dynamic = "force-dynamic";
  *      points triggers, and the customer's history still work.
  */
 export async function POST(req: NextRequest) {
+  // CP-110 (abuse): guest booking is anonymous by design, but each call
+  // creates a real GHL appointment on the business's paid calendar. Without
+  // a limit, a script can flood a calendar and burn the business's GHL
+  // quota. Cap per client IP. (Falls back to in-memory when Upstash is
+  // unset — best-effort, never fails open into a hard error.)
+  const rl = await rateLimit(clientKey(req, "ghl-book"), 8, 60);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   const body = await req.json().catch(() => null) as any;
   if (!body?.business_id || !body?.scheduled_at || !body?.duration) {
     return NextResponse.json({ error: "missing required fields" }, { status: 400 });

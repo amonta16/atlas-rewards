@@ -29,12 +29,27 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { Business, Membership } from "@/lib/types/database";
 
+/**
+ * CP-110 (security): strip server-only credentials before a business row
+ * can reach a client component. `businesses` carries per-business secrets
+ * (ghl_api_key, webhook_secret) alongside branding; the customer app
+ * selects "*" and passes the row straight into client components (points
+ * card, booking, raffle…), which serializes it into the browser bundle.
+ * Those secrets are only ever needed server-side (the GHL/webhook routes
+ * re-fetch them via the service-role client), so we null them here — the
+ * single choke-point every customer-app page loads through.
+ */
+function stripBusinessSecrets<T extends Record<string, any> | null>(row: T): T {
+  if (!row) return row;
+  return { ...row, ghl_api_key: null, webhook_secret: null } as T;
+}
+
 /** One business row per slug per request — replaces five duplicate fetches. */
 export const getBusinessBySlug = cache(async (slug: string): Promise<Business | null> => {
   const supabase = createClient();
   const { data } = await supabase
     .from("businesses").select("*").eq("slug", slug).maybeSingle();
-  return (data ?? null) as Business | null;
+  return stripBusinessSecrets((data ?? null) as Business | null);
 });
 
 /** The signed-in customer's membership for this business, once per request. */

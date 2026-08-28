@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getFreeSlots, getBookedAppointments, type GhlConfig } from "@/lib/ghl/client";
+import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,12 @@ export const dynamic = "force-dynamic";
  *      that haven't synced to GHL yet.
  */
 export async function GET(req: NextRequest) {
+  // CP-110 (abuse): anonymous endpoint that fans out to the business's paid
+  // GHL API on every call. Rate-limit per client IP so it can't be used as
+  // an unauthenticated amplifier / slot-enumerator against a third party.
+  const rl = await rateLimit(clientKey(req, "ghl-slots"), 30, 60);
+  if (!rl.ok) return tooMany(rl.retryAfter);
+
   const params = req.nextUrl.searchParams;
   const businessId = params.get("business");
   const day        = params.get("day");

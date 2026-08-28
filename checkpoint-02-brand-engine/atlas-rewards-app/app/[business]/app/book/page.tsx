@@ -26,5 +26,12 @@ export default async function CustomerBookPage({ params }: { params: { business:
   const { data: tagRows } = await supabase.rpc("active_booking_tags", { p_business_id: business.id });
   const tags = (tagRows ?? []) as BookingTag[];
 
-  return <BookFlow business={business} tags={tags} />;
+  // CP-110 (security): decide GHL availability server-side and DROP the
+  // ghl_api_key (+ webhook_secret) before the row is serialized into the
+  // BookFlow client component. The actual GHL calls happen server-side in
+  // /api/ghl/*, which re-fetch the key via the service-role client.
+  const ghlOn = !!(business.ghl_calendar_id && business.ghl_api_key);
+  const safeBusiness = { ...business, ghl_api_key: null, webhook_secret: null } as Business;
+
+  return <BookFlow business={safeBusiness} ghlOn={ghlOn} tags={tags} />;
 }
