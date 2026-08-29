@@ -12,12 +12,13 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Rocket, ExternalLink, Hand, Check, Loader2, Star, MapPin, CalendarDays,
   TrendingUp, X, DollarSign, RefreshCw, ArrowUpRight, Undo2, Trophy, Users, Bell,
-  LayoutGrid, Folder as FolderIcon, List, ChevronRight, ArrowLeft,
+  LayoutGrid, Folder as FolderIcon, List, ChevronRight, ArrowLeft, Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { useToast } from "@/components/ui/toast";
 import { FieldNudgeBell } from "@/components/agency/field-nudge-bell";
+import { FieldDemoModal } from "@/components/field/field-demo-modal";
 import type { FieldApp, RepEarnings, RepLeaderRow, TeamMrrSummary } from "@/lib/types/database";
 
 const STAGES: { id: FieldApp["deal_stage"]; label: string; className: string }[] = [
@@ -55,6 +56,7 @@ export function FieldClient({
   const [openFolder, setOpenFolder] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<FieldApp | null>(null);
+  const [demoOpen, setDemoOpen] = useState(false);   // CP-113 instant demo
   const [refreshing, setRefreshing] = useState(false);
   const [pushGranted, setPushGranted] = useState(true);   // assume ok until we check
   const [pushBusy, setPushBusy] = useState(false);
@@ -237,6 +239,16 @@ export function FieldClient({
           </button>
         </div>
 
+        {/* ===== Instant demo CTA (CP-111) — build a seeded demo at the door ===== */}
+        {view === "field" && (
+          <button onClick={() => setDemoOpen(true)}
+            className="mt-4 w-full h-11 rounded-2xl font-extrabold text-[13px] flex items-center justify-center gap-2
+                       bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-900 shadow-lg shadow-cyan-500/20
+                       active:scale-[0.99] transition">
+            <Sparkles className="h-4 w-4" /> Build instant demo
+          </button>
+        )}
+
         {/* ===== Pitch-day filter + layout (field view only) ===== */}
         {view === "field" && (
           <div className="mt-4 flex items-center justify-between gap-2">
@@ -332,6 +344,14 @@ export function FieldClient({
           app={editing}
           onClose={() => setEditing(null)}
           onSaved={async () => { setEditing(null); await refresh(); }}
+        />
+      )}
+
+      {demoOpen && (
+        <FieldDemoModal
+          rootDomain={rootDomain}
+          onClose={() => setDemoOpen(false)}
+          onCreated={() => { void refresh(); }}
         />
       )}
     </div>
