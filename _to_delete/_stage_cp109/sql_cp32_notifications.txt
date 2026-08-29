@@ -1,0 +1,246 @@
+
+-- =====================================================================
+-- 4. NOTIFICATIONS
+-- =====================================================================
+
+create table if not exists public.notifications (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  business_id  uuid not null references public.businesses(id) on delete cascade,
+  kind         text not null check (kind in (
+    'streak','review','daily_check','automated_offer',
+    'customer_offer','reward_expiration','generic'
+  )),
+  title        text not null,
+  body         text,
+  link_path    text,
+  read_at      timestamptz,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists notifications_user_recent
+  on public.notifications (user_id, created_at desc);
+create index if not exists notifications_user_unread
+  on public.notifications (user_id) where read_at is null;
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notif_owner_select" on public.notifications;
+create policy "notif_owner_select" on public.notifications
+  for select using (user_id = auth.uid());
+
+drop policy if exists "notif_owner_update" on public.notifications;
+create policy "notif_owner_update" on public.notifications
+  for update using (user_id = auth.uid());
+
+-- Realtime
+do $$
+begin
+  alter publication supabase_realtime add table public.notifications;
+exception when duplicate_object then null;
+end $$;
+alter table public.notifications replica identity full;
+
+
+-- List most recent N (auth.uid only)
+create or replace function public.list_notifications(p_limit int default 50)
+returns table (
+  id uuid, kind text, title text, body text, link_path text,
+  read_at timestamptz, created_at timestamptz
+)
+language sql stable security definer set search_path = public as $$
+  select id, kind, title, body, link_path, read_at, created_at
+    from public.notifications
+   where user_id = auth.uid()
+   order by created_at desc
+   limit greatest(1, least(p_limit, 200));
+$$;
+grant execute on function public.list_notifications(int) to authenticated;
+
+
+create or replace function public.unread_notification_count()
+returns int
+language sql stable security definer set search_path = public as $$
+  select count(*)::int
+    from public.notifications
+   where user_id = auth.uid() and read_at is null;
+$$;
+grant execute on function public.unread_notification_count() to authenticated;
+
+
+create or replace function public.mark_all_notifications_read()
+returns int
+language plpgsql security definer set search_path = public as $$
+declare v_n int;
+begin
+  update public.notifications
+     set read_at = now()
+   where user_id = auth.uid() and read_at is null;
+  get diagnostics v_n = row_count;
+  return v_n;
+end; $$;
+grant execute on function public.mark_all_notifications_read() to authenticated;
+
+
+-- Manager broadcast — fans one notification into every enrolled member.
+create or replace function public.broadcast_notification(
+  p_business_id uuid,
+  p_title       text,
+  p_body        text default null,
+  p_link_path   text default null,
+  p_kind        text default 'customer_offer'
+)
+returns int
+language plpgsql security definer set search_path = public as $$
+declare v_n int := 0;
+begin
+  -- Only the business's manager or an agency_admin can broadcast.
+  if not (
+    public.is_agency_admin() or
+    exists (
+      select 1 from public.business_users
+-- broadcast path — for trigger-driven notifications, the in-app row
+-- alone is enough; the customer sees the bell badge on next focus.
+-- =====================================================================
+
+-- (a) Review verified → notify the member
+create or replace function public._notif_review_verified()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v_user uuid; v_business uuid; v_name text;
+begin
+  if NEW.status = 'verified' and (OLD is null or OLD.status is distinct from 'verified') then
+    select m.user_id, m.business_id, b.name
+      into v_user, v_business, v_name
+      from public.business_memberships m
+      join public.businesses b on b.id = m.business_id
+     where m.id = NEW.membership_id;
+    if v_user is not null then
+      insert into public.notifications (user_id, business_id, kind, title, body, link_path)
+        values (v_user, v_business, 'review',
+                'Your Google review was verified 🎉',
+                'Points have been added to your account at ' || v_name || '.',
+                '/app/rewards');
+    end if;
+  end if;
+  return NEW;
+end; $$;
+
+drop trigger if exists trg_notif_review_verified on public.reviews;
+create trigger trg_notif_review_verified
+  after update on public.reviews
+  for each row execute function public._notif_review_verified();
+
+
+-- (b) Check-in → daily check notif (only the first of the day)
+create or replace function public._notif_daily_check()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_user uuid; v_business uuid; v_name text; v_today_count int;
+begin
+  select m.user_id, m.business_id, b.name
+    into v_user, v_business, v_name
+    from public.business_memberships m
+    join public.businesses b on b.id = m.business_id
+   where m.id = NEW.membership_id;
+
+  select count(*) into v_today_count
+    from public.check_in_events
+   where membership_id = NEW.membership_id
+     and created_at::date = (NEW.created_at at time zone 'utc')::date;
+
+  if v_today_count <= 1 then
+    insert into public.notifications (user_id, business_id, kind, title, body, link_path)
+      values (v_user, v_business, 'daily_check',
+              'Checked in at ' || v_name || ' ✓',
+              'Nice — your streak just ticked up.',
+              '/app/rewards');
+  end if;
+  return NEW;
+end; $$;
+
+drop trigger if exists trg_notif_daily_check on public.check_in_events;
+create trigger trg_notif_daily_check
+  after insert on public.check_in_events
+  for each row execute function public._notif_daily_check();
+
+
+-- (c) Automated offer assigned → notify each member.
+-- We hook the same insert trigger Atlas already uses to drop an
+-- automated_offer_assignments row. If that table doesn't exist on
+-- this install we silently skip wiring the trigger.
+do $$
+begin
+  if exists (select 1 from information_schema.tables
+              where table_schema='public' and table_name='automated_offer_assignments') then
+    create or replace function public._notif_automated_offer()
+    returns trigger
+    language plpgsql security definer set search_path = public as $f$
+    declare v_user uuid; v_business uuid; v_title text; v_body text;
+    begin
+      select m.user_id, m.business_id
+        into v_user, v_business
+        from public.business_memberships m
+       where m.id = NEW.membership_id;
+
+      select coalesce(o.title, 'A new offer just dropped'),
+             coalesce(o.description, 'Tap to see what''s waiting in your rewards.')
+        into v_title, v_body
+        from public.offers o
+       where o.id = NEW.offer_id;
+
+      insert into public.notifications (user_id, business_id, kind, title, body, link_path)
+        values (v_user, v_business, 'automated_offer', v_title, v_body, '/app/rewards');
+      return NEW;
+    end; $f$;
+
+    drop trigger if exists trg_notif_automated_offer on public.automated_offer_assignments;
+    create trigger trg_notif_automated_offer
+      after insert on public.automated_offer_assignments
+      for each row execute function public._notif_automated_offer();
+  end if;
+end $$;
+
+
+-- (d) Redemption nearing expiration — populated by a daily cron-like
+-- helper that the manager (or pg_cron) can invoke. Idempotent: we
+-- skip if a reward_expiration notif was sent for this redemption in
+-- the last 24h.
+create or replace function public.notify_expiring_redemptions(p_business_id uuid)
+returns int
+language plpgsql security definer set search_path = public as $$
+declare v_n int := 0;
+begin
+  insert into public.notifications (user_id, business_id, kind, title, body, link_path)
+  select m.user_id, r.business_id, 'reward_expiration',
+         'Your reward expires soon ⏰',
+         'You have an unredeemed reward at ' ||
+           (select name from public.businesses where id = r.business_id) ||
+           '. Use it before it expires.',
+         '/app/rewards'
+    from public.redemptions r
+    join public.business_memberships m on m.id = r.membership_id
+   where r.business_id = p_business_id
+     -- Schema check (CP-01): redemptions.status is one of
+     -- pending / fulfilled / expired / cancelled. "Pending" = the
+     -- customer redeemed it but staff hasn't fulfilled it yet.
+     and r.status = 'pending'
+     and r.expires_at is not null
+     and r.expires_at between now() and now() + interval '48 hours'
+     and not exists (
+       select 1 from public.notifications n
+        where n.user_id = m.user_id
+          and n.kind = 'reward_expiration'
+          and n.created_at > now() - interval '24 hours'
+     );
+  get diagnostics v_n = row_count;
+  return v_n;
+end; $$;
+grant execute on function public.notify_expiring_redemptions(uuid) to authenticated;
+
+
+-- =====================================================================
+-- CP-32 DONE. Apply this file, restart your Next.js dev server, and
+-- the manager Insights tab will light up with the Atlas Impact hero.
+-- =====================================================================
