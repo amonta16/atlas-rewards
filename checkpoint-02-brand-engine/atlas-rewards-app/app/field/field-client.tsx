@@ -12,13 +12,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Rocket, ExternalLink, Hand, Check, Loader2, Star, MapPin, CalendarDays,
   TrendingUp, X, DollarSign, RefreshCw, ArrowUpRight, Undo2, Trophy, Users, Bell,
-  LayoutGrid, Folder as FolderIcon, List, ChevronRight, ArrowLeft, Sparkles,
+  LayoutGrid, Folder as FolderIcon, List, ChevronRight, ArrowLeft, Sparkles, Layers,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { useToast } from "@/components/ui/toast";
 import { FieldNudgeBell } from "@/components/agency/field-nudge-bell";
 import { FieldDemoModal } from "@/components/field/field-demo-modal";
+import { FieldBatchModal } from "@/components/field/field-batch-modal";
 import type { FieldApp, RepEarnings, RepLeaderRow, TeamMrrSummary } from "@/lib/types/database";
 
 const STAGES: { id: FieldApp["deal_stage"]; label: string; className: string }[] = [
@@ -57,6 +58,7 @@ export function FieldClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<FieldApp | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);   // CP-113 instant demo
+  const [batchOpen, setBatchOpen] = useState(false); // CP-114 batch demos
   const [refreshing, setRefreshing] = useState(false);
   const [pushGranted, setPushGranted] = useState(true);   // assume ok until we check
   const [pushBusy, setPushBusy] = useState(false);
@@ -239,14 +241,21 @@ export function FieldClient({
           </button>
         </div>
 
-        {/* ===== Instant demo CTA (CP-111) — build a seeded demo at the door ===== */}
+        {/* ===== Demo builders (CP-113 instant + CP-114 batch) ===== */}
         {view === "field" && (
-          <button onClick={() => setDemoOpen(true)}
-            className="mt-4 w-full h-11 rounded-2xl font-extrabold text-[13px] flex items-center justify-center gap-2
-                       bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-900 shadow-lg shadow-cyan-500/20
-                       active:scale-[0.99] transition">
-            <Sparkles className="h-4 w-4" /> Build instant demo
-          </button>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button onClick={() => setDemoOpen(true)}
+              className="h-11 rounded-2xl font-extrabold text-[13px] flex items-center justify-center gap-1.5
+                         bg-gradient-to-r from-cyan-400 to-indigo-400 text-slate-900 shadow-lg shadow-cyan-500/20
+                         active:scale-[0.99] transition">
+              <Sparkles className="h-4 w-4" /> Instant demo
+            </button>
+            <button onClick={() => setBatchOpen(true)}
+              className="h-11 rounded-2xl font-extrabold text-[13px] flex items-center justify-center gap-1.5
+                         bg-white/10 text-cyan-100 ring-1 ring-white/15 active:scale-[0.99] transition">
+              <Layers className="h-4 w-4" /> Batch build
+            </button>
+          </div>
         )}
 
         {/* ===== Pitch-day filter + layout (field view only) ===== */}
@@ -351,6 +360,14 @@ export function FieldClient({
         <FieldDemoModal
           rootDomain={rootDomain}
           onClose={() => setDemoOpen(false)}
+          onCreated={() => { void refresh(); }}
+        />
+      )}
+
+      {batchOpen && (
+        <FieldBatchModal
+          rootDomain={rootDomain}
+          onClose={() => setBatchOpen(false)}
           onCreated={() => { void refresh(); }}
         />
       )}

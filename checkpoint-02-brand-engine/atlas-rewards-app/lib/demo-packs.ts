@@ -159,6 +159,31 @@ export function getDemoPack(niche: DemoNiche): DemoPack {
   return DEMO_PACKS[niche];
 }
 
+/* ── batch helpers (CP-114) ───────────────────────────────────────────── */
+
+/** Themes usable without a logo (excludes the "from-logo" placeholder). */
+export const PRESET_THEMES: ColorTheme[] = COLOR_THEMES.filter((t) => t.id !== "from-logo");
+
+/** Cycle through presets so an "Auto" batch isn't monochrome. */
+export function themeForIndex(i: number): ColorTheme {
+  return PRESET_THEMES[i % PRESET_THEMES.length];
+}
+
+/**
+ * Best-effort map free text → a niche. Lets a batch line say "cafe" or
+ * "vape" or "nail salon" instead of the exact keyword. Falls back to the
+ * caller's default when nothing matches.
+ */
+export function guessNiche(hint: string | null | undefined, fallback: DemoNiche = "food"): DemoNiche {
+  const h = (hint || "").toLowerCase();
+  if (!h.trim()) return fallback;
+  const has = (...w: string[]) => w.some((x) => h.includes(x));
+  if (has("smoke", "vape", "vapor", "tobacco", "cigar", "hookah", "dispensary", "cannabis", "cbd", "head shop")) return "smoke";
+  if (has("beauty", "salon", "spa", "nail", "hair", "lash", "brow", "wax", "barber", "med spa", "medspa", "aesthetic")) return "beauty";
+  if (has("food", "restaurant", "cafe", "coffee", "diner", "grill", "pizza", "taco", "bakery", "juice", "smoothie", "deli", "bar", "eatery", "kitchen", "bbq", "sushi", "ice cream")) return "food";
+  return fallback;
+}
+
 /**
  * The jsonb payload the create_demo_business RPC consumes. Kept flat + generic
  * so the SQL never needs to know niche specifics.
