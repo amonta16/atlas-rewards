@@ -23,6 +23,7 @@ import { RewardDetailModal } from "@/components/customer/reward-detail-modal";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 import { rewardsLayout } from "@/lib/section-layouts";
 import { ChevronRight } from "lucide-react";
+import { SmartImage } from "@/components/ui/smart-image";
 
 export type TopReward = {
   id: string; name: string; point_cost: number; image_url: string | null;
@@ -68,8 +69,7 @@ export function TopRewardsGrid({
             <>
               <div className="relative">
                 {r.image_url ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={r.image_url} alt={r.name} className={`${big ? "aspect-video" : "aspect-[4/3]"} w-full object-cover`} />
+                  <SmartImage src={r.image_url} alt={r.name} tint={primary} eager className={`${big ? "aspect-video" : "aspect-[4/3]"} w-full object-cover`} />
                 ) : (
                   <div className={`${big ? "aspect-video" : "aspect-[4/3]"} flex items-center justify-center`} style={{ background: `${primary}15` }}>
                     <Gift className="h-8 w-8" style={{ color: primary }} />
@@ -156,8 +156,7 @@ export function TopRewardsGrid({
       <>
         <div className="h-14 w-14 rounded-lg overflow-hidden shrink-0 bg-zinc-100 flex items-center justify-center">
           {r.image_url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={r.image_url} alt={r.name} className="h-full w-full object-cover" />
+            <SmartImage src={r.image_url} alt={r.name} tint={primary} eager className="h-full w-full object-cover" />
           ) : (
             <Gift className="h-6 w-6" style={{ color: primary }} />
           )}

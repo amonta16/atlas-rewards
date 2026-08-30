@@ -94,49 +94,67 @@ export function PWAInstall({ primary, businessName }: { primary: string; busines
     setMode("none");
   }
 
+  // CP-115 (Andrew): bigger, more noticeable prompt. A full-width card that
+  // sits just above the bottom nav with a brand-gradient header, a large
+  // store button, and a soft pop-in — hard to miss, still one-tap dismissible.
   return (
-    <div className="fixed inset-x-3 bottom-20 z-40 max-w-sm mx-auto bg-white rounded-2xl shadow-2xl border p-4 flex items-start gap-3"
-      style={{ borderTopColor: primary, borderTopWidth: 3 }}>
-      <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0 text-white"
-        style={{ background: primary }}>
-        <Download className="h-5 w-5" />
+    <div className="fixed inset-x-3 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] z-40 max-w-md mx-auto rounded-3xl shadow-2xl border overflow-hidden bg-white"
+      style={{ animation: "atlas-getapp-pop 420ms cubic-bezier(0.22,1,0.36,1)" }}>
+      {/* brand header strip */}
+      <div className="px-4 pt-4 pb-3 flex items-center gap-3 text-white"
+        style={{ background: `linear-gradient(135deg, ${primary}, ${primary}cc)` }}>
+        <div className="h-12 w-12 rounded-2xl bg-white/20 ring-1 ring-white/30 flex items-center justify-center shrink-0">
+          <Download className="h-6 w-6" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-extrabold text-[15px] leading-tight">
+            {storeUrl ? `Get the ${businessName} app` : `Add ${businessName} to your home screen`}
+          </div>
+          <p className="text-[12px] text-white/85 mt-0.5 leading-snug">
+            {storeUrl
+              ? "Free — your points, streak and rewards come with you."
+              : "Install for one-tap rewards access."}
+          </p>
+        </div>
+        <button onClick={dismiss} aria-label="Dismiss"
+          className="text-white/80 hover:text-white shrink-0 -mt-1 -mr-1 p-1">
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <div className="flex-1 min-w-0">
+
+      {/* big action */}
+      <div className="p-3">
         {storeUrl ? (
-          <>
-            <div className="font-semibold text-sm">Take {businessName} with you</div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Get the free AE Rewards app — same account, your points and streak come with you.
-            </p>
-            <a
-              href={storeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={dismiss}
-              className="mt-2 inline-block text-xs font-bold px-3 py-1.5 rounded-full text-white"
-              style={{ background: primary }}
-            >
-              {mode === "ios-store" ? " Download on the App Store" : "Get it on Google Play"}
-            </a>
-          </>
+          <a
+            href={storeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={dismiss}
+            className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white text-[15px] font-extrabold shadow-lg active:scale-[0.99] transition"
+            style={{ background: primary, boxShadow: `0 10px 24px -10px ${primary}` }}
+          >
+            <Download className="h-5 w-5" />
+            {mode === "ios-store" ? "Download on the App Store" : "Get it on Google Play"}
+          </a>
         ) : (
-          <>
-            <div className="font-semibold text-sm">Add {businessName} to your home screen</div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Install the app for one-tap rewards access.
-            </p>
-            <button onClick={install}
-              className="mt-2 text-xs font-bold px-3 py-1.5 rounded-full text-white"
-              style={{ background: primary }}>
-              Install app
-            </button>
-          </>
+          <button onClick={install}
+            className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-white text-[15px] font-extrabold shadow-lg active:scale-[0.99] transition"
+            style={{ background: primary, boxShadow: `0 10px 24px -10px ${primary}` }}>
+            <Download className="h-5 w-5" /> Install app
+          </button>
         )}
+        <button onClick={dismiss}
+          className="w-full mt-2 text-[12px] font-semibold text-zinc-400 hover:text-zinc-600 py-1">
+          Maybe later
+        </button>
       </div>
-      <button onClick={dismiss}
-        className="text-zinc-400 hover:text-zinc-700 shrink-0">
-        <X className="h-4 w-4" />
-      </button>
+
+      <style>{`
+        @keyframes atlas-getapp-pop {
+          0%   { opacity: 0; transform: translateY(14px) scale(0.98); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </div>
   );
 }

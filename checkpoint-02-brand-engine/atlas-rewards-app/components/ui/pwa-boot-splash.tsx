@@ -55,14 +55,20 @@ export function PWABootSplash({
   return (
     <div
       aria-hidden
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-white pointer-events-none"
+      className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
       style={{
+        // CP-115: brand-color canvas (was white) so the cold-boot splash, the
+        // route loading screen and the join splash are ONE continuous branded
+        // surface — no white flash / route glitch on open.
+        background: `${primary} radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.22), rgba(0,0,0,0.20) 90%)`,
         transition: `opacity ${FADE_MS}ms ease-out`,
         opacity: phase === "fading" ? 0 : 1,
       }}
     >
       <div className="flex flex-col items-center gap-5">
-        {/* Logo — drops in with a tiny scale + fade so the moment feels alive */}
+        {/* Logo — drops in with a tiny scale + fade so the moment feels alive.
+            CP-115: bigger logo in a clean white tile (object-contain, padded —
+            never cropped). */}
         <div
           className="flex items-center justify-center"
           style={{
@@ -71,28 +77,28 @@ export function PWABootSplash({
         >
           {logoUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={logoUrl}
-              alt=""
-              className="h-24 w-24 object-contain"
-              style={{ maxWidth: 160, maxHeight: 120 }}
-            />
+            <div className="h-28 w-28 rounded-3xl bg-white shadow-2xl ring-1 ring-white/40 flex items-center justify-center">
+              <img
+                src={logoUrl}
+                alt=""
+                className="h-full w-full object-contain p-4"
+              />
+            </div>
           ) : (
             <div
-              className="h-24 w-24 rounded-3xl flex items-center justify-center text-white font-extrabold text-3xl shadow-2xl"
-              style={{ background: `linear-gradient(135deg, ${primary}, ${primary}cc)` }}
+              className="h-28 w-28 rounded-3xl flex items-center justify-center text-white font-extrabold text-4xl shadow-2xl ring-1 ring-white/30"
+              style={{ background: "rgba(255,255,255,0.15)" }}
             >
               {initials}
             </div>
           )}
         </div>
-        {/* Soft brand-tinted bar pulse */}
-        <div className="h-1 w-24 rounded-full overflow-hidden bg-zinc-100">
+        {/* Soft white bar pulse */}
+        <div className="h-1 w-24 rounded-full overflow-hidden bg-white/25">
           <div
-            className="h-full rounded-full"
+            className="h-full rounded-full bg-white"
             style={{
               width: "40%",
-              background: primary,
               animation: "atlas-boot-shimmer 1.2s ease-in-out infinite",
             }}
           />

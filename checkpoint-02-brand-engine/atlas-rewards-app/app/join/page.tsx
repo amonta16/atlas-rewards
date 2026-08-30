@@ -4,10 +4,27 @@ import { QrCode, ArrowRight, Loader2, Camera, Check, ChevronRight, Store } from 
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AtlasLoading } from "@/components/ui/atlas-loading";
 import {
   isNative, scanQrCode, getInstallReferrer,
   prefGet, prefSet, prefRemove, PREF_LAST_BUSINESS,
 } from "@/lib/native";
+
+/**
+ * CP-115: the last business's brand, cached by BrandCacheWriter. Lets the
+ * cold-boot splash (below) render in the shop's own brand color + logo, so a
+ * returning single-shop customer boots into one continuous branded screen
+ * instead of a white Atlas flash before the redirect.
+ */
+function readLastBrand(): { primary?: string; logo_url?: string | null } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("atlas-brand-last");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * CP-97: inside the native shell, STAY on the boot origin (www) and use
@@ -214,20 +231,10 @@ export default function JoinPage() {
   // CP-80: boot splash — shown while deciding whether to forward a
   // returning customer, so the join form never flashes first.
   if (booting) {
-    return (
-      <main className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          {/* CP-81.3: real Atlas logo instead of the placeholder sparkle. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/atlas-icon-512.png"
-            alt="Atlas Rewards"
-            className="h-16 w-16 rounded-2xl shadow-lg shadow-blue-900/25"
-          />
-          <Loader2 className="h-5 w-5 animate-spin text-cyan-600" />
-        </div>
-      </main>
-    );
+    // CP-115: brand-blue splash in the last shop's colors + logo, so the
+    // cold-boot → redirect → business-app hop is one seamless branded screen.
+    const lb = readLastBrand();
+    return <AtlasLoading primary={lb?.primary} logoUrl={lb?.logo_url ?? null} title="Loading…" />;
   }
 
   // CP-93: boot-time business chooser — several shops on one account.

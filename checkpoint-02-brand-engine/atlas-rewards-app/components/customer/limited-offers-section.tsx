@@ -28,6 +28,7 @@ import { offersLayout } from "@/lib/section-layouts";
 import { HeadingByStyle } from "./section-elements";
 import { badgeCss } from "@/lib/element-styles";
 import { useToast } from "@/components/ui/toast";
+import { SmartImage } from "@/components/ui/smart-image";
 
 type ActiveOffer = RevealOffer & {
   is_automated: boolean;
@@ -224,8 +225,7 @@ export function LimitedOffersSection({
                   }}
                 >
                   {o.image_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={o.image_url} alt={o.title} className="absolute inset-0 h-full w-full object-cover" />
+                    <SmartImage src={o.image_url} alt={o.title} tint={primary} eager className="absolute inset-0 h-full w-full object-cover" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Gift className="h-6 w-6" style={{ color: primary }} />

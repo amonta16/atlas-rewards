@@ -26,6 +26,7 @@ import { useAppBase } from "@/lib/use-app-base";
 import { RewardDetailModal } from "./reward-detail-modal";
 import { badgeCss } from "@/lib/element-styles";
 import { SavedGiftsSection } from "./saved-gifts-section";
+import { SmartImage } from "@/components/ui/smart-image";
 import type { Business, Membership } from "@/lib/types/database";
 
 type Reward = {
@@ -324,8 +325,7 @@ export function RewardsClient({
                   >
                     <div className="relative shrink-0">
                       {r.image_url ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={r.image_url} alt={r.name} className="h-14 w-14 rounded-xl object-cover" />
+                        <SmartImage src={r.image_url} alt={r.name} tint={business.brand_colors.primary} eager className="h-14 w-14 rounded-xl object-cover" />
                       ) : (
                         <div className="h-14 w-14 rounded-xl flex items-center justify-center"
                           style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}>
@@ -399,10 +399,11 @@ export function RewardsClient({
                       should look delicious even when locked). */}
                   <div className="relative">
                     {r.image_url ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
+                      <SmartImage
                         src={r.image_url}
                         alt={r.name}
+                        tint={business.brand_colors.primary}
+                        eager
                         className={`${big ? "aspect-video" : "aspect-[4/3]"} w-full object-cover`}
                       />
                     ) : (
