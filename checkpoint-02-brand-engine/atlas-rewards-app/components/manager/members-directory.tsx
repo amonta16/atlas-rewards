@@ -6,9 +6,14 @@
  * business. Click a row to open the same member panel you get from a QR
  * scan (award points, history, and — CP-48 — reset their password). Handy
  * as a debugging / support surface, especially before email reset is live.
+ *
+ * CP-120: rows marked as demo accounts (business_memberships.is_demo)
+ * wear a violet DEMO chip so staff can tell test accounts from real
+ * customers at a glance. Demo activity is excluded from analytics
+ * server-side; the directory still lists them so they stay usable.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Search, Users, ChevronRight, Loader2, Crown } from "lucide-react";
+import { Search, Users, ChevronRight, Loader2, Crown, FlaskConical } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 
@@ -17,6 +22,8 @@ type Member = {
   email: string | null; phone: string | null;
   points_balance: number; tier: string; joined_at: string; visit_count: number;
   is_vip?: boolean;
+  // CP-120: demo/test account flag (violet chip; excluded from analytics).
+  is_demo?: boolean;
 };
 
 export function MembersDirectory({
@@ -106,6 +113,11 @@ export function MembersDirectory({
                       {m.is_vip && (
                         <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 rounded-full px-1.5 py-0.5 shrink-0">
                           <Crown className="h-2.5 w-2.5" /> VIP
+                        </span>
+                      )}
+                      {m.is_demo && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black uppercase tracking-wider text-violet-700 bg-violet-100 border border-violet-200 rounded-full px-1.5 py-0.5 shrink-0">
+                          <FlaskConical className="h-2.5 w-2.5" /> DEMO
                         </span>
                       )}
                     </div>

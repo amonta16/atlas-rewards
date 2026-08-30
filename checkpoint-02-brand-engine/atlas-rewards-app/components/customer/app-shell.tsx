@@ -2,10 +2,12 @@
 import { Home, ShoppingBag, ScanLine, Gift, CalendarClock, Flame } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { WidgetConfig } from "@/lib/types/database";
 import { useReviewStatus, reviewBadgeTone } from "@/lib/hooks/use-review-status";
 import { readableTextColor } from "@/lib/patterns";
+import { createClient } from "@/lib/supabase/client";
 // CP-42: one-time first-visit nudge pointing at the bell.
 import { EnablePushNudge } from "./enable-push-nudge";
 
@@ -40,6 +42,54 @@ export function tabsForConfig(_w: WidgetConfig): TabDef[] {
   // CP-99: Streaks joined the bar; Profile moved to the header hamburger.
   const base: TabDef[] = [HOME, SCAN, REWARDS, STREAKS];
   return base;
+}
+
+/**
+ * CP-120: red "!" on the Streaks tab when the member's streak has moved
+ * since they last LOOKED at the streak page — check in at the desk, and
+ * the tab itches you into opening the roadmap to watch the animation and
+ * collect anything you unlocked. Device-local by design (same pattern as
+ * the bell nudge): last-seen streak count lives in localStorage, so the
+ * badge clears the moment the Streaks tab is opened and never re-shows
+ * for the same streak value.
+ */
+function useStreakNudge(
+  businessId: string | null,
+  membershipId: string | null,
+  onStreaksTab: boolean,
+): boolean {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!businessId || !membershipId) { setShow(false); return; }
+    let cancelled = false;
+    const key = `atlas-streak-seen:${businessId}`;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.rpc("get_streak_status", {
+          p_business_id: businessId, p_membership_id: membershipId,
+        });
+        const row = (Array.isArray(data) ? data[0] : data) as
+          { is_enabled?: boolean; current_streak?: number } | null;
+        if (cancelled) return;
+        if (!row?.is_enabled) { setShow(false); return; }
+        const cur = Number(row.current_streak ?? 0);
+        let seen = -1;
+        try { seen = Number(localStorage.getItem(key) ?? "-1"); } catch { /* private mode */ }
+        if (onStreaksTab) {
+          // Looking at the page IS seeing the progress — record and clear.
+          try { localStorage.setItem(key, String(cur)); } catch { /* ignore */ }
+          setShow(false);
+        } else {
+          setShow(cur > 0 && cur > seen);
+        }
+      } catch { /* silent — a nudge must never break the nav */ }
+    })();
+    return () => { cancelled = true; };
+  }, [businessId, membershipId, onStreaksTab]);
+
+  return show;
 }
 
 export function CustomerAppShell({
@@ -112,6 +162,11 @@ export function CustomerAppShell({
   );
   const reviewTone = reviewsLive ? reviewBadgeTone(reviewStatus) : false;
 
+  // CP-120: streak "!" — lights up when the streak moved since the member
+  // last opened the Streaks tab; clears itself the moment they look.
+  const onStreaksTab = pathname === `${basePath}/streaks`;
+  const streakNudge = useStreakNudge(businessId ?? null, membershipId ?? null, onStreaksTab);
+
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -153,6 +208,9 @@ export function CustomerAppShell({
           // so the rewards page scrolls directly to the review row.
           const isRewards = t.label === "Rewards";
           const showBadge = isRewards && reviewTone !== false;
+          // CP-120: the Streaks tab wears its own "!" when the streak moved.
+          const isStreaks = t.href === "/streaks";
+          const showStreakBadge = isStreaks && streakNudge;
           const href = `${basePath}${t.href}` + (showBadge ? "?focus=review" : "");
           const active = pathname === `${basePath}${t.href}` || (t.href === "" && pathname === basePath);
           const Icon = t.icon;
@@ -174,6 +232,18 @@ export function CustomerAppShell({
                     // CP-42: itchy wobble — short rotate-shake bursts every
                     // few seconds so it visually itches the customer into
                     // tapping. Replaces the steady pulse.
+                    style={{
+                      animation: "atlas-itch-wobble 3.6s ease-in-out infinite",
+                      transformOrigin: "center center",
+                    }}
+                  >!</span>
+                )}
+                {showStreakBadge && (
+                  <span
+                    aria-label="Your streak went up — open Streaks to collect"
+                    className="absolute -top-1.5 -right-2 h-4 w-4 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow ring-2 ring-white"
+                    // Same itchy wobble as the review badge — one visual
+                    // language for "something here needs your eyes".
                     style={{
                       animation: "atlas-itch-wobble 3.6s ease-in-out infinite",
                       transformOrigin: "center center",

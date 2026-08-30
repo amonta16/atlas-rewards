@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { MemberHistoryPanel } from "@/components/manager/member-history-panel";
 import { MemberPasswordReset } from "@/components/manager/member-password-reset";
+// CP-120: manager-only demo flag + account reset for test members.
+import { MemberDemoTools } from "@/components/manager/member-demo-tools";
 import type { Business } from "@/lib/types/database";
 
 type Member = {
@@ -647,6 +649,17 @@ export function AwardPointsPanel({
               userId={member.user_id}
               email={member.email}
               primary={business.brand_colors.primary}
+            />
+
+            {/* CP-120: demo flag + reset — renders ONLY for managers /
+                agency (current_app_role); the RPCs enforce the same gate
+                server-side. Reset bumps reloadKey so the live balance,
+                streak, and spend refresh immediately. */}
+            <MemberDemoTools
+              businessId={business.id}
+              membershipId={member.membership_id}
+              memberName={member.full_name ?? "this member"}
+              onReset={() => { setReloadKey(k => k + 1); }}
             />
           </>
         )}
