@@ -423,6 +423,16 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 </div>
                 <Field label="Google review URL">
                   <Input value={b.google_review_url ?? ""} onChange={e => update("google_review_url", e.target.value)} placeholder="https://g.page/…/review" />
+                  {/* CP-122: since CP-103, the customer app hides the review
+                      prompt AND the Rewards-tab "!" nudge unless this link is
+                      set — surface that loudly instead of failing silently. */}
+                  {!!(b.widget_config as { reviews?: boolean } | null)?.reviews && !(b.google_review_url ?? "").trim() && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-amber-600">
+                      ⚠ Reviews are enabled but this link is empty — the review request and the
+                      &ldquo;!&rdquo; nudge stay hidden in the customer app until you paste the
+                      business&rsquo;s Google review URL here.
+                    </p>
+                  )}
                 </Field>
               </Section>
 

@@ -128,6 +128,9 @@ export async function POST(req: Request) {
         title,
         body: messageBody,
         link_path: "/app/rewards",
+        // CP-122: this route pushes synchronously below — stamp the row so
+        // the per-minute cron doesn't push the same message again.
+        push_sent_at: new Date().toISOString(),
       });
     } catch (e) {
       console.warn("[award-event] notification insert failed:", (e as any)?.message);

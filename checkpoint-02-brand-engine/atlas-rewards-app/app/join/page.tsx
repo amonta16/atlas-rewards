@@ -114,6 +114,25 @@ export default function JoinPage() {
     setBooting(true);
   }, []);
 
+  // CP-122: the "Add another shop" path (?stay=1) used to land on the bare
+  // code screen with NO way back — customers had to scan a new business or
+  // kill the app to return to their shop. Load their memberships so the
+  // "Back to my shop(s)" button always exists here.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!new URLSearchParams(window.location.search).get("stay")) return;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase.rpc("my_memberships");
+        const shops = (Array.isArray(data) ? data : []) as BootShop[];
+        if (shops.length > 0) setStashedShops(shops);
+      } catch { /* offline — plain code screen stays usable */ }
+    })();
+  }, []);
+
   async function lookup(raw: string): Promise<FoundBusiness | null> {
     const clean = raw.replace(/[^a-zA-Z0-9]/g, "");
     if (clean.length < 3 || clean.length > 24) return null;
@@ -331,10 +350,19 @@ export default function JoinPage() {
         {stashedShops && stashedShops.length > 0 && (
           <button
             type="button"
-            onClick={() => { setChooser(stashedShops); setStashedShops(null); setBiz(null); setCode(""); setErr(null); }}
+            onClick={() => {
+              // CP-122: one shop → jump STRAIGHT back into it (no chooser
+              // of one); several → show the chooser.
+              if (stashedShops.length === 1 && stashedShops[0].slug) {
+                window.location.href = businessEntryUrl(stashedShops[0].slug);
+                return;
+              }
+              setChooser(stashedShops); setStashedShops(null); setBiz(null); setCode(""); setErr(null);
+            }}
             className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-500 hover:text-zinc-800"
           >
-            <ArrowRight className="h-4 w-4 rotate-180" /> Back to my shops
+            <ArrowRight className="h-4 w-4 rotate-180" />
+            {stashedShops.length === 1 ? "Back to my shop" : "Back to my shops"}
           </button>
         )}
         {/* Atlas header — neutral until a business is found */}

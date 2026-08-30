@@ -6,6 +6,9 @@ import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
 import { NewsSection } from "@/components/customer/news-section";
 import { TopRewardsGrid } from "@/components/customer/top-rewards-grid";
+// CP-122: base-aware client link for server components — kills the raw
+// path-form <a> reload/glitch on "See all" + "View more rewards".
+import { AppLink } from "@/components/customer/app-link";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { WinbackBanner } from "@/components/customer/winback-banner";
 // CP-87: referred friends see their "spend $X to unlock your bonus" progress.
@@ -213,8 +216,9 @@ export default async function CustomerHome({ params }: { params: { business: str
             <SectionHeading business={business} className="text-sm">Top rewards</SectionHeading>
             {/* CP-47: make "See all" pop — a filled brand pill with a soft
                 glow so customers notice there's a full rewards catalog. */}
-            <a
-              href={`/${params.business}/app/rewards`}
+            <AppLink
+              slug={params.business}
+              to="/rewards"
               className="inline-flex items-center gap-1 text-xs font-extrabold text-white rounded-full pl-3 pr-2 py-1.5 shadow-md active:scale-95 transition"
               style={{
                 background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
@@ -222,7 +226,7 @@ export default async function CustomerHome({ params }: { params: { business: str
               }}
             >
               See all <ChevronRight className="h-3.5 w-3.5" />
-            </a>
+            </AppLink>
           </div>
           {/* CP-53: locked rewards now open a detail popup right here on Home
               (client component); unlocked still deep-link to the redeem flow. */}
@@ -238,8 +242,9 @@ export default async function CustomerHome({ params }: { params: { business: str
 
           {/* CP-52.1: jump STRAIGHT to the full rewards catalog (no double-step
               through the rewards tab). */}
-          <a
-            href={`/${params.business}/app/shop`}
+          <AppLink
+            slug={params.business}
+            to="/shop"
             className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
             style={{
               background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
@@ -247,7 +252,7 @@ export default async function CustomerHome({ params }: { params: { business: str
             }}
           >
             View more rewards <ChevronRight className="h-4 w-4" />
-          </a>
+          </AppLink>
         </div>
       )}
 
