@@ -55,6 +55,9 @@ type Row = {
   discount_value: number | null;
   voice_message_url: string | null;
   last_triggered_at: string | null;
+  // CP-123: per-business yearly date ({month, day, window_days}) — set by
+  // the manager for the Custom Occasion template; null = template default.
+  custom_trigger_config?: { month?: number; day?: number; window_days?: number } | null;
   // CP-42: gift picker — either link to a Reward (QR redemption) or set
   // a points amount (no QR).
   gift_reward_id?: string | null;
@@ -116,7 +119,11 @@ function triggerSubtitle(row: Row): string {
     }
     case "date":
     default: {
-      const cfg = row.trigger_config as { month?: number; day?: number; window_days?: number };
+      // CP-123: the business's own date wins over the template's.
+      const cfg = (row.custom_trigger_config ?? row.trigger_config) as { month?: number; day?: number; window_days?: number };
+      if (!cfg?.month || !cfg?.day) {
+        return "Pick your date in the editor — it fires every year around the day you choose.";
+      }
       const monthName = cfg.month
         ? new Date(2000, (cfg.month ?? 1) - 1, 1).toLocaleString(undefined, { month: "long" })
         : "the holiday";
@@ -173,6 +180,7 @@ export function AutomatedOffersManager({ business }: { business: Business }) {
       p_expires_after_days: 7,
       p_voice_message_url: row.voice_message_url,
       p_gift_reward_id: row.gift_reward_id ?? null,  // CP-42
+      p_custom_trigger_config: row.custom_trigger_config ?? null,  // CP-123
     });
     if (error) { setSavingErr(error.message); return; }
     await load();
@@ -195,6 +203,7 @@ export function AutomatedOffersManager({ business }: { business: Business }) {
       p_expires_after_days: 7,
       p_voice_message_url: editing.voice_message_url,
       p_gift_reward_id: editing.gift_reward_id ?? null,  // CP-42
+      p_custom_trigger_config: editing.custom_trigger_config ?? null,  // CP-123
     });
     if (error) { setSavingErr(error.message); return; }
     setEditing(null);
@@ -438,6 +447,77 @@ function EditPanel({
               {triggerSubtitle(row)}
             </p>
           </div>
+
+          {/* CP-123: Custom Occasion — the manager picks the yearly date. */}
+          {row.slug === "custom_occasion" && (
+            <div className="rounded-2xl border bg-white p-3">
+              <Label className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
+                When does it fire?
+              </Label>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <select
+                  value={row.custom_trigger_config?.month ?? ""}
+                  onChange={(e) => onChange({
+                    custom_trigger_config: {
+                      window_days: 3,
+                      ...(row.custom_trigger_config ?? {}),
+                      month: e.target.value ? Number(e.target.value) : undefined,
+                    },
+                  })}
+                  className="h-10 rounded-lg border bg-white px-2 text-sm font-semibold"
+                  aria-label="Month"
+                >
+                  <option value="">Month…</option>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {new Date(2000, i, 1).toLocaleString(undefined, { month: "long" })}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={row.custom_trigger_config?.day ?? ""}
+                  onChange={(e) => onChange({
+                    custom_trigger_config: {
+                      window_days: 3,
+                      ...(row.custom_trigger_config ?? {}),
+                      day: e.target.value ? Number(e.target.value) : undefined,
+                    },
+                  })}
+                  className="h-10 rounded-lg border bg-white px-2 text-sm font-semibold"
+                  aria-label="Day"
+                >
+                  <option value="">Day…</option>
+                  {Array.from({ length: 31 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>{i + 1}</option>
+                  ))}
+                </select>
+                <select
+                  value={row.custom_trigger_config?.window_days ?? 3}
+                  onChange={(e) => onChange({
+                    custom_trigger_config: {
+                      ...(row.custom_trigger_config ?? {}),
+                      window_days: Number(e.target.value),
+                    },
+                  })}
+                  className="h-10 rounded-lg border bg-white px-2 text-sm font-semibold"
+                  aria-label="Days around the date"
+                >
+                  {[1, 3, 5, 7, 14].map(w => (
+                    <option key={w} value={w}>±{w} day{w === 1 ? "" : "s"}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-1.5">
+                Fires every year around this date — name it with the title field
+                below (e.g. &ldquo;Shop Anniversary&rdquo;).
+              </p>
+              {(!row.custom_trigger_config?.month || !row.custom_trigger_config?.day) && (
+                <p className="text-[11px] font-semibold text-amber-600 mt-1">
+                  ⚠ No date picked yet — this occasion won&rsquo;t fire until you choose one.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Image — CP-42: real upload. ImageUploader uploads to the
               reward-images bucket; the URL is saved to custom_image_url

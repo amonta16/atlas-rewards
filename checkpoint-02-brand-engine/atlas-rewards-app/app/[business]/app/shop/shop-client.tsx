@@ -12,6 +12,11 @@
  */
 import { useMemo, useState } from "react";
 import { Gift, Lock, Sparkles, Search, ChevronRight } from "lucide-react";
+import Link from "next/link";
+// CP-123: base-aware links — the raw path-form hrefs here were the same
+// CP-45/CP-122 bug as Home's "View more rewards" (full reload + wrong
+// URL on the subdomain PWA).
+import { useAppBase } from "@/lib/use-app-base";
 import type { Business } from "@/lib/types/database";
 
 type Reward = {
@@ -207,9 +212,10 @@ function CardSmall({
   reward, pointsBalance, primary, businessSlug,
 }: { reward: Reward; pointsBalance: number; primary: string; businessSlug: string }) {
   const locked = pointsBalance < reward.point_cost;
+  const appBase = useAppBase(businessSlug);
   return (
-    <a
-      href={`/${businessSlug}/app/rewards?redeem=${reward.id}`}
+    <Link
+      href={`${appBase}/rewards?redeem=${reward.id}`}
       className="shrink-0 w-40 rounded-2xl border bg-white overflow-hidden hover:shadow-md transition-shadow"
       style={{ borderColor: locked ? undefined : primary + "55" }}
     >
@@ -221,7 +227,7 @@ function CardSmall({
           <Sparkles className="h-2.5 w-2.5" /> {reward.point_cost.toLocaleString()} pts
         </div>
       </div>
-    </a>
+    </Link>
   );
 }
 
@@ -234,9 +240,10 @@ function CardLarge({
     : 100;
   const remaining = Math.max(0, reward.point_cost - pointsBalance);
 
+  const appBase = useAppBase(businessSlug);
   return (
-    <a
-      href={`/${businessSlug}/app/rewards?redeem=${reward.id}`}
+    <Link
+      href={`${appBase}/rewards?redeem=${reward.id}`}
       className="rounded-2xl border bg-white overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
       style={{ borderColor: locked ? undefined : primary + "55" }}
     >
@@ -270,7 +277,7 @@ function CardLarge({
               </span>}
         </div>
       </div>
-    </a>
+    </Link>
   );
 }
 
