@@ -126,8 +126,11 @@ export function AwardPointsPanel({
   useEffect(() => {
     const supabase = createClient();
     (async () => {
+      // CP-116: was ".from('memberships')" — no such table (it's
+      // business_memberships), so this errored silently and the on-screen
+      // balance stayed on the stale scan snapshot after every award/remove.
       const { data } = await supabase
-        .from("memberships")
+        .from("business_memberships")
         .select("points_balance")
         .eq("id", member.membership_id)
         .single();

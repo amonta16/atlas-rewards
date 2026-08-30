@@ -102,6 +102,10 @@ export default function JoinPage() {
   // last-used one. Andrew's ask: pick the shop BEFORE any app loads.
   const [chooser, setChooser] = useState<BootShop[] | null>(null);
   const [lastSlug, setLastSlug] = useState<string | null>(null);
+  // CP-116: remember the chooser list when the customer taps "Join a new shop
+  // instead", so the code screen can offer a Back button instead of leaving a
+  // multi-shop customer stranded there with no way back to their shops.
+  const [stashedShops, setStashedShops] = useState<BootShop[] | null>(null);
 
   // Runs before paint: if a cold-start boot is about to happen, hold the UI.
   useIsomorphicLayoutEffect(() => {
@@ -274,7 +278,9 @@ export default function JoinPage() {
                 >
                   {icon ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={icon} alt="" className="h-12 w-12 rounded-xl object-cover shrink-0 ring-1 ring-black/5" />
+                    // CP-116: object-contain (was object-cover) + white bed so
+                    // non-square logos aren't cropped.
+                    <img src={icon} alt="" className="h-12 w-12 rounded-xl object-contain bg-white p-1 shrink-0 ring-1 ring-black/5" />
                   ) : (
                     <div
                       className="h-12 w-12 rounded-xl flex items-center justify-center text-white text-lg font-extrabold shrink-0"
@@ -305,7 +311,7 @@ export default function JoinPage() {
 
           <button
             type="button"
-            onClick={() => setChooser(null)}
+            onClick={() => { setStashedShops(chooser); setChooser(null); }}
             className="mt-4 w-full flex items-center justify-center gap-2 text-sm font-semibold text-zinc-500 hover:text-zinc-700"
           >
             <Store className="h-4 w-4" /> Join a new shop instead
@@ -318,6 +324,19 @@ export default function JoinPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
+        {/* CP-116: Back to my shops — so a multi-shop customer who tapped
+            "Join a new shop instead" (or lands on the code screen) isn't
+            stranded with nowhere to go. Only shown when there's a shop list
+            to return to. */}
+        {stashedShops && stashedShops.length > 0 && (
+          <button
+            type="button"
+            onClick={() => { setChooser(stashedShops); setStashedShops(null); setBiz(null); setCode(""); setErr(null); }}
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-500 hover:text-zinc-800"
+          >
+            <ArrowRight className="h-4 w-4 rotate-180" /> Back to my shops
+          </button>
+        )}
         {/* Atlas header — neutral until a business is found */}
         <div className="text-center mb-8">
           {/* CP-81.3: real Atlas logo instead of the placeholder sparkle. */}
@@ -382,7 +401,9 @@ export default function JoinPage() {
             >
               {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt={biz.name ?? "Business logo"} className="h-16 w-16 rounded-2xl mx-auto bg-white object-cover shadow-md" />
+                // CP-116: object-contain + padding (was object-cover) so the
+                // business logo isn't cropped on the confirmation card.
+                <img src={logo} alt={biz.name ?? "Business logo"} className="h-16 w-16 rounded-2xl mx-auto bg-white object-contain p-2 shadow-md" />
               ) : (
                 <div className="h-16 w-16 rounded-2xl mx-auto bg-white/20 flex items-center justify-center text-white text-2xl font-black">
                   {(biz.name ?? "?").charAt(0)}

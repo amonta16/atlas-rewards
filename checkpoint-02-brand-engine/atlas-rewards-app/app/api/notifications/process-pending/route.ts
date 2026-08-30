@@ -51,6 +51,18 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  // CP-116: drain the reminder QUEUE into `notifications` BEFORE listing, so
+  // any row that just came due goes out in this same per-minute tick. Nothing
+  // else schedules fire_due_notifications() — without this line every queued
+  // reminder (the 12h "check in again / keep your streak going / spin's ready"
+  // nudge from cp42/cp109) sits in notification_queue forever, which is why
+  // streak/check-in reminders were never received. The service-role admin
+  // client is exactly who cp109 granted this function to. Best-effort: a
+  // drain error never blocks the immediate-notification push below.
+  const { error: drainErr } = await admin.rpc("fire_due_notifications");
+  if (drainErr) console.warn("[process-pending] queue drain failed:", drainErr.message);
+
   const { data: rows, error } = await admin.rpc("list_pending_pushes", { p_limit: 100 });
   if (error) {
     console.error("[process-pending] list failed:", error.message);
