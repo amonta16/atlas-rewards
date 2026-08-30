@@ -61,7 +61,23 @@ export function NativeShell() {
               }),
             }).catch(() => { /* offline — retried next open */ });
           });
-          onPushTap((linkPath) => { window.location.href = linkPath; });
+          // CP-120.1: stored link_paths are bare "/app/..." — correct on
+          // SUBDOMAIN routing, but the native shell runs the PATH form
+          // (www.<root>/<slug>/app — CP-97), where a bare "/app/scan" is
+          // a 404. Every notification tap in the native app hit this.
+          // Prefix the business slug unless we're actually on the
+          // subdomain host.
+          onPushTap((linkPath) => {
+            let target = linkPath;
+            try {
+              const sub = window.location.hostname.split(".")[0];
+              const onSubdomain = sub === businessSlug;
+              if (!onSubdomain && (linkPath === "/app" || linkPath.startsWith("/app/"))) {
+                target = `/${businessSlug}${linkPath}`;
+              }
+            } catch { /* keep the raw path */ }
+            window.location.href = target;
+          });
         } catch {
           /* push is best-effort, never break the app over it */
         }
