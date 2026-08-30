@@ -187,8 +187,18 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
     const supabase = createClient();
 
     // 1. Try as a member code (6 hex chars)
-    const { data: memData } = await supabase.rpc("resolve_member_by_code",
+    // CP-117: surface RPC errors instead of swallowing them. Previously the
+    // error field was ignored, so any failure from this function (e.g. a
+    // permission-gate helper that errored on a drifted DB) was masked as a
+    // plain "not found" for EVERY code — the front desk had no way to tell a
+    // real missing code from a broken lookup. Now a genuine error is shown.
+    const { data: memData, error: memErr } = await supabase.rpc("resolve_member_by_code",
       { p_code: c, p_business_id: business.id });
+    if (memErr) {
+      setErr(`Couldn't look up that code — ${memErr.message}`);
+      setMode("idle");
+      return;
+    }
     if (memData && memData.length > 0) {
       setMember(memData[0] as Member);
       setLastMember(memData[0] as Member);
@@ -197,8 +207,13 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
     }
 
     // 2. Try as a redemption code (7 alphanumeric)
-    const { data: redData } = await supabase.rpc("resolve_redemption_by_code",
+    const { data: redData, error: redErr } = await supabase.rpc("resolve_redemption_by_code",
       { p_code: c, p_business_id: business.id });
+    if (redErr) {
+      setErr(`Couldn't look up that code — ${redErr.message}`);
+      setMode("idle");
+      return;
+    }
     if (redData && redData.length > 0) {
       setRedemption(redData[0] as RedemptionLookup);
       setMode("idle");
@@ -208,8 +223,13 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
     // 3. CP-36b: try as a saved-gift code (7 alphanumeric too). When the
     //    cp36 SQL is applied, customers can present a saved-offer QR and
     //    the front desk fulfills it via fulfill_saved_offer.
-    const { data: giftData } = await supabase.rpc("resolve_saved_offer_by_code",
+    const { data: giftData, error: giftErr } = await supabase.rpc("resolve_saved_offer_by_code",
       { p_code: c, p_business_id: business.id });
+    if (giftErr) {
+      setErr(`Couldn't look up that code — ${giftErr.message}`);
+      setMode("idle");
+      return;
+    }
     if (giftData && giftData.length > 0) {
       const g = giftData[0] as { saved_id: string; title: string; fulfilled_at: string | null };
       if (g.fulfilled_at) {
