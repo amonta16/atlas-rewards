@@ -45,51 +45,75 @@ export function tabsForConfig(_w: WidgetConfig): TabDef[] {
 }
 
 /**
- * CP-120: red "!" on the Streaks tab when the member's streak has moved
- * since they last LOOKED at the streak page — check in at the desk, and
- * the tab itches you into opening the roadmap to watch the animation and
- * collect anything you unlocked. Device-local by design (same pattern as
- * the bell nudge): last-seen streak count lives in localStorage, so the
- * badge clears the moment the Streaks tab is opened and never re-shows
- * for the same streak value.
+ * CP-121 (upgrades CP-120): the Streaks tab wears state-aware badges.
+ *
+ *   gift     — an EARNED, unclaimed streak gift is waiting (server truth,
+ *              via list_streak_gifts): gold gift badge. Clears when claimed.
+ *   urgent   — the streak is about to die: streak > 0, not yet checked in
+ *              this period, and under 25% of the period (max 24h) remains.
+ *   progress — the streak moved since they last opened the Streaks tab
+ *              (device-local last-seen, CP-120 behavior).
+ *
+ * Badge priority at render: gift (gold, + red ring when also urgent) >
+ * red "!" (urgent or unseen progress).
  */
+type StreakNudge = { gift: boolean; urgent: boolean; progress: boolean };
+
 function useStreakNudge(
   businessId: string | null,
   membershipId: string | null,
   onStreaksTab: boolean,
-): boolean {
-  const [show, setShow] = useState(false);
+): StreakNudge {
+  const [n, setN] = useState<StreakNudge>({ gift: false, urgent: false, progress: false });
 
   useEffect(() => {
-    if (!businessId || !membershipId) { setShow(false); return; }
+    if (!businessId || !membershipId) { setN({ gift: false, urgent: false, progress: false }); return; }
     let cancelled = false;
     const key = `atlas-streak-seen:${businessId}`;
     (async () => {
       try {
         const supabase = createClient();
-        const { data } = await supabase.rpc("get_streak_status", {
-          p_business_id: businessId, p_membership_id: membershipId,
-        });
-        const row = (Array.isArray(data) ? data[0] : data) as
-          { is_enabled?: boolean; current_streak?: number } | null;
+        const [{ data: sData }, { data: gData }] = await Promise.all([
+          supabase.rpc("get_streak_status", { p_business_id: businessId, p_membership_id: membershipId }),
+          supabase.rpc("list_streak_gifts", { p_business_id: businessId, p_membership_id: membershipId }),
+        ]);
         if (cancelled) return;
-        if (!row?.is_enabled) { setShow(false); return; }
+        const row = (Array.isArray(sData) ? sData[0] : sData) as {
+          is_enabled?: boolean; current_streak?: number; checked_in_this_period?: boolean;
+          period_start?: string | null; period_end?: string | null;
+        } | null;
+        if (!row?.is_enabled) { setN({ gift: false, urgent: false, progress: false }); return; }
         const cur = Number(row.current_streak ?? 0);
+
+        // Unclaimed, unexpired gift? (list_streak_gifts errors silently on a
+        // pre-cp121 DB — the catch below keeps the nav alive.)
+        const gift = ((gData ?? []) as Array<{ claimed_at: string | null; expires_at: string }>)
+          .some(g => !g.claimed_at && new Date(g.expires_at).getTime() > Date.now());
+
+        // Streak about to die (engine period math, same fields the desk uses).
+        let urgent = false;
+        const end = row.period_end ? new Date(row.period_end).getTime() : NaN;
+        const start = row.period_start ? new Date(row.period_start).getTime() : NaN;
+        if (cur > 0 && !row.checked_in_this_period && Number.isFinite(end) && Number.isFinite(start)) {
+          const len = end - start;
+          const remaining = end - Date.now();
+          urgent = remaining > 0 && remaining < Math.min(len * 0.25, 24 * 3600_000);
+        }
+
         let seen = -1;
         try { seen = Number(localStorage.getItem(key) ?? "-1"); } catch { /* private mode */ }
+        let progress = cur > 0 && cur > seen;
         if (onStreaksTab) {
-          // Looking at the page IS seeing the progress — record and clear.
           try { localStorage.setItem(key, String(cur)); } catch { /* ignore */ }
-          setShow(false);
-        } else {
-          setShow(cur > 0 && cur > seen);
+          progress = false;
         }
+        setN({ gift, urgent, progress });
       } catch { /* silent — a nudge must never break the nav */ }
     })();
     return () => { cancelled = true; };
   }, [businessId, membershipId, onStreaksTab]);
 
-  return show;
+  return n;
 }
 
 export function CustomerAppShell({
@@ -165,7 +189,7 @@ export function CustomerAppShell({
   // CP-120: streak "!" — lights up when the streak moved since the member
   // last opened the Streaks tab; clears itself the moment they look.
   const onStreaksTab = pathname === `${basePath}/streaks`;
-  const streakNudge = useStreakNudge(businessId ?? null, membershipId ?? null, onStreaksTab);
+  const streak = useStreakNudge(businessId ?? null, membershipId ?? null, onStreaksTab);
 
   return (
     <div
@@ -208,9 +232,13 @@ export function CustomerAppShell({
           // so the rewards page scrolls directly to the review row.
           const isRewards = t.label === "Rewards";
           const showBadge = isRewards && reviewTone !== false;
-          // CP-120: the Streaks tab wears its own "!" when the streak moved.
+          // CP-121: state-aware Streaks badges — gold gift beats red "!";
+          // a gift that's ALSO urgent wears a red ring. Hidden while the
+          // tab itself is open (they're already looking).
           const isStreaks = t.href === "/streaks";
-          const showStreakBadge = isStreaks && streakNudge;
+          const streakActive = pathname === `${basePath}/streaks`;
+          const showGiftBadge = isStreaks && !streakActive && streak.gift;
+          const showStreakBadge = isStreaks && !streakActive && !streak.gift && (streak.urgent || streak.progress);
           const href = `${basePath}${t.href}` + (showBadge ? "?focus=review" : "");
           const active = pathname === `${basePath}${t.href}` || (t.href === "" && pathname === basePath);
           const Icon = t.icon;
@@ -238,14 +266,32 @@ export function CustomerAppShell({
                     }}
                   >!</span>
                 )}
+                {showGiftBadge && (
+                  <span
+                    aria-label={streak.urgent
+                      ? "Gift waiting — and your streak is about to expire!"
+                      : "You have a streak gift ready to claim"}
+                    className={cn(
+                      "absolute -top-2 -right-2.5 h-[18px] w-[18px] rounded-full flex items-center justify-center shadow",
+                      streak.urgent ? "ring-2 ring-rose-500" : "ring-2 ring-white",
+                    )}
+                    style={{
+                      background: "linear-gradient(135deg, #fbbf24, #d97706)",
+                      animation: `atlas-itch-wobble ${streak.urgent ? "1.8s" : "3.6s"} ease-in-out infinite`,
+                      transformOrigin: "center center",
+                    }}
+                  >
+                    <Gift className="h-2.5 w-2.5 text-white" />
+                  </span>
+                )}
                 {showStreakBadge && (
                   <span
-                    aria-label="Your streak went up — open Streaks to collect"
+                    aria-label={streak.urgent
+                      ? "Your streak is about to expire — check in!"
+                      : "Your streak went up — open Streaks to see it"}
                     className="absolute -top-1.5 -right-2 h-4 w-4 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center shadow ring-2 ring-white"
-                    // Same itchy wobble as the review badge — one visual
-                    // language for "something here needs your eyes".
                     style={{
-                      animation: "atlas-itch-wobble 3.6s ease-in-out infinite",
+                      animation: `atlas-itch-wobble ${streak.urgent ? "1.8s" : "3.6s"} ease-in-out infinite`,
                       transformOrigin: "center center",
                     }}
                   >!</span>

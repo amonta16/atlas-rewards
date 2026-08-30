@@ -549,6 +549,14 @@ export function AwardPointsPanel({
                         <div className="mt-0.5 text-emerald-700 font-semibold">
                           🎉 Milestone unlocked: {checkInResult.milestone}
                           {checkInResult.mystery && " + mystery spin"}
+                          {/* CP-121: prizes are now tap-to-claim in the app —
+                              arm the staff with the line that sends the
+                              customer to their streak page. */}
+                          {!checkInResult.mystery && (
+                            <div className="mt-0.5 text-amber-700">
+                              🎁 Their gift is waiting on the Streaks page — tell them to open the app and tap it!
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
