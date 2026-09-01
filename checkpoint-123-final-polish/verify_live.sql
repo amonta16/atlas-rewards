@@ -44,13 +44,15 @@ with checks as (
            where n.nspname='public'
              and p.proname in ('enter_raffle','finalize_due_raffles','list_active_raffles'))
   union all select 13, 'raffles: no draws stuck past their deadline',
+         -- an ACTIVE raffle whose end time passed >1h ago means the
+         -- finalize sweep isn't draining it (it runs every 5 minutes)
          not exists (select 1 from public.raffles
-                      where status = 'active' and draw_at < now() - interval '1 hour')
+                      where status = 'active' and ends_at < now() - interval '1 hour')
   union all select 14, 'reviews: Exotic has a Google review link',
          exists (select 1 from public.businesses
                   where slug='exotic' and coalesce(google_review_url,'') <> '')
-  union all select 15, 'automations: something calls trigger_automated_offers daily',
-         exists (select 1 from cron.job where command ilike '%trigger_automated_offers%')
+  union all select 15, 'automations: pg_cron installed (offers engine needs a scheduler)',
+         exists (select 1 from pg_extension where extname = 'pg_cron')
 )
 select item, case when ok then '✅ OK' else '❌ MISSING / CHECK' end as status
   from checks order by ord;

@@ -20,8 +20,10 @@ import { isNative } from "@/lib/native";
  */
 
 const IOS_APP_URL = "https://apps.apple.com/us/app/ae-rewards/id6797182694";
-/** Paste the public Google Play URL here the moment production is approved. */
-const ANDROID_APP_URL: string | null = null;
+// CP-124: Atlas is LIVE on Google Play (Aug 30 2026) — Android now gets
+// the real store banner instead of the PWA install prompt.
+const ANDROID_APP_URL: string | null =
+  "https://play.google.com/store/apps/details?id=com.atlasengine.rewards";
 
 const DISMISS_KEY = "atlas-getapp-dismissed-at";
 const DISMISS_DAYS = 7;
