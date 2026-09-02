@@ -907,10 +907,41 @@ function RewardRoad({
       setDisplayFrac(targetFrac);
       return;
     }
-    // CP-126: in demo mode the camera rides every step of the climb.
-    runAnim(fracRef.current, targetFrac, demo ? 1150 : 950, !!demo);
+    // CP-126.1: the burn no longer drives the scroll in demo mode (that
+    // restarted a fresh ease every step and read as rapid jumps) — the
+    // dedicated smooth camera follower below owns the viewport instead.
+    runAnim(fracRef.current, targetFrac, demo ? 1150 : 950, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetFrac, settled]);
+
+  // ── CP-126.1: SMOOTH DEMO CAMERA. One rAF loop for the whole demo pass:
+  // each frame the viewport closes a time-based fraction of the distance
+  // to the flame (exponential damping, ~260ms time constant), so it glides
+  // continuously — through the burn, through the pause between steps, and
+  // right through a claim. Demo mode only; the entry replay and real live
+  // advances keep their existing behavior.
+  useEffect(() => {
+    if (!demo || reducedMotion()) return;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (nowTs: number) => {
+      const el = containerRef.current;
+      if (el) {
+        const dt = Math.min(64, nowTs - last);
+        const rect = el.getBoundingClientRect();
+        const headViewportY = rect.top + PAD_TOP + (1 - fracRef.current) * (rect.height - PAD_TOP - PAD_BOTTOM);
+        const target = Math.max(0, window.scrollY + headViewportY - window.innerHeight * 0.55);
+        const k = 1 - Math.exp(-dt / 260);
+        const next = window.scrollY + (target - window.scrollY) * k;
+        if (Math.abs(next - window.scrollY) > 0.5) window.scrollTo({ top: next });
+      }
+      last = nowTs;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo]);
 
   // Flame head grows with the streak: ember → lit → blazing.
   const ratio = current / range;

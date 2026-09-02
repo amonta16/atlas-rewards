@@ -33,3 +33,9 @@ git add .
 git commit -m "CP-126: streak demo mode - auto-playing looped climb with tap-to-claim gifts, client-side only (is_demo businesses)"
 git push
 ```
+
+---
+
+## CP-126.1 — Smooth demo camera (follow-up)
+
+The camera used to restart a fresh scroll ease inside every ~1.5s step — quick lurch, decelerate, idle, lurch again — which read as rapid little jumps. Now **one continuous camera follower** runs for the whole demo: every frame the viewport glides a time-based fraction of the way toward the flame (exponential damping, ~260ms), so it flows smoothly through the burns, through the pauses between steps, and right through a claim. The flame's own step animation is unchanged, claims still don't interrupt the climb, and the real-streak entry replay keeps its original camera. Same single file, no SQL.
