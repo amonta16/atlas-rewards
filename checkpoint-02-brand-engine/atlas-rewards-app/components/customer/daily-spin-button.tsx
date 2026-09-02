@@ -206,8 +206,10 @@ export function DailySpinButton({
     return (
       <>
         <button
-          onClick={() => { if (ready) openGame(); }}
-          disabled={!ready}
+          // CP-125: every state opens the game modal now — locked shows the
+          // wheel as a PRIZE PREVIEW (spin stays gated server-side), and
+          // cooldown re-shows today's result. Window-shopping sells visits.
+          onClick={openGame}
           className="w-full h-full min-h-[172px] rounded-3xl overflow-hidden text-left relative active:scale-[0.98] transition-transform disabled:cursor-default p-4 flex flex-col shadow-lg ring-1 ring-black/[0.07]"
           style={{
             background: ready
@@ -251,7 +253,7 @@ export function DailySpinButton({
             </span>
           ) : (
             <div className={`mt-auto pt-3 text-[11px] font-semibold ${ready ? "text-white/75" : "text-zinc-400"}`}>
-              {variant === "cooldown" ? `Next play in ${countdown}` : "Check in at the counter to unlock"}
+              {variant === "cooldown" ? `Next play in ${countdown}` : "Tap to see the prizes — check in to play"}
             </div>
           )}
           {/* CP-68: red "!" — your check-in reward is ready (same language
@@ -278,14 +280,10 @@ export function DailySpinButton({
     <>
       <div className="px-4 mt-5">
         <button
-          onClick={() => {
-            // Only the "ready" state actually opens the game.
-            // Cooldown + locked are informational — tapping does nothing
-            // so the customer isn't dropped into a modal that just says
-            // "no spin available".
-            if (variant === "ready") openGame();
-          }}
-          disabled={variant !== "ready"}
+          // CP-125: locked + cooldown open the modal too — locked shows the
+          // wheel as a prize preview (spin stays gated), cooldown re-shows
+          // today's result. Peeking at the prizes is the point.
+          onClick={openGame}
           className="w-full rounded-2xl overflow-hidden text-left relative active:scale-[0.99] transition-transform disabled:cursor-default shadow-sm ring-1 ring-black/5"
           style={{
             background:
@@ -326,7 +324,7 @@ export function DailySpinButton({
                   ? winLine
                   : variant === "cooldown"
                     ? `Next play in ${countdown}`
-                    : "Visit the shop to get your play"}
+                    : "Tap to see the prizes — visit to play"}
               </div>
             </div>
             <div className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold ${

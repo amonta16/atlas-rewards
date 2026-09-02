@@ -348,7 +348,10 @@ export function DailyMysteryModal({
         </div>
 
         {/* ── the prize wheel — CP-72: wedges show the REAL prizes ── */}
-        {phase !== "locked" && phase !== "claimed" && (
+        {/* CP-125: the wheel now renders in the LOCKED phase too — the
+            prize pool loads regardless, so customers browsing from home
+            can see exactly what a visit could win. Spinning stays gated. */}
+        {phase !== "claimed" && (
           <div className="relative mb-8 z-10">
             {/* pointer */}
             <div
@@ -424,23 +427,21 @@ export function DailyMysteryModal({
         <div className="z-10 text-center px-8 w-full max-w-xs">
 
           {/* LOCKED */}
+          {/* CP-125: compact lock panel — the wheel is visible above as a
+              prize preview, so this is a nudge, not a wall. */}
           {phase === "locked" && (
             <div className="flex flex-col items-center">
-              <div
-                className="h-28 w-28 rounded-full flex items-center justify-center mb-5"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "2px solid rgba(255,255,255,0.12)",
-                }}
-              >
-                <Lock className="h-12 w-12 text-zinc-500" />
+              <div className="inline-flex items-center gap-2 rounded-full px-4 py-2 mb-3"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)" }}>
+                <Lock className="h-4 w-4 text-zinc-400" />
+                <span className="text-zinc-300 text-xs font-bold uppercase tracking-widest">Spin locked</span>
               </div>
-              <h3 className="text-white text-xl font-bold mb-2">Locked</h3>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Visit the shop and get checked in to unlock your daily spin!
+                These prizes are up for grabs — visit the shop and get
+                checked in to take your spin!
               </p>
               <div
-                className="mt-6 text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full"
+                className="mt-4 text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full"
                 style={{
                   color: primary,
                   border: `1px solid ${primary}44`,

@@ -42,6 +42,9 @@ type StreakSnapshot = {
   longest_streak: number;
   checked_in_this_period: boolean;
   period_type: "daily" | "weekly" | "monthly";
+  // CP-125: the engine's own clock — check-ins are allowed every 12h
+  // REGARDLESS of the streak period; the button gates on this now.
+  last_checkin_at?: string | null;
   // CP-103: already returned by get_streak_status — the desk just never read
   // them, so staff could not answer "when should I come back?".
   period_start?: string | null;
@@ -180,7 +183,7 @@ export function AwardPointsPanel({
     } | null;
     if (!row) return;
     if (row.already_checked_in) {
-      setErr("Already checked in this period.");
+      setErr("Checked in less than 12 hours ago — this visit is already counted.");
       return;
     }
 
@@ -378,6 +381,17 @@ export function AwardPointsPanel({
     );
   }
 
+  // CP-125: the ENGINE allows a check-in every 12 hours no matter what the
+  // streak period is (weekly/monthly streaks just don't advance again until
+  // their period rolls). The desk button used to gate on
+  // checked_in_this_period, which froze it for the whole week on weekly
+  // programs — blocking visits AND the customer's daily wheel spin. Now it
+  // gates on the real 12h clock; the streak engine sorts out the rest.
+  const cooldownEndsMs = streak?.last_checkin_at
+    ? new Date(streak.last_checkin_at).getTime() + 12 * 3600_000
+    : 0;
+  const inCheckinCooldown = cooldownEndsMs > Date.now();
+
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col">
       <header className="bg-white border-b">
@@ -472,28 +486,36 @@ export function AwardPointsPanel({
                 <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Attendance</h3>
                 <button
                   onClick={checkIn}
-                  disabled={submitting || streak.checked_in_this_period}
+                  disabled={submitting || inCheckinCooldown}
                   className="mt-2 w-full rounded-2xl p-4 flex items-center gap-3 text-left transition shadow-md active:scale-[0.98] disabled:active:scale-100 disabled:opacity-70"
                   style={{
-                    background: streak.checked_in_this_period
+                    background: inCheckinCooldown
                       ? "linear-gradient(135deg, #d1fae5, #a7f3d0)"
                       : `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
-                    color: streak.checked_in_this_period ? "#065f46" : "white",
+                    color: inCheckinCooldown ? "#065f46" : "white",
                   }}
                 >
                   <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
                     style={{ background: "rgba(255,255,255,0.25)" }}>
-                    {streak.checked_in_this_period ? <Check className="h-6 w-6" /> : <Flame className="h-6 w-6" />}
+                    {inCheckinCooldown ? <Check className="h-6 w-6" /> : <Flame className="h-6 w-6" />}
                   </div>
                   <div className="flex-1">
                     <div className="font-bold text-base leading-tight">
-                      {streak.checked_in_this_period ? "Already checked in" : "Check in"}
+                      {inCheckinCooldown ? "Checked in — come back later" : "Check in"}
                     </div>
                     <div className="text-xs opacity-90 mt-0.5">
-                      {streak.current_streak > 0
-                        ? <>Streak: <strong>{streak.current_streak}</strong> {streak.period_type === "daily" ? "day" : streak.period_type}{streak.current_streak === 1 ? "" : "s"} in a row</>
-                        : "Start their streak today"}
-                      {streak.longest_streak > streak.current_streak && (
+                      {inCheckinCooldown ? (
+                        <>Next check-in in <strong>{timeLeftLabel(cooldownEndsMs - Date.now())}</strong> (12h between visits)</>
+                      ) : streak.checked_in_this_period ? (
+                        // CP-125: streak already advanced this period, but the
+                        // visit + wheel spin STILL count — say so, don't block.
+                        <>Streak already counted this {streak.period_type === "daily" ? "day" : streak.period_type.replace("ly", "")} — this check-in still counts the visit &amp; unlocks the wheel</>
+                      ) : streak.current_streak > 0 ? (
+                        <>Streak: <strong>{streak.current_streak}</strong> {streak.period_type === "daily" ? "day" : streak.period_type}{streak.current_streak === 1 ? "" : "s"} in a row</>
+                      ) : (
+                        "Start their streak today"
+                      )}
+                      {!inCheckinCooldown && streak.longest_streak > streak.current_streak && (
                         <> · longest {streak.longest_streak}</>
                       )}
                     </div>
@@ -519,7 +541,7 @@ export function AwardPointsPanel({
                           {nextMs === 0
                             ? "Can check in right now"
                             : nextMs !== null
-                              ? <>Next check-in counts in <strong>{timeLeftLabel(nextMs)}</strong></>
+                              ? <>Next STREAK credit in <strong>{timeLeftLabel(nextMs)}</strong></>
                               : "Next check-in: any visit"}
                         </div>
                         {nextMs !== null && nextMs > 0 && nextAt && (
