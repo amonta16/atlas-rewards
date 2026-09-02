@@ -41,8 +41,13 @@ export default async function JoinLanding({ params }: { params: { code: string }
     <JoinLandingClient
       business={business}
       code={clean}
-      appStoreUrl={process.env.NEXT_PUBLIC_APP_STORE_URL ?? ""}
-      playStoreUrl={process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? ""}
+      // CP-124.1 fallbacks are inlined below: this page silently rendered NO
+      // App Store button because NEXT_PUBLIC_APP_STORE_URL was never set in
+      // Vercel (every other iOS surface uses a constant). The moment the Play
+      // env was added, iPhones saw a Play-only landing. Envs still win when
+      // present; the real listings are the floor.
+      appStoreUrl={process.env.NEXT_PUBLIC_APP_STORE_URL || "https://apps.apple.com/us/app/ae-rewards/id6797182694"}
+      playStoreUrl={process.env.NEXT_PUBLIC_PLAY_STORE_URL || "https://play.google.com/store/apps/details?id=com.atlasengine.rewards"}
     />
   );
 }
