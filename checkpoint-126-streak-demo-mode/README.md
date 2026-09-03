@@ -46,6 +46,6 @@ The camera used to restart a fresh scroll ease inside every ~1.5s step — quick
 
 **Summit fix:** the "Complete" trophy + label sat directly on the progress bar / flame head at the top of the road. Lifted well above the track (and z-ordered over the corridor) so it reads cleanly.
 
-## CP-126.3 — One continuous climb
+## CP-126.4 — Reverted the continuous-climb experiment (CP-126.3)
 
-The step-glide camera was smooth within a step but stop-start between steps. Fixed in the motion itself: the demo flame now burns at **constant (linear) velocity**, each burn runs slightly longer than the step interval so the next step re-targets it before it ever finishes, and the camera is locked to the flame inside the same animation frame — flame and screen rise together in one unbroken glide from START to the summit. The per-frame layout thrash that caused the original stutter is also gone (the road's geometry is measured once per animation, not every frame). Pace relaxed to ~1.8s per check-in — the demo takes a touch longer and looks the better for it.
+The linear continuous climb made rewards visibly turn gold before the flame reached them, so it was reverted by Andrew's call. **Final shipped behavior = CP-126.2**: one browser-native smooth scroll per check-in step, discrete step rhythm, Complete badge lifted clear of the track.
