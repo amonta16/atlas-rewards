@@ -63,6 +63,10 @@ export function FieldDemoModal({
   // normal pickLogo path, so palette extraction and upload just work.
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupNote, setLookupNote] = useState<string | null>(null);
+  // CP-128.2: what auto-fill found, carried into the pipeline log.
+  const [foundMeta, setFoundMeta] = useState<{
+    address?: string | null; phone?: string | null; website?: string | null;
+  }>({});
 
   async function autofill() {
     if (name.trim().length < 2 || lookupBusy) return;
@@ -94,6 +98,7 @@ export function FieldDemoModal({
           : (j?.error || "Couldn't find it — fill in manually."));
         return;
       }
+      setFoundMeta({ address: j.address, phone: j.phone, website: j.website });
       if (j.name) setName(j.name);
       if (j.niche && j.niche in NICHE_META) setNiche(j.niche as DemoNiche);
       if (j.logoDataUrl) {
@@ -155,6 +160,23 @@ export function FieldDemoModal({
       const row: any = Array.isArray(data) ? data[0] : data;
       const slug = row?.new_slug as string;
       setResult({ slug, url: appUrl(slug) });
+      // CP-128.2: door days track themselves — every demo lands in the
+      // pipeline as a 'prepared_app' prospect. Best-effort: a pipeline
+      // hiccup never blocks the demo the rep is holding.
+      try {
+        const { data: existing } = await supabase
+          .from("agency_pipeline").select("id")
+          .ilike("name", name.trim()).eq("status", "open").limit(1);
+        if (!existing?.length) {
+          await supabase.from("agency_pipeline").insert({
+            name: name.trim(),
+            stage: "prepared_app",
+            lead_source: "door_to_door",
+            contact_info: [foundMeta.phone, foundMeta.website].filter(Boolean).join(" · ") || null,
+            notes: [`Instant demo: ${appUrl(slug)}`, foundMeta.address].filter(Boolean).join("\n"),
+          });
+        }
+      } catch { /* best-effort */ }
       onCreated?.();
     } catch (e: any) {
       setErr(e?.message ?? "Something went wrong");
@@ -166,7 +188,7 @@ export function FieldDemoModal({
   function reset() {
     setResult(null); setName(""); setLogoFile(null);
     setLogoPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
-    setThemeId("from-logo"); setErr(null);
+    setThemeId("from-logo"); setErr(null); setFoundMeta({}); setLookupNote(null);
   }
 
   return (

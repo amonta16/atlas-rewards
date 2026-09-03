@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { Loader2, Layers, Check, X, ExternalLink, Copy, AlertCircle } from "lucide-react";
+import { Loader2, Layers, Check, X, ExternalLink, Copy, AlertCircle, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +58,12 @@ export function FieldBatchModal({
   const [done, setDone] = useState(false);
   const [results, setResults] = useState<RowResult[]>([]);
   const [copied, setCopied] = useState(false);
+  // CP-128.2: "Scan this plaza" — Places nearby → checklist → list lines.
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
+  const [nearby, setNearby] = useState<
+    Array<{ name: string; address: string | null; niche: DemoNiche; checked: boolean }> | null
+  >(null);
 
   const isDev = rootDomain.includes("lvh.me");
   const appUrl = (slug: string) =>
@@ -91,6 +97,21 @@ export function FieldBatchModal({
         const out: any = Array.isArray(data) ? data[0] : data;
         const slug = out?.new_slug as string;
         acc.push({ name: row.name, niche: row.niche, ok: true, slug, url: appUrl(slug) });
+        // CP-128.2: best-effort pipeline log — one open 'prepared_app'
+        // prospect per business, never blocks the batch.
+        try {
+          const { data: existing } = await supabase
+            .from("agency_pipeline").select("id")
+            .ilike("name", row.name).eq("status", "open").limit(1);
+          if (!existing?.length) {
+            await supabase.from("agency_pipeline").insert({
+              name: row.name,
+              stage: "prepared_app",
+              lead_source: "door_to_door",
+              notes: `Batch demo: ${appUrl(slug)}`,
+            });
+          }
+        } catch { /* best-effort */ }
       } catch (e: any) {
         acc.push({ name: row.name, niche: row.niche, ok: false, error: e?.message ?? "failed" });
       }
@@ -109,6 +130,63 @@ export function FieldBatchModal({
 
   function restart() {
     setDone(false); setResults([]); setText("");
+  }
+
+  // CP-128.2: pull every storefront around the rep into a checklist.
+  async function scanNearby() {
+    if (scanBusy) return;
+    setScanBusy(true); setScanNote(null); setNearby(null);
+    try {
+      const pos = await new Promise<GeolocationPosition | null>((res) => {
+        if (!navigator.geolocation) return res(null);
+        const t = window.setTimeout(() => res(null), 6000);
+        navigator.geolocation.getCurrentPosition(
+          (g) => { window.clearTimeout(t); res(g); },
+          () => { window.clearTimeout(t); res(null); },
+          { enableHighAccuracy: true, timeout: 5500 },
+        );
+      });
+      if (!pos) { setScanNote("Location needed — allow location access and try again."); return; }
+      const r = await fetch("/api/field/places-nearby", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, radius: 250 }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setScanNote(j?.error === "places_not_configured"
+          ? "Scan needs GOOGLE_PLACES_API_KEY in Vercel — paste names manually meanwhile."
+          : (j?.error || "Scan failed — paste names manually."));
+        return;
+      }
+      const found = ((j.places ?? []) as Array<{ name?: string; address?: string | null; niche?: string }>)
+        .map((p) => ({
+          // commas would split the "name, niche" line format
+          name: String(p.name || "").replace(/,/g, " ").replace(/\s+/g, " ").trim(),
+          address: p.address ?? null,
+          niche: (p.niche && p.niche in NICHE_META ? p.niche : "general") as DemoNiche,
+          checked: true,
+        }))
+        .filter((p) => p.name);
+      if (!found.length) { setScanNote("Nothing storefront-shaped found here."); return; }
+      setNearby(found);
+    } catch {
+      setScanNote("Scan failed — paste names manually.");
+    } finally {
+      setScanBusy(false);
+    }
+  }
+
+  function addNearby() {
+    if (!nearby) return;
+    const existing = new Set(rows.map((r) => r.name.toLowerCase()));
+    const lines = nearby
+      .filter((p) => p.checked && !existing.has(p.name.toLowerCase()))
+      .map((p) => `${p.name}, ${p.niche}`);
+    if (lines.length) {
+      setText((t) => (t.trim() ? t.replace(/\s+$/, "") + "\n" : "") + lines.join("\n"));
+    }
+    setNearby(null);
   }
 
   return (
@@ -131,6 +209,37 @@ export function FieldBatchModal({
           {results.length === 0 && !running ? (
             /* ── SETUP ────────────────────────────────────────────── */
             <div className="space-y-4">
+              {/* CP-128.2: scan the plaza you're standing in. */}
+              <div>
+                <button onClick={scanNearby} disabled={scanBusy}
+                  className="w-full rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-sm font-bold text-cyan-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
+                  {scanBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                  {scanBusy ? "Scanning nearby…" : "Scan this plaza"}
+                </button>
+                {scanNote && <p className="text-[11px] text-zinc-500 mt-1.5">{scanNote}</p>}
+                {nearby && (
+                  <div className="mt-2 rounded-xl border overflow-hidden">
+                    <div className="max-h-44 overflow-y-auto divide-y">
+                      {nearby.map((p, i) => (
+                        <label key={i} className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-zinc-50">
+                          <input type="checkbox" checked={p.checked}
+                            onChange={() => setNearby(n => n && n.map((x, xi) => (xi === i ? { ...x, checked: !x.checked } : x)))} />
+                          <span className="min-w-0 flex-1">
+                            <span className="font-semibold text-zinc-900 block truncate">{p.name}</span>
+                            {p.address && <span className="text-[10px] text-zinc-400 block truncate">{p.address}</span>}
+                          </span>
+                          <span className="text-sm">{NICHE_META[p.niche].emoji}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <button onClick={addNearby}
+                      className="w-full border-t bg-cyan-50 px-3 py-2 text-xs font-bold text-cyan-700">
+                      Add {nearby.filter(p => p.checked).length} to the list
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="text-xs font-bold text-zinc-600">Your list</label>
                 <p className="text-[11px] text-zinc-400 mb-1">One business per line. Add a type after a comma, or let it guess.</p>

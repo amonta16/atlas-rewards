@@ -254,6 +254,8 @@ export type BusinessFolder = {
   id: string;
   name: string;
   cover_image_url: string | null;
+  /** CP-128.2: one level of nesting (location → niche); null = top level. */
+  parent_folder_id?: string | null;
   sort: number;
   created_at?: string;
   updated_at?: string;

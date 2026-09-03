@@ -68,6 +68,16 @@ export function AppsAdminClient({
   function appsInFolder(folderId: string) { return list.filter(b => b.folder_id === folderId); }
   function countFor(f: BusinessFolder) { return appsInFolder(f.id).length; }
 
+  // CP-128.2: one level of nesting (location → niche).
+  const topFolders = folders.filter(f => !f.parent_folder_id);
+  function childrenOf(folderId: string) { return folders.filter(f => f.parent_folder_id === folderId); }
+  /** A parent card counts its own apps plus its children's. */
+  function rollupCount(f: BusinessFolder) {
+    return countFor(f) + childrenOf(f.id).reduce((n, c) => n + countFor(c), 0);
+  }
+  /** Move-menu ordering: each parent followed by its children (indented). */
+  const orderedFolders = topFolders.flatMap(t => [t, ...childrenOf(t.id)]);
+
   const searchMatch = (b: Business) =>
     !query || b.name.toLowerCase().includes(query.toLowerCase()) || b.slug.toLowerCase().includes(query.toLowerCase());
 
@@ -155,7 +165,10 @@ export function AppsAdminClient({
     });
   }
   function onFolderDeleted(id: string) {
-    setFolders(prev => prev.filter(f => f.id !== id));
+    // CP-128.2: a deleted parent releases its children to the top level
+    // (matches the DB's ON DELETE SET NULL).
+    setFolders(prev => prev.filter(f => f.id !== id)
+      .map(f => (f.parent_folder_id === id ? { ...f, parent_folder_id: null } : f)));
     setList(prev => prev.map(b => (b.folder_id === id ? { ...b, folder_id: null } : b)));
     setDrill(d => (d && typeof d === "object" && d.folderId === id ? null : d));
   }
@@ -206,7 +219,7 @@ export function AppsAdminClient({
           <Section title={`Search · "${query}"`}>
             <AppGrid
               apps={list.filter(searchMatch)}
-              folders={folders}
+              folders={orderedFolders}
               rootDomain={rootDomain}
               isVa={isVa}
               pendingBizIds={pendingBizIds}
@@ -226,11 +239,11 @@ export function AppsAdminClient({
                 icon={<LayoutGrid className="h-6 w-6" />}
                 onClick={() => setDrill("ALL")}
               />
-              {folders.map(f => (
+              {topFolders.map(f => (
                 <FolderCard
                   key={f.id}
                   label={f.name}
-                  count={countFor(f)}
+                  count={rollupCount(f)}
                   cover={f.cover_image_url}
                   accent={gradientFor(f.name)}
                   icon={<Folder className="h-6 w-6" />}
@@ -266,9 +279,15 @@ export function AppsAdminClient({
           <div>
             <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
               <div className="flex items-center gap-3 min-w-0">
-                <button onClick={() => setDrill(null)}
+                <button
+                  onClick={() => setDrill(activeFolder?.parent_folder_id
+                    ? { folderId: activeFolder.parent_folder_id }
+                    : null)}
                   className="h-9 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-sky-100 flex items-center gap-1.5 text-sm shrink-0">
-                  <ArrowLeft className="h-4 w-4" /> Folders
+                  <ArrowLeft className="h-4 w-4" />
+                  {activeFolder?.parent_folder_id
+                    ? (folders.find(f => f.id === activeFolder.parent_folder_id)?.name ?? "Back")
+                    : "Folders"}
                 </button>
                 <div
                   className="h-11 w-11 rounded-xl flex items-center justify-center text-white shrink-0 bg-cover bg-center"
@@ -292,9 +311,26 @@ export function AppsAdminClient({
               )}
             </div>
 
+            {/* CP-128.2: subfolders of this folder (one level deep). */}
+            {activeFolder && childrenOf(activeFolder.id).length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-5">
+                {childrenOf(activeFolder.id).map(sf => (
+                  <FolderCard
+                    key={sf.id}
+                    label={sf.name}
+                    count={countFor(sf)}
+                    cover={sf.cover_image_url}
+                    accent={gradientFor(sf.name)}
+                    icon={<Folder className="h-6 w-6" />}
+                    onClick={() => setDrill({ folderId: sf.id })}
+                    onEdit={() => setFolderModal({ folder: sf })}
+                  />
+                ))}
+              </div>
+            )}
             <AppGrid
               apps={drilledApps()}
-              folders={folders}
+              folders={orderedFolders}
               rootDomain={rootDomain}
               isVa={isVa}
               pendingBizIds={pendingBizIds}
@@ -311,6 +347,7 @@ export function AppsAdminClient({
       {folderModal && (
         <FolderEditModal
           folder={folderModal.folder}
+          allFolders={folders}
           onClose={() => setFolderModal(null)}
           onSaved={onFolderSaved}
           onDeleted={onFolderDeleted}
@@ -493,6 +530,7 @@ function AppTile({
                 <div className="max-h-48 overflow-y-auto">
                   {folders.map(f => (
                     <button key={f.id} onClick={() => { onMove(b, f.id); setMenuOpen(false); }}
+                      style={f.parent_folder_id ? { paddingLeft: "1.75rem" } : undefined}
                       className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-sky-100 hover:bg-white/5">
                       <span className="truncate flex items-center gap-2"><Folder className="h-3.5 w-3.5 text-sky-300/60" />{f.name}</span>
                       {b.folder_id === f.id && <Check className="h-3.5 w-3.5 text-sky-300" />}

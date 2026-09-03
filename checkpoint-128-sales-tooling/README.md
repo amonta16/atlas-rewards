@@ -48,3 +48,30 @@ git add .
 git commit -m "CP-128: door-to-door tier 1 - visible inputs, 14 demo niches + universal fallback, Google Places auto-fill with logo pull"
 git push
 ```
+
+---
+
+# CP-128.2 · Tier 2 — plaza scan, nested folders, self-tracking door days
+
+## 1 · "Scan this plaza" (batch tool)
+
+Stand in a parking lot, open Batch demos, tap **Scan this plaza**: every storefront within ~250m appears as a checklist (name, address, guessed niche) — banks, gas stations, schools and offices are filtered out. Uncheck what you don't want, tap **Add to the list**, and batch-build the whole plaza. Sunday prep for a street drops to about a minute. Uses the same `GOOGLE_PLACES_API_KEY` as Find (nothing new to configure).
+
+## 2 · Folders inside folders (Apps deck)
+
+One level of nesting, built for **location → niche**: "San Luis Obispo" ▸ "Smoke shops" / "Cafés". The folder editor gains an **Inside folder** picker; parent cards roll up their children's app counts; drilling into a parent shows its subfolder cards above the apps; the back button walks up one level; the Move menu indents children under their parents. A folder that holds subfolders stays top-level (no grandchildren — by design). Deleting a parent releases its children to the top level and never touches apps.
+
+**Requires `cp128_2_folders.sql`** (tiny: one column + one index; safe, re-runnable). Run it in Supabase **before** deploying.
+
+## 3 · Door days track themselves
+
+Every demo build — single or batch — now drops a prospect card into the pipeline automatically: stage **App prepared**, source **door to door**, with the demo link in the notes (and, when Find was used, the shop's address/phone/website). One open card per business name — rebuilding a demo never duplicates. Best-effort by design: a pipeline hiccup can never block the demo you're holding at the door.
+
+## Apply order
+
+1. `cp128_2_folders.sql` in the Supabase SQL editor.
+2. `git push`.
+
+## Test
+
+Scan a real plaza → checklist appears → add 3 → batch builds → Headquarters shows 3 new "App prepared" cards. Apps deck → edit a folder → put it inside another → drill in/out, move an app via the indented menu.

@@ -15,16 +15,23 @@ import type { BusinessFolder } from "@/lib/types/database";
  * FK's ON DELETE SET NULL), it never touches the businesses themselves.
  */
 export function FolderEditModal({
-  folder, onClose, onSaved, onDeleted,
+  folder, onClose, onSaved, onDeleted, allFolders,
 }: {
   folder: BusinessFolder | null; // null = create
   onClose: () => void;
   onSaved: (folder: BusinessFolder) => void;
   onDeleted: (id: string) => void;
+  /** CP-128.2: the full folder list, for the parent-folder picker. */
+  allFolders?: BusinessFolder[];
 }) {
   const { toast } = useToast();
   const [name, setName] = useState(folder?.name ?? "");
   const [cover, setCover] = useState<string | null>(folder?.cover_image_url ?? null);
+  // CP-128.2: one level of nesting — only top-level folders can be parents,
+  // and a folder that already has children stays top-level (no grandkids).
+  const [parentId, setParentId] = useState<string | null>(folder?.parent_folder_id ?? null);
+  const parentOptions = (allFolders ?? []).filter(f => !f.parent_folder_id && f.id !== folder?.id);
+  const hasChildren = (allFolders ?? []).some(f => f.parent_folder_id === folder?.id);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -36,7 +43,7 @@ export function FolderEditModal({
     if (folder) {
       const { data, error } = await supabase
         .from("business_folders")
-        .update({ name: trimmed, cover_image_url: cover })
+        .update({ name: trimmed, cover_image_url: cover, parent_folder_id: hasChildren ? null : parentId })
         .eq("id", folder.id)
         .select("*").single();
       setSaving(false);
@@ -46,7 +53,7 @@ export function FolderEditModal({
     } else {
       const { data, error } = await supabase
         .from("business_folders")
-        .insert({ name: trimmed, cover_image_url: cover })
+        .insert({ name: trimmed, cover_image_url: cover, parent_folder_id: parentId })
         .select("*").single();
       setSaving(false);
       if (error) { toast.error("Create failed: " + error.message); return; }
@@ -85,6 +92,27 @@ export function FolderEditModal({
             <Label className="text-xs text-muted-foreground">Folder name</Label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Med Spas, Restaurants, Trials"
               onKeyDown={e => { if (e.key === "Enter") save(); }} autoFocus />
+          </div>
+          {/* CP-128.2: file this folder inside a top-level folder, so the
+              deck can hold "San Luis Obispo" ▸ "Smoke shops". One level. */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Inside folder</Label>
+            <select
+              value={parentId ?? ""}
+              onChange={e => setParentId(e.target.value || null)}
+              disabled={hasChildren}
+              className="w-full h-10 rounded-lg border bg-white px-3 text-sm text-zinc-900 disabled:opacity-60"
+            >
+              <option value="">Top level</option>
+              {parentOptions.map(f => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-zinc-500">
+              {hasChildren
+                ? "This folder holds subfolders, so it stays at the top level."
+                : "e.g. put \u201cSmoke shops\u201d inside \u201cSan Luis Obispo\u201d. One level deep."}
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Cover image (optional)</Label>
