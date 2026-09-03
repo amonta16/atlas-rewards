@@ -914,34 +914,23 @@ function RewardRoad({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetFrac, settled]);
 
-  // ── CP-126.1: SMOOTH DEMO CAMERA. One rAF loop for the whole demo pass:
-  // each frame the viewport closes a time-based fraction of the distance
-  // to the flame (exponential damping, ~260ms time constant), so it glides
-  // continuously — through the burn, through the pause between steps, and
-  // right through a claim. Demo mode only; the entry replay and real live
-  // advances keep their existing behavior.
+  // ── CP-126.2: DEMO CAMERA v3 — browser-NATIVE smooth scrolling. The v2
+  // per-frame JS follower still stuttered on phones: a scripted scrollTo
+  // every rAF runs on the main thread and repaints the blurred corridor
+  // each frame. Now each demo step issues ONE `behavior: "smooth"` scroll
+  // to where the flame is heading — the compositor animates it off the
+  // main thread, as smooth as the device can render. Demo mode only; the
+  // entry replay and real live advances keep their existing behavior.
   useEffect(() => {
-    if (!demo || reducedMotion()) return;
-    let raf = 0;
-    let last = performance.now();
-    const tick = (nowTs: number) => {
-      const el = containerRef.current;
-      if (el) {
-        const dt = Math.min(64, nowTs - last);
-        const rect = el.getBoundingClientRect();
-        const headViewportY = rect.top + PAD_TOP + (1 - fracRef.current) * (rect.height - PAD_TOP - PAD_BOTTOM);
-        const target = Math.max(0, window.scrollY + headViewportY - window.innerHeight * 0.55);
-        const k = 1 - Math.exp(-dt / 260);
-        const next = window.scrollY + (target - window.scrollY) * k;
-        if (Math.abs(next - window.scrollY) > 0.5) window.scrollTo({ top: next });
-      }
-      last = nowTs;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    if (!demo || reducedMotion() || typeof window === "undefined") return;
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const absTop = rect.top + window.scrollY; // scroll-independent
+    const headY = absTop + PAD_TOP + (1 - targetFrac) * (rect.height - PAD_TOP - PAD_BOTTOM);
+    window.scrollTo({ top: Math.max(0, headY - window.innerHeight * 0.55), behavior: "smooth" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demo]);
+  }, [demo, targetFrac]);
 
   // Flame head grows with the streak: ember → lit → blazing.
   const ratio = current / range;
@@ -1275,7 +1264,10 @@ function RewardRoad({
 
         {/* finish glow when everything is earned */}
         {settled && current >= range && (
-          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center" style={{ top: PAD_TOP - 48 }}>
+          <div
+            // CP-126.2: lifted well clear of the flame head + summit node —
+            // it used to sit right on the progress bar and was unreadable.
+            className="absolute left-1/2 -translate-x-1/2 z-20 flex flex-col items-center" style={{ top: PAD_TOP - 112 }}>
             <div className="h-10 w-10 rounded-full flex items-center justify-center"
               style={{ background: earnedNodeBg, boxShadow: `0 0 18px 4px ${alpha(cMid, 0.65)}` }}>
               <Trophy className="h-5 w-5 text-white drop-shadow" />

@@ -39,3 +39,9 @@ git push
 ## CP-126.1 — Smooth demo camera (follow-up)
 
 The camera used to restart a fresh scroll ease inside every ~1.5s step — quick lurch, decelerate, idle, lurch again — which read as rapid little jumps. Now **one continuous camera follower** runs for the whole demo: every frame the viewport glides a time-based fraction of the way toward the flame (exponential damping, ~260ms), so it flows smoothly through the burns, through the pauses between steps, and right through a claim. The flame's own step animation is unchanged, claims still don't interrupt the climb, and the real-streak entry replay keeps its original camera. Same single file, no SQL.
+
+## CP-126.2 — Native smooth camera + Complete badge fix
+
+**Camera v3:** the per-frame JS follower still stuttered on phones — scripting the scroll every frame runs on the main thread and repaints the blurred corridor each frame. Now each demo step issues **one browser-native `behavior: "smooth"` scroll** toward where the flame is heading; the browser's compositor animates it off the main thread, which is as smooth as the device can render.
+
+**Summit fix:** the "Complete" trophy + label sat directly on the progress bar / flame head at the top of the road. Lifted well above the track (and z-ordered over the corridor) so it reads cleanly.
