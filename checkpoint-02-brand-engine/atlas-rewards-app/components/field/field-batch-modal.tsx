@@ -137,13 +137,13 @@ export function FieldBatchModal({
                 <textarea
                   value={text} onChange={(e) => setText(e.target.value)} rows={7} autoFocus
                   placeholder={"Joe's Diner, food\nVapor Kings, smoke\nGlow Bar, beauty\nMain St Coffee"}
-                  className="w-full rounded-xl border px-3 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-cyan-400 resize-y"
+                  className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-cyan-400 resize-y"
                 />
               </div>
 
               <div>
                 <label className="text-xs font-bold text-zinc-600">If a line doesn't say a type, assume</label>
-                <div className="mt-1 grid grid-cols-3 gap-2">
+                <div className="mt-1 grid grid-cols-4 gap-1.5">
                   {NICHE_ORDER.map((k) => (
                     <button key={k} onClick={() => setFallbackNiche(k)}
                       className={`rounded-xl border px-2 py-2 text-sm font-semibold flex flex-col items-center gap-0.5 ${

@@ -13,7 +13,7 @@
 
 import { useMemo, useState } from "react";
 import QRCode from "react-qr-code";
-import { Loader2, Sparkles, Camera, Check, ExternalLink, Copy, X } from "lucide-react";
+import { Loader2, Sparkles, Camera, Check, ExternalLink, Copy, X, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +55,60 @@ export function FieldDemoModal({
     setLogoPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return file ? URL.createObjectURL(file) : null; });
     // If they add a logo, default the theme back to "from logo".
     if (file) setThemeId("from-logo");
+  }
+
+  // ── CP-128: one-tap auto-fill from Google Places ────────────────────
+  // Type the shop's name, hit Find: canonical name, the right niche pack,
+  // and (when the shop has a website) the logo — which flows through the
+  // normal pickLogo path, so palette extraction and upload just work.
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupNote, setLookupNote] = useState<string | null>(null);
+
+  async function autofill() {
+    if (name.trim().length < 2 || lookupBusy) return;
+    setLookupBusy(true); setLookupNote(null);
+    try {
+      // Best-effort GPS so "Joe's" finds the one the rep is standing at.
+      const pos = await new Promise<GeolocationPosition | null>((res) => {
+        if (!navigator.geolocation) return res(null);
+        const t = window.setTimeout(() => res(null), 1500);
+        navigator.geolocation.getCurrentPosition(
+          (g) => { window.clearTimeout(t); res(g); },
+          () => { window.clearTimeout(t); res(null); },
+          { maximumAge: 300_000, timeout: 1400 },
+        );
+      });
+      const r = await fetch("/api/field/places-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: name.trim(),
+          lat: pos?.coords.latitude,
+          lng: pos?.coords.longitude,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setLookupNote(j?.error === "places_not_configured"
+          ? "Auto-fill needs GOOGLE_PLACES_API_KEY in Vercel — manual entry works fine."
+          : (j?.error || "Couldn't find it — fill in manually."));
+        return;
+      }
+      if (j.name) setName(j.name);
+      if (j.niche && j.niche in NICHE_META) setNiche(j.niche as DemoNiche);
+      if (j.logoDataUrl) {
+        const blob = await (await fetch(j.logoDataUrl)).blob();
+        pickLogo(new File([blob], "logo.png", { type: blob.type || "image/png" }));
+      }
+      setLookupNote([
+        j.address,
+        j.logoDataUrl ? "logo + colors pulled" : "no logo found — snap one",
+      ].filter(Boolean).join(" · "));
+    } catch {
+      setLookupNote("Couldn't find it — fill in manually.");
+    } finally {
+      setLookupBusy(false);
+    }
   }
 
   async function resolveColorsAndLogo(): Promise<{ colors: BrandColors; logoUrl: string | null }> {
@@ -162,25 +216,40 @@ export function FieldDemoModal({
           ) : (
             /* ── FORM ─────────────────────────────────────────────── */
             <div className="space-y-4">
-              {/* name */}
+              {/* name + CP-128 auto-fill. Explicit bg/text colors: the Field
+                  App shell is dark-themed and this input was inheriting WHITE
+                  text on the white modal — invisible typing. */}
               <div>
                 <label className="text-xs font-bold text-zinc-600">Business name</label>
-                <input
-                  value={name} onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Joe's Diner" autoFocus
-                  className="mt-1 w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                />
+                <div className="mt-1 flex gap-2">
+                  <input
+                    value={name} onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Joe's Diner" autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") autofill(); }}
+                    className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                  <button
+                    onClick={autofill}
+                    disabled={name.trim().length < 2 || lookupBusy}
+                    title="Look the shop up — fills the type, logo and colors"
+                    className="shrink-0 rounded-xl border border-indigo-200 bg-indigo-50 px-3 text-xs font-bold text-indigo-700 disabled:opacity-50 flex items-center gap-1">
+                    {lookupBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    Find
+                  </button>
+                </div>
+                {lookupNote && <p className="text-[11px] text-zinc-500 mt-1.5">{lookupNote}</p>}
               </div>
 
               {/* niche */}
               <div>
                 <label className="text-xs font-bold text-zinc-600">Type</label>
-                <div className="mt-1 grid grid-cols-3 gap-2">
+                {/* CP-128: 14 niches — denser grid, same one-tap pick. */}
+                <div className="mt-1 grid grid-cols-4 gap-1.5">
                   {NICHE_ORDER.map((k) => (
                     <button key={k} onClick={() => setNiche(k)}
-                      className={`rounded-xl border px-2 py-2.5 text-sm font-semibold flex flex-col items-center gap-0.5 ${
+                      className={`rounded-xl border px-1 py-2 text-xs font-semibold flex flex-col items-center gap-0.5 ${
                         niche === k ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-zinc-200 text-zinc-600"}`}>
-                      <span className="text-lg leading-none">{NICHE_META[k].emoji}</span>
+                      <span className="text-base leading-none">{NICHE_META[k].emoji}</span>
                       {NICHE_META[k].label.split(" ")[0]}
                     </button>
                   ))}
