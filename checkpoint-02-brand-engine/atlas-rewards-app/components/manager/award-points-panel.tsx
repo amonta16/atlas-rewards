@@ -250,10 +250,18 @@ export function AwardPointsPanel({
     setSubmitting(true);
     setErr(null);
     const supabase = createClient();
+    // CP-127: removing points also walks back the recorded SPEND the
+    // mistaken award logged (points ÷ points-per-$ rate), so analytics
+    // (revenue, avg ticket, member spend, "points awarded") correct
+    // themselves instead of keeping the mistake forever. The server
+    // clamps it — a member's recorded spend can never go below zero.
+    const rate = business.point_rules.purchase_per_dollar || 0;
+    const spendCents = rate > 0 ? Math.round((pointsToRemove / rate) * 100) : null;
     const { data, error } = await supabase.rpc("manager_remove_points", {
       p_membership_id: member.membership_id,
       p_amount: pointsToRemove,
       p_notes: removeNote.trim() || null,
+      p_spend_correction_cents: spendCents,
     });
     setSubmitting(false);
     if (error) { setErr(error.message); return; }
@@ -748,6 +756,12 @@ export function AwardPointsPanel({
               {parseInt(removeAmount || "0", 10) > member.points_balance && (
                 <div className="mt-1 text-[11px] text-amber-600 font-semibold">
                   Capped at their balance — can't go below 0.
+                </div>
+              )}
+              {/* CP-127: the removal fixes the analytics too, and says so. */}
+              {pointsToRemove > 0 && business.point_rules.purchase_per_dollar > 0 && (
+                <div className="mt-1 text-[11px] text-zinc-500">
+                  Analytics will also remove ≈ ${(pointsToRemove / business.point_rules.purchase_per_dollar).toFixed(2)} of recorded spending.
                 </div>
               )}
             </div>
