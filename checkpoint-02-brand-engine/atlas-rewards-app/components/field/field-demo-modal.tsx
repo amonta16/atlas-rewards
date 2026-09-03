@@ -17,8 +17,9 @@ import { Loader2, Sparkles, Camera, Check, ExternalLink, Copy, X, Search } from 
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
-  NICHE_ORDER, NICHE_META, COLOR_THEMES, getDemoPack, packPayload, type DemoNiche,
+  NICHE_ORDER, NICHE_META, COLOR_THEMES, getDemoPack, packPayload, demoDesignPayload, type DemoNiche,
 } from "@/lib/demo-packs";
+import { cityFromAddress, fileDemoIntoFolders } from "@/lib/demo-folders";
 import { paletteFromLogoFile, monogramDataUrl, type BrandColors } from "@/lib/logo-colors";
 
 function slugify(s: string): string {
@@ -66,6 +67,7 @@ export function FieldDemoModal({
   // CP-128.2: what auto-fill found, carried into the pipeline log.
   const [foundMeta, setFoundMeta] = useState<{
     address?: string | null; phone?: string | null; website?: string | null;
+    reviewUrl?: string | null;
   }>({});
 
   async function autofill() {
@@ -98,7 +100,7 @@ export function FieldDemoModal({
           : (j?.error || "Couldn't find it — fill in manually."));
         return;
       }
-      setFoundMeta({ address: j.address, phone: j.phone, website: j.website });
+      setFoundMeta({ address: j.address, phone: j.phone, website: j.website, reviewUrl: j.reviewUrl });
       if (j.name) setName(j.name);
       if (j.niche && j.niche in NICHE_META) setNiche(j.niche as DemoNiche);
       if (j.logoDataUrl) {
@@ -159,6 +161,7 @@ export function FieldDemoModal({
       if (error) { setErr(error.message); setBusy(false); return; }
       const row: any = Array.isArray(data) ? data[0] : data;
       const slug = row?.new_slug as string;
+      const bizId = row?.new_business_id as string | undefined;
       setResult({ slug, url: appUrl(slug) });
       // CP-128.2: door days track themselves — every demo lands in the
       // pipeline as a 'prepared_app' prospect. Best-effort: a pipeline
@@ -177,6 +180,22 @@ export function FieldDemoModal({
           });
         }
       } catch { /* best-effort */ }
+      // CP-129: house design preset + Google review boost + auto-filing
+      // into "<City>" ▸ "<Niche>" folders. All best-effort.
+      if (bizId) {
+        try {
+          const { data: wc } = await supabase
+            .from("businesses").select("widget_config").eq("id", bizId).single();
+          const widget = { ...((wc?.widget_config as Record<string, unknown> | null) ?? {}), reviews: true };
+          await supabase.from("businesses").update({
+            ...demoDesignPayload(),
+            widget_config: widget,
+            ...(foundMeta.reviewUrl ? { google_review_url: foundMeta.reviewUrl } : {}),
+          }).eq("id", bizId);
+        } catch { /* design preset is best-effort */ }
+        const city = cityFromAddress(foundMeta.address);
+        if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[niche].label);
+      }
       onCreated?.();
     } catch (e: any) {
       setErr(e?.message ?? "Something went wrong");
@@ -194,7 +213,7 @@ export function FieldDemoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
          onClick={onClose}>
-      <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+      <div className="w-full sm:max-w-md bg-white text-zinc-900 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
            style={{ maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
         {/* header */}
         <div className="px-5 py-4 border-b flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white">

@@ -45,6 +45,12 @@ export const LIBRARY_INDUSTRY_LABELS: Record<string, string> = {
   "arcade": "Arcade",
   "ice-cream": "Ice Cream",
   "restaurant": "Restaurant",
+  // CP-129: sets for the CP-128 packs that had no imagery — upload a
+  // handful of photos to each in the admin library and every matching
+  // demo build picks them up automatically.
+  "general": "General (any shop)",
+  "fitness": "Gym & Fitness",
+  "retail": "Retail & Boutique",
 };
 
 export function libraryIndustryLabel(slug: string): string {

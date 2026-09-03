@@ -18,9 +18,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   NICHE_ORDER, NICHE_META, PRESET_THEMES, themeForIndex,
-  getDemoPack, packPayload, guessNiche, type DemoNiche,
+  getDemoPack, packPayload, guessNiche, demoDesignPayload, type DemoNiche,
 } from "@/lib/demo-packs";
 import { monogramDataUrl } from "@/lib/logo-colors";
+import { cityFromAddress, fileDemoIntoFolders } from "@/lib/demo-folders";
 
 function slugify(s: string): string {
   return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "demo";
@@ -62,8 +63,11 @@ export function FieldBatchModal({
   const [scanBusy, setScanBusy] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
   const [nearby, setNearby] = useState<
-    Array<{ name: string; address: string | null; niche: DemoNiche; checked: boolean }> | null
+    Array<{ name: string; address: string | null; niche: DemoNiche; checked: boolean; reviewUrl: string | null }> | null
   >(null);
+  // CP-129: what the scan knew about each shop (address for auto-filing,
+  // review link for the review boost) — survives into the build loop.
+  const [scanInfo, setScanInfo] = useState<Record<string, { address: string | null; reviewUrl: string | null }>>({});
 
   const isDev = rootDomain.includes("lvh.me");
   const appUrl = (slug: string) =>
@@ -112,6 +116,24 @@ export function FieldBatchModal({
             });
           }
         } catch { /* best-effort */ }
+        // CP-129: house design preset + review boost + auto-filing into
+        // "<City>" ▸ "<Niche>" folders. All best-effort.
+        if (out?.new_business_id) {
+          const bizId = out.new_business_id as string;
+          const info = scanInfo[row.name.toLowerCase()];
+          try {
+            const { data: wc } = await supabase
+              .from("businesses").select("widget_config").eq("id", bizId).single();
+            const widget = { ...((wc?.widget_config as Record<string, unknown> | null) ?? {}), reviews: true };
+            await supabase.from("businesses").update({
+              ...demoDesignPayload(i),
+              widget_config: widget,
+              ...(info?.reviewUrl ? { google_review_url: info.reviewUrl } : {}),
+            }).eq("id", bizId);
+          } catch { /* best-effort */ }
+          const city = cityFromAddress(info?.address);
+          if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[row.niche].label);
+        }
       } catch (e: any) {
         acc.push({ name: row.name, niche: row.niche, ok: false, error: e?.message ?? "failed" });
       }
@@ -159,13 +181,14 @@ export function FieldBatchModal({
           : (j?.error || "Scan failed — paste names manually."));
         return;
       }
-      const found = ((j.places ?? []) as Array<{ name?: string; address?: string | null; niche?: string }>)
+      const found = ((j.places ?? []) as Array<{ name?: string; address?: string | null; niche?: string; reviewUrl?: string | null }>)
         .map((p) => ({
           // commas would split the "name, niche" line format
           name: String(p.name || "").replace(/,/g, " ").replace(/\s+/g, " ").trim(),
           address: p.address ?? null,
           niche: (p.niche && p.niche in NICHE_META ? p.niche : "general") as DemoNiche,
           checked: true,
+          reviewUrl: p.reviewUrl ?? null,
         }))
         .filter((p) => p.name);
       if (!found.length) { setScanNote("Nothing storefront-shaped found here."); return; }
@@ -186,13 +209,21 @@ export function FieldBatchModal({
     if (lines.length) {
       setText((t) => (t.trim() ? t.replace(/\s+$/, "") + "\n" : "") + lines.join("\n"));
     }
+    // CP-129: remember each added shop's address + review link for the run.
+    setScanInfo((prev) => {
+      const next = { ...prev };
+      for (const p of nearby) {
+        if (p.checked) next[p.name.toLowerCase()] = { address: p.address, reviewUrl: p.reviewUrl };
+      }
+      return next;
+    });
     setNearby(null);
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
          onClick={running ? undefined : onClose}>
-      <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+      <div className="w-full sm:max-w-md bg-white text-zinc-900 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
            style={{ maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b flex items-center justify-between bg-gradient-to-r from-cyan-50 to-white">
           <div className="flex items-center gap-2">
@@ -221,15 +252,28 @@ export function FieldBatchModal({
                   <div className="mt-2 rounded-xl border overflow-hidden">
                     <div className="max-h-44 overflow-y-auto divide-y">
                       {nearby.map((p, i) => (
-                        <label key={i} className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-zinc-50">
+                        <div key={i} className="flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-zinc-50">
                           <input type="checkbox" checked={p.checked}
                             onChange={() => setNearby(n => n && n.map((x, xi) => (xi === i ? { ...x, checked: !x.checked } : x)))} />
-                          <span className="min-w-0 flex-1">
+                          <span className="min-w-0 flex-1 cursor-pointer"
+                            onClick={() => setNearby(n => n && n.map((x, xi) => (xi === i ? { ...x, checked: !x.checked } : x)))}>
                             <span className="font-semibold text-zinc-900 block truncate">{p.name}</span>
                             {p.address && <span className="text-[10px] text-zinc-400 block truncate">{p.address}</span>}
                           </span>
-                          <span className="text-sm">{NICHE_META[p.niche].emoji}</span>
-                        </label>
+                          {/* CP-129: mixed plazas — fix a wrong niche guess on the spot. */}
+                          <select
+                            value={p.niche}
+                            onChange={(e) => {
+                              const v = e.target.value as DemoNiche;
+                              setNearby(n => n && n.map((x, xi) => (xi === i ? { ...x, niche: v } : x)));
+                            }}
+                            className="shrink-0 rounded-lg border bg-white px-1.5 py-1 text-xs font-semibold text-zinc-700"
+                          >
+                            {NICHE_ORDER.map(k => (
+                              <option key={k} value={k}>{NICHE_META[k].emoji} {NICHE_META[k].label.split(" ")[0]}</option>
+                            ))}
+                          </select>
+                        </div>
                       ))}
                     </div>
                     <button onClick={addNearby}

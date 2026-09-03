@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask":
-          "places.displayName,places.formattedAddress,places.types,places.primaryType,places.websiteUri,places.nationalPhoneNumber",
+          "places.id,places.displayName,places.formattedAddress,places.types,places.primaryType,places.websiteUri,places.nationalPhoneNumber",
       },
       body: JSON.stringify({
         textQuery: query,
@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
 
   const data = (await search.json()) as {
     places?: Array<{
+      id?: string;
       displayName?: { text?: string };
       formattedAddress?: string;
       types?: string[];
@@ -185,5 +186,8 @@ export async function POST(req: NextRequest) {
     website,
     niche,
     logoDataUrl,
+    // CP-129: the shop's REAL "write a review" page — wired straight into
+    // the demo's Google review boost.
+    reviewUrl: p.id ? `https://search.google.com/local/writereview?placeid=${p.id}` : null,
   });
 }

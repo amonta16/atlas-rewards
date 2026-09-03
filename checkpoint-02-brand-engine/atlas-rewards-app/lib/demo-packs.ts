@@ -425,3 +425,35 @@ export function packPayload(pack: DemoPack) {
     },
   };
 }
+
+/* ── CP-129: the house design preset ──────────────────────────────────
+   Andrew's curated look — applied to every freshly built demo so the
+   average demo lands polished instead of on defaults. The background
+   pattern rotates through the four that look good on anything; its
+   color falls back to the brand primary automatically (CP-57). */
+
+export const DEMO_DESIGN_PRESET = {
+  points_card_style: "shiny",
+  button_style: "rounded",
+  banner_style: "gradient",
+  offer_card_style: "clean",
+  reward_card_style: "outline",
+  badge_style: "gradient",
+  heading_style: "sticker",
+  divider_style: "none",
+  cta_glow: "none",
+  streak_theme: "brand",
+  streak_page_theme: "brand-app",
+  streak_progress_mode: "brand",
+} as const;
+
+export const DEMO_PATTERNS = ["none", "hills", "diagonal", "lowpoly"] as const;
+
+/** The businesses-row update for a new demo. Pass a batch index to cycle
+ *  patterns deterministically; omit it for a random pick. */
+export function demoDesignPayload(i?: number) {
+  const pick = typeof i === "number"
+    ? i % DEMO_PATTERNS.length
+    : Math.floor(Math.random() * DEMO_PATTERNS.length);
+  return { ...DEMO_DESIGN_PRESET, background_pattern: DEMO_PATTERNS[pick] };
+}

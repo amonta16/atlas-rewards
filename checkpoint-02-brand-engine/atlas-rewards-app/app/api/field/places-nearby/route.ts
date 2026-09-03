@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask":
-          "places.displayName,places.formattedAddress,places.types,places.primaryType",
+          "places.id,places.displayName,places.formattedAddress,places.types,places.primaryType",
       },
       body: JSON.stringify({
         maxResultCount: 20,
@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
 
   const data = (await search.json()) as {
     places?: Array<{
+      id?: string;
       displayName?: { text?: string };
       formattedAddress?: string;
       types?: string[];
@@ -110,6 +111,7 @@ export async function POST(req: NextRequest) {
         name,
         address: p.formattedAddress ?? null,
         niche: guessNiche(soup, "general"),
+        reviewUrl: p.id ? `https://search.google.com/local/writereview?placeid=${p.id}` : null,
       };
     });
 
