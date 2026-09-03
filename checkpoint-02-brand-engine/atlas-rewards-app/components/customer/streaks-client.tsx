@@ -261,7 +261,8 @@ export function StreaksClient({
     if (!demoOn || claimOpen) return;
     const top = milestones.at(-1)?.count ?? 0;
     if (top <= 0) return;
-    const delay = demoCur === 0 ? 1400 : demoCur < top ? 1500 : 5500;
+    // CP-126.3: 1800ms per unit (burn = 1900ms, so motion never stops).
+    const delay = demoCur === 0 ? 1400 : demoCur < top ? 1800 : 5500;
     const t = window.setTimeout(() => {
       if (demoCur < top) {
         setDemoCur(c => Math.min(top, c + 1));
@@ -815,9 +816,19 @@ function RewardRoad({
   /** Animate the fill from → to (fractions of the track). The rAF loop owns
    *  the DOM during flight; on completion React takes back over via
    *  displayFrac so later re-renders can never collapse the fill. */
-  const runAnim = (from: number, to: number, T: number, camera: boolean) => {
+  const runAnim = (from: number, to: number, T: number, camera: boolean, linear = false) => {
     cancelAnimationFrame(rafRef.current);
-    const ease = (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+    // CP-126.3: linear pacing for the demo climb — constant velocity is
+    // what lets back-to-back steps chain into ONE continuous glide
+    // (easeOutCubic decelerates, which read as a pulse per check-in).
+    const ease = linear ? (t: number) => t : (t: number) => 1 - Math.pow(1 - t, 3); // easeOutCubic
+    // CP-126.3: measure the road's geometry ONCE per animation. Calling
+    // getBoundingClientRect inside the frame loop forced a synchronous
+    // layout every frame — that, not the scroll itself, was the stutter.
+    // The container's absolute position and height are constant mid-pass.
+    const camRect = camera && containerRef.current ? containerRef.current.getBoundingClientRect() : null;
+    const camAbsTop = camRect ? camRect.top + window.scrollY : 0;
+    const camSpan = camRect ? camRect.height - PAD_TOP - PAD_BOTTOM : 0;
     const start = performance.now();
     const step = (nowTs: number) => {
       const k = Math.min(1, (nowTs - start) / T);
@@ -836,10 +847,9 @@ function RewardRoad({
       }
       if (newly) setCrossed(new Set(crossedRef.current));
 
-      if (camera && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const headViewportY = rect.top + PAD_TOP + (1 - prog) * (rect.height - PAD_TOP - PAD_BOTTOM);
-        window.scrollTo({ top: Math.max(0, window.scrollY + headViewportY - window.innerHeight * 0.55) });
+      if (camRect) {
+        const headAbsY = camAbsTop + PAD_TOP + (1 - prog) * camSpan;
+        window.scrollTo({ top: Math.max(0, headAbsY - window.innerHeight * 0.55) });
       }
 
       if (k < 1) { rafRef.current = requestAnimationFrame(step); }
@@ -907,30 +917,14 @@ function RewardRoad({
       setDisplayFrac(targetFrac);
       return;
     }
-    // CP-126.1: the burn no longer drives the scroll in demo mode (that
-    // restarted a fresh ease every step and read as rapid jumps) — the
-    // dedicated smooth camera follower below owns the viewport instead.
-    runAnim(fracRef.current, targetFrac, demo ? 1150 : 950, false);
+    // CP-126.3: demo = LINEAR burn, slightly LONGER than the step
+    // interval, camera locked to the flame. Each new step re-targets the
+    // animation ~100ms before the previous one finishes, so flame and
+    // viewport never stop moving — one continuous climb, no pulses.
+    runAnim(fracRef.current, targetFrac, demo ? 1900 : 950, !!demo, !!demo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetFrac, settled]);
 
-  // ── CP-126.2: DEMO CAMERA v3 — browser-NATIVE smooth scrolling. The v2
-  // per-frame JS follower still stuttered on phones: a scripted scrollTo
-  // every rAF runs on the main thread and repaints the blurred corridor
-  // each frame. Now each demo step issues ONE `behavior: "smooth"` scroll
-  // to where the flame is heading — the compositor animates it off the
-  // main thread, as smooth as the device can render. Demo mode only; the
-  // entry replay and real live advances keep their existing behavior.
-  useEffect(() => {
-    if (!demo || reducedMotion() || typeof window === "undefined") return;
-    const el = containerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const absTop = rect.top + window.scrollY; // scroll-independent
-    const headY = absTop + PAD_TOP + (1 - targetFrac) * (rect.height - PAD_TOP - PAD_BOTTOM);
-    window.scrollTo({ top: Math.max(0, headY - window.innerHeight * 0.55), behavior: "smooth" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demo, targetFrac]);
 
   // Flame head grows with the streak: ember → lit → blazing.
   const ratio = current / range;

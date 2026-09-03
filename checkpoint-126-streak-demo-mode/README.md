@@ -45,3 +45,7 @@ The camera used to restart a fresh scroll ease inside every ~1.5s step — quick
 **Camera v3:** the per-frame JS follower still stuttered on phones — scripting the scroll every frame runs on the main thread and repaints the blurred corridor each frame. Now each demo step issues **one browser-native `behavior: "smooth"` scroll** toward where the flame is heading; the browser's compositor animates it off the main thread, which is as smooth as the device can render.
 
 **Summit fix:** the "Complete" trophy + label sat directly on the progress bar / flame head at the top of the road. Lifted well above the track (and z-ordered over the corridor) so it reads cleanly.
+
+## CP-126.3 — One continuous climb
+
+The step-glide camera was smooth within a step but stop-start between steps. Fixed in the motion itself: the demo flame now burns at **constant (linear) velocity**, each burn runs slightly longer than the step interval so the next step re-targets it before it ever finishes, and the camera is locked to the flame inside the same animation frame — flame and screen rise together in one unbroken glide from START to the summit. The per-frame layout thrash that caused the original stutter is also gone (the road's geometry is measured once per animation, not every frame). Pace relaxed to ~1.8s per check-in — the demo takes a touch longer and looks the better for it.
