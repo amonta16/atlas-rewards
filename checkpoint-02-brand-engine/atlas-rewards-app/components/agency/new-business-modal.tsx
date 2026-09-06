@@ -7,9 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { INDUSTRY_TEMPLATES, templateByValue } from "@/lib/industry-templates";
-// CP-131: niche layout preset — defaults from the template, adjustable here.
-import { LAYOUT_PRESETS, LAYOUT_PRESET_IDS, presetForIndustry, type LayoutPreset } from "@/lib/layout-presets";
+import { templateByValue } from "@/lib/industry-templates";
+// CP-131.1: the layout is the starting point (the industry-template grid is retired).
+import { LAYOUT_PRESETS, LAYOUT_PRESET_IDS, type LayoutPreset } from "@/lib/layout-presets";
+
+/** Hidden industry template behind each layout — supplies widget_config +
+ *  point_rules defaults exactly as the old template grid did. */
+const LAYOUT_TEMPLATE: Record<LayoutPreset, string> = {
+  custom: "other", smoke: "retail", food: "coffee", medspa: "medspa", entertainment: "arcade",
+};
+/** businesses.industry written for each layout (drives image library + folders). */
+const LAYOUT_INDUSTRY: Record<LayoutPreset, string | null> = {
+  custom: null, smoke: "smoke-shop", food: "restaurant", medspa: "medspa", entertainment: "arcade",
+};
+const LAYOUT_EMOJI: Record<LayoutPreset, string> = {
+  custom: "✨", smoke: "💨", food: "🍕", medspa: "💆", entertainment: "🎳",
+};
 
 // CP-42: third step captures the business's PRE-Atlas baseline numbers
 // so the Insights "With Atlas vs Without" comparison uses their real
@@ -24,14 +37,14 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
   const [slug, setSlug] = useState(initialName
     ? initialName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
     : "");
-  const [templateValue, setTemplateValue] = useState<string>("other");
+  // CP-131.1: the layout is the only choice now; the matching industry
+  // template (features + reward defaults) is derived from it below.
   // CP-68: demo apps skip the check-in + reward-game cooldowns so the owner
   // can replay the reward moment during a pitch. Defaults ON — most new
   // apps here are pitch demos; flip it off in the brand editor when a deal
   // closes and the app goes live for real customers.
   const [isDemo, setIsDemo] = useState(true);
-  // CP-131: layout preset. null = "follow the template" (presetForIndustry);
-  // set when the user picks one explicitly on the template step.
+  // CP-131.1: the layout chosen on step 2 (null = Classic).
   const [layoutOverride, setLayoutOverride] = useState<LayoutPreset | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -41,8 +54,11 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
   const [baselineRevenue,     setBaselineRevenue]     = useState<string>("");
   const [baselineVisits,      setBaselineVisits]      = useState<string>("");
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
-  const tpl = templateByValue(templateValue);
-  const layoutPreset: LayoutPreset = layoutOverride ?? presetForIndustry(templateValue === "other" ? null : templateValue);
+  const layoutPreset: LayoutPreset = layoutOverride ?? "custom";
+  // Each layout carries a hidden industry template so widget_config +
+  // point_rules still get sensible defaults (the old grid did this by hand).
+  const tpl = templateByValue(LAYOUT_TEMPLATE[layoutPreset]);
+  const industrySlug = LAYOUT_INDUSTRY[layoutPreset];
 
   function autoSlug(raw: string) {
     return raw.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -58,10 +74,10 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
     const payload = tpl ? {
       p_name: name,
       p_slug: slug,
-      p_industry: tpl.value === "other" ? null : tpl.value,
+      p_industry: industrySlug,
       p_widget_config: tpl.widget_config as any,
       p_point_rules:   tpl.point_rules   as any,
-    } : { p_name: name, p_slug: slug, p_industry: null };
+    } : { p_name: name, p_slug: slug, p_industry: industrySlug };
 
     const { data, error } = await supabase.rpc("create_business", payload);
     if (error) { setSubmitting(false); setErr(error.message); return; }
@@ -106,7 +122,7 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
             </div>
             <h2 className="font-bold">
               {step === "basics" ? "Add new business"
-                : step === "template" ? "Pick a starting template"
+                : step === "template" ? "Pick a layout"
                 : "Pre-Atlas baseline"}
             </h2>
           </div>
@@ -159,17 +175,21 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
 
           {step === "template" && (
             <div className="p-5 space-y-3">
+              {/* CP-131.1: the industry template grid is gone — the layout IS
+                  the starting point now. Features and reward defaults come
+                  from the layout's matching template under the hood. */}
               <p className="text-sm text-muted-foreground">
-                Pick the closest match — we'll preset the right features and reward defaults. You can change everything later.
+                Pick the layout for this business — which tabs the app has and what the home screen leads with. Everything is adjustable later in the builder.
               </p>
               <div className="grid sm:grid-cols-2 gap-2">
-                {INDUSTRY_TEMPLATES.map(t => {
-                  const active = templateValue === t.value;
+                {LAYOUT_PRESET_IDS.map((id) => {
+                  const p = LAYOUT_PRESETS[id];
+                  const active = layoutPreset === id;
                   return (
                     <button
-                      key={t.value}
+                      key={id}
                       type="button"
-                      onClick={() => setTemplateValue(t.value)}
+                      onClick={() => setLayoutOverride(id)}
                       className={cn(
                         "text-left rounded-xl border p-3 transition-colors relative",
                         active ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-400"
@@ -180,66 +200,24 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
                           <Check className="h-3 w-3" />
                         </span>
                       )}
-                      <div className="text-2xl">{t.emoji}</div>
-                      <div className="font-semibold text-sm mt-1">{t.label}</div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{t.blurb}</div>
+                      <div className="text-2xl">{LAYOUT_EMOJI[id]}</div>
+                      <div className="font-semibold text-sm mt-1">{p.label}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{p.blurb}</div>
+                      <div className="text-[10px] text-zinc-400 mt-1 leading-snug">{p.fits}</div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {p.tabs.map((t) => (
+                          <span key={t.id} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white border text-zinc-600">
+                            {t.label}
+                          </span>
+                        ))}
+                      </div>
                     </button>
                   );
                 })}
               </div>
-              {/* CP-131: layout preset — defaults from the template; tap to override. */}
-              <div className="rounded-xl border bg-white p-3 mt-2">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
-                    App layout
-                  </div>
-                  {layoutOverride && (
-                    <button type="button" onClick={() => setLayoutOverride(null)} className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-900">
-                      Use template default
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {LAYOUT_PRESET_IDS.map((id) => {
-                    const on = layoutPreset === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setLayoutOverride(id)}
-                        className={cn(
-                          "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition",
-                          on ? "bg-zinc-900 border-zinc-900 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-zinc-400",
-                        )}
-                      >
-                        {LAYOUT_PRESETS[id].label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
-                  {LAYOUT_PRESETS[layoutPreset].blurb}{" "}
-                  <span className="text-zinc-400">Tabs: {LAYOUT_PRESETS[layoutPreset].tabs.map(t => t.label).join(" · ")}</span>
-                </div>
-              </div>
-              {tpl && (
-                <div className="rounded-xl border bg-zinc-50 p-3 mt-2">
-                  <div className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
-                    Features turned on by this template
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(tpl.widget_config)
-                      .filter(([, v]) => v)
-                      .map(([k]) => (
-                        <span key={k} className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white border text-zinc-700">
-                          {k.replace(/_/g, " ")}
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
+
 
           {step === "baseline" && (
             <div className="p-6 space-y-4">

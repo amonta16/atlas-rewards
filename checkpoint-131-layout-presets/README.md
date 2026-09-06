@@ -29,7 +29,7 @@ Every existing business stays on Classic until you flip it — nothing changes o
 ## Both creation paths
 
 - **Instant demo + batch build (Field App):** `demoDesignPayload(i, niche)` now includes `layout_preset` from the niche — food/cafe/pizza/dessert/bakery → Food, smoke/dispensary → Smoke, medspa → Medspa. Beauty, barber, nails, fitness, retail, general → Classic on purpose (not one of the four). There's no entertainment niche in the demo packs yet — add one when you pitch a bowling alley.
-- **New business (Apps deck):** the template step has an **App layout** row. It defaults from the template (Medspa → Medspa, Arcade → Entertainment, Coffee/Yogurt/Restaurant → Food, everything else → Classic) and any preset can be tapped to override. Saved right after `create_business` alongside `is_demo`.
+- **New business (Apps deck):** step two is now **Pick a layout** (see CP-131.1 below) — the five layout cards replace the old industry-template grid. Saved right after `create_business` alongside `is_demo`.
 
 ## Verified
 
@@ -50,3 +50,7 @@ git add -A
 git commit -m "CP-131: niche layout presets — businesses.layout_preset drives tab set + Home order; /offers + /membership tabs; builder Layout picker; demo + New-business creation set the preset"
 git push origin main
 ```
+
+## CP-131.1 — template grid retired
+
+Andrew's call after seeing it: the "Pick a starting template" grid (Medspa / Arcade / Coffee / Yogurt / …) is gone. Step two of **New business** is now **Pick a layout** — the five layout cards, each showing its tabs. Under the hood each layout still carries a hidden industry template (Classic→other, Smoke→retail, Food→coffee, Medspa→medspa, Entertainment→arcade) so widget flags and reward defaults are sensible, and writes a matching `industry` (smoke-shop / restaurant / medspa / arcade) so the image library and folders keep working. `smoke-shop` was added to the builder's Industry dropdown. `lib/industry-templates.ts` is untouched (the field-app and demo packs don't use it either) — it's just no longer a user-facing choice.

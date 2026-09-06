@@ -335,6 +335,7 @@ export const INDUSTRY_PRESETS = [
   { value: "dental",      label: "Dental Office" },
   { value: "home_service", label: "Home Service" },
   { value: "retail",      label: "Retail Store" },
+  { value: "smoke-shop",  label: "Smoke / Vape Shop" },   // CP-131.1
   { value: "other",       label: "Other" },
 ] as const;
 
