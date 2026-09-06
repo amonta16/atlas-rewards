@@ -1,0 +1,230 @@
+<title>Atlas Niche Layouts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+:root{
+  --bg:#f6f8fb; --paper:#ffffff; --ink:#111a2b; --ink-2:#3d4a60; --ink-3:#6b7890;
+  --line:#dbe2ec; --line-2:#eaeff5;
+  --accent:#1a5fd0; --accent-ink:#0f3f8f; --accent-soft:#e6eefb;
+  --keep:#137a4c; --keep-soft:#e2f4ea; --drop:#b4352c; --drop-soft:#fbe7e4; --maybe:#9a6a00; --maybe-soft:#fbf1d8;
+  --phone:#0e1626; --phone-screen:#ffffff;
+  --display:"Plus Jakarta Sans",ui-sans-serif,system-ui,sans-serif;
+  --body:"Source Sans 3",ui-sans-serif,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1420; --paper:#141d2c; --ink:#e9eef6; --ink-2:#b6c1d3; --ink-3:#8593a9;
+    --line:#26324a; --line-2:#1d2739;
+    --accent:#6ea1ff; --accent-ink:#a9c5ff; --accent-soft:#1a2a47;
+    --keep:#5fd39a; --keep-soft:#12301f; --drop:#ff8a80; --drop-soft:#3a1a18; --maybe:#f2c04e; --maybe-soft:#33290f;
+    --phone:#0a0f1a; --phone-screen:#1b2536;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1420; --paper:#141d2c; --ink:#e9eef6; --ink-2:#b6c1d3; --ink-3:#8593a9;
+  --line:#26324a; --line-2:#1d2739;
+  --accent:#6ea1ff; --accent-ink:#a9c5ff; --accent-soft:#1a2a47;
+  --keep:#5fd39a; --keep-soft:#12301f; --drop:#ff8a80; --drop-soft:#3a1a18; --maybe:#f2c04e; --maybe-soft:#33290f;
+  --phone:#0a0f1a; --phone-screen:#1b2536;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.55}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent}
+a:hover,a:focus-visible{border-bottom-color:var(--accent);outline:none}
+.wrap{max-width:1080px;margin:0 auto;padding:40px 24px 80px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,4vw,42px);font-weight:800;letter-spacing:-.02em;line-height:1.1}
+h2{font-size:26px;font-weight:800;letter-spacing:-.015em;margin-top:56px;padding-top:24px;border-top:2px solid var(--ink)}
+h3{font-size:19px;font-weight:700;margin-top:28px}
+h4{font-size:15px;font-weight:700;color:var(--ink-2)}
+p{max-width:68ch;margin:12px 0}
+.eyebrow{font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:20px;color:var(--ink-2);max-width:62ch}
+.meta{font-size:14px;color:var(--ink-3);margin-top:8px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin:32px 0 8px}
+@media(max-width:860px){.grid4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.grid4{grid-template-columns:1fr}}
+.phone{background:var(--phone);border-radius:26px;padding:10px;box-shadow:0 10px 30px rgba(10,20,40,.18)}
+.screen{background:var(--phone-screen);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;min-height:400px;font-size:11px}
+.sbar{padding:9px 12px 6px;font-family:var(--display);font-weight:800;font-size:12px;letter-spacing:-.01em;color:#fff;background:var(--accent);display:flex;justify-content:space-between;align-items:center}
+.sbar span{font-weight:600;font-size:10px;opacity:.85}
+.mods{display:flex;flex-direction:column;gap:6px;padding:8px;flex:1}
+.mod{border:1px solid var(--line);border-radius:8px;padding:7px 8px;color:var(--ink-2);font-weight:600;line-height:1.25;background:var(--paper)}
+.mod.hero{background:var(--accent-soft);border-color:transparent;color:var(--accent-ink);min-height:58px}
+.mod.card{background:linear-gradient(135deg,var(--accent),var(--accent-ink));color:#fff;border:0;min-height:52px}
+.mod.small{font-size:10px;color:var(--ink-3);font-weight:600}
+.mod .k{display:block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;opacity:.75;margin-bottom:2px}
+.tabs{display:flex;border-top:1px solid var(--line);background:var(--paper)}
+.tabs div{flex:1;text-align:center;padding:7px 2px 8px;font-family:var(--display);font-size:9.5px;font-weight:700;color:var(--ink-3)}
+.tabs div.on{color:var(--accent)}
+.cap{font-family:var(--display);font-weight:700;font-size:14px;margin:12px 4px 0}
+.cap small{display:block;font-family:var(--body);font-weight:400;color:var(--ink-3);font-size:13px}
+.spec{display:grid;grid-template-columns:180px 1fr;gap:10px 20px;border-top:1px solid var(--line);margin-top:16px}
+.spec>div{padding:12px 0;border-bottom:1px solid var(--line-2)}
+.spec>div:nth-child(odd){font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.02em;color:var(--ink-3);text-transform:uppercase}
+.spec p{margin:0 0 8px}
+@media(max-width:640px){.spec{grid-template-columns:1fr}.spec>div:nth-child(odd){padding-bottom:0;border:0}}
+.tag{display:inline-block;font-family:var(--display);font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin:0 6px 4px 0;white-space:nowrap}
+.keep{background:var(--keep-soft);color:var(--keep)} .drop{background:var(--drop-soft);color:var(--drop)} .maybe{background:var(--maybe-soft);color:var(--maybe)}
+.tagrow{line-height:2}
+table{border-collapse:collapse;width:100%;font-size:15px;margin-top:14px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
+th{font-family:var(--display);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+td:first-child{font-weight:600}
+.tablewrap{overflow-x:auto}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 8px 8px 0;margin:18px 0;max-width:72ch}
+.note p{margin:6px 0}
+.src{font-size:13.5px;color:var(--ink-3);margin-top:14px;max-width:80ch}
+.src a{color:var(--ink-3);border-bottom:1px solid var(--line)}
+.num{font-variant-numeric:tabular-nums}
+ol.build{padding-left:22px;max-width:70ch}
+ol.build li{margin:10px 0}
+ol.build b{font-family:var(--display)}
+</style>
+
+<div class="wrap">
+<div class="eyebrow">Atlas Engine · Product spec</div>
+<h1>The dream loyalty app, one per niche</h1>
+<p class="lede">Four layout presets for the same Atlas app — smoke shops, food shops, medspas, entertainment — built from what the biggest programs in each niche actually put on their home screen, and what they leave out.</p>
+<p class="meta">Drafted Sep 6, 2026 from a teardown of ~30 apps and programs. Each niche section ends with its sources. Atlas component names refer to <code>components/customer/*</code> and <code>app-shell.tsx</code>.</p>
+
+<div class="grid4">
+  <div>
+    <div class="phone"><div class="screen">
+      <div class="sbar">Exotic Smoke Shop <span>Hi Brayan</span></div>
+      <div class="mods">
+        <div class="mod card"><span class="k">Member card</span>QR · 1,240 pts · 2 visits to next reward</div>
+        <div class="mod hero"><span class="k">Today's deal</span>Buy 2 wraps, 3rd free — ends 9pm</div>
+        <div class="mod"><span class="k">Punch clubs</span>Papers 3/5 · Vape 2/4 · Glass 1/5</div>
+        <div class="mod"><span class="k">Ready to claim</span>Free lighter · $5 off glass</div>
+        <div class="mod small">This week's deals ›</div>
+        <div class="mod small">Streak · 4 wks · Hours &amp; call</div>
+      </div>
+      <div class="tabs"><div class="on">Home</div><div>Deals</div><div>Check in</div><div>Rewards</div><div>Streak</div></div>
+    </div></div>
+    <div class="cap">Smoke shop<small>Near-daily visits, small tickets. Deals lead.</small></div>
+  </div>
+  <div>
+    <div class="phone"><div class="screen">
+      <div class="sbar">Flippos <span>Hi Sam</span></div>
+      <div class="mods">
+        <div class="mod card"><span class="k">Points</span>QR · 620 pts · 1 order from a free slice</div>
+        <div class="mod hero"><span class="k">New this week</span>Garlic knot combo — members $2 off</div>
+        <div class="mod"><span class="k">Active offer · tap to start</span>Order 3× this month → free drink</div>
+        <div class="mod"><span class="k">Redeem now</span>Free slice · Free soda</div>
+        <div class="mod small">Streak · Spin · News</div>
+        <div class="mod small">Hours · Directions · Call</div>
+      </div>
+      <div class="tabs"><div class="on">Home</div><div>Offers</div><div>Check in</div><div>Rewards</div><div>Streak</div></div>
+    </div></div>
+    <div class="cap">Food shop<small>Weekly habit. Offers + a low first reward.</small></div>
+  </div>
+  <div>
+    <div class="phone"><div class="screen">
+      <div class="sbar">Glow Aesthetics <span>Hi Kaedin</span></div>
+      <div class="mods">
+        <div class="mod card"><span class="k">Gold member</span>2 treatments available · renews Oct 3</div>
+        <div class="mod hero"><span class="k">Next treatment due</span>Tox · due in 2 weeks — Book</div>
+        <div class="mod"><span class="k">Wallet</span>880 pts · $40 credit · check-in QR</div>
+        <div class="mod"><span class="k">This month</span>Lip filler $50 off — 6 days left</div>
+        <div class="mod small">Refer a friend · Leave a review</div>
+        <div class="mod small">Packages &amp; memberships ›</div>
+      </div>
+      <div class="tabs"><div class="on">Home</div><div>Book</div><div>Member</div><div>Rewards</div><div>Profile</div></div>
+    </div></div>
+    <div class="cap">Medspa<small>Every 6–12 weeks, high ticket. Membership leads.</small></div>
+  </div>
+  <div>
+    <div class="phone"><div class="screen">
+      <div class="sbar">Coast Lanes <span>Hi Ryan</span></div>
+      <div class="mods">
+        <div class="mod card"><span class="k">Pass</span>QR · Family Unlimited · 3 of 5 visits to free game</div>
+        <div class="mod hero"><span class="k">This week</span>Tue $2 games · Thu unlimited 7pm · Sat After Party</div>
+        <div class="mod"><span class="k">Coming up</span>League night Wed · Glow bowl Fri</div>
+        <div class="mod"><span class="k">Book a party</span>Birthdays · groups · lanes</div>
+        <div class="mod small">Unlimited for $19/mo — less than one visit</div>
+        <div class="mod small">Bring a friend 50% off</div>
+      </div>
+      <div class="tabs"><div class="on">Home</div><div>Events</div><div>Check in</div><div>Pass</div><div>Rewards</div></div>
+    </div></div>
+    <div class="cap">Entertainment<small>Monthly, in groups. Pass + events lead.</small></div>
+  </div>
+</div>
+
+<h2>What the research settled</h2>
+<p>Three things hold across all four niches, and they are the reason a single layout was never going to feel tailored.</p>
+<p><b>Home is about the store, not the program.</b> Starbucks, Chipotle, Dutch Bros, Dermis, Round1 — the home screen leads with what's new, what's on, or what you're owed <i>today</i>. Earned rewards live on their own tab. Atlas currently leads Home with rewards, spin and streak, which is the app talking about itself. Every preset below moves offers or the membership card to the top and keeps <code>TopRewardsGrid</code> to a short "redeem now" strip.</p>
+<p><b>Purchase frequency decides the mechanic.</b> Dispensary regulars visit about every 8 days; medspa patients about three times a year at $350–550 a visit; a theater treats eight visits a year as "frequent." Streaks only make sense in the first column. Chipotle is the sole national chain running true streaks, and only as a summer campaign. Not one of the seven medspa programs or eight entertainment programs uses them.</p>
+<p><b>Phone number is the universal fallback at the register.</b> Dutch Bros, Square, Toast, Bowlero, Topgolf, Alpine IQ, Dutchie and Evolus all identify a member by phone number when there is no scan. Atlas already enforces one account per phone (CP-59 <code>normalize_phone</code>), so a phone-number lookup on the desk is a small addition, and it should replace the backup code as the thing staff are taught first.</p>
+
+<h2>Preset 1 · Smoke shop</h2>
+<p>The closest proven analogs are dispensary platforms (springbig, Alpine IQ, Dutchie) and the regional tobacco chains (Wild Bill's, Smoker Friendly, Smokers Choice). Their programs are deal feeds with a punch card underneath: Wild Bill's rewards page is a list of "buy 5, get the 6th" coupons; Smoker Friendly runs category punch clubs (papers buy 5 → $5 off, vape buy 4 → $5 off) plus a monthly drawing; Trulieve pays a bonus for shopping five times a month. Visit count, not spend, is the lever.</p>
+<div class="spec">
+  <div>Tabs</div><div>Home · <b>Deals</b> · Check in · Rewards · Streak. <i>Deals</i> is <code>LimitedOffersSection</code> promoted to a full tab (billboard layout), sorted by expiry.</div>
+  <div>Home, top to bottom</div><div><p>1. <code>LiveMemberCard</code> with QR, points, and "N visits to next reward".</p><p>2. <b>Today's deal</b> — one <code>FeaturedOfferBanner</code>-style hero that rotates daily. Empty state shows this week's deal instead; never blank.</p><p>3. <b>Punch clubs</b> — new compact module: per-category visit counters (3 of 5). This is the visit-based reward Smoker Friendly and Wild Bill's use; implement as reward rules with <code>rule_type = 'visit'</code> filtered by tag, or reuse streak milestones scoped to a category.</p><p>4. "Ready to claim" strip — <code>TopRewardsGrid</code> limited to affordable rewards.</p><p>5. <code>StreakMini</code> as a single compact row, then <code>LocationCard</code>.</p></div>
+  <div>Earning defaults</div><div>1 pt per $1; first reward at ~150 pts (a free lighter, papers, or $5 off glass) so the first redemption happens on visit 3–4; birthday 100 pts; referral 200 pts. Weekly streak (not daily) with the 4-week reward road from the demo pack.</div>
+  <div>Keep / drop</div><div class="tagrow"><span class="tag keep">Deals tab</span><span class="tag keep">Punch clubs</span><span class="tag keep">Weekly streak</span><span class="tag keep">Win-back texts</span><span class="tag keep">Birthday</span><span class="tag keep">Referral</span><span class="tag maybe">Spin (keep as "monthly drawing")</span><span class="tag drop">Membership tab</span><span class="tag drop">Raffle on Home</span><span class="tag drop">Spend tiers</span><span class="tag drop">Merch catalog</span></div>
+  <div>Watch-outs</div><div>Rewards must be discounts on accessories, glass, CBD or store credit — FDA bars non-tobacco giveaways tied to cigarette purchases. Age-gate the app (21+) and keep any SMS behind a birthdate opt-in; App Store rule 1.4.3 forbids apps that encourage tobacco consumption, so copy stays about the store and its deals, never the product's use. Google Play bans apps that facilitate tobacco sales — no cart.</div>
+</div>
+<p class="src">Sources: <a href="https://wildbillstobacco.com/rewards/">Wild Bill's Rewards</a> · <a href="https://smokerfriendlywv.com/loyalty-rewards/">Smoker Friendly loyalty</a> · <a href="https://smokerschoiceusa.com/loyalty/">Smokers Choice</a> · <a href="https://springbig.com/smoke-shop-loyalty/">springbig smoke-shop</a> · <a href="https://aiq.com/products/loyalty">Alpine IQ</a> · <a href="https://support.dutchie.com/hc/en-us/articles/50295597603987-Loyalty-Programs-FAQ">Dutchie loyalty FAQ</a> · <a href="https://www.trulieve.com/rewards-fl">Trulieve rewards</a> · <a href="https://finance.yahoo.com/news/study-cannabis-customers-visit-dispensaries-111823877.html">Zenreach visit-frequency study</a> · <a href="https://www.voyagesms.com/blog/shaft-sms-compliance-for-vape-and-tobacco-brands">SHAFT SMS rules</a> · <a href="https://www.publichealthlawcenter.org/sites/default/files/fda-5.pdf">FDA POS restrictions</a> · <a href="https://developer.apple.com/app-store/review/guidelines/">App Store guidelines 1.4.3 / 4.5.4</a></p>
+
+<h2>Preset 2 · Food shop</h2>
+<p>Coffee, boba, pizza, bakery, smoothie. The formula is remarkably consistent across Starbucks, Dutch Bros, Chick-fil-A, Chipotle and Sweetgreen: a balance strip on top, one activatable offer or challenge, then what's new. Navigation is Home · Scan · Order · Rewards/Offers · More. The lessons that matter for a small shop are Sweetgreen killing its $10/month tier because complexity killed enrollment, Chipotle's 85-point tortilla as a deliberately cheap first rung, and Dutch Bros accepting a phone number at the window when you forget to scan.</p>
+<div class="spec">
+  <div>Tabs</div><div>Home · <b>Offers</b> · Check in · Rewards · Streak. Offers = <code>LimitedOffersSection</code> as a tab (coupon layout) plus <code>NewsSection</code> underneath it — "what's new" and "deals" belong together.</div>
+  <div>Home, top to bottom</div><div><p>1. <code>LiveMemberCard</code> with QR, points, "1 order from a free slice".</p><p>2. <b>New this week</b> hero — a product promotion, not a reward. Uses the featured-offer slot; the builder labels it "Promote a product".</p><p>3. <b>Active offer, tap to start</b> — Dutch Bros / Starbucks pattern: one challenge card ("order 3× this month → free drink"). Maps to an automated offer with a visit goal.</p><p>4. "Redeem now" strip (<code>TopRewardsGrid</code>, affordable only).</p><p>5. <code>StreakMini</code> + <code>DailySpinButton</code> as the existing side-by-side pair, moved below the fold. 6. <code>LocationCard</code>.</p></div>
+  <div>Earning defaults</div><div>10 pts per $1 (the QSR convention — bigger numbers feel better on small tickets); first reward at 200–300 pts (a free side or drink, ≈ two or three visits); sign-up gift on first check-in; birthday reward; 180-day inactivity expiry with a reminder push at 14 days out.</div>
+  <div>Keep / drop</div><div class="tagrow"><span class="tag keep">Offers tab</span><span class="tag keep">Product promo hero</span><span class="tag keep">Activatable challenge</span><span class="tag keep">Weekly or daily streak</span><span class="tag keep">Spin (once per check-in)</span><span class="tag keep">Birthday + sign-up gift</span><span class="tag keep">Google review nudge</span><span class="tag maybe">Raffle (seasonal only)</span><span class="tag drop">Membership tab</span><span class="tag drop">Bronze/Silver/Gold</span><span class="tag drop">Stored-value wallet</span></div>
+  <div>Watch-outs</div><div>Chipotle sees only ~20% of in-restaurant orders scanned versus ~90% of digital — the counter is where loyalty leaks. Phone lookup and a two-second desk flow matter more here than any home-screen decision.</div>
+</div>
+<p class="src">Sources: <a href="https://onemileatatime.com/news/starbucks-rewards-changes-devaluation-elite-status/">Starbucks Rewards 2026 changes</a> · <a href="https://www.dutchbros.com/rewards/">Dutch Bros Rewards</a> · <a href="https://www.dutchbros.com/support/articles/how-do-points-work/">Dutch Bros phone-at-window</a> · <a href="https://www.chick-fil-a.com/one">Chick-fil-A One</a> · <a href="https://www.chipotle.com/rewards">Chipotle Rewards</a> · <a href="https://newsroom.chipotle.com/2026-05-28-CHIPOTLES-SUMMER-OF-EXTRAS-RETURNS,-WITH-STREAK-BASED-REWARDS-AND-LOCAL-RANKINGS-TO-GAMIFY-THE-REWARDS-EXPERIENCE">Chipotle Summer of Extras streaks</a> · <a href="https://www.qsrmagazine.com/growth/marketing-promotions/sweetgreen-introduces-a-revamped-loyalty-program/">Sweetgreen drops Sweetpass</a> · <a href="https://squareup.com/help/us/en/article/3952-create-a-loyalty-program-with-square">Square Loyalty</a> · <a href="https://support.toasttab.com/en/article/How-Guests-Earn-Points-with-Toast-Loyalty">Toast Loyalty</a> · <a href="https://loyaltyrewardco.com/the-ultimate-guide-to-chipotle-rewards/">Chipotle in-store scan rate</a></p>
+
+<h2>Preset 3 · Medspa &amp; aesthetics</h2>
+<p>This is Dermis territory, and what makes Dermis feel tailored is that membership is a treatment allowance, not points: the patient sees "You have 2 treatments available", redeems by QR at the front desk, and gets pushed when the allowance is about to reset. RepeatMD does the same with banked monthly credit ($99 / $199 / $249 tiers). The brand programs (Allē, ASPIRE, Evolus) add the other retention lever: a treatment-cycle clock — Evolus literally issues a $40 reward every 90 days. None of them has streaks, spin, daily check-ins or leaderboards.</p>
+<div class="spec">
+  <div>Tabs</div><div>Home · <b>Book</b> · <b>Member</b> · Rewards · Profile. Re-enable the existing <code>BOOK</code> tab (GHL booking link) and promote <code>MembershipSection</code> to its own tab. No Streaks tab, no Check-in tab — check-in QR lives on the member card.</div>
+  <div>Home, top to bottom</div><div><p>1. <b>Membership card</b> — tier name, treatments or credit available this cycle, renewal date. Non-members see the join card with "less than one visit a month" math.</p><p>2. <b>Next treatment due</b> — new module keyed to last treatment date + cycle (tox 12 wks, filler 6–12 mo, facial 4 wks) with one Book button. Data: a treatment category on the award (desk picks "Tox / Filler / Facial / Laser / Other"), cycle length per category in the builder.</p><p>3. Wallet strip: points, credit, check-in QR (<code>LiveMemberCard</code> compact).</p><p>4. One offer with expiry countdown (<code>FeaturedOfferBanner</code> — Dermis expires the first reward in a day on purpose).</p><p>5. <code>ReferralProgressCard</code> + review nudge. 6. Packages &amp; memberships (<code>MembershipSection</code> summary).</p></div>
+  <div>Earning defaults</div><div>1 pt per $1; sign-up 50; check-in 80; Google review 60; referral 200 (Dermis's published defaults). First reward at 50 pts = $25 off, second at ~200 = a free add-on treatment. No points on membership purchases (Vagaro precedent). Membership: monthly only, 3-month minimum, one included treatment plus 10–20% off, per-unit tox discount.</div>
+  <div>Keep / drop</div><div class="tagrow"><span class="tag keep">Membership tab</span><span class="tag keep">Book tab</span><span class="tag keep">Treatment-due reminder</span><span class="tag keep">Referral</span><span class="tag keep">Review points</span><span class="tag keep">Expiring offer</span><span class="tag keep">Birthday</span><span class="tag maybe">Financing link (Cherry / Affirm)</span><span class="tag drop">Streaks</span><span class="tag drop">Spin wheel</span><span class="tag drop">Daily check-in</span><span class="tag drop">Raffle</span><span class="tag drop">Punch clubs</span></div>
+  <div>Watch-outs</div><div>Only 55–57% of first-time tox patients return for a second visit; rebooking at checkout runs 40–69%. The "next treatment due" card and its push are the single feature that changes revenue here. Membership cancellation friction is RepeatMD's biggest complaint — make cancelling easy and visible.</div>
+</div>
+<p class="src">Sources: <a href="https://intercom.help/dermisapp/en/articles/10076887-how-to-create-a-membership">Dermis membership model</a> · <a href="https://intercom.help/dermisapp/en/articles/11054083-dermis-s-guide-to-a-profitable-rewards-program-based-on-the-data">Dermis rewards defaults</a> · <a href="https://intercom.help/dermisapp/en/articles/12611735-list-of-push-notifications-emails-sent-to-app-users">Dermis push cadence</a> · <a href="https://repeatmd.com/blog/how-to-build-a-successful-med-spa-membership-program">RepeatMD membership tiers</a> · <a href="https://repeatmd.com/blog/introducing-beauty-bank">RepeatMD Beauty Bank</a> · <a href="https://news.abbvie.com/2024-01-23-Alle-by-Allergan-Aesthetics-is-the-Leading-Aesthetics-Loyalty-Rewards-Program-in-the-U-S">Allē</a> · <a href="https://www.dysportusa.com/rewards">ASPIRE Galderma</a> · <a href="https://evolus.zendesk.com/hc/en-us/sections/32356963203220-Evolus-Reward-FAQ-s-for-Consumers">Evolus 90-day rewards</a> · <a href="https://support.vagaro.com/hc/en-us/articles/360003507873-Set-Up-a-Loyalty-Program-and-Give-Customers-Points-for-Purchases">Vagaro loyalty</a> · <a href="https://provensuccess.ai/blog/med-spa-retention-cadence-gap-series-cliff">Medspa retention cadence</a> · <a href="https://scalehaven.io/blog/med-spa-industry-statistics/">Medspa visit stats</a></p>
+
+<h2>Preset 4 · Entertainment</h2>
+<p>Bowling, arcades, trampoline parks, escape rooms, mini golf, batting cages. The operators that actually monetize retention sell a recurring pass priced at about one visit — Urban Air $14.99/mo, Chuck E. Cheese $7.99–29.99/mo, Topgolf PlayMore $20/mo, AMC A-List — with family sharing, bring-a-friend and food discounts. Points-only programs (Bowlero MVB, Round1) are thin. Bowlero's real retention tool is a fixed weekly specials calendar: Family Unlimited weekends, unlimited nights Mon–Thu, Friday After Party. Everything earns by the visit, not the dollar: Regal's first status is at visit 6, D&amp;B caps food points per visit.</p>
+<div class="spec">
+  <div>Tabs</div><div>Home · <b>Events</b> · Check in · <b>Pass</b> · Rewards. Events = specials calendar + upcoming events + "Book a party" (<code>NewsSection</code> reworked as a dated list). Pass = <code>MembershipSection</code> with family members and bring-a-friend.</div>
+  <div>Home, top to bottom</div><div><p>1. <b>Pass card</b> — QR, pass name (or "no pass"), visits toward next perk.</p><p>2. <b>This week</b> — day-of-week specials strip (new module; the builder gets a 7-day grid, each day an optional deal).</p><p>3. <b>Coming up</b> — next two events; league nights, glow bowl, tournaments.</p><p>4. <b>Book a party</b> CTA — links to their booking page or GHL form (reuse <code>BOOK</code> logic).</p><p>5. Pass upsell one-liner with the CenterEdge math: price the pass near one visit so it pays off in under two.</p><p>6. Bring-a-friend referral (<code>ReferralProgressCard</code>, referral reward = 50% off friend's visit).</p></div>
+  <div>Earning defaults</div><div>Visit stamps, not dollar points: 5th visit = free game / hour. Birthday reward. Pass: good–better–best monthly (e.g. $9 / $19 / $29 — solo, family, unlimited+food), month-to-month after a 3-month minimum, shareable across household cards, member-only events.</div>
+  <div>Keep / drop</div><div class="tagrow"><span class="tag keep">Pass tab</span><span class="tag keep">Weekly specials grid</span><span class="tag keep">Events list</span><span class="tag keep">Book a party</span><span class="tag keep">Visit stamps</span><span class="tag keep">Bring a friend</span><span class="tag keep">Birthday</span><span class="tag maybe">Raffle (tournament prize)</span><span class="tag maybe">Spin (kids love it — only if the owner asks)</span><span class="tag drop">Streaks</span><span class="tag drop">Dollar points with expiry</span><span class="tag drop">Nine-level tiers / leaderboards</span></div>
+  <div>Watch-outs</div><div>Groups drive the visit: Topgolf's pass covers six guests, Urban Air adds five party guests. Anything that only rewards the account holder undersells the occasion. Apple/Google Wallet passes drive 60% of reloads before arrival in Embed's data — a wallet pass is a better long-term identity token here than the app alone.</div>
+</div>
+<p class="src">Sources: <a href="https://www.urbanair.com/kansas-overland-park/membership/">Urban Air membership</a> · <a href="https://www.chuckecheese.com/funpass/">Chuck E. Cheese Fun Pass</a> · <a href="https://topgolf.com/us/faq/">Topgolf PlayMore</a> · <a href="https://www.bowlero.com/specials">Bowlero specials calendar</a> · <a href="https://www.bowlero.com/mvb-faqs">Bowlero MVB (phone lookup)</a> · <a href="https://www.round1usa.com/whats-new/new-mobile-app-here">Round1 app</a> · <a href="https://www.daveandbusters.com/us/en/official-rules">D&amp;B Rewards rules</a> · <a href="https://www.amctheatres.com/amcstubs/premiere-go">AMC Premiere GO (visit-based)</a> · <a href="https://centeredgesoftware.com/blog/how-to-build-an-fec-membership-program/">CenterEdge pass pricing</a> · <a href="https://www.roller.software/blog/loyalty-programs">ROLLER on memberships</a> · <a href="https://blooloop.com/play/in-depth/mobile-wallet-results/">Embed wallet data</a></p>
+
+<h2>Side by side</h2>
+<div class="tablewrap"><table>
+<tr><th></th><th>Smoke shop</th><th>Food shop</th><th>Medspa</th><th>Entertainment</th></tr>
+<tr><td>Visit rhythm</td><td>Near-daily to weekly</td><td>Weekly</td><td>Every 6–12 weeks</td><td>Monthly, in groups</td></tr>
+<tr><td>Home leads with</td><td>Today's deal</td><td>New this week</td><td>Membership card</td><td>Pass + this week</td></tr>
+<tr><td>Earning unit</td><td>Visits (punch clubs)</td><td>Points per $</td><td>Points + banked credit</td><td>Visits (stamps)</td></tr>
+<tr><td>First reward at</td><td class="num">~visit 4</td><td class="num">~visit 3</td><td class="num">visit 1 (cheap, expiring)</td><td class="num">visit 5</td></tr>
+<tr><td>Streaks</td><td>Weekly</td><td>Weekly / daily</td><td>Off</td><td>Off</td></tr>
+<tr><td>Spin</td><td>Monthly drawing</td><td>Per check-in</td><td>Off</td><td>Optional</td></tr>
+<tr><td>Membership</td><td>Off</td><td>Off</td><td>Core tab</td><td>Core tab (pass)</td></tr>
+<tr><td>Booking</td><td>Off</td><td>Off</td><td>Core tab</td><td>Party booking CTA</td></tr>
+<tr><td>Desk identity</td><td colspan="4">QR scan first, phone number second, backup code last — all four</td></tr>
+</table></div>
+
+<h2>How this lands in Atlas</h2>
+<p>None of this is four apps. It is one <code>businesses.layout_preset</code> column (<code>smoke</code> · <code>food</code> · <code>medspa</code> · <code>entertainment</code> · <code>custom</code>) that drives three things: which tabs <code>tabsForConfig()</code> returns, the order and visibility of Home modules on <code>app/[business]/app/page.tsx</code>, and which builder sections are shown. The demo packs in <code>lib/demo-packs.ts</code> already know the niche, so instant demos pick the preset automatically.</p>
+<ol class="build">
+  <li><b>Desk guardrails + phone lookup.</b> Confirm step on removals over 500 pts, a manager-only "reset program" action with a real confirm, and phone-number lookup as the second search on the desk (the code already normalizes phones). Small, and it's the direct answer to what happened this week.</li>
+  <li><b>Layout presets.</b> The column, the tab sets, the Home module order, and a "Layout" picker at the top of the builder. Food and smoke presets are mostly reordering; medspa and entertainment need the two new modules below.</li>
+  <li><b>Two new modules.</b> Weekly specials grid (entertainment; also useful for food) and treatment-due reminder (medspa; needs a category on the award and a cycle length per category). Punch clubs for smoke shops can start as tagged visit rewards.</li>
+  <li><b>Builder cleanup.</b> The Design tab has grown to 17 knobs (<code>card_style</code>, <code>button_style</code>, <code>banner_style</code>, <code>background_pattern</code>, <code>pattern_color</code>, <code>badge_style</code>, <code>heading_style</code>, <code>divider_style</code>, <code>offer_card_style</code>, <code>reward_card_style</code>, <code>points_card_style</code>, three layouts, three streak themes). Fold them into three groups — <i>Theme</i> (preset + colors + pattern), <i>Cards</i> (card, button, offer, reward, points-card styles), <i>Sections</i> (layouts, headings, dividers, badges) — with the ten one-click theme presets on top and everything else behind "Advanced". Presets should set all of these at once so a rep never opens Advanced at a door.</li>
+  <li><b>Then sell.</b> The pitch per niche writes itself from the table above, and the demo a rep builds at the door already looks like the niche's dream app instead of a generic one.</li>
+</ol>
+
+<div class="note">
+<p><b>On Clover, plainly.</b> There are two different things on that "Select a platform" screen. <i>Web</i> means an app that lives in the merchant's Clover web dashboard and talks to Clover's API — it does not put anything on the register screen. The device boxes (Station, Mini, Flex) mean an Android app that runs <i>on the Clover terminal itself</i>. That second one is what solves the Khaled problem: your front-desk page in a thin Clover Android wrapper, one tap from the register's home screen, with the same USB scanner plugged into the Station. No second laptop, no points automation, no POS data at all — just your desk where the staff already are. It's a listing-and-review process (weeks) and a small Capacitor-style build you've done twice already, so it belongs after the presets, not before.</p>
+</div>
+</div>

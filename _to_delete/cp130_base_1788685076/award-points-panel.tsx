@@ -18,9 +18,6 @@ type Member = {
 
 type Mode = "menu" | "purchase" | "remove";
 
-/** CP-130: removals above this many points need a reason + a second tap. */
-const LARGE_REMOVAL = 500;
-
 const QUICK_RULES: { key: keyof Business["point_rules"]; label: string; icon: React.ReactNode; tone: string }[] = [
   { key: "review",            label: "Google Review",  icon: <Star className="h-4 w-4" />,     tone: "amber" },
   { key: "visit",             label: "Visit / Check-in", icon: <MapPin className="h-4 w-4" />,  tone: "emerald" },
@@ -114,12 +111,6 @@ export function AwardPointsPanel({
   // CP-43: whole-number points to remove (corrections / refunds / abuse).
   const [removeAmount, setRemoveAmount] = useState<string>("");
   const [removeNote, setRemoveNote] = useState<string>("");
-  // CP-130: removals above LARGE_REMOVAL need a written reason AND a second
-  // tap. On Sep 5 a whole shop was zeroed from the keypad in four minutes —
-  // eighteen removals, none of them questioned. A big removal is rare and
-  // deliberate, so one extra tap costs nothing; an accidental wipe costs
-  // the account.
-  const [removeArmed, setRemoveArmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -247,11 +238,7 @@ export function AwardPointsPanel({
     balance,
   );
 
-  const largeRemoval = pointsToRemove > LARGE_REMOVAL;
-
   function pressRemove(digit: string) {
-    // CP-130: any change to the amount disarms a pending confirmation.
-    setRemoveArmed(false);
     if (digit === "back") { setRemoveAmount(removeAmount.slice(0, -1)); return; }
     const next = (removeAmount + digit).replace(/^0+(?=\d)/, "");
     if (next.length > 7) return; // sane cap
@@ -260,18 +247,6 @@ export function AwardPointsPanel({
 
   async function removePoints() {
     if (pointsToRemove <= 0) { setErr("Enter a number of points greater than 0."); return; }
-    // CP-130: guardrail on big removals — reason required, then confirm.
-    if (largeRemoval) {
-      if (removeNote.trim().length < 3) {
-        setErr(`Removing more than ${LARGE_REMOVAL} points needs a reason — type it below.`);
-        return;
-      }
-      if (!removeArmed) {
-        setErr(null);
-        setRemoveArmed(true);
-        return;
-      }
-    }
     setSubmitting(true);
     setErr(null);
     const supabase = createClient();
@@ -679,7 +654,7 @@ export function AwardPointsPanel({
             <div className="mt-6">
               <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Corrections</h3>
               <button
-                onClick={() => { setRemoveAmount(""); setRemoveNote(""); setRemoveArmed(false); setErr(null); setMode("remove"); }}
+                onClick={() => { setRemoveAmount(""); setRemoveNote(""); setErr(null); setMode("remove"); }}
                 className="mt-2 w-full rounded-2xl border border-rose-200 bg-rose-50 p-4 flex items-center gap-3 text-left hover:bg-rose-100 transition active:scale-[0.99]"
               >
                 <div className="h-11 w-11 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
@@ -805,57 +780,20 @@ export function AwardPointsPanel({
             <div className="mt-5 max-w-sm mx-auto w-full">
               <input
                 value={removeNote}
-                onChange={e => { setRemoveNote(e.target.value); setRemoveArmed(false); }}
-                placeholder={largeRemoval ? "Reason (required) — e.g. refund, mistake" : "Reason (optional) — e.g. refund, mistake"}
+                onChange={e => setRemoveNote(e.target.value)}
+                placeholder="Reason (optional) — e.g. refund, mistake"
                 maxLength={120}
-                className={cn(
-                  "w-full rounded-xl border bg-white px-3 py-2.5 text-sm",
-                  largeRemoval && removeNote.trim().length < 3 && "border-amber-400",
-                )}
+                className="w-full rounded-xl border bg-white px-3 py-2.5 text-sm"
               />
-              {/* CP-130: say why the reason box turned required. */}
-              {largeRemoval && (
-                <p className="mt-1.5 text-[11px] text-amber-700 text-center">
-                  Over {LARGE_REMOVAL} points — a reason is required and you'll confirm once more.
-                </p>
-              )}
             </div>
 
             {err && <p className="text-sm text-red-600 mt-3 text-center">{err}</p>}
 
-            {/* CP-130: armed state — the second tap is a different, louder
-                button so a double-tap on the first can't fire it. */}
-            {removeArmed && largeRemoval && (
-              <div className="mt-3 max-w-sm mx-auto w-full rounded-xl border-2 border-rose-300 bg-rose-50 p-3 text-center">
-                <div className="text-sm font-bold text-rose-800">
-                  Remove {pointsToRemove.toLocaleString()} points from {member.full_name || "this member"}?
-                </div>
-                <div className="text-[11px] text-rose-700 mt-0.5">
-                  Their balance drops to {(balance - pointsToRemove).toLocaleString()}. This is logged with your name and reason.
-                </div>
-              </div>
-            )}
-
-            <div className="mt-auto pt-4 pb-2 max-w-sm mx-auto w-full space-y-2">
+            <div className="mt-auto pt-4 pb-2">
               <Button onClick={removePoints} disabled={submitting || pointsToRemove <= 0}
-                className={cn(
-                  "w-full h-14 text-base text-white",
-                  removeArmed && largeRemoval ? "bg-rose-700 hover:bg-rose-800 ring-4 ring-rose-200" : "bg-rose-600 hover:bg-rose-700",
-                )}>
-                {submitting
-                  ? "Removing…"
-                  : removeArmed && largeRemoval
-                    ? `Yes, remove ${pointsToRemove.toLocaleString()} points`
-                    : largeRemoval
-                      ? `Review removal of ${pointsToRemove.toLocaleString()} points`
-                      : `Remove ${pointsToRemove} points`}
+                className="w-full h-14 text-base bg-rose-600 hover:bg-rose-700 text-white">
+                {submitting ? "Removing…" : `Remove ${pointsToRemove} points`}
               </Button>
-              {removeArmed && largeRemoval && (
-                <Button variant="ghost" onClick={() => setRemoveArmed(false)} disabled={submitting}
-                  className="w-full h-11 text-sm">
-                  Cancel
-                </Button>
-              )}
             </div>
           </>
         )}

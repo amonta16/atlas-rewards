@@ -64,9 +64,7 @@ export function ScanClient({
         {/* CP-99: use the shell's auto-contrast color (--surf-fg) so this
             heading never blends into a dark/patterned page background. */}
         <h1 className="text-lg font-bold" style={{ color: "var(--surf-fg, #18181b)" }}>Show this to staff</h1>
-        {/* CP-130: the phone number is the backup now — say it up front so
-            a customer with a dead battery knows what to tell the desk. */}
-        <p className="text-xs mt-1" style={{ color: "var(--surf-fg, #18181b)", opacity: 0.72 }}>They'll scan it to find your account — or just tell them your phone number.</p>
+        <p className="text-xs mt-1" style={{ color: "var(--surf-fg, #18181b)", opacity: 0.72 }}>They'll scan it to find your account.</p>
       </div>
 
       {/* Branded QR card */}
@@ -101,7 +99,6 @@ export function ScanClient({
           <div className="text-center mt-4">
             <div className="text-white/85 text-[10px] uppercase tracking-widest">Member code</div>
             <div className="text-white font-mono font-bold text-xl tracking-[0.2em] mt-0.5">{membership.referral_code}</div>
-            <div className="text-white/75 text-[11px] mt-1.5">Staff can also look you up by your phone number.</div>
           </div>
         )}
       </div>

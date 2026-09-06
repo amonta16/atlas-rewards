@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ScanLine, UserSearch, History, LogOut, Tag, Newspaper, Home, Check, Shield, Lightbulb } from "lucide-react";
+import { ScanLine, UserSearch, History, LogOut, Gift, Tag, Newspaper, Home, Check, Shield, Lightbulb } from "lucide-react";
 import { ManagerTutorial, useTutorialAutoOpen } from "@/components/manager/manager-tutorial";
 // CP-37.18 — Install-app affordance for managers + front-desk.
 import { ManagerPwaInstall } from "@/components/manager/manager-pwa-install";
@@ -52,26 +52,6 @@ type ManagerTab = "desk" | "users" | "offers" | "news" | "insights" | "billing" 
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
-
-/**
- * CP-130: does the typed value look like a phone number rather than a code?
- * Member codes are 6 hex chars (always contain a letter in practice — and a
- * pure 6-digit one is still shorter than any phone). Redemption codes are 7
- * alphanumerics with letters. So: 7+ digits and NO letters = phone.
- */
-function isPhoneLike(raw: string): boolean {
-  const s = raw.trim();
-  if (/[A-Za-z]/.test(s)) return false;
-  const digits = s.replace(/\D/g, "");
-  return digits.length >= 7;
-}
-
-/** (805) 555-0123 for the error copy; leaves non-10-digit strings as-is. */
-function formatPhone(digits: string): string {
-  const d = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
-  if (d.length !== 10) return digits;
-  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
-}
 
 // CP-22: front-desk (business_staff) is locked out of Billing + Insights —
 // they don't see the tabs, and the underlying RPCs are RLS-gated on
@@ -205,32 +185,6 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
     setErr(null);
 
     const supabase = createClient();
-
-    // 0. CP-130: a PHONE NUMBER is the front desk's universal backup identity
-    //    (Dutch Bros, Square, Toast, Bowlero, Topgolf all do this). Customers
-    //    know their number; nobody knows a 6-char code. If what was typed is
-    //    7+ digits with no letters, resolve by phone and stop — the code
-    //    resolvers below would only ever miss on an all-digit string anyway.
-    if (isPhoneLike(c)) {
-      const { data: phData, error: phErr } = await supabase.rpc("resolve_member_by_phone",
-        { p_phone: c, p_business_id: business.id });
-      if (phErr) {
-        setErr(`Couldn't look up that number — ${phErr.message}`);
-        setMode("idle");
-        return;
-      }
-      if (phData && phData.length > 0) {
-        setMember(phData[0] as Member);
-        setLastMember(phData[0] as Member);
-        setMode("idle");
-        return;
-      }
-      const digits = c.replace(/\D/g, "");
-      setErr(digits.length < 10
-        ? `No single member ends in ${digits}. Try the full 10-digit number.`
-        : `No member with the number ${formatPhone(digits)} at this shop. Check the digits, or search by name below.`);
-      return;
-    }
 
     // 1. Try as a member code (6 hex chars)
     // CP-117: surface RPC errors instead of swallowing them. Previously the
@@ -459,13 +413,12 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                     onClick={() => setMode("code-entry")}
                     className="bg-white/15 backdrop-blur-sm border border-white/40 text-white hover:bg-white/25 h-12 font-extrabold text-base"
                   >
-                    <UserSearch className="h-5 w-5 mr-2"/> Phone number
+                    <UserSearch className="h-5 w-5 mr-2"/> Type code
                   </Button>
                 </div>
-                {/* CP-130: phone number is the backup — say so where staff look. */}
                 <div className="mt-3.5 grid grid-cols-3 gap-3 text-[11px] text-white/90 font-medium">
-                  <div className="flex items-center gap-1.5"><ScanLine className="h-3.5 w-3.5"/> Scan their QR</div>
-                  <div className="flex items-center gap-1.5"><UserSearch className="h-3.5 w-3.5"/> Or type their phone number</div>
+                  <div className="flex items-center gap-1.5"><ScanLine className="h-3.5 w-3.5"/> 6-char = member</div>
+                  <div className="flex items-center gap-1.5"><Gift className="h-3.5 w-3.5"/> 7-char = redemption</div>
                   {/* CP-30: USB scanner status indicator */}
                   <div className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
@@ -534,36 +487,26 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             {mode === "code-entry" && (
               <div className="rounded-2xl border bg-white p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-base">Phone number or code</h3>
+                  <h3 className="font-bold text-base">Type the code</h3>
                   <Button variant="ghost" size="sm" onClick={() => setMode("idle")}>Cancel</Button>
                 </div>
                 <form onSubmit={(e) => { e.preventDefault(); resolveCode(code); }} className="space-y-4">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
-                      Ask for their phone number
+                      Member or redemption code
                     </Label>
-                    {/* CP-130: phone number is the backup identity. The box
-                        takes a 10-digit number (any formatting) OR the old
-                        member / redemption codes — isPhoneLike() routes it.
-                        inputMode="tel" brings up the number pad on tablets;
-                        letters still type for codes. */}
                     <Input
                       value={code}
                       onChange={e => setCode(e.target.value.toUpperCase())}
-                      placeholder="(805) 555-0123"
-                      maxLength={16}
+                      placeholder="ABC123 or A2B3C4D"
+                      maxLength={8}
                       autoFocus
-                      inputMode="tel"
-                      autoComplete="off"
                       // CP-30: noticeably larger input — easier to type into on
                       // a tablet at the front desk without misfiring.
-                      className={cn(
-                        "font-mono text-2xl text-center uppercase h-14",
-                        isPhoneLike(code) ? "tracking-[0.15em]" : "tracking-[0.4em]",
-                      )}
+                      className="font-mono tracking-[0.4em] text-2xl text-center uppercase h-14"
                     />
                     <p className="text-[11px] text-zinc-500 text-center">
-                      Their 10-digit phone number, or a member / redemption code.
+                      6 chars for member, 7 for redemption. Letters and numbers only.
                     </p>
                   </div>
                   {err && (
