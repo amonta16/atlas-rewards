@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { INDUSTRY_TEMPLATES, templateByValue } from "@/lib/industry-templates";
+// CP-131: niche layout preset — defaults from the template, adjustable here.
+import { LAYOUT_PRESETS, LAYOUT_PRESET_IDS, presetForIndustry, type LayoutPreset } from "@/lib/layout-presets";
 
 // CP-42: third step captures the business's PRE-Atlas baseline numbers
 // so the Insights "With Atlas vs Without" comparison uses their real
@@ -28,6 +30,9 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
   // apps here are pitch demos; flip it off in the brand editor when a deal
   // closes and the app goes live for real customers.
   const [isDemo, setIsDemo] = useState(true);
+  // CP-131: layout preset. null = "follow the template" (presetForIndustry);
+  // set when the user picks one explicitly on the template step.
+  const [layoutOverride, setLayoutOverride] = useState<LayoutPreset | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // CP-42 baseline fields
@@ -37,6 +42,7 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
   const [baselineVisits,      setBaselineVisits]      = useState<string>("");
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "lvh.me";
   const tpl = templateByValue(templateValue);
+  const layoutPreset: LayoutPreset = layoutOverride ?? presetForIndustry(templateValue === "other" ? null : templateValue);
 
   function autoSlug(raw: string) {
     return raw.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -66,7 +72,7 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
     if (newBusinessId) {
       // CP-68: mark demo apps (silent fallback if cp68 SQL isn't applied yet).
       try {
-        await supabase.from("businesses").update({ is_demo: isDemo }).eq("id", newBusinessId);
+        await supabase.from("businesses").update({ is_demo: isDemo, layout_preset: layoutPreset }).eq("id", newBusinessId);
       } catch { /* non-fatal */ }
       const revenueCents = baselineRevenue
         ? Math.round(parseFloat(baselineRevenue) * 100)
@@ -180,6 +186,41 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
                     </button>
                   );
                 })}
+              </div>
+              {/* CP-131: layout preset — defaults from the template; tap to override. */}
+              <div className="rounded-xl border bg-white p-3 mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
+                    App layout
+                  </div>
+                  {layoutOverride && (
+                    <button type="button" onClick={() => setLayoutOverride(null)} className="text-[11px] font-semibold text-zinc-500 hover:text-zinc-900">
+                      Use template default
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {LAYOUT_PRESET_IDS.map((id) => {
+                    const on = layoutPreset === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setLayoutOverride(id)}
+                        className={cn(
+                          "text-[11px] font-semibold px-2.5 py-1 rounded-full border transition",
+                          on ? "bg-zinc-900 border-zinc-900 text-white" : "bg-white border-zinc-200 text-zinc-700 hover:border-zinc-400",
+                        )}
+                      >
+                        {LAYOUT_PRESETS[id].label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-2 leading-snug">
+                  {LAYOUT_PRESETS[layoutPreset].blurb}{" "}
+                  <span className="text-zinc-400">Tabs: {LAYOUT_PRESETS[layoutPreset].tabs.map(t => t.label).join(" · ")}</span>
+                </div>
               </div>
               {tpl && (
                 <div className="rounded-xl border bg-zinc-50 p-3 mt-2">

@@ -126,7 +126,7 @@ export function FieldBatchModal({
               .from("businesses").select("widget_config").eq("id", bizId).single();
             const widget = { ...((wc?.widget_config as Record<string, unknown> | null) ?? {}), reviews: true };
             await supabase.from("businesses").update({
-              ...demoDesignPayload(i),
+              ...demoDesignPayload(i, row.niche),
               widget_config: widget,
               ...(info?.reviewUrl ? { google_review_url: info.reviewUrl } : {}),
             }).eq("id", bizId);

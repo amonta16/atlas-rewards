@@ -16,6 +16,7 @@
  */
 
 import type { BrandColors } from "@/lib/logo-colors";
+import { presetForNiche } from "@/lib/layout-presets";
 
 export type DemoNiche =
   | "food" | "cafe" | "pizza" | "dessert" | "bakery"
@@ -451,9 +452,16 @@ export const DEMO_PATTERNS = ["none", "hills", "diagonal", "lowpoly"] as const;
 
 /** The businesses-row update for a new demo. Pass a batch index to cycle
  *  patterns deterministically; omit it for a random pick. */
-export function demoDesignPayload(i?: number) {
+export function demoDesignPayload(i?: number, niche?: DemoNiche) {
   const pick = typeof i === "number"
     ? i % DEMO_PATTERNS.length
     : Math.floor(Math.random() * DEMO_PATTERNS.length);
-  return { ...DEMO_DESIGN_PRESET, background_pattern: DEMO_PATTERNS[pick] };
+  return {
+    ...DEMO_DESIGN_PRESET,
+    background_pattern: DEMO_PATTERNS[pick],
+    // CP-131: the niche picks the layout — a smoke-shop demo comes out
+    // Deals-first, a medspa demo with Book + Member and no streaks. Niches
+    // outside the four tailored ones keep the classic layout.
+    ...(niche ? { layout_preset: presetForNiche(niche) } : {}),
+  };
 }

@@ -188,7 +188,7 @@ export function FieldDemoModal({
             .from("businesses").select("widget_config").eq("id", bizId).single();
           const widget = { ...((wc?.widget_config as Record<string, unknown> | null) ?? {}), reviews: true };
           await supabase.from("businesses").update({
-            ...demoDesignPayload(),
+            ...demoDesignPayload(undefined, niche),
             widget_config: widget,
             ...(foundMeta.reviewUrl ? { google_review_url: foundMeta.reviewUrl } : {}),
           }).eq("id", bizId);

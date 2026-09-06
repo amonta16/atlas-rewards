@@ -167,6 +167,10 @@ export type Business = {
   location_card_color?: string | null;
   /** CP-68: demo app — reward game replayable (no check-in/cooldown gates). */
   is_demo?: boolean | null;
+  /** CP-131: per-niche layout preset — drives the bottom-nav tab set and the
+   *  order of Home modules. See lib/layout-presets.ts. NULL/'custom' = the
+   *  classic layout every pre-CP-131 app uses. */
+  layout_preset?: string | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.
    *  NULL = Unfiled. Manual grouping only; by-industry view needs no column.
    *  CP-60 superseded by folder_id (kept for backfill only). */

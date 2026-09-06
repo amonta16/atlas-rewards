@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Gift, ChevronRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
@@ -29,6 +30,8 @@ import { StreakMini } from "@/components/customer/streak-mini";
 // ask. The bell nudge (EnablePushNudge in the app shell) is now the single
 // notification-activation moment, and the welcome gift reveal follows it.
 import type { Business, Membership } from "@/lib/types/database";
+// CP-131: per-niche layout preset → order of the Home modules.
+import { presetSpec, type HomeModule } from "@/lib/layout-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -80,78 +83,52 @@ export default async function CustomerHome({ params }: { params: { business: str
     ? Math.max(0, Math.ceil((new Date(offer.expires_at).getTime() - Date.now()) / 86_400_000))
     : null;
 
-  return (
-    <div className="relative">
-      {/* CP-89: OffersRevalidator mount removed — CP-88 neutralised it (the
-          router.refresh() stampede); the featured-offer banner + limited
-          offers keep their own targeted realtime listeners. */}
+  // CP-131: the preset decides which modules appear on Home and in what
+  // order. "custom" reproduces the pre-CP-131 page exactly. Every block
+  // keeps its own visibility rules (widget flags, "hides itself when empty").
+  const layout = presetSpec(business.layout_preset);
+  const homeOrder = layout.home;
+  const memberCardFirst = homeOrder[0] === "member_card";
 
-      {/* CP-52.4: header (logo + quick actions) now lives in the app shell so
-          it appears on every tab — not just here. */}
-
-      {/* Hero */}
-      <div className="relative h-56 overflow-hidden">
-        {business.hero_image_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={business.hero_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div
-            className="absolute inset-0"
-            style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)` }}
-          />
-        )}
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-white/85 text-[10px] font-semibold tracking-widest uppercase">{business.name}</div>
-            <h2 className="text-white text-xl font-bold leading-tight mt-1">{greeting}</h2>
-          </div>
-          {/* CP-32: notification bell — only when the customer is a member. */}
-          {mem?.id && (
-            <NotificationBell
-              primary={business.brand_colors.primary}
-              membershipId={mem.id}
-              businessId={business.id}
-            />
-          )}
-        </div>
+  const blocks: Record<HomeModule, React.ReactNode> = {
+    member_card: business.widget_config.points_card ? (
+      // Overlaps the hero when it leads; sits normally when a preset puts
+      // the membership card above it.
+      <div className={memberCardFirst ? "px-4 -mt-7 relative z-10" : "px-4 mt-5"}>
+        <LiveMemberCard
+          business={business}
+          membershipId={mem?.id ?? null}
+          initialPoints={points}
+          isMember={!!mem}
+        />
       </div>
+    ) : null,
 
-      {/* Member card — live-updates via Realtime */}
-      {business.widget_config.points_card && (
-        <div className="px-4 -mt-7 relative z-10">
-          <LiveMemberCard
-            business={business}
-            membershipId={mem?.id ?? null}
-            initialPoints={points}
-            isMember={!!mem}
-          />
-        </div>
-      )}
+    // Win-back banner — surfaces personal messages from the Come-Back AI
+    winback: <WinbackBanner business={business} membershipId={mem?.id ?? null} />,
 
-      {/* Win-back banner — surfaces personal messages from the Come-Back AI */}
-      <WinbackBanner business={business} membershipId={mem?.id ?? null} />
-
-      {/* CP-87: pending-referral progress (referee side) — hides itself
-          unless this member was referred and hasn't hit the spend goal. */}
+    // CP-87: pending-referral progress (referee side) — hides itself
+    // unless this member was referred and hasn't hit the spend goal.
+    referral: (
       <ReferralProgressCard
         businessId={business.id}
         membershipId={mem?.id ?? null}
         primary={business.brand_colors.primary}
         secondary={business.brand_colors.secondary}
       />
+    ),
 
-      {/* CP-85.1: featured RAFFLE card — the giveaway takes the hero spot
-          above the featured offer (client component; hides itself when no
-          featured raffle is scheduled or open). */}
-      {business.widget_config.offers && (
-        <FeaturedRaffleCard business={business} slug={params.business} />
-      )}
+    // CP-85.1: featured RAFFLE card (client component; hides itself when no
+    // featured raffle is scheduled or open).
+    raffle: business.widget_config.offers ? (
+      <FeaturedRaffleCard business={business} slug={params.business} />
+    ) : null,
 
-      {/* Featured offer — only when one exists in DB. CP-26: poppy glow border
-          per Andrew's mock — a thick cyan/brand ring with a soft outer glow
-          so the featured card grabs attention on the home feed. */}
-      {business.widget_config.offers && offer && (
+    // Featured offer — only when one exists in DB. CP-26: poppy glow border
+    // per Andrew's mock — a thick cyan/brand ring with a soft outer glow
+    // so the featured card grabs attention on the home feed.
+    featured_offer: business.widget_config.offers && offer ? (
+      <>
         <div className="px-4 mt-5">
           <div
             className="relative rounded-3xl p-[3px]"
@@ -204,80 +181,125 @@ export default async function CustomerHome({ params }: { params: { business: str
             })()}
           </div>
         </div>
-      )}
+        {/* CP-67: optional divider under the featured offer */}
+        <SectionDivider business={business} />
+      </>
+    ) : null,
 
-      {/* CP-67: optional divider under the featured offer */}
-      {business.widget_config.offers && offer && <SectionDivider business={business} />}
-
-      {/* Top rewards */}
-      {business.widget_config.rewards_store && topRewards.length > 0 && (
-        <div className="px-4 mt-5">
-          <div className="flex items-center justify-between mb-2.5">
-            <SectionHeading business={business} className="text-sm">Top rewards</SectionHeading>
-            {/* CP-47: make "See all" pop — a filled brand pill with a soft
-                glow so customers notice there's a full rewards catalog. */}
-            <AppLink
-              slug={params.business}
-              to="/rewards"
-              className="inline-flex items-center gap-1 text-xs font-extrabold text-white rounded-full pl-3 pr-2 py-1.5 shadow-md active:scale-95 transition"
-              style={{
-                background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
-                boxShadow: `0 6px 16px -4px ${business.brand_colors.primary}88`,
-              }}
-            >
-              See all <ChevronRight className="h-3.5 w-3.5" />
-            </AppLink>
-          </div>
-          {/* CP-53: locked rewards now open a detail popup right here on Home
-              (client component); unlocked still deep-link to the redeem flow. */}
-          <TopRewardsGrid
-            businessSlug={params.business}
-            rewards={topRewards}
-            points={points}
-            primary={business.brand_colors.primary}
-            secondary={business.brand_colors.secondary}
-            cardStyle={business.reward_card_style ?? null}
-            layout={business.home_rewards_layout ?? null}
-          />
-
-          {/* CP-52.1: jump STRAIGHT to the full rewards catalog (no double-step
-              through the rewards tab). */}
+    // Top rewards — CP-131: the preset names it ("Redeem now" / "Ready to claim").
+    top_rewards: business.widget_config.rewards_store && topRewards.length > 0 ? (
+      <div className="px-4 mt-5">
+        <div className="flex items-center justify-between mb-2.5">
+          <SectionHeading business={business} className="text-sm">{layout.topRewardsHeading}</SectionHeading>
+          {/* CP-47: make "See all" pop — a filled brand pill with a soft
+              glow so customers notice there's a full rewards catalog. */}
           <AppLink
             slug={params.business}
-            to="/shop"
-            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
+            to="/rewards"
+            className="inline-flex items-center gap-1 text-xs font-extrabold text-white rounded-full pl-3 pr-2 py-1.5 shadow-md active:scale-95 transition"
             style={{
               background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
-              boxShadow: `0 10px 22px -8px ${business.brand_colors.primary}aa`,
+              boxShadow: `0 6px 16px -4px ${business.brand_colors.primary}88`,
             }}
           >
-            View more rewards <ChevronRight className="h-4 w-4" />
+            See all <ChevronRight className="h-3.5 w-3.5" />
           </AppLink>
         </div>
-      )}
+        {/* CP-53: locked rewards now open a detail popup right here on Home
+            (client component); unlocked still deep-link to the redeem flow. */}
+        <TopRewardsGrid
+          businessSlug={params.business}
+          rewards={topRewards}
+          points={points}
+          primary={business.brand_colors.primary}
+          secondary={business.brand_colors.secondary}
+          cardStyle={business.reward_card_style ?? null}
+          layout={business.home_rewards_layout ?? null}
+        />
 
-      {/* CP-52: Daily Spin + Streak now sit BELOW rewards, side by side
-          (half-width each) instead of stacked full-width above. */}
-      {mem?.id && (
-        <div className="px-4 mt-4 grid grid-cols-2 gap-3 items-stretch">
-          <DailySpinButton business={business} membershipId={mem.id} compact />
-          <StreakMini business={business} membershipId={mem.id} compact />
-        </div>
-      )}
+        {/* CP-52.1: jump STRAIGHT to the full rewards catalog (no double-step
+            through the rewards tab). */}
+        <AppLink
+          slug={params.business}
+          to="/shop"
+          className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-2xl py-3 text-sm font-extrabold text-white shadow-lg active:scale-[0.99] transition"
+          style={{
+            background: `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+            boxShadow: `0 10px 22px -8px ${business.brand_colors.primary}aa`,
+          }}
+        >
+          View more rewards <ChevronRight className="h-4 w-4" />
+        </AppLink>
+      </div>
+    ) : null,
 
-      {/* Membership — single-tier exclusive card with billing CTA */}
+    // CP-52: Daily Spin + Streak side by side. CP-131: presets that turn
+    // streaks off (medspa, entertainment) simply leave this out of `home`.
+    spin_streak: mem?.id ? (
+      <div className="px-4 mt-4 grid grid-cols-2 gap-3 items-stretch">
+        <DailySpinButton business={business} membershipId={mem.id} compact />
+        <StreakMini business={business} membershipId={mem.id} compact />
+      </div>
+    ) : null,
+
+    // Membership — single-tier exclusive card with billing CTA (hides itself
+    // when the business hasn't enabled memberships).
+    membership: (
       <MembershipSection
         business={business}
         membership={mem}
         userId={user!.id}
       />
+    ),
 
-      {/* News & updates — CP-69: billboard cards + tappable detail sheet
-          (was tiny non-clickable rows). */}
-      {newsPosts.length > 0 && <NewsSection business={business} posts={newsPosts} />}
+    // News & updates — CP-69: billboard cards + tappable detail sheet.
+    news: newsPosts.length > 0 ? <NewsSection business={business} posts={newsPosts} /> : null,
 
-      {/* CP-52.6: location map + Call-now card at the very bottom of Home. */}
-      {business.widget_config.location && <LocationCard business={business} />}
+    // CP-52.6: location map + Call-now card.
+    location: business.widget_config.location ? <LocationCard business={business} /> : null,
+  };
+
+  return (
+    <div className="relative">
+      {/* CP-89: OffersRevalidator mount removed — CP-88 neutralised it (the
+          router.refresh() stampede); the featured-offer banner + limited
+          offers keep their own targeted realtime listeners. */}
+
+      {/* CP-52.4: header (logo + quick actions) now lives in the app shell so
+          it appears on every tab — not just here. */}
+
+      {/* Hero */}
+      <div className="relative h-56 overflow-hidden">
+        {business.hero_image_url ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={business.hero_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div
+            className="absolute inset-0"
+            style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary} 100%)` }}
+          />
+        )}
+        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute top-0 left-0 right-0 p-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-white/85 text-[10px] font-semibold tracking-widest uppercase">{business.name}</div>
+            <h2 className="text-white text-xl font-bold leading-tight mt-1">{greeting}</h2>
+          </div>
+          {/* CP-32: notification bell — only when the customer is a member. */}
+          {mem?.id && (
+            <NotificationBell
+              primary={business.brand_colors.primary}
+              membershipId={mem.id}
+              businessId={business.id}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* CP-131: modules in the preset's order (see blocks above). */}
+      {homeOrder.map((key) => (
+        <Fragment key={key}>{blocks[key]}</Fragment>
+      ))}
     </div>
   );
 }

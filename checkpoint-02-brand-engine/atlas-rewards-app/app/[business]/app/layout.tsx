@@ -138,6 +138,8 @@ export default async function CustomerAppLayout({
       <CustomerAppShell
         primary={business.brand_colors.primary}
         widgetConfig={business.widget_config}
+        /* CP-131: niche layout preset → tab set. */
+        layoutPreset={business.layout_preset ?? null}
         /* CP-32: wired so the bottom-nav Rewards tab can show the
            red/orange "!" Google-review nudge badge. */
         businessId={business.id}

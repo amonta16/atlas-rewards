@@ -1,10 +1,11 @@
 "use client";
-import { Home, ShoppingBag, ScanLine, Gift, CalendarClock, Flame } from "lucide-react";
+import { Home, ShoppingBag, ScanLine, Gift, CalendarClock, Flame, Tag, Crown, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { WidgetConfig } from "@/lib/types/database";
+import { presetSpec, type TabId } from "@/lib/layout-presets";
 import { useReviewStatus, reviewBadgeTone } from "@/lib/hooks/use-review-status";
 import { readableTextColor } from "@/lib/patterns";
 import { createClient } from "@/lib/supabase/client";
@@ -27,21 +28,29 @@ const REWARDS: TabDef = { href: "/rewards", label: "Rewards", icon: Gift };
 const STREAKS: TabDef = { href: "/streaks", label: "Streaks", icon: Flame };
 // CP-99: Profile moved to the header hamburger menu (header-actions.tsx) —
 // the /profile route is unchanged, it just left the bar.
+// CP-131: tabs the niche presets can put on the bar.
+const OFFERS:     TabDef = { href: "/offers",     label: "Offers",     icon: Tag };
+const MEMBERSHIP: TabDef = { href: "/membership", label: "Membership", icon: Crown };
+const PROFILE:    TabDef = { href: "/profile",    label: "Profile",    icon: UserRound };
+
+const TAB_BY_ID: Record<TabId, TabDef> = {
+  home: HOME, scan: SCAN, rewards: REWARDS, streaks: STREAKS,
+  offers: OFFERS, book: BOOK, membership: MEMBERSHIP, profile: PROFILE,
+};
+void SHOP; // Shop tab retired in CP-06; kept so the icon import stays honest.
 
 /**
- * Build the tab list based on enabled features.
+ * Build the tab list for a business.
  *
- * Always-on: Home, Scan, Rewards, Profile.
- * Optional middle slots: Shop (if widget_config.shop), Book (if widget_config.booking).
- * We cap the visible tabs at 5 to keep the bar readable on small screens;
- * if both Shop and Book are on, Profile becomes a slide-out (drop from the bar).
+ * CP-131: the set and order come from the business's layout preset
+ * (lib/layout-presets.ts). "custom" (and every pre-CP-131 app) yields the
+ * classic Home · Check in · Rewards · Streaks bar. Presets may relabel a
+ * tab (smoke shops say "Deals", entertainment says "Pass") — the label
+ * comes from the preset, the route from the tab id. Capped at 5.
  */
-export function tabsForConfig(_w: WidgetConfig): TabDef[] {
-  // Atlas is loyalty-only — Shop and Book tabs were removed in CP-06.
-  // The flags still exist on stale data but we no longer surface them.
-  // CP-99: Streaks joined the bar; Profile moved to the header hamburger.
-  const base: TabDef[] = [HOME, SCAN, REWARDS, STREAKS];
-  return base;
+export function tabsForConfig(_w: WidgetConfig, layoutPreset?: string | null): TabDef[] {
+  const spec = presetSpec(layoutPreset);
+  return spec.tabs.slice(0, 5).map(t => ({ ...TAB_BY_ID[t.id], label: t.label }));
 }
 
 /**
@@ -130,9 +139,12 @@ export function CustomerAppShell({
   surfaceFg,
   chromeColor,
   reviewUrl,
+  layoutPreset,
 }: {
   primary: string;
   widgetConfig: WidgetConfig;
+  /** CP-131: businesses.layout_preset — picks the tab set (lib/layout-presets.ts). */
+  layoutPreset?: string | null;
   children: React.ReactNode;
   businessId?: string | null;
   membershipId?: string | null;
@@ -160,7 +172,7 @@ export function CustomerAppShell({
   // The regex anchors `/app` at a segment boundary so slugs like
   // "apple-spa" can't false-match.
   const basePath = pathname?.match(/^(.*?\/app)(\/|$)/)?.[1] ?? "/app";
-  const tabs = tabsForConfig(widgetConfig);
+  const tabs = tabsForConfig(widgetConfig, layoutPreset);
 
   // CP-55: adapt the bottom-nav icon/label colors to the nav (chrome) color.
   // On a dark nav, grey buttons blend — use light text; active = white so it
@@ -230,7 +242,7 @@ export function CustomerAppShell({
           // user into submitting (or finishing) a Google review.
           // CP-35: when the badge is active, the link includes ?focus=review
           // so the rewards page scrolls directly to the review row.
-          const isRewards = t.label === "Rewards";
+          const isRewards = t.href === "/rewards"; // CP-131: presets may relabel; key on the route
           const showBadge = isRewards && reviewTone !== false;
           // CP-121: state-aware Streaks badges — gold gift beats red "!";
           // a gift that's ALSO urgent wears a red ring. Hidden while the
