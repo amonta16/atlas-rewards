@@ -12,6 +12,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { LimitedOffersSection } from "@/components/customer/limited-offers-section";
 import { NewsSection } from "@/components/customer/news-section";
+import { EventsSection, type EventRow } from "@/components/customer/events-section";
+import { SpecialsStrip, type SpecialRow } from "@/components/customer/specials-strip";
 import { presetSpec } from "@/lib/layout-presets";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +27,15 @@ export default async function OffersTab({ params }: { params: { business: string
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
   const supabase = createClient();
-  const { data: news } = await supabase.rpc("latest_news", { p_business_id: business.id, p_limit: 6 });
+  const [{ data: news }, { data: eventRows }, { data: specialRows }] = await Promise.all([
+    supabase.rpc("latest_news",            { p_business_id: business.id, p_limit: 6 }),
+    supabase.rpc("list_business_events",   { p_business_id: business.id, p_limit: 30 }),
+    supabase.rpc("list_business_specials", { p_business_id: business.id }),
+  ]);
   const newsPosts = (news ?? []) as NewsRow[];
+  const events = (eventRows ?? []) as EventRow[];
+  const specials = (specialRows ?? []) as SpecialRow[];
+  const hasAnything = newsPosts.length > 0 || events.length > 0 || specials.length > 0 || business.widget_config.offers;
   const layout = presetSpec(business.layout_preset);
 
   return (
@@ -39,6 +48,10 @@ export default async function OffersTab({ params }: { params: { business: string
           {layout.offersSubtitle}
         </p>
       </div>
+
+      {/* CP-132: the week's standing deals, then dated events, then offers. */}
+      <SpecialsStrip business={business} specials={specials} />
+      <EventsSection business={business} events={events} title="Upcoming events" />
 
       {business.widget_config.offers ? (
         <LimitedOffersSection
@@ -53,14 +66,11 @@ export default async function OffersTab({ params }: { params: { business: string
         />
       ) : null}
 
-      {newsPosts.length > 0 ? (
-        <NewsSection business={business} posts={newsPosts} />
-      ) : (
-        !business.widget_config.offers && (
-          <div className="mx-4 mt-6 rounded-2xl border bg-white p-5 text-center text-sm text-zinc-500">
-            Nothing running right now — check back soon.
-          </div>
-        )
+      {newsPosts.length > 0 && <NewsSection business={business} posts={newsPosts} />}
+      {!hasAnything && (
+        <div className="mx-4 mt-6 rounded-2xl border bg-white p-5 text-center text-sm text-zinc-500">
+          Nothing running right now — check back soon.
+        </div>
       )}
     </div>
   );

@@ -32,6 +32,8 @@ export type TabSpec = { id: TabId; label: string };
 export type HomeModule =
   | "member_card"
   | "membership"
+  | "specials"        // CP-132: "This week" weekly-deal strip
+  | "events"          // CP-132: "Coming up" dated events
   | "featured_offer"
   | "top_rewards"
   | "spin_streak"
@@ -63,7 +65,7 @@ export type LayoutPresetSpec = {
 
 const HOME_CUSTOM: HomeModule[] = [
   "member_card", "winback", "referral", "raffle", "featured_offer",
-  "top_rewards", "spin_streak", "membership", "news", "location",
+  "top_rewards", "spin_streak", "membership", "specials", "events", "news", "location",
 ];
 
 export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
@@ -100,8 +102,8 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "streaks", label: "Streak" },
     ],
     home: [
-      "member_card", "featured_offer", "top_rewards", "spin_streak",
-      "raffle", "winback", "referral", "news", "location",
+      "member_card", "featured_offer", "specials", "top_rewards", "spin_streak",
+      "raffle", "winback", "referral", "events", "news", "location",
     ],
     topRewardsHeading: "Ready to claim",
     offersTitle: "Deals",
@@ -124,8 +126,8 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "streaks", label: "Streak" },
     ],
     home: [
-      "member_card", "featured_offer", "top_rewards", "spin_streak",
-      "raffle", "winback", "referral", "news", "membership", "location",
+      "member_card", "featured_offer", "specials", "top_rewards", "spin_streak",
+      "raffle", "winback", "referral", "events", "news", "membership", "location",
     ],
     topRewardsHeading: "Redeem now",
     offersTitle: "Offers",
@@ -148,7 +150,7 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "scan", label: "Check in" },
     ],
     home: [
-      "membership", "member_card", "featured_offer", "referral",
+      "membership", "member_card", "featured_offer", "events", "referral",
       "winback", "top_rewards", "news", "location",
     ],
     topRewardsHeading: "Your rewards",
@@ -172,8 +174,8 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "rewards", label: "Rewards" },
     ],
     home: [
-      "membership", "member_card", "featured_offer", "news",
-      "referral", "top_rewards", "winback", "location",
+      "membership", "member_card", "specials", "events", "featured_offer",
+      "news", "referral", "top_rewards", "winback", "location",
     ],
     topRewardsHeading: "Redeem now",
     offersTitle: "Events & specials",

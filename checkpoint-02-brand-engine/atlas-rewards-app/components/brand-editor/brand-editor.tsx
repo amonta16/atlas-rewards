@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Eye, QrCode, User, Palette, Tag, Crown, Gift, Settings as SettingsIcon, BarChart3, Newspaper } from "lucide-react";
+import { ArrowLeft, Check, Eye, QrCode, User, Palette, Tag, Crown, Gift, Settings as SettingsIcon, BarChart3, Newspaper, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,9 @@ import { MembershipBillingSetup } from "@/components/manager/membership-billing-
 // CP-87: manager-only announcement composer, surfaced for admins here too.
 import { AnnouncementComposer } from "@/components/manager/announcement-composer";
 import { NewsManager } from "@/components/agency/news-manager";
+// CP-132: events + weekly specials managers.
+import { EventsManager } from "@/components/agency/events-manager";
+import { SpecialsManager } from "@/components/agency/specials-manager";
 // Products manager removed — Atlas is loyalty-only now (no in-app commerce).
 // CP-42: TemplateApplyPanel removed — industry template only applied during create.
 import { WidgetToggleGroups } from "@/components/agency/widget-toggle-groups";
@@ -106,15 +109,21 @@ const POINT_MAXES: Record<string, number> = {
   profile_complete:    500,
 };
 
-type Tab = "brand" | "insights" | "offers" | "membership" | "rewards" | "news" | "settings";
+type Tab = "brand" | "design" | "insights" | "offers" | "events" | "membership" | "rewards" | "news" | "settings";
 
 function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }[] {
   const all: { id: Tab; label: string; icon: React.ReactNode; gatedBy?: keyof Business["widget_config"] }[] = [
-    { id: "brand",      label: "Brand & widgets", icon: <Palette className="h-4 w-4" /> },
+    // CP-132: "Brand & widgets" split in two — Setup (layout, info, features,
+    // location, demo) and Design (theme + colors, advanced styling folded).
+    { id: "brand",      label: "Setup",           icon: <SlidersHorizontal className="h-4 w-4" /> },
+    { id: "design",     label: "Design",          icon: <Palette className="h-4 w-4" /> },
     { id: "rewards",    label: "Rewards",         icon: <Gift className="h-4 w-4" /> },
     { id: "offers",     label: "Offers",          icon: <Tag className="h-4 w-4" /> },
+    // CP-132: events + weekly specials (the Events tab's content).
+    { id: "events",     label: "Events",          icon: <CalendarClock className="h-4 w-4" /> },
     // Booking, Products, and Leaderboard tabs removed — Atlas is loyalty-only.
-    { id: "membership", label: "Membership",      icon: <Crown className="h-4 w-4" /> },
+    // CP-132: entertainment venues call it a Pass.
+    { id: "membership", label: resolvePreset(b.layout_preset) === "entertainment" ? "Passes" : "Membership", icon: <Crown className="h-4 w-4" /> },
     { id: "news",       label: "News",            icon: <Newspaper className="h-4 w-4" />,     gatedBy: "news" },
     { id: "insights",   label: "Insights",        icon: <BarChart3 className="h-4 w-4" /> },
     { id: "settings",   label: "Settings",        icon: <SettingsIcon className="h-4 w-4" /> },
@@ -124,6 +133,8 @@ function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }
 
 export function BrandEditor({ initial }: { initial: Business }) {
   const [b, setB] = useState<Business>(initial);
+  // CP-132: Design tab's "Advanced styling" fold (closed by default).
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("brand");
   const [previewTab, setPreviewTab] = useState<PreviewTab>("home");
   // CP-45: the mockup preview kept drifting from the real customer app
@@ -352,7 +363,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
       <div
         className={cn(
           "px-8 py-8 grid gap-8",
-          tab === "insights" || tab === "membership" || tab === "settings"
+          tab === "insights" || tab === "membership" || tab === "settings" || tab === "events"
             ? "lg:grid-cols-1"
             : "lg:grid-cols-[1fr_400px]",
         )}
@@ -490,6 +501,109 @@ export function BrandEditor({ initial }: { initial: Business }) {
                   )}
                 </Field>
               </Section>
+
+              {/* CP-72: the game picker is gone — every business plays the
+                  Prize Wheel (slot/boxes removed). Wheel prizes + odds are
+                  configured on the Rewards tab. Only the demo toggle stays. */}
+              <Section title="Demo mode" subtitle="For pitching: the Prize Wheel becomes replayable — no check-in or cooldown required.">
+                <div className="rounded-xl border p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Label className="cursor-pointer text-sm font-semibold">Demo app (for pitching)</Label>
+                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                      Turn OFF when this app goes live for real customers.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!!b.is_demo}
+                    onCheckedChange={(v) => update("is_demo", v)}
+                  />
+                </div>
+              </Section>
+
+              <Section title="Location & map" subtitle="Show a map + “Call now” button at the bottom of the customer home.">
+                <div className="flex items-center justify-between rounded-xl border p-3 mb-3">
+                  <div>
+                    <div className="text-sm font-semibold">Show location card</div>
+                    <div className="text-xs text-muted-foreground">Map, address, and a Call-now button on Home.</div>
+                  </div>
+                  <Switch
+                    checked={!!b.widget_config.location}
+                    onCheckedChange={(v) => update("widget_config", { ...b.widget_config, location: v })}
+                  />
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Phone number">
+                    <Input
+                      value={b.contact_info?.phone ?? ""}
+                      onChange={e => update("contact_info", { ...(b.contact_info ?? {}), phone: e.target.value })}
+                      placeholder="(555) 123-4567"
+                    />
+                  </Field>
+                  <Field label="Google Maps link">
+                    <Input
+                      value={b.contact_info?.map_url ?? ""}
+                      onChange={e => update("contact_info", { ...(b.contact_info ?? {}), map_url: e.target.value })}
+                      placeholder="https://maps.app.goo.gl/…"
+                    />
+                  </Field>
+                </div>
+                <Field label="Address (shown + used to draw the map)">
+                  <Input
+                    value={b.contact_info?.address ?? ""}
+                    onChange={e => update("contact_info", { ...(b.contact_info ?? {}), address: e.target.value })}
+                    placeholder="123 Main St, City, ST 00000"
+                  />
+                </Field>
+                <Field label="Hours (optional)">
+                  <Input
+                    value={b.contact_info?.hours ?? ""}
+                    onChange={e => update("contact_info", { ...(b.contact_info ?? {}), hours: e.target.value })}
+                    placeholder="Opens at 9:00 AM"
+                  />
+                </Field>
+                {/* CP-99 3c.1: the band behind the map card was fixed white —
+                    now adjustable per business. Blank = white (original look). */}
+                <div className="space-y-2 mt-4">
+                  <Label className="text-xs text-muted-foreground">Section background color</Label>
+                  <div className="flex gap-2 items-center">
+                    <input type="color" value={b.location_card_color ?? "#ffffff"}
+                      onChange={e => update("location_card_color", e.target.value)}
+                      className="h-10 w-12 rounded border cursor-pointer" />
+                    <Input value={b.location_card_color ?? ""} placeholder="#ffffff (default)"
+                      onChange={e => update("location_card_color", e.target.value || null)} />
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={() => update("location_card_color", null)}>
+                      Reset
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    The full-width band behind the map + Call-now card at the bottom of Home. The map card itself stays white so the address is always readable.
+                  </p>
+                </div>
+              </Section>
+
+              <Section title="Customer-app features" subtitle="Turn features on or off — the customer app re-shapes its tabs and Home layout to match.">
+                <WidgetToggleGroups
+                  config={b.widget_config}
+                  onChange={(next) => update("widget_config", next)}
+                />
+              </Section>
+
+              {/* CP-42: TemplateApplyPanel removed. The industry template
+                  is chosen ONCE during the new-business creation flow
+                  (NewBusinessModal). A post-creation reset surface added
+                  no value and risked clobbering the agency's tuning. */}
+              <BusinessDiscoveryQR business={b} />
+            </>
+          )}
+
+          {tab === "design" && (
+            <>
+              {/* CP-132: Design tab. Theme presets + the four levers people
+                  actually touch live up top. Every other knob (card / button /
+                  banner / panel styles, section layouts, element pack, streak
+                  theme) sits behind "Advanced styling" — still there, no
+                  longer a wall. Presets set all of them at once. */}
 
               {/* CP-65: one-click theme presets. Sets EVERY design lever at
                   once (colors, header/bg, pattern, card + button shapes,
@@ -632,6 +746,24 @@ export function BrandEditor({ initial }: { initial: Business }) {
                   Leave blank for the default light look. Any background pattern you picked above still applies on top of this color.
                 </p>
               </Section>
+
+              <div className="rounded-2xl border bg-white">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen(v => !v)}
+                  className="w-full flex items-center justify-between px-6 py-4 text-left"
+                >
+                  <div>
+                    <div className="font-semibold">Advanced styling</div>
+                    <div className="text-sm text-muted-foreground mt-0.5">
+                      Card, button, banner and panel styles · section layouts · badges, headings, dividers · streak theme. A theme preset already set all of these — open only to fine-tune.
+                    </div>
+                  </div>
+                  <ChevronDown className={cn("h-5 w-5 text-zinc-400 transition-transform shrink-0 ml-4", advancedOpen && "rotate-180")} />
+                </button>
+              </div>
+              {advancedOpen && (
+                <>
 
               <Section title="Card style" subtitle="How reward, stat, and offer cards look across the whole app — corners, shadow, and outline.">
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -1152,24 +1284,6 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 </div>
               </Section>
 
-              {/* CP-72: the game picker is gone — every business plays the
-                  Prize Wheel (slot/boxes removed). Wheel prizes + odds are
-                  configured on the Rewards tab. Only the demo toggle stays. */}
-              <Section title="Demo mode" subtitle="For pitching: the Prize Wheel becomes replayable — no check-in or cooldown required.">
-                <div className="rounded-xl border p-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Label className="cursor-pointer text-sm font-semibold">Demo app (for pitching)</Label>
-                    <p className="text-[11px] text-muted-foreground leading-snug mt-0.5">
-                      Turn OFF when this app goes live for real customers.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!!b.is_demo}
-                    onCheckedChange={(v) => update("is_demo", v)}
-                  />
-                </div>
-              </Section>
-
               {/* CP-65: streak theme — the streak chip, Home teaser card, and
                   full streak panel all wear this. No more locked-in orange. */}
               <Section title="Streak theme" subtitle="The color story of the streak chip, teaser card, and streak panel. Match it to the brand or pick a vibe.">
@@ -1301,82 +1415,18 @@ export function BrandEditor({ initial }: { initial: Business }) {
                   </p>
                 </div>
               </Section>
-
-              <Section title="Location & map" subtitle="Show a map + “Call now” button at the bottom of the customer home.">
-                <div className="flex items-center justify-between rounded-xl border p-3 mb-3">
-                  <div>
-                    <div className="text-sm font-semibold">Show location card</div>
-                    <div className="text-xs text-muted-foreground">Map, address, and a Call-now button on Home.</div>
-                  </div>
-                  <Switch
-                    checked={!!b.widget_config.location}
-                    onCheckedChange={(v) => update("widget_config", { ...b.widget_config, location: v })}
-                  />
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <Field label="Phone number">
-                    <Input
-                      value={b.contact_info?.phone ?? ""}
-                      onChange={e => update("contact_info", { ...(b.contact_info ?? {}), phone: e.target.value })}
-                      placeholder="(555) 123-4567"
-                    />
-                  </Field>
-                  <Field label="Google Maps link">
-                    <Input
-                      value={b.contact_info?.map_url ?? ""}
-                      onChange={e => update("contact_info", { ...(b.contact_info ?? {}), map_url: e.target.value })}
-                      placeholder="https://maps.app.goo.gl/…"
-                    />
-                  </Field>
-                </div>
-                <Field label="Address (shown + used to draw the map)">
-                  <Input
-                    value={b.contact_info?.address ?? ""}
-                    onChange={e => update("contact_info", { ...(b.contact_info ?? {}), address: e.target.value })}
-                    placeholder="123 Main St, City, ST 00000"
-                  />
-                </Field>
-                <Field label="Hours (optional)">
-                  <Input
-                    value={b.contact_info?.hours ?? ""}
-                    onChange={e => update("contact_info", { ...(b.contact_info ?? {}), hours: e.target.value })}
-                    placeholder="Opens at 9:00 AM"
-                  />
-                </Field>
-                {/* CP-99 3c.1: the band behind the map card was fixed white —
-                    now adjustable per business. Blank = white (original look). */}
-                <div className="space-y-2 mt-4">
-                  <Label className="text-xs text-muted-foreground">Section background color</Label>
-                  <div className="flex gap-2 items-center">
-                    <input type="color" value={b.location_card_color ?? "#ffffff"}
-                      onChange={e => update("location_card_color", e.target.value)}
-                      className="h-10 w-12 rounded border cursor-pointer" />
-                    <Input value={b.location_card_color ?? ""} placeholder="#ffffff (default)"
-                      onChange={e => update("location_card_color", e.target.value || null)} />
-                    <Button type="button" variant="outline" size="sm"
-                      onClick={() => update("location_card_color", null)}>
-                      Reset
-                    </Button>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    The full-width band behind the map + Call-now card at the bottom of Home. The map card itself stays white so the address is always readable.
-                  </p>
-                </div>
-              </Section>
-
-              <Section title="Customer-app features" subtitle="Turn features on or off — the customer app re-shapes its tabs and Home layout to match.">
-                <WidgetToggleGroups
-                  config={b.widget_config}
-                  onChange={(next) => update("widget_config", next)}
-                />
-              </Section>
-
-              {/* CP-42: TemplateApplyPanel removed. The industry template
-                  is chosen ONCE during the new-business creation flow
-                  (NewBusinessModal). A post-creation reset surface added
-                  no value and risked clobbering the agency's tuning. */}
-              <BusinessDiscoveryQR business={b} />
+                </>
+              )}
             </>
+          )}
+
+          {tab === "events" && (
+            <div className="space-y-6">
+              {/* CP-132: what fills the Events tab + the "This week" and
+                  "Coming up" modules on Home. */}
+              <SpecialsManager business={b} />
+              <EventsManager business={b} />
+            </div>
           )}
 
           {tab === "rewards" && (
@@ -1507,7 +1557,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
             customer-app visuals; CP-29.1: also hidden on Offers since the
             new automated-offer edit panel ships its own popup preview that
             shows the actual customer experience). */}
-        {tab !== "insights" && tab !== "membership" && tab !== "settings" && tab !== "offers" && (
+        {tab !== "insights" && tab !== "membership" && tab !== "settings" && tab !== "offers" && tab !== "events" && (
           <div className="lg:sticky lg:top-8 lg:self-start" style={previewStyle}>
             <div className="text-center mb-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">

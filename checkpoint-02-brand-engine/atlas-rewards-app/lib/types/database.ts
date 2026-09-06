@@ -275,6 +275,32 @@ export type NewsPost = {
   published_at: string;
 };
 
+/** CP-132: dated happenings (tournaments, holidays, league night). */
+export type BusinessEvent = {
+  id: string;
+  business_id: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  location_note: string | null;
+  cta_label: string | null;
+  cta_url: string | null;
+  is_published: boolean;
+};
+
+/** CP-132: weekly deal calendar row. day_of_week 0 = Sunday. */
+export type BusinessSpecial = {
+  id: string;
+  business_id: string;
+  day_of_week: number;
+  title: string;
+  detail: string | null;
+  is_active: boolean;
+  sort_order: number;
+};
+
 export type BookingTag = {
   id: string;
   business_id: string;

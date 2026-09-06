@@ -25,6 +25,9 @@ import { FeaturedRaffleCard } from "@/components/customer/featured-raffle-card";
 import { DailySpinButton } from "@/components/customer/daily-spin-button";
 // CP-43.3: mini streak teaser — shows progress to the first streak reward.
 import { StreakMini } from "@/components/customer/streak-mini";
+// CP-132: dated events + weekly specials.
+import { EventsSection, type EventRow } from "@/components/customer/events-section";
+import { SpecialsStrip, type SpecialRow } from "@/components/customer/specials-strip";
 // CP-43.3: PwaWelcomeOverlay (the installed "welcome + enable notifications"
 // modal) was removed — it competed with the bell nudge for the notification
 // ask. The bell nudge (EnablePushNudge in the app shell) is now the single
@@ -55,17 +58,23 @@ export default async function CustomerHome({ params }: { params: { business: str
   if (!business) notFound();
 
   const supabase = createClient();
-  const [user, mem, offer, { data: rewards }, { data: news }] = await Promise.all([
+  const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }] = await Promise.all([
     getCachedUser(),
     getMyMembership(business.id),
     getFeaturedOffer(business.id),
     // CP-52: show at least 4 top rewards on Home (was 2).
     supabase.rpc("top_rewards_public", { p_business_id: business.id, p_limit: 4 }),
     supabase.rpc("latest_news",        { p_business_id: business.id, p_limit: 3 }),
+    // CP-132: upcoming events + weekly specials (both RPCs return [] on a
+    // pre-CP-132 DB → the sections simply don't render).
+    supabase.rpc("list_business_events",   { p_business_id: business.id, p_limit: 6 }),
+    supabase.rpc("list_business_specials", { p_business_id: business.id }),
   ]);
 
   const topRewards = (rewards ?? []) as TopReward[];
   const newsPosts = (news ?? []) as NewsRow[];
+  const upcomingEvents = (eventRows ?? []) as EventRow[];
+  const weeklySpecials = (specialRows ?? []) as SpecialRow[];
 
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
   const firstName = (profile?.full_name ?? user!.email?.split("@")[0] ?? "there").split(" ")[0];
@@ -251,6 +260,12 @@ export default async function CustomerHome({ params }: { params: { business: str
         userId={user!.id}
       />
     ),
+
+    // CP-132: weekly specials strip ("This week") — hides itself when empty.
+    specials: <SpecialsStrip business={business} specials={weeklySpecials} />,
+
+    // CP-132: next few dated events ("Coming up") — hides itself when empty.
+    events: <EventsSection business={business} events={upcomingEvents} limit={3} />,
 
     // News & updates — CP-69: billboard cards + tappable detail sheet.
     news: newsPosts.length > 0 ? <NewsSection business={business} posts={newsPosts} /> : null,
