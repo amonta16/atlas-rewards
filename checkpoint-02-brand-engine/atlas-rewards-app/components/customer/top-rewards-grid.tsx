@@ -36,6 +36,7 @@ export type TopReward = {
 };
 
 export function TopRewardsGrid({
+  businessFinePrint,
   businessSlug, rewards, points, primary, secondary, cardStyle, layout,
 }: {
   businessSlug: string;
@@ -49,6 +50,8 @@ export function TopRewardsGrid({
   /** CP-99: Home top-rewards layout (businesses.home_rewards_layout) —
    *  same shapes as the store: grid (default) / list / carousel / spotlight. */
   layout?: string | null;
+  /** CP-134: business-wide fine print for the detail sheet. */
+  businessFinePrint?: string | null;
 }) {
   // CP-106: base-aware in-app hrefs + <Link> — these tiles were plain
   // anchors, so every "tap a reward" on Home was a full page reload.
@@ -230,6 +233,7 @@ export function TopRewardsGrid({
           primary={primary}
           secondary={secondary}
           businessSlug={businessSlug}
+          businessFinePrint={businessFinePrint}
           onClose={() => setDetail(null)}
         />
       )}

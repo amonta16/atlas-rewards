@@ -23,24 +23,39 @@ import { JoinLandingClient, type LandingBusiness } from "./landing-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function JoinLanding({ params }: { params: { code: string } }) {
+export default async function JoinLanding({ params, searchParams }: { params: { code: string }; searchParams?: { c?: string } }) {
   const clean = params.code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  // CP-135: promo campaign slug (?c=) → headline on this page, carried to /qr.
+  const campSlug = (searchParams?.c ?? "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
 
   let business: LandingBusiness | null = null;
+  let campaign: { slug: string; headline: string; description: string | null; rewardLine: string | null } | null = null;
   if (clean.length >= 3 && clean.length <= 24) {
     const admin = createAdminClient();
     const { data } = await admin
       .from("businesses")
-      .select("slug, name, join_code, logo_url, app_icon_url, hero_image_url, brand_colors, header_color")
+      .select("id, slug, name, join_code, logo_url, app_icon_url, hero_image_url, brand_colors, header_color")
       .ilike("join_code", clean)
       .maybeSingle();
     business = (data as LandingBusiness | null) ?? null;
+    if (business && campSlug.length >= 2) {
+      const { data: c } = await admin.rpc("get_signup_campaign", { p_business_id: (data as { id: string }).id, p_slug: campSlug });
+      const row = (Array.isArray(c) ? c[0] : c) as { slug: string; headline: string; description: string | null; reward_kind: string; points_amount: number | null; offer_title: string | null } | null;
+      if (row) {
+        campaign = {
+          slug: row.slug, headline: row.headline, description: row.description,
+          rewardLine: row.reward_kind === "points" ? `+${row.points_amount ?? 0} points when you finish signing up`
+                    : row.reward_kind === "offer" ? `${row.offer_title ?? "A reward"} when you finish signing up` : null,
+        };
+      }
+    }
   }
 
   return (
     <JoinLandingClient
       business={business}
       code={clean}
+      campaign={campaign}
       // CP-124.1 fallbacks are inlined below: this page silently rendered NO
       // App Store button because NEXT_PUBLIC_APP_STORE_URL was never set in
       // Vercel (every other iOS surface uses a constant). The moment the Play

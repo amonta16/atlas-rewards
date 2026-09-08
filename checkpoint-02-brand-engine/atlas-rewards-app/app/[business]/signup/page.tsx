@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { campaignFromLocation, rememberCampaign } from "@/lib/campaign-storage";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { Gift, Bell, Eye, EyeOff } from "lucide-react";
@@ -59,6 +60,10 @@ export default function CustomerSignup() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     setRefCode((new URLSearchParams(window.location.search).get("ref") ?? "").toUpperCase());
+    // CP-135: promo campaign (?c=) survives signup via localStorage; the app
+    // layout's CampaignResumer sends them to the waiver/reward page after.
+    const slug = window.location.pathname.split("/").filter(Boolean)[0] ?? "";
+    rememberCampaign(slug, campaignFromLocation());
   }, []);
 
   const [name, setName] = useState("");

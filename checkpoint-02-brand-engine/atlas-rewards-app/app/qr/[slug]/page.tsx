@@ -19,7 +19,10 @@ import { headers } from "next/headers";
  * Inside the Atlas Engine native app, the shell intercepts /qr/<slug> via
  * extractSlugFromQr and this route never renders.
  */
-export default function DiscoveryQrLanding({ params }: { params: { slug: string } }) {
+export default function DiscoveryQrLanding({ params, searchParams }: { params: { slug: string }; searchParams?: { c?: string } }) {
+  // CP-135: promo campaign slug rides through to the business landing.
+  const camp = (searchParams?.c ?? "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  const cq = camp.length >= 2 ? `?c=${encodeURIComponent(camp)}` : "";
   const h = headers();
   const reqHost = (h.get("x-forwarded-host") ?? h.get("host") ?? "lvh.me").split(":")[0];
 
@@ -35,5 +38,5 @@ export default function DiscoveryQrLanding({ params }: { params: { slug: string 
   const protocol = isLocal ? "http" : "https";
   const port     = isLocal ? ":3000" : "";
 
-  redirect(`${protocol}://${params.slug}.${rootDomain}${port}/`);
+  redirect(`${protocol}://${params.slug}.${rootDomain}${port}/${cq}`);
 }

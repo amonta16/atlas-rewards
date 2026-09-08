@@ -27,12 +27,17 @@ export function JoinLandingClient({
   code,
   appStoreUrl,
   playStoreUrl,
+  campaign = null,
 }: {
   business: LandingBusiness | null;
   code: string;
   appStoreUrl: string;
   playStoreUrl: string;
+  /** CP-135: promo campaign from ?c= (headline + reward), carried through to /qr. */
+  campaign?: { slug: string; headline: string; description: string | null; rewardLine: string | null } | null;
 }) {
+  // CP-135: every "continue" link keeps the campaign slug.
+  const cq = campaign ? `?c=${encodeURIComponent(campaign.slug)}` : "";
   const [platform, setPlatform] = useState<"ios" | "android" | "other">("other");
   const [copied, setCopied] = useState(false);
 
@@ -119,6 +124,15 @@ export function JoinLandingClient({
         </div>
 
         <div className="p-6 space-y-4">
+          {/* CP-135: the promise the QR made — shown before the store buttons. */}
+          {campaign && (
+            <div className="rounded-2xl p-4 text-white" style={{ background: `linear-gradient(135deg, ${primary}, ${primary}cc)` }}>
+              <div className="text-[10px] font-black uppercase tracking-widest opacity-85">Welcome offer</div>
+              <div className="text-lg font-black leading-tight mt-0.5">{campaign.headline}</div>
+              {campaign.description && <div className="text-xs opacity-90 mt-1">{campaign.description}</div>}
+              {campaign.rewardLine && <div className="text-xs font-bold mt-2 bg-white/20 inline-block rounded-full px-2.5 py-0.5">{campaign.rewardLine}</div>}
+            </div>
+          )}
           {hasStores ? (
             <>
               <div className="space-y-2">{storeButtons}</div>
@@ -138,7 +152,7 @@ export function JoinLandingClient({
               </div>
               <button
                 className="w-full text-sm text-zinc-500 hover:text-zinc-700 inline-flex items-center justify-center gap-1.5"
-                onClick={() => { window.location.href = `/qr/${business.slug}`; }}
+                onClick={() => { window.location.href = `/qr/${business.slug}${cq}`; }}
               >
                 <Globe className="h-4 w-4" /> Or continue in your browser
               </button>
@@ -149,7 +163,7 @@ export function JoinLandingClient({
               <Button
                 className="w-full h-12 text-base font-semibold"
                 style={{ background: primary }}
-                onClick={() => { window.location.href = `/qr/${business.slug}`; }}
+                onClick={() => { window.location.href = `/qr/${business.slug}${cq}`; }}
               >
                 Join {business.name} <ArrowRight className="h-4 w-4 ml-1" />
               </Button>

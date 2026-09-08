@@ -3,6 +3,8 @@ import { Gift, Lock, X } from "lucide-react";
 import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { ImageCarousel, rewardGallery } from "@/components/customer/image-carousel";
+// CP-134: every reward shows its terms before claim/redeem.
+import { FinePrint } from "@/components/customer/fine-print";
 
 /**
  * RewardDetailModal — CP-105
@@ -38,10 +40,12 @@ export type DetailReward = {
   images?: string[] | null;
   /** Present on the Rewards tab; absent from the Home RPC. */
   description?: string | null;
+  /** CP-134: per-reward fine print (rewards.terms). */
+  terms?: string | null;
 };
 
 export function RewardDetailModal({
-  reward, points, primary, secondary, businessSlug, onClose, onRedeem,
+  reward, points, primary, secondary, businessSlug, onClose, onRedeem, businessFinePrint,
 }: {
   reward: DetailReward;
   points: number;
@@ -51,6 +55,8 @@ export function RewardDetailModal({
   onClose: () => void;
   /** Supplied when the viewer can already afford it. */
   onRedeem?: () => void;
+  /** CP-134: businesses.reward_fine_print (default when the reward has none). */
+  businessFinePrint?: string | null;
 }) {
   // CP-106: base-aware in-app href (path form vs subdomain/PWA).
   const appBase = useAppBase(businessSlug);
@@ -124,6 +130,9 @@ export function RewardDetailModal({
               {reward.description}
             </p>
           )}
+
+          {/* CP-134: terms are visible BEFORE the redeem button, every time. */}
+          <FinePrint terms={reward.terms} businessDefault={businessFinePrint} primary={primary} compact className="mt-3" />
 
           <div className="mt-4">
             <div className="h-2.5 rounded-full bg-zinc-100 overflow-hidden">

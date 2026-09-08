@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { campaignFromLocation, rememberCampaign } from "@/lib/campaign-storage";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, MailCheck, Shield, Eye, EyeOff } from "lucide-react";
@@ -101,6 +102,12 @@ function PasswordInput({
 }
 
 export default function CustomerLogin() {
+  // CP-135: remember a promo campaign (?c=) for after sign-in.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const slug = window.location.pathname.split("/").filter(Boolean)[0] ?? "";
+    rememberCampaign(slug, campaignFromLocation());
+  }, []);
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

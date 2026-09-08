@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Star, Clock, ExternalLink, Check, X, AlertTriangle } from "lucide-react";
+import { Star, Clock, ExternalLink, Check, X, AlertTriangle, Instagram, Facebook } from "lucide-react";
+// CP-134: social follows share this queue.
+import { readSocialConfig } from "@/lib/social-config";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/toast";
@@ -11,8 +13,10 @@ type PendingReview = {
   member_name: string;
   member_email: string;
   verification_method: string;
-  verification_data: { review_link?: string; screenshot_url?: string } | null;
+  verification_data: { review_link?: string; screenshot_url?: string; handle?: string } | null;
   submitted_at: string;
+  /** CP-134: 'google' | 'instagram' | 'facebook' (absent on a pre-CP-134 DB → google). */
+  platform?: string | null;
 };
 
 export function ReviewQueue({ business }: { business: Business }) {
@@ -97,7 +101,7 @@ export function ReviewQueue({ business }: { business: Business }) {
         <div className="flex items-center gap-2.5">
           <GoogleGLogo className="h-5 w-5" />
           <div>
-            <h3 className="font-extrabold text-sm tracking-tight">Pending Google reviews</h3>
+            <h3 className="font-extrabold text-sm tracking-tight">Pending reviews &amp; follows</h3>
             <div className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">
               Verify, then award points
             </div>
@@ -136,8 +140,26 @@ export function ReviewQueue({ business }: { business: Business }) {
                 {r.member_name[0]?.toUpperCase() ?? "?"}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm truncate">{r.member_name}</div>
+                <div className="font-semibold text-sm truncate flex items-center gap-2">
+                  {r.member_name}
+                  {/* CP-134: what they're claiming */}
+                  {r.platform === "instagram" ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#E1306C18", color: "#E1306C" }}><Instagram className="h-3 w-3" /> Instagram follow</span>
+                  ) : r.platform === "facebook" ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#1877F218", color: "#1877F2" }}><Facebook className="h-3 w-3" /> Facebook follow</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600"><Star className="h-3 w-3" /> Google review</span>
+                  )}
+                </div>
                 <div className="text-[11px] text-muted-foreground truncate">{r.member_email}</div>
+                {(r.platform === "instagram" || r.platform === "facebook") && (
+                  <div className="text-[11px] text-zinc-700 mt-0.5">
+                    {r.verification_data?.handle ? <>Their handle: <strong>{r.verification_data.handle}</strong></> : "No handle given — check your followers list"}
+                    {(() => { const u = readSocialConfig(business, r.platform as "instagram" | "facebook").url; return u ? (
+                      <a href={u} target="_blank" rel="noopener noreferrer" className="ml-2 inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"><ExternalLink className="h-3 w-3" /> Open our page</a>
+                    ) : null; })()}
+                  </div>
+                )}
                 <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   Submitted {new Date(r.submitted_at).toLocaleString()}
@@ -148,7 +170,7 @@ export function ReviewQueue({ business }: { business: Business }) {
                     <ExternalLink className="h-3 w-3" /> View their review
                   </a>
                 )}
-                {!r.verification_data?.review_link && business.google_review_url && (
+                {!r.verification_data?.review_link && business.google_review_url && (!r.platform || r.platform === "google") && (
                   <a href={business.google_review_url} target="_blank" rel="noopener noreferrer"
                      className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline">
                     <ExternalLink className="h-3 w-3" /> Open Google Reviews to verify

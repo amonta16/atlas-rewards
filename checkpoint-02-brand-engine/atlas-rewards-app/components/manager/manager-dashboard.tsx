@@ -41,6 +41,9 @@ import { BusinessInsights } from "@/components/agency/business-insights";
 import { MembershipBillingSetup } from "@/components/manager/membership-billing-setup";
 import { CreditCard, BarChart3, Crown, Users } from "lucide-react";
 import { MembersDirectory } from "@/components/manager/members-directory";
+// CP-135: signed-waiver log (staff + manager).
+import { WaiverSubmissions } from "@/components/manager/waiver-submissions";
+import { FileSignature } from "lucide-react";
 import type { Business } from "@/lib/types/database";
 
 // Booking tab removed — Atlas is loyalty-only.
@@ -48,7 +51,7 @@ import type { Business } from "@/lib/types/database";
 // + per-business notification toggles now live in the agency admin's
 // business settings (NotificationSettings panel) so the entire
 // notification surface is owned by the agency, not the front desk.
-type ManagerTab = "desk" | "users" | "offers" | "news" | "insights" | "billing" | "membership" | "team";
+type ManagerTab = "desk" | "users" | "offers" | "news" | "waivers" | "insights" | "billing" | "membership" | "team";
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -88,6 +91,8 @@ function managerTabsFor(_business: Business, role: AppRole): { id: ManagerTab; l
   }
   tabs.push({ id: "offers", label: "Offers", icon: <Tag className="h-4 w-4" /> });
   tabs.push({ id: "news",   label: "News",   icon: <Newspaper className="h-4 w-4" /> });
+  // CP-135: front desk needs the signed-waiver log to verify a customer.
+  tabs.push({ id: "waivers", label: "Waivers", icon: <FileSignature className="h-4 w-4" /> });
   if (isManager) {
     tabs.push({ id: "billing",    label: "Billing",    icon: <CreditCard className="h-4 w-4" /> });
     tabs.push({ id: "membership", label: "Membership", icon: <Crown className="h-4 w-4" /> });
@@ -739,6 +744,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         )}
 
         {tab === "news"       && <NewsManager             business={business} />}
+        {tab === "waivers"    && <ManagerWaiversTab       business={business} />}
         {tab === "billing"    && <ManagerBilling         business={business} />}
         {tab === "membership" && <MembershipBillingSetup business={business} />}
         {tab === "team"       && (role === "business_manager" || role === "agency_admin") && (
@@ -761,6 +767,27 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             longer carries this tab — keeps the front-desk surface focused
             on day-to-day ops. */}
       </main>
+    </div>
+  );
+}
+
+// CP-135: the waiver log needs the business's waiver titles for its filter.
+function ManagerWaiversTab({ business }: { business: Business }) {
+  const [waivers, setWaivers] = useState<{ id: string; title: string }[]>([]);
+  useEffect(() => {
+    (async () => {
+      const { data } = await createClient()
+        .from("business_waivers").select("id, title").eq("business_id", business.id).order("created_at");
+      setWaivers((data ?? []) as { id: string; title: string }[]);
+    })();
+  }, [business.id]);
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Every waiver customers have signed in the app. Search by name, email or phone; open a record to view or print the signed copy.
+        Waivers themselves are created and versioned in the app builder.
+      </p>
+      <WaiverSubmissions business={business} waivers={waivers} />
     </div>
   );
 }

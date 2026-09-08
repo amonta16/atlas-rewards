@@ -82,7 +82,10 @@ export function MysteryPoolManager({ business }: { business: Business }) {
   async function remove(p: Prize) {
     if (!confirm(`Delete "${p.prize_name}"?`)) return;
     const supabase = createClient();
-    await supabase.rpc("delete_mystery_prize", { p_id: p.id, p_business_id: business.id });
+    // CP-133.2: surface the error — a failed delete used to look like a
+    // no-op (the FK from spin history blocked it silently).
+    const { error } = await supabase.rpc("delete_mystery_prize", { p_id: p.id, p_business_id: business.id });
+    if (error) { alert("Couldn't delete this prize: " + error.message); return; }
     load();
   }
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
+import { FinePrint } from "@/components/customer/fine-print";
 import type { Business } from "@/lib/types/database";
 
 type Stage = "intro" | "submit" | "submitted";
@@ -97,6 +98,8 @@ export function ReviewSubmitModal({
                   </Button>
                 </Step>
               </div>
+              {/* CP-134: same terms block every reward carries. */}
+              <FinePrint businessDefault={business.reward_fine_print} primary={business.brand_colors.primary} compact className="mt-4" />
             </div>
           </>
         )}

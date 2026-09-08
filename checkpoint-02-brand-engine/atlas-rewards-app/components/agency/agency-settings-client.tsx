@@ -13,6 +13,10 @@ type AgencySettings = {
   default_monthly_cents: number;
   support_email: string | null;
   support_url: string | null;
+  /** CP-134: platform reward disclaimer shown on every reward (ours). */
+  reward_disclaimer?: string | null;
+  /** CP-134: one-line vendor hint shown above the disclaimer. */
+  vendor_terms_hint?: string | null;
 };
 
 /**
@@ -40,6 +44,8 @@ export function AgencySettingsClient({ initial }: { initial: AgencySettings }) {
           default_monthly_cents:   s.default_monthly_cents,
           support_email: s.support_email,
           support_url:   s.support_url,
+          reward_disclaimer: (s.reward_disclaimer ?? "").trim() || null,
+          vendor_terms_hint: (s.vendor_terms_hint ?? "").trim() || null,
         })
         .eq("id", 1);
       if (!error) setSavedAt(new Date());
@@ -145,6 +151,34 @@ export function AgencySettingsClient({ initial }: { initial: AgencySettings }) {
               placeholder="https://help.atlasengine.io"
             />
           </Field>
+        </div>
+      </Section>
+
+      {/* ============ CP-134: REWARD TERMS (platform copy) ============ */}
+      <Section
+        title="Reward terms — platform copy"
+        subtitle="Shown under every reward's fine print in every customer app. Review and finalise before launch; no code change needed."
+        icon={<DollarSign className="h-5 w-5" />}
+      >
+        <div className="space-y-4">
+          <Field label="Vendor hint (one line, shown first)">
+            <Input
+              value={s.vendor_terms_hint ?? ""}
+              onChange={e => update("vendor_terms_hint", e.target.value || null)}
+              placeholder="See the vendor for complete reward details, restrictions, and eligibility requirements."
+            />
+          </Field>
+          <Field label="Platform disclaimer">
+            <textarea
+              value={s.reward_disclaimer ?? ""}
+              onChange={e => update("reward_disclaimer", e.target.value || null)}
+              placeholder="Rewards and offers are created, honored, and managed by the business that offers them. Atlas Engine provides the software only…"
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[120px]"
+            />
+          </Field>
+          <p className="text-[11px] text-muted-foreground">
+            Business-specific terms are set per business (Builder → Rewards → Reward fine print) and per reward. These two lines are appended to all of them.
+          </p>
         </div>
       </Section>
 

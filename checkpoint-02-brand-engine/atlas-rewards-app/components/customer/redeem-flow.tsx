@@ -5,9 +5,13 @@ import QRCode from "react-qr-code";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ImageCarousel, rewardGallery } from "@/components/customer/image-carousel";
+// CP-134: terms shown on the confirm step.
+import { FinePrint } from "@/components/customer/fine-print";
 import type { Business } from "@/lib/types/database";
 
 type Reward = {
+  /** CP-134: per-reward fine print. */
+  terms?: string | null;
   id: string; name: string; description: string | null;
   reward_type: string; point_cost: number; image_url: string | null;
   // CP-99: additional gallery photos (cover = image_url).
@@ -96,6 +100,9 @@ export function RedeemFlow({
                   <Row label="After redemption" value={`${(currentPoints - reward.point_cost).toLocaleString()} pts`} bold color={business.brand_colors.primary} />
                 </div>
               </div>
+
+              {/* CP-134: the customer confirms WITH the terms in view. */}
+              <FinePrint terms={reward.terms} businessDefault={business.reward_fine_print} primary={business.brand_colors.primary} className="mt-4" />
 
               {err && <p className="text-sm text-red-600 mt-3">{err}</p>}
             </div>

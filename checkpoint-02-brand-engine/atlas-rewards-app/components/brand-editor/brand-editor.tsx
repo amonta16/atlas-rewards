@@ -60,13 +60,17 @@ import { NewsManager } from "@/components/agency/news-manager";
 // CP-132: events + weekly specials managers.
 import { EventsManager } from "@/components/agency/events-manager";
 import { SpecialsManager } from "@/components/agency/specials-manager";
+// CP-134: Instagram / Facebook follow rewards + fine print.
+import { SocialRewardsEditor } from "@/components/agency/social-rewards-editor";
+// CP-135: waivers, versions, promo campaigns + signed log.
+import { WaiversManager } from "@/components/agency/waivers-manager";
 // Products manager removed — Atlas is loyalty-only now (no in-app commerce).
 // CP-42: TemplateApplyPanel removed — industry template only applied during create.
 import { WidgetToggleGroups } from "@/components/agency/widget-toggle-groups";
 import { BookingTagsManager } from "@/components/agency/booking-tags-manager";
 import { BusinessSettingsPanel } from "@/components/agency/business-settings-panel";
 import { NotificationSettingsPanel } from "@/components/agency/notification-settings-panel";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, FileSignature } from "lucide-react";
 // CP-42: IndustryTemplate import removed alongside TemplateApplyPanel.
 import type { PreviewBookingTag } from "@/components/customer-preview/customer-preview";
 
@@ -109,7 +113,7 @@ const POINT_MAXES: Record<string, number> = {
   profile_complete:    500,
 };
 
-type Tab = "brand" | "design" | "insights" | "offers" | "events" | "membership" | "rewards" | "news" | "settings";
+type Tab = "brand" | "design" | "insights" | "offers" | "events" | "membership" | "rewards" | "news" | "waivers" | "settings";
 
 function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }[] {
   const all: { id: Tab; label: string; icon: React.ReactNode; gatedBy?: keyof Business["widget_config"] }[] = [
@@ -125,6 +129,8 @@ function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }
     // CP-132: entertainment venues call it a Pass.
     { id: "membership", label: resolvePreset(b.layout_preset) === "entertainment" ? "Passes" : "Membership", icon: <Crown className="h-4 w-4" /> },
     { id: "news",       label: "News",            icon: <Newspaper className="h-4 w-4" />,     gatedBy: "news" },
+    // CP-135: waivers + promo campaigns (optional per business).
+    { id: "waivers",    label: "Waivers",         icon: <FileSignature className="h-4 w-4" /> },
     { id: "insights",   label: "Insights",        icon: <BarChart3 className="h-4 w-4" /> },
     { id: "settings",   label: "Settings",        icon: <SettingsIcon className="h-4 w-4" /> },
   ];
@@ -270,6 +276,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
           points_card_style: b.points_card_style ?? null,
           /* CP-131: niche layout preset (tabs + Home order). */
           layout_preset: resolvePreset(b.layout_preset),
+          /* CP-134: social follow rewards + business-wide reward fine print. */
+          social_config: (b.social_config ?? {}) as Record<string, unknown>,
+          reward_fine_print: (b.reward_fine_print ?? "").trim() || null,
         })
         .eq("id", b.id);
       if (!error) {
@@ -363,7 +372,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
       <div
         className={cn(
           "px-8 py-8 grid gap-8",
-          tab === "insights" || tab === "membership" || tab === "settings" || tab === "events"
+          tab === "insights" || tab === "membership" || tab === "settings" || tab === "events" || tab === "waivers"
             ? "lg:grid-cols-1"
             : "lg:grid-cols-[1fr_400px]",
         )}
@@ -1429,6 +1438,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
             </div>
           )}
 
+          {tab === "waivers" && <WaiversManager business={b} />}
+
           {tab === "rewards" && (
             <>
               <Section title="Points configurations" subtitle="How many points each action earns. Drag the slider or type a value.">
@@ -1476,6 +1487,22 @@ export function BrandEditor({ initial }: { initial: Business }) {
                     </span>
                   </div>
                 </div>
+              </Section>
+
+              {/* CP-134: default fine print — shown on every reward that has
+                  no terms of its own, under the platform disclaimer. */}
+              <Section title="Reward fine print (default)" subtitle="Shown on every reward before a customer claims or redeems it, unless that reward has its own terms. Our platform disclaimer is added automatically underneath.">
+                <textarea
+                  value={b.reward_fine_print ?? ""}
+                  onChange={e => update("reward_fine_print", e.target.value)}
+                  placeholder="One per customer per visit unless stated otherwise. Cannot be combined with other offers. Subject to availability…"
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[90px]"
+                />
+              </Section>
+
+              {/* CP-134: Instagram / Facebook follow rewards. */}
+              <Section title="Social follow rewards" subtitle="Like the Google review reward: customers follow, tap “I followed”, and the front desk verifies in the same queue.">
+                <SocialRewardsEditor business={b} onPatch={patch} />
               </Section>
 
               <RewardsManager business={b} />
@@ -1557,7 +1584,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
             customer-app visuals; CP-29.1: also hidden on Offers since the
             new automated-offer edit panel ships its own popup preview that
             shows the actual customer experience). */}
-        {tab !== "insights" && tab !== "membership" && tab !== "settings" && tab !== "offers" && tab !== "events" && (
+        {tab !== "insights" && tab !== "membership" && tab !== "settings" && tab !== "offers" && tab !== "events" && tab !== "waivers" && (
           <div className="lg:sticky lg:top-8 lg:self-start" style={previewStyle}>
             <div className="text-center mb-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">

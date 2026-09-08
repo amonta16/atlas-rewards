@@ -2,6 +2,8 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getFeaturedOffer, getMyMembership } from "@/lib/data/customer-app";
 import { CustomerAppShell } from "@/components/customer/app-shell";
+// CP-135: promo-QR campaign + required-waiver redirector.
+import { CampaignResumer } from "@/components/customer/campaign-resumer";
 import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
 import { PWAInstall } from "@/components/customer/pwa-install";
 import { FeaturedOfferBanner } from "@/components/customer/featured-offer-banner";
@@ -96,6 +98,9 @@ export default async function CustomerAppLayout({
       // env() is 0 in regular browsers/PWA, so nothing changes there.
       style={{ ...bgStyle, ...designVars(business.card_style, business.button_style, business.cta_glow, business.brand_colors.primary), paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
+      {/* CP-135: sends a customer who came through a promo QR (or who still
+          owes a required waiver) to /app/waiver. Renders nothing. */}
+      <CampaignResumer businessSlug={business.slug} businessId={business.id} membershipId={membershipId} />
       <CelebrateWatcher
         businessName={business.name}
         primary={business.brand_colors.primary}

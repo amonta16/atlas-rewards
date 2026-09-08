@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Gift, Lock, Users, ShoppingBag, Star, Calendar, ChevronRight, ExternalLink, Zap } from "lucide-react";
+import { Gift, Lock, Users, ShoppingBag, Star, Calendar, ChevronRight, ExternalLink, Zap, Instagram, Facebook } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { RedeemFlow } from "./redeem-flow";
 import { ActiveRedemptions, type ActiveRedemption } from "./active-redemptions";
 import { ReferFriendModal } from "./refer-friend-modal";
 import { ReviewSubmitModal } from "./review-submit-modal";
+// CP-134: Instagram / Facebook follow rewards (same flow as the review).
+import { SocialFollowModal } from "./social-follow-modal";
+import { SOCIAL_PLATFORMS, SOCIAL_META, readSocialConfig, socialRewardLive, type SocialPlatform } from "@/lib/social-config";
 import { TiltLoyaltyCard } from "./tilt-loyalty-card";
 // CP-43: rewards page now shares the SAME Daily Spin component as Home
 // (was a separate inline button that only tracked check-in, so the two
@@ -32,6 +35,8 @@ import type { Business, Membership } from "@/lib/types/database";
 type Reward = {
   id: string; name: string; description: string | null;
   reward_type: string; point_cost: number; image_url: string | null;
+  /** CP-134: per-reward fine print (rewards.terms — the page selects *). */
+  terms?: string | null;
   /** CP-99 gallery photos (cover = image_url). The page selects *, so these
    *  arrive already — the type just never declared them. */
   images?: string[] | null;
@@ -69,6 +74,10 @@ export function RewardsClient({
   const [referOpen, setReferOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewStatus, setReviewStatus] = useState<"none" | "pending" | "verified" | "rejected">("none");
+  // CP-134: per-platform social follow status + which modal is open.
+  type FollowStatus = "none" | "pending" | "verified" | "rejected";
+  const [socialStatus, setSocialStatus] = useState<Record<SocialPlatform, FollowStatus>>({ instagram: "none", facebook: "none" });
+  const [socialOpen, setSocialOpen] = useState<SocialPlatform | null>(null);
 
   // CP-35: if the customer arrived from the bottom-nav "!" badge,
   // scroll the review row into view + flash a brief ring. Triggered
@@ -131,6 +140,16 @@ export function RewardsClient({
     const load = async () => {
       const { data } = await supabase.rpc("my_review_status", { p_business_id: business.id });
       setReviewStatus(((data?.[0]?.status as typeof reviewStatus) ?? "none"));
+      // CP-134: social follows live in the same table, so the same realtime
+      // channel refreshes them. Silent no-op on a pre-CP-134 DB.
+      try {
+        const { data: soc } = await supabase.rpc("my_social_status", { p_business_id: business.id });
+        const next: Record<SocialPlatform, FollowStatus> = { instagram: "none", facebook: "none" };
+        for (const r of (soc ?? []) as { platform: string; status: string }[]) {
+          if (r.platform === "instagram" || r.platform === "facebook") next[r.platform] = r.status as FollowStatus;
+        }
+        setSocialStatus(next);
+      } catch { /* ignore */ }
     };
     load();
     const ch = supabase
@@ -558,6 +577,33 @@ export function RewardsClient({
                 : false
               } />
           )}
+          {/* CP-134: Instagram / Facebook follow rewards — same row shape,
+              same badge/alert language as the Google review row. */}
+          {SOCIAL_PLATFORMS.filter(p => socialRewardLive(business, p)).map(p => {
+            const cfg = readSocialConfig(business, p);
+            const st = socialStatus[p];
+            const Icon = p === "instagram" ? Instagram : Facebook;
+            return (
+              <EarnRow
+                key={p}
+                icon={<Icon className="h-4 w-4" />}
+                title={cfg.title || SOCIAL_META[p].defaultTitle}
+                subtitle={
+                  st === "pending"  ? "Pending verification…" :
+                  st === "verified" ? `✓ Done — thanks for following on ${SOCIAL_META[p].label}!` :
+                  st === "rejected" ? "Try again — last submission rejected" :
+                  `Open ${SOCIAL_META[p].label}, follow us, submit for verification`
+                }
+                points={cfg.points}
+                primary={business.brand_colors.primary}
+                secondary={business.brand_colors.secondary}
+                actionable={st !== "verified"}
+                onClick={st === "verified" ? undefined : () => setSocialOpen(p)}
+                badge={st === "pending" ? "Pending" : st === "verified" ? "Verified" : null}
+                alert={st === "none" ? "red" : st === "pending" ? "orange" : st === "rejected" ? "red" : false}
+              />
+            );
+          })}
           {business.widget_config.birthdays && (
             <EarnRow icon={<Calendar className="h-4 w-4" />} title="Birthday bonus"
               subtitle="Auto-awarded once a year on your birthday"
@@ -578,6 +624,7 @@ export function RewardsClient({
           primary={business.brand_colors.primary}
           secondary={business.brand_colors.secondary}
           businessSlug={business.slug}
+          businessFinePrint={business.reward_fine_print}
           onClose={() => setDetailReward(null)}
           onRedeem={() => {
             // Points can land while the sheet is open (realtime award) — if it
@@ -605,6 +652,16 @@ export function RewardsClient({
           business={business}
           referralCode={membership.referral_code}
           onClose={() => setReferOpen(false)}
+        />
+      )}
+
+      {/* CP-134: social follow modal */}
+      {socialOpen && (
+        <SocialFollowModal
+          business={business}
+          platform={socialOpen}
+          existingStatus={socialStatus[socialOpen]}
+          onClose={() => setSocialOpen(null)}
         />
       )}
 

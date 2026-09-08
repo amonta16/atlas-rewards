@@ -171,6 +171,10 @@ export type Business = {
    *  order of Home modules. See lib/layout-presets.ts. NULL/'custom' = the
    *  classic layout every pre-CP-131 app uses. */
   layout_preset?: string | null;
+  /** CP-134: per-platform "follow us" reward config (lib/social-config.ts). */
+  social_config?: Record<string, unknown> | null;
+  /** CP-134: business-wide default fine print for rewards without their own terms. */
+  reward_fine_print?: string | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.
    *  NULL = Unfiled. Manual grouping only; by-industry view needs no column.
    *  CP-60 superseded by folder_id (kept for backfill only). */

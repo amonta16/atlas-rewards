@@ -21,6 +21,8 @@ type Reward = {
   // CP-99: ADDITIONAL gallery photos (cover = image_url stays separate).
   // Customers swipe through [image_url, ...images] in reward detail views.
   images?: string[] | null;
+  /** CP-134: per-reward fine print (rewards.terms). */
+  terms?: string | null;
 };
 
 // CP-42: starter category suggestions surfaced as quick-pick chips when
@@ -88,6 +90,20 @@ export function RewardsManager({ business }: { business: Business }) {
       p_images: (editing.images ?? []).length > 0 ? editing.images : null,  // CP-99
     });
     if (error) { alert("Save failed: " + error.message); return; }
+    // CP-134: fine print lives on rewards.terms. upsert_reward doesn't take
+    // it (12-arg signature is shared by older bundles), so write it directly
+    // — RLS rewards_staff_manage allows it for this business's staff.
+    try {
+      const termsVal = (editing.terms ?? "").trim() || null;
+      if (editing.id) {
+        await supabase.from("rewards").update({ terms: termsVal }).eq("id", editing.id).eq("business_id", business.id);
+      } else if (termsVal) {
+        // New reward: the RPC returned no id here, so find the newest row by name.
+        const { data: row } = await supabase.from("rewards").select("id")
+          .eq("business_id", business.id).eq("name", editing.name).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (row?.id) await supabase.from("rewards").update({ terms: termsVal }).eq("id", row.id);
+      }
+    } catch { /* fine print is best-effort; the reward itself saved */ }
     setEditing(null);
     load();
   }
@@ -268,6 +284,16 @@ export function RewardsManager({ business }: { business: Business }) {
                   Quick-pick chips show whatever categories this business
                   has already used, plus the STARTER_CATEGORIES list so
                   fresh businesses have somewhere to start. */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Fine print (optional)</Label>
+                <textarea
+                  value={editing.terms ?? ""}
+                  onChange={e => setEditing({ ...editing, terms: e.target.value })}
+                  placeholder={business.reward_fine_print ? `Leave blank to use your default: “${business.reward_fine_print.slice(0, 80)}…”` : "e.g. Dine-in only. One per visit. Not valid on holidays."}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[64px]"
+                />
+                <p className="text-[10px] text-muted-foreground">Shown to customers before they redeem, above our platform disclaimer.</p>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Category (groups it on the Shop page)</Label>
                 <Input

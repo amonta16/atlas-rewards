@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import type { Business } from "@/lib/types/database";
 import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
+import { CampaignRemember } from "@/components/customer/campaign-remember";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,11 @@ export const dynamic = "force-dynamic";
 // pre-empt (favicons hit before middleware reroutes can save us).
 const STATIC_ASSET_RE = /^(favicon\.(ico|png|svg)|robots\.txt|sitemap\.xml|manifest\.json|sw\.js|sw-push\.js)$/;
 
-export default async function BusinessRootPage({ params }: { params: { business: string } }) {
+export default async function BusinessRootPage({ params, searchParams }: { params: { business: string }; searchParams?: { c?: string } }) {
+  // CP-135: promo campaign slug from the QR (?c=…) rides along to signup /
+  // login and is remembered client-side by CampaignRemember.
+  const camp = (searchParams?.c ?? "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  const cq = camp.length >= 2 ? `?c=${encodeURIComponent(camp)}` : "";
   // CP-36: if the "business" segment is actually a static asset
   // (favicon.ico, robots.txt, etc.) bail with a 404 immediately — no
   // DB query, no crash.
@@ -26,7 +31,7 @@ export default async function BusinessRootPage({ params }: { params: { business:
   // If signed in, jump straight into the app.
   // CP-45: slug-prefixed so path-based access (/<slug>) doesn't lose the
   // slug and 404. On the subdomain, middleware skips the double-prefix.
-  if (user) redirect(`/${params.business}/app`);
+  if (user) redirect(`/${params.business}/app${cq}`);
 
   const { data } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
@@ -63,12 +68,13 @@ export default async function BusinessRootPage({ params }: { params: { business:
           </p>
 
           <div className="mt-10 space-y-3">
-            <Link href={`/${params.business}/signup`}>
+            {camp.length >= 2 && <CampaignRemember businessSlug={params.business} campaignSlug={camp} />}
+            <Link href={`/${params.business}/signup${cq}`}>
               <Button size="lg" className="w-full h-12 bg-white text-zinc-900 hover:bg-zinc-100">
                 Join the rewards program <ArrowRight className="h-4 w-4 ml-2"/>
               </Button>
             </Link>
-            <Link href={`/${params.business}/login`} className="block text-sm text-white/85 hover:text-white">
+            <Link href={`/${params.business}/login${cq}`} className="block text-sm text-white/85 hover:text-white">
               Already a member? Sign in
             </Link>
             {/* CP-98: escape hatch — wrong business? Back to the finder,

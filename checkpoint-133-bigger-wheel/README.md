@@ -16,3 +16,9 @@ git add -A
 git commit -m "CP-133: bigger prize wheel (fills phone width) + one wedge per prize up to 16"
 git push origin main
 ```
+
+## CP-133.1 — reward photos back on the wheel
+The first `cp133_wheel_16.sql` was built from the CP-73 body and dropped the CP-73.1 join that lets reward prizes use their reward's photo. Fixed file re-run restores them.
+
+## CP-133.2 — prizes can be deleted after they've been won
+`mystery_reward_spins.prize_id` was `on delete restrict` (CP-18), so any prize that had ever been spun couldn't be deleted — and the builder swallowed the error, so it just looked like the button did nothing. `cp133_2_prize_delete.sql` switches the link to `on delete set null` (spin history keeps the row with an empty prize), and `delete_mystery_prize` now raises "prize not found" instead of silently doing nothing. The builder shows the error message if a delete fails. Scratch-tested.

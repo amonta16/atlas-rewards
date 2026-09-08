@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, X, Star, Users, Calendar, MapPin, DollarSign, Sparkles, Flame, Trophy, MinusCircle, Crown } from "lucide-react";
+import { ArrowLeft, Check, X, Star, Users, Calendar, MapPin, DollarSign, Sparkles, Flame, Trophy, MinusCircle, Crown, FileSignature } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -106,6 +106,13 @@ type VipStatus = {
   payment_status: string | null;
 };
 
+// CP-135: waiver coverage for the scanned member (one row per active waiver).
+type WaiverStatus = {
+  waiver_id: string; waiver_title: string; required_for_signup: boolean;
+  signed_at: string | null; signed_version_no: number | null; current_version_no: number | null;
+  is_current: boolean; submission_id: string | null;
+};
+
 export function AwardPointsPanel({
   business, member, onClose,
 }: { business: Business; member: Member; onClose: () => void }) {
@@ -129,6 +136,8 @@ export function AwardPointsPanel({
   const [spentCents, setSpentCents] = useState<number | null>(null);
   // CP-86: membership badge (plan + expiry) for the scanned member.
   const [vip, setVip] = useState<VipStatus | null>(null);
+  // CP-135: signed-waiver status strip (only when the business has waivers).
+  const [waivers, setWaivers] = useState<WaiverStatus[]>([]);
   // CP-95: LIVE points balance. The member prop is a snapshot from the scan
   // — after a check-in / award the staff now returns to this panel instead
   // of being kicked to the dashboard, so the balance must refresh itself.
@@ -171,6 +180,14 @@ export function AwardPointsPanel({
       if (error) return;
       const row = (Array.isArray(data) ? data[0] : data) as VipStatus | null;
       setVip(row ?? null);
+    })();
+    // CP-135: waiver coverage. Silent no-op before the cp135 SQL is applied.
+    (async () => {
+      const { data, error } = await supabase.rpc("member_waiver_status", {
+        p_membership_id: member.membership_id,
+      });
+      if (error) return;
+      setWaivers((data ?? []) as WaiverStatus[]);
     })();
   }, [business.id, member.membership_id, reloadKey]);
 
@@ -499,6 +516,32 @@ export function AwardPointsPanel({
             </div>
           </div>
         )}
+        {/* CP-135: waiver coverage — green when signed on the current
+            version, red when missing or on an outdated version, so the desk
+            can hand over the tablet before the customer plays. */}
+        {waivers.map(w => (
+          <div key={w.waiver_id}
+            className={cn(
+              "mt-2 rounded-2xl px-4 py-2.5 flex items-center gap-3 border",
+              w.is_current ? "bg-emerald-50 border-emerald-300" : "bg-red-50 border-red-300",
+            )}>
+            <FileSignature className={cn("h-4 w-4 shrink-0", w.is_current ? "text-emerald-600" : "text-red-600")} />
+            <div className="flex-1 min-w-0 text-[12px] font-semibold">
+              <span className={w.is_current ? "text-emerald-800" : "text-red-800"}>
+                {w.waiver_title}: {w.is_current
+                  ? <>signed {w.signed_at ? new Date(w.signed_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : ""}</>
+                  : w.signed_at
+                    ? <>signed on v{w.signed_version_no} — <strong>needs v{w.current_version_no}</strong></>
+                    : <strong>NOT SIGNED</strong>}
+              </span>
+              {!w.is_current && <div className="text-[11px] text-red-700/80 font-medium">Have them open the app → they’ll be asked to sign.</div>}
+            </div>
+            {w.submission_id && (
+              <a href={`/${business.slug}/manage/waiver/${w.submission_id}`} target="_blank" rel="noreferrer"
+                className="text-[11px] font-bold underline text-zinc-600 shrink-0">View</a>
+            )}
+          </div>
+        ))}
         {vip?.just_expired && (
           <div className="mt-2 rounded-2xl px-4 py-3 flex items-center gap-3 bg-amber-50 border border-amber-300">
             <Crown className="h-4 w-4 text-amber-500 shrink-0" />
