@@ -12,6 +12,7 @@ A fifth value on `rewards_layout`, alongside `grid` · `list` · `carousel` · `
 - **Cost sits on the name line**, right-aligned, so the plate reads as one unit.
 - **The bar spans the plate**, under the name — white and full when the reward is claimable.
 - **Locked stays a real button** (grey tile, lock chip, "590 to go") and opens the detail sheet, per CP-105. It is never `disabled`.
+- **A skewed divider between rows.** Same angle as the plate, trailing off to the right in two short dashes like speed lines — `KartRowDivider` in `components/customer/section-elements.tsx`, shared by all three surfaces. Quiet on purpose: it is structure, and the photo tile is already doing the shouting.
 - **Claimable floods the plate** with the brand gradient — but only on the default `classic` reward-card preset. Luxe, midnight, outline, glow and tint keep their own shell chrome, the same rule the Home top-rewards cards already follow, so a business's picked skin is never clobbered.
 
 ## Geometry
@@ -39,6 +40,7 @@ To retune the look, change those two constants. Every surface follows.
 - **`components/customer/rewards-client.tsx`** — the Rewards-tab store gets a `kart` branch (container `space-y-4`), rendered as a two-column CSS grid: plate left at 2fr, tile right at 1fr, plate bleeding under the tile by 10px. Also fixes the empty-state card, which hard-coded `col-span-2` and only made sense in grid/spotlight.
 - **`components/customer/top-rewards-grid.tsx`** — the Home "Top rewards" section reads the same `REWARDS_LAYOUTS` through `home_rewards_layout`, so it gets a matching `renderKart` at Home scale. Without it, picking Kart for Home would have silently fallen back to grid.
 - **`components/customer-preview/customer-preview.tsx`** — the builder's phone preview mirrors the kart rows live, so the picker isn't a guess.
+- **`components/customer/section-elements.tsx`** — new `KartRowDivider`, alongside the CP-67 heading and section-divider elements. No hooks, no `"use client"`, so it works from server pages and client components alike, same as its neighbours.
 - **`components/brand-editor/brand-editor.tsx`** — a structural mini-mock for kart in the *Rewards store layout* picker; both rewards pickers widen from 4 to 5 columns.
 
 ## Verified

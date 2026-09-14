@@ -25,6 +25,7 @@ import {
   rewardsLayout,
   kartPlateStyle, kartPlateInnerStyle, kartTileStyle, kartRowStyle,
 } from "@/lib/section-layouts";
+import { KartRowDivider } from "./section-elements";
 import { ChevronRight } from "lucide-react";
 import { SmartImage } from "@/components/ui/smart-image";
 
@@ -295,7 +296,14 @@ export function TopRewardsGrid({
       {lay === "list" ? (
         <div className="space-y-2">{rewards.map(r => renderRow(r))}</div>
       ) : lay === "kart" ? (
-        <div className="space-y-3.5">{rewards.map(r => renderKart(r))}</div>
+        <div className="space-y-2.5">
+          {rewards.map((r, i) => (
+            <div key={r.id} className="space-y-2.5">
+              {i > 0 && <KartRowDivider primary={primary} />}
+              {renderKart(r)}
+            </div>
+          ))}
+        </div>
       ) : lay === "carousel" ? (
         <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory -mx-4 px-4">
           {rewards.map(r => (

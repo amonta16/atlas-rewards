@@ -7,6 +7,7 @@
  */
 import type { Business } from "@/lib/types/database";
 import { dividerStyleId, headingStyleId } from "@/lib/element-styles";
+import { KART_TILT_DEG } from "@/lib/section-layouts";
 
 /** A section title that follows businesses.heading_style. */
 export function SectionHeading({
@@ -111,6 +112,37 @@ export function SectionDivider({ business }: { business: Business }) {
   return (
     <div className="px-8 my-5" aria-hidden>
       <div className="h-px" style={{ background: `linear-gradient(90deg, transparent, ${p}55, transparent)` }} />
+    </div>
+  );
+}
+
+/**
+ * CP-136: the separator BETWEEN kart rows — not a section divider.
+ *
+ * Skewed to the same angle as the nameplate, so the row stack reads as one
+ * set of parallel slats, and trailing off to the right in two short dashes
+ * like speed lines. Deliberately quiet: it is structure, not decoration,
+ * and it sits under a photo tile that is already doing the shouting.
+ */
+export function KartRowDivider({
+  primary,
+  tiltDeg = KART_TILT_DEG,
+}: {
+  primary: string;
+  tiltDeg?: number;
+}) {
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      style={{ transform: `skewX(-${tiltDeg}deg)` }}
+      aria-hidden
+    >
+      <span
+        className="h-[3px] flex-1 rounded-full"
+        style={{ background: `linear-gradient(90deg, ${primary}38, ${primary}14 65%, transparent)` }}
+      />
+      <span className="h-[3px] w-5 rounded-full" style={{ background: `${primary}24` }} />
+      <span className="h-[3px] w-2.5 rounded-full" style={{ background: `${primary}18` }} />
     </div>
   );
 }

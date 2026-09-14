@@ -19,7 +19,7 @@ import {
   kartPlateStyle, kartPlateInnerStyle, kartTileStyle, kartRowStyle,
 } from "@/lib/section-layouts";
 // CP-67: element pack mirrored in the mock.
-import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
+import { KartRowDivider, SectionDivider, SectionHeading } from "@/components/customer/section-elements";
 import { badgeCss } from "@/lib/element-styles";
 import { designVars } from "@/lib/design-styles";
 // CP-73: points-card presets mirrored in the mock.
@@ -725,7 +725,9 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                 const kartReady = !rcLocked && rewardCardMeta(b.reward_card_style).id === "classic";
                 const onPlate = kartReady || rcDark;
                 return (
-                  <div key={r.id} className="grid items-center" style={kartRowStyle()}>
+                  <div key={r.id} className="space-y-2">
+                    {ri > 0 && <KartRowDivider primary={b.brand_colors.primary} />}
+                  <div className="grid items-center" style={kartRowStyle()}>
                     <div
                       className="rounded-xl border-2 bg-white p-2"
                       style={{
@@ -767,6 +769,7 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                         </div>
                       )}
                     </div>
+                  </div>
                   </div>
                 );
               }

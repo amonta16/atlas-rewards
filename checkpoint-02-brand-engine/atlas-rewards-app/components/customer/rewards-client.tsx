@@ -26,7 +26,7 @@ import {
 } from "@/lib/section-layouts";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 // CP-67: element pack — themed headings, dividers, badges.
-import { SectionDivider, SectionHeading } from "./section-elements";
+import { KartRowDivider, SectionDivider, SectionHeading } from "./section-elements";
 import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { RewardDetailModal } from "./reward-detail-modal";
@@ -352,8 +352,9 @@ export function RewardsClient({
                   : rewardCardChrome(rcStyle, business.brand_colors.primary, business.brand_colors.secondary, locked);
                 const onPlate = kartReady || rcDark;
                 return (
+                  <div key={r.id} className="space-y-3">
+                    {ri > 0 && <KartRowDivider primary={business.brand_colors.primary} />}
                   <button
-                    key={r.id}
                     onClick={() => (locked ? setDetailReward(r) : setRedeemingReward(r))}
                     className="w-full grid items-center text-left"
                     style={kartRowStyle()}
@@ -430,6 +431,7 @@ export function RewardsClient({
                       )}
                     </div>
                   </button>
+                  </div>
                 );
               }
 
