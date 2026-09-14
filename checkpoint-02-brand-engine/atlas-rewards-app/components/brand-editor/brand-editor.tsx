@@ -1016,7 +1016,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
                   customer sections. Style pickers above choose the skin;
                   these choose the structure. */}
               <Section title="Rewards store layout" subtitle="How the Rewards store is arranged on the customer Rewards tab.">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   {REWARDS_LAYOUTS.map(opt => {
                     const selected = (b.rewards_layout ?? "grid") === opt.id;
                     return (
@@ -1053,6 +1053,23 @@ export function BrandEditor({ initial }: { initial: Business }) {
                               {[0,1].map(i => <div key={i} className="rounded" style={{ background: `${b.brand_colors.primary}25` }} />)}
                             </div>
                           )}
+                          {/* CP-136: kart — skewed plate + tilted tile, one per row. */}
+                          {opt.id === "kart" && (
+                            <div className="flex flex-col justify-between h-full py-0.5">
+                              {[0,1].map(i => (
+                                <div key={i} className="relative h-[45%]">
+                                  <div
+                                    className="absolute inset-y-0 left-0 right-3 rounded"
+                                    style={{ background: `${b.brand_colors.primary}30`, transform: "skewX(-6deg)" }}
+                                  />
+                                  <div
+                                    className="absolute inset-y-0 right-0 w-[28%] rounded"
+                                    style={{ background: `${b.brand_colors.primary}55`, transform: "rotate(-3deg)" }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className={cn("text-[10px] font-semibold mt-1 truncate", selected ? "text-brand-primary" : "text-zinc-600")}>
                           {opt.emoji} {opt.label}
@@ -1063,10 +1080,10 @@ export function BrandEditor({ initial }: { initial: Business }) {
                 </div>
               </Section>
 
-              {/* CP-99: the Home "Top rewards" section gets the same four
+              {/* CP-99: the Home "Top rewards" section gets the same
                   shapes as the store. */}
               <Section title="Home rewards layout" subtitle="How the Top rewards section is arranged on the customer Home page.">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   {REWARDS_LAYOUTS.map(opt => {
                     const selected = (b.home_rewards_layout ?? "grid") === opt.id;
                     return (

@@ -14,7 +14,10 @@ import {
 import { offerCardMeta, offerCardStyle } from "@/lib/offer-card-styles";
 // CP-99: reward-panel presets mirrored in the preview store mock.
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
-import { offersLayout, rewardsLayout } from "@/lib/section-layouts";
+import {
+  offersLayout, rewardsLayout,
+  kartPlateStyle, kartPlateInnerStyle, kartTileStyle, kartRowStyle,
+} from "@/lib/section-layouts";
 // CP-67: element pack mirrored in the mock.
 import { SectionDivider, SectionHeading } from "@/components/customer/section-elements";
 import { badgeCss } from "@/lib/element-styles";
@@ -699,9 +702,11 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
             className={
               rewardsLayout(b.rewards_layout) === "list"
                 ? "space-y-2"
-                : rewardsLayout(b.rewards_layout) === "carousel"
-                  ? "flex gap-2.5 overflow-x-auto pb-1"
-                  : "grid grid-cols-2 gap-3"
+                : rewardsLayout(b.rewards_layout) === "kart"
+                  ? "space-y-3"
+                  : rewardsLayout(b.rewards_layout) === "carousel"
+                    ? "flex gap-2.5 overflow-x-auto pb-1"
+                    : "grid grid-cols-2 gap-3"
             }
           >
             {rewards.map((r, ri) => {
@@ -715,6 +720,56 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
               const rcLocked = ri !== 0;
               const rcCss = rewardCardChrome(b.reward_card_style, b.brand_colors.primary, b.brand_colors.secondary, rcLocked);
               const rcDark = rewardCardMeta(b.reward_card_style).dark;
+              // CP-136: kart rows mirror live — skewed plate + tilted tile.
+              if (rl === "kart") {
+                const kartReady = !rcLocked && rewardCardMeta(b.reward_card_style).id === "classic";
+                const onPlate = kartReady || rcDark;
+                return (
+                  <div key={r.id} className="grid items-center" style={kartRowStyle(84)}>
+                    <div
+                      className="col-span-2 row-start-1 rounded-xl border-2 bg-white p-2"
+                      style={{
+                        ...(kartReady
+                          ? {
+                              background: `linear-gradient(100deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})`,
+                              borderColor: b.brand_colors.secondary,
+                              boxShadow: `3px 3px 0 0 ${b.brand_colors.secondary}`,
+                            }
+                          : rcCss),
+                        ...kartPlateStyle(6, 84),
+                      }}
+                    >
+                      <div className="flex flex-col gap-1" style={kartPlateInnerStyle()}>
+                        <div className="flex items-baseline justify-between gap-1.5">
+                          <span className={`text-[11px] font-extrabold leading-tight truncate ${onPlate ? "text-white" : ""}`}>{r.name}</span>
+                          <span className="shrink-0 text-[9px] font-extrabold tabular-nums" style={{ color: onPlate ? "#ffffff" : b.brand_colors.primary }}>
+                            {r.point_cost} PTS
+                          </span>
+                        </div>
+                        <div className={`h-1 rounded-full overflow-hidden ${kartReady ? "bg-white/30" : rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${pct}%`, background: kartReady ? "#ffffff" : `linear-gradient(90deg, ${b.brand_colors.primary}, ${b.brand_colors.secondary})` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className="col-start-2 row-start-1 z-10 justify-self-end aspect-square overflow-hidden rounded-lg border-2 border-white bg-zinc-100 shadow-md"
+                      style={kartTileStyle(6, 84)}
+                    >
+                      {r.image_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={r.image_url} alt={r.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center" style={{ background: `${b.brand_colors.primary}15` }}>
+                          <Gift className="h-5 w-5" style={{ color: b.brand_colors.primary }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
               if (rl === "list") {
                 return (
                   <div key={r.id} className="flex items-center gap-2.5 rounded-2xl border bg-white p-2" style={rcCss}>

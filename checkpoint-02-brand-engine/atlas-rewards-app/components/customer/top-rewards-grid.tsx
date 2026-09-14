@@ -21,7 +21,10 @@ import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { RewardDetailModal } from "@/components/customer/reward-detail-modal";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
-import { rewardsLayout } from "@/lib/section-layouts";
+import {
+  rewardsLayout,
+  kartPlateStyle, kartPlateInnerStyle, kartTileStyle, kartRowStyle,
+} from "@/lib/section-layouts";
 import { ChevronRight } from "lucide-react";
 import { SmartImage } from "@/components/ui/smart-image";
 
@@ -199,10 +202,100 @@ export function TopRewardsGrid({
     );
   };
 
+  /* CP-136: kart row — same shape as the Rewards-tab store layout, at
+     Home scale. Plate skews one way, photo tile the other. */
+  const renderKart = (r: TopReward) => {
+    const unlocked = points >= r.point_cost;
+    const pct = r.point_cost > 0 ? Math.min(100, (points / r.point_cost) * 100) : 100;
+    const remaining = Math.max(0, r.point_cost - points);
+    const kartReady = unlocked && rcClassic;
+    const onPlate = kartReady || rcDark;
+    const plateChrome = kartReady
+      ? {
+          background: `linear-gradient(100deg, ${primary}, ${secondary})`,
+          borderColor: secondary,
+          boxShadow: `4px 4px 0 0 ${secondary}`,
+        }
+      : rewardCardChrome(cardStyle, primary, secondary, !unlocked);
+
+    const inner = (
+      <>
+        <div
+          className="col-span-2 row-start-1 rounded-xl border-2 bg-white p-2.5"
+          style={{ ...plateChrome, ...kartPlateStyle() }}
+        >
+          <div className="flex flex-col gap-1.5" style={kartPlateInnerStyle()}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className={`text-[13px] font-extrabold leading-tight truncate ${onPlate ? "text-white" : ""}`}>{r.name}</span>
+              <span className="shrink-0 text-[10px] font-extrabold tabular-nums" style={{ color: onPlate ? "#ffffff" : primary }}>
+                {r.point_cost.toLocaleString()} PTS
+              </span>
+            </div>
+            <div className={`h-1.5 rounded-full overflow-hidden ${kartReady ? "bg-white/30" : rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${pct}%`, background: kartReady ? "#ffffff" : `linear-gradient(90deg, ${primary}, ${secondary})` }}
+              />
+            </div>
+            <div className={`flex items-center gap-1.5 text-[9px] font-bold tabular-nums ${kartReady ? "text-white/85" : rcDark ? "text-white/60" : "text-zinc-500"}`}>
+              {unlocked ? (
+                <>
+                  <span
+                    className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black tracking-wider"
+                    style={
+                      kartReady
+                        ? { background: "#ffffff", color: secondary }
+                        : { background: `linear-gradient(90deg, ${primary}, ${secondary})`, color: "#ffffff" }
+                    }
+                  >
+                    <Gift className="h-2.5 w-2.5" /> REDEEM
+                  </span>
+                  Ready now
+                </>
+              ) : (
+                `${points.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`
+              )}
+            </div>
+          </div>
+        </div>
+        <div
+          className="relative col-start-2 row-start-1 z-10 justify-self-end aspect-square overflow-hidden rounded-xl border-[3px] border-white bg-zinc-100 shadow-lg"
+          style={kartTileStyle()}
+        >
+          {r.image_url ? (
+            <SmartImage src={r.image_url} alt={r.name} tint={primary} eager className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center" style={{ background: `${primary}15` }}>
+              <Gift className="h-6 w-6" style={{ color: primary }} />
+            </div>
+          )}
+          {!unlocked && (
+            <span className="absolute top-1 right-1 h-5 w-5 rounded-full bg-white/95 shadow-sm ring-1 ring-black/10 flex items-center justify-center">
+              <Lock className="h-2.5 w-2.5 text-zinc-500" />
+            </span>
+          )}
+        </div>
+      </>
+    );
+
+    const kartCls = "w-full grid items-center text-left";
+    return unlocked ? (
+      <Link key={r.id} href={`${appBase}/rewards?redeem=${r.id}`} className={kartCls} style={kartRowStyle()}>
+        {inner}
+      </Link>
+    ) : (
+      <button key={r.id} onClick={() => setDetail(r)} className={kartCls} style={kartRowStyle()}>
+        {inner}
+      </button>
+    );
+  };
+
   return (
     <>
       {lay === "list" ? (
         <div className="space-y-2">{rewards.map(r => renderRow(r))}</div>
+      ) : lay === "kart" ? (
+        <div className="space-y-3.5">{rewards.map(r => renderKart(r))}</div>
       ) : lay === "carousel" ? (
         <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory -mx-4 px-4">
           {rewards.map(r => (

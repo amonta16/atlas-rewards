@@ -20,7 +20,10 @@ import { LimitedOffersSection } from "./limited-offers-section";
 // CP-85: Raffle Giveaways — a new offer type. Cards live in the same area
 // as Limited offers, with a more premium treatment + live countdown.
 import { RafflesSection } from "./raffle-section";
-import { rewardsLayout } from "@/lib/section-layouts";
+import {
+  rewardsLayout,
+  kartPlateStyle, kartPlateInnerStyle, kartTileStyle, kartRowStyle,
+} from "@/lib/section-layouts";
 import { rewardCardChrome, rewardCardMeta } from "@/lib/reward-card-styles";
 // CP-67: element pack — themed headings, dividers, badges.
 import { SectionDivider, SectionHeading } from "./section-elements";
@@ -60,7 +63,13 @@ export function RewardsClient({
   // midnight/luxe) — picked in the brand editor. Dark presets flip the
   // card text to white.
   const rcStyle = business.reward_card_style ?? null;
-  const rcDark = rewardCardMeta(rcStyle).dark;
+  const rcMeta = rewardCardMeta(rcStyle);
+  const rcDark = rcMeta.dark;
+  // CP-136: the kart plate floods with the brand gradient when a reward
+  // is claimable — but only on the default "classic" preset, so luxe /
+  // midnight / outline keep their own shell treatment (same rule the
+  // Home top-rewards cards already follow).
+  const rcClassic = rcMeta.id === "classic";
   const initialPts = membership?.points_balance ?? 0;
   const [points, setPoints] = useState(initialPts);
   // CP-73: tier state removed — Bronze/Silver/Gold tiers are gone.
@@ -312,9 +321,11 @@ export function RewardsClient({
             className={
               storeLayout === "list"
                 ? "space-y-2.5"
-                : storeLayout === "carousel"
-                  ? "flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory"
-                  : "grid grid-cols-2 gap-3"
+                : storeLayout === "kart"
+                  ? "space-y-4"
+                  : storeLayout === "carousel"
+                    ? "flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 snap-x snap-mandatory"
+                    : "grid grid-cols-2 gap-3"
             }
           >
             {rewards.map((r, ri) => {
@@ -325,6 +336,102 @@ export function RewardsClient({
                 : 100;
               const remaining = Math.max(0, r.point_cost - displayed);
               const big = storeLayout === "spotlight" && ri === 0;
+
+              /* CP-136: kart row — one reward per row. The nameplate carries
+                 the name, the cost and the progress bar; the photo tile tilts
+                 the other way and overlaps the plate's right edge. Locked is a
+                 state, not a dead end (CP-105) — it opens the detail sheet. */
+              if (storeLayout === "kart") {
+                const kartReady = !locked && rcClassic;
+                const plateChrome = kartReady
+                  ? {
+                      background: `linear-gradient(100deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                      borderColor: business.brand_colors.secondary,
+                      boxShadow: `4px 4px 0 0 ${business.brand_colors.secondary}`,
+                    }
+                  : rewardCardChrome(rcStyle, business.brand_colors.primary, business.brand_colors.secondary, locked);
+                const onPlate = kartReady || rcDark;
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => (locked ? setDetailReward(r) : setRedeemingReward(r))}
+                    className="w-full grid items-center text-left"
+                    style={kartRowStyle()}
+                  >
+                    <div
+                      className="col-span-2 row-start-1 rounded-xl border-2 bg-white p-3"
+                      style={{ ...plateChrome, ...kartPlateStyle() }}
+                    >
+                      <div className="flex flex-col gap-1.5" style={kartPlateInnerStyle()}>
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className={`text-sm font-extrabold leading-tight truncate ${onPlate ? "text-white" : ""}`}>
+                            {r.name}
+                          </span>
+                          <span
+                            className="shrink-0 text-[11px] font-extrabold tabular-nums"
+                            style={{ color: onPlate ? "#ffffff" : business.brand_colors.primary }}
+                          >
+                            {r.point_cost.toLocaleString()} PTS
+                          </span>
+                        </div>
+                        <div className={`h-1.5 rounded-full overflow-hidden ${kartReady ? "bg-white/30" : rcDark ? "bg-white/15" : "bg-zinc-100"}`}>
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{
+                              width: `${pct}%`,
+                              background: kartReady
+                                ? "#ffffff"
+                                : `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                            }}
+                          />
+                        </div>
+                        <div className={`flex items-center gap-1.5 text-[10px] font-bold tabular-nums ${kartReady ? "text-white/85" : rcDark ? "text-white/60" : "text-zinc-500"}`}>
+                          {locked ? (
+                            `${displayed.toLocaleString()} / ${r.point_cost.toLocaleString()} · ${remaining.toLocaleString()} to go`
+                          ) : (
+                            <>
+                              <span
+                                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-black tracking-wider"
+                                style={
+                                  kartReady
+                                    ? { background: "#ffffff", color: business.brand_colors.secondary }
+                                    : {
+                                        background: `linear-gradient(90deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
+                                        color: "#ffffff",
+                                      }
+                                }
+                              >
+                                <Gift className="h-2.5 w-2.5" /> REDEEM
+                              </span>
+                              Ready now
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className="relative col-start-2 row-start-1 z-10 justify-self-end aspect-square overflow-hidden rounded-xl border-[3px] border-white bg-zinc-100 shadow-lg"
+                      style={kartTileStyle()}
+                    >
+                      {r.image_url ? (
+                        <SmartImage src={r.image_url} alt={r.name} tint={business.brand_colors.primary} eager className="h-full w-full object-cover" />
+                      ) : (
+                        <div
+                          className="h-full w-full flex items-center justify-center"
+                          style={{ background: `linear-gradient(135deg, ${business.brand_colors.primary}15 0%, ${business.brand_colors.primary}30 100%)` }}
+                        >
+                          <Gift className="h-7 w-7" style={{ color: business.brand_colors.primary }} />
+                        </div>
+                      )}
+                      {locked && (
+                        <span className="absolute top-1 right-1 h-5 w-5 rounded-full bg-white/95 shadow-sm ring-1 ring-black/10 flex items-center justify-center">
+                          <Lock className="h-2.5 w-2.5 text-zinc-500" />
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              }
 
               // CP-66: compact list rows — image left, slim progress, chevron.
               if (storeLayout === "list") {
@@ -485,7 +592,7 @@ export function RewardsClient({
               );
             })}
             {rewards.length === 0 && (
-              <div className="col-span-2 w-full rounded-2xl border bg-white p-6 text-center text-sm text-muted-foreground">
+              <div className={`w-full rounded-2xl border bg-white p-6 text-center text-sm text-muted-foreground ${storeLayout === "grid" || storeLayout === "spotlight" ? "col-span-2" : ""}`}>
                 No rewards yet — the agency will add some soon.
               </div>
             )}
