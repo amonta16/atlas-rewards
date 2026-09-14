@@ -74,6 +74,10 @@ export function savedGiftsLayout(id: string | null | undefined): SavedGiftsLayou
  * with the photo tile rotated the OTHER way and pushed over the plate's
  * right edge, so the pair reads as a racing-game reward row.
  *
+ * The row is split two-thirds plate / one-third photo, in FRACTIONS —
+ * never fixed px — so it fits a 320px phone as happily as a tablet and
+ * can never run past the screen edge.
+ *
  * The numbers live here — and only here — so the customer Rewards tab,
  * the Home top-rewards section and the builder preview can never drift
  * apart. Tile rotation is deliberately ~half the plate skew; matching
@@ -82,15 +86,29 @@ export function savedGiftsLayout(id: string | null | undefined): SavedGiftsLayou
 
 /** Plate skew, in degrees. */
 export const KART_TILT_DEG = 6;
-/** Photo tile edge, in px (it is square). */
-export const KART_TILE_PX = 116;
+/** How far the photo tile bites into the plate, in px. */
+export const KART_OVERLAP_PX = 10;
 
-/** The skewed nameplate. Right padding clears the overlapping tile. */
+/** The row: two-thirds nameplate, one-third photo, photo on the right. */
+export function kartRowStyle(): CSSProperties {
+  return { gridTemplateColumns: "2fr 1fr", columnGap: 0 };
+}
+
+/**
+ * The skewed nameplate — column one, bleeding into column two by
+ * `overlapPx` so the tile lands on its edge rather than beside it.
+ */
 export function kartPlateStyle(
   tiltDeg: number = KART_TILT_DEG,
-  tilePx: number = KART_TILE_PX,
+  overlapPx: number = KART_OVERLAP_PX,
 ): CSSProperties {
-  return { transform: `skewX(-${tiltDeg}deg)`, paddingRight: tilePx - 4 };
+  return {
+    gridColumn: 1,
+    gridRow: 1,
+    transform: `skewX(-${tiltDeg}deg)`,
+    marginRight: -overlapPx,
+    paddingRight: overlapPx + 14,
+  };
 }
 
 /** Un-skews the plate's contents so text stays upright. */
@@ -98,18 +116,12 @@ export function kartPlateInnerStyle(tiltDeg: number = KART_TILT_DEG): CSSPropert
   return { transform: `skewX(${tiltDeg}deg)` };
 }
 
-/** The tilted photo tile, overlapping the plate. */
-export function kartTileStyle(
-  tiltDeg: number = KART_TILT_DEG,
-  tilePx: number = KART_TILE_PX,
-): CSSProperties {
+/** The tilted photo tile — column two (the right third), over the plate. */
+export function kartTileStyle(tiltDeg: number = KART_TILT_DEG): CSSProperties {
   return {
-    width: tilePx,
-    transform: `rotate(-${(tiltDeg * 0.55).toFixed(2)}deg) translateX(6px)`,
+    gridColumn: 2,
+    gridRow: 1,
+    width: "100%",
+    transform: `rotate(-${(tiltDeg * 0.55).toFixed(2)}deg)`,
   };
-}
-
-/** Grid track pair for one kart row: flexible plate + fixed tile column. */
-export function kartRowStyle(tilePx: number = KART_TILE_PX): CSSProperties {
-  return { gridTemplateColumns: `minmax(0,1fr) ${tilePx}px` };
 }

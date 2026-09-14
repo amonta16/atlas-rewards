@@ -725,9 +725,9 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                 const kartReady = !rcLocked && rewardCardMeta(b.reward_card_style).id === "classic";
                 const onPlate = kartReady || rcDark;
                 return (
-                  <div key={r.id} className="grid items-center" style={kartRowStyle(84)}>
+                  <div key={r.id} className="grid items-center" style={kartRowStyle()}>
                     <div
-                      className="col-span-2 row-start-1 rounded-xl border-2 bg-white p-2"
+                      className="rounded-xl border-2 bg-white p-2"
                       style={{
                         ...(kartReady
                           ? {
@@ -736,7 +736,7 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                               boxShadow: `3px 3px 0 0 ${b.brand_colors.secondary}`,
                             }
                           : rcCss),
-                        ...kartPlateStyle(6, 84),
+                        ...kartPlateStyle(6, 6),
                       }}
                     >
                       <div className="flex flex-col gap-1" style={kartPlateInnerStyle()}>
@@ -755,8 +755,8 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
                       </div>
                     </div>
                     <div
-                      className="col-start-2 row-start-1 z-10 justify-self-end aspect-square overflow-hidden rounded-lg border-2 border-white bg-zinc-100 shadow-md"
-                      style={kartTileStyle(6, 84)}
+                      className="z-10 aspect-square overflow-hidden rounded-lg border-2 border-white bg-zinc-100 shadow-md"
+                      style={kartTileStyle()}
                     >
                       {r.image_url ? (
                         /* eslint-disable-next-line @next/next/no-img-element */

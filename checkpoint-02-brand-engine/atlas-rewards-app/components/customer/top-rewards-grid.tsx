@@ -221,7 +221,7 @@ export function TopRewardsGrid({
     const inner = (
       <>
         <div
-          className="col-span-2 row-start-1 rounded-xl border-2 bg-white p-2.5"
+          className="rounded-xl border-2 bg-white p-2.5"
           style={{ ...plateChrome, ...kartPlateStyle() }}
         >
           <div className="flex flex-col gap-1.5" style={kartPlateInnerStyle()}>
@@ -259,7 +259,7 @@ export function TopRewardsGrid({
           </div>
         </div>
         <div
-          className="relative col-start-2 row-start-1 z-10 justify-self-end aspect-square overflow-hidden rounded-xl border-[3px] border-white bg-zinc-100 shadow-lg"
+          className="relative z-10 aspect-square overflow-hidden rounded-xl border-[3px] border-white bg-zinc-100 shadow-lg"
           style={kartTileStyle()}
         >
           {r.image_url ? (
