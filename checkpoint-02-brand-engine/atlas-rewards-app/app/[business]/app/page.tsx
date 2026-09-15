@@ -97,13 +97,12 @@ export default async function CustomerHome({ params }: { params: { business: str
   // keeps its own visibility rules (widget flags, "hides itself when empty").
   const layout = presetSpec(business.layout_preset);
   const homeOrder = layout.home;
-  const memberCardFirst = homeOrder[0] === "member_card";
 
   const blocks: Record<HomeModule, React.ReactNode> = {
     member_card: business.widget_config.points_card ? (
-      // Overlaps the hero when it leads; sits normally when a preset puts
-      // the membership card above it.
-      <div className={memberCardFirst ? "px-4 -mt-7 relative z-10" : "px-4 mt-5"}>
+      // CP-136.3: plain spacing. Overlapping the hero is decided by the
+      // wrapper around the module list, not by this block — see below.
+      <div className="px-4 mt-5">
         <LiveMemberCard
           business={business}
           membershipId={mem?.id ?? null}
@@ -312,10 +311,22 @@ export default async function CustomerHome({ params }: { params: { business: str
         </div>
       </div>
 
-      {/* CP-131: modules in the preset's order (see blocks above). */}
-      {homeOrder.map((key) => (
-        <Fragment key={key}>{blocks[key]}</Fragment>
-      ))}
+      {/* CP-131: modules in the preset's order (see blocks above).
+          CP-136.3: whichever module renders FIRST tucks up into the hero.
+          This used to key off homeOrder[0] === "member_card", which is the
+          preset's order — not what the customer actually sees. Flippos runs
+          the entertainment preset, whose first module is the membership /
+          pass card, and Flippos has memberships switched off: that block
+          rendered nothing, so the points card sat below the hero with a gap
+          while every "custom" preset business tucked it in. React emits no
+          DOM node for a block that renders null, so `*:first-child` is
+          always the first module on screen, whatever the preset and
+          whatever the business has configured. */}
+      <div className="[&>*:first-child]:-mt-7 [&>*:first-child]:relative [&>*:first-child]:z-10">
+        {homeOrder.map((key) => (
+          <Fragment key={key}>{blocks[key]}</Fragment>
+        ))}
+      </div>
     </div>
   );
 }
