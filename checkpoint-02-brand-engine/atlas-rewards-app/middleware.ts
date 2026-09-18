@@ -56,7 +56,13 @@ export async function middleware(request: NextRequest) {
   // support page cover every business, and the Profile tab links to them
   // from business subdomains (where the rewrite below used to turn
   // /legal/terms into /<slug>/legal/terms → 404 inside the phone app).
-  const isRootPage = url.pathname === "/support" || url.pathname.startsWith("/legal");
+  // CP-137: /g/<token> is the guardian waiver-signing link. It is opened by
+  // a parent who has no account and no business context — and it arrives by
+  // email, so it may well be opened on the apex domain OR a business
+  // subdomain. Either way it must reach app/g/[token], not /<slug>/g/....
+  const isRootPage = url.pathname === "/support"
+    || url.pathname.startsWith("/legal")
+    || url.pathname.startsWith("/g/");
   const isRootAsset = ROOT_ASSETS.has(url.pathname) || url.pathname.startsWith("/api/") || isRootPage;
 
   if (!isRootAsset && subdomain && !RESERVED.has(subdomain)) {

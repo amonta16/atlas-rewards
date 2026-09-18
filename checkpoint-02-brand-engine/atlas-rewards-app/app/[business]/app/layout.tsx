@@ -2,8 +2,11 @@ import { redirect, notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getFeaturedOffer, getMyMembership } from "@/lib/data/customer-app";
 import { CustomerAppShell } from "@/components/customer/app-shell";
-// CP-135: promo-QR campaign + required-waiver redirector.
+// CP-135: promo-QR campaign resumer (the required-waiver redirect it used
+// to do is now the CP-137 server gate below).
 import { CampaignResumer } from "@/components/customer/campaign-resumer";
+// CP-137: the waiver gate is rendered IN PLACE of the app, server-side.
+import { WaiverSignClient } from "@/components/customer/waiver-sign-client";
 import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
 import { PWAInstall } from "@/components/customer/pwa-install";
 import { FeaturedOfferBanner } from "@/components/customer/featured-offer-banner";
@@ -51,6 +54,26 @@ export default async function CustomerAppLayout({
   // CP-21: the featured offer loads once at the layout level so the sticky
   // banner persists across every tab. CP-89: both fetches run in parallel,
   // and featured_offer is request-memoized (the Home page reuses it free).
+  // CP-137: the required-waiver gate.
+  //
+  // CP-135 did this in CampaignResumer — a client useEffect that redirected
+  // to /app/waiver. That is advisory: it runs after the page has already
+  // rendered, it only fired once per session, and anyone who knew the shape
+  // of it could simply not follow the redirect. A waiver a business relies
+  // on has to hold, so the check moved here: one server call, and when it
+  // says no we render the waiver INSTEAD of the app. There is no shell, no
+  // tabs and no route to navigate to — the gate is the page, whatever URL
+  // under /app they asked for.
+  const { data: gateRows } = await supabase.rpc("my_waiver_gate", { p_business_id: business.id });
+  const gate = (Array.isArray(gateRows) ? gateRows[0] : gateRows) as {
+    state: "ok" | "needs_signature" | "awaiting_guardian";
+    waiver_id: string | null; waiver_title: string | null;
+    version_id: string | null; version_no: number | null;
+    body_text: string | null; document_url: string | null;
+    min_account_age: number | null; minors_enabled: boolean | null;
+    guardian_email: string | null;
+  } | null;
+
   const [{ data: billing }, bannerOffer] = await Promise.all([
     supabase.rpc("membership_billing_public", { p_business_id: business.id }),
     getFeaturedOffer(business.id),
@@ -140,6 +163,26 @@ export default async function CustomerAppLayout({
           membershipId={membershipId}
         />
       )}
+      {gate && gate.state !== "ok" && gate.waiver_id && gate.version_id ? (
+        <WaiverSignClient
+          business={business}
+          membershipId={membershipId}
+          defaultName={user.user_metadata?.full_name ?? ""}
+          campaign={null}
+          waiver={{
+            waiver_id: gate.waiver_id,
+            waiver_title: gate.waiver_title ?? "Waiver",
+            version_id: gate.version_id,
+            version_no: gate.version_no ?? 1,
+            body_text: gate.body_text ?? "",
+            document_url: gate.document_url,
+          }}
+          alreadySignedCurrent={false}
+          gateMode
+          minorsEnabled={gate.minors_enabled ?? true}
+          awaitingGuardianEmail={gate.state === "awaiting_guardian" ? gate.guardian_email : null}
+        />
+      ) : (
       <CustomerAppShell
         primary={business.brand_colors.primary}
         widgetConfig={business.widget_config}
@@ -170,6 +213,7 @@ export default async function CustomerAppLayout({
       >
         {children}
       </CustomerAppShell>
+      )}
 
       {/* ═══════════ CP-103.2: STATUS-BAR STRIP ═══════════
           BUG: FeaturedOfferBanner is `sticky` with `top: env(safe-area-inset-top)`

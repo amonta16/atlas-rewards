@@ -6,21 +6,21 @@
  *   1. If the customer arrived through a promo QR (`?c=` on any page, or a
  *      slug remembered in localStorage across signup), send them to the
  *      waiver/reward page once they're signed in.
- *   2. If the business requires a waiver at signup and this member hasn't
- *      signed the current version, send them to the waiver page.
- * Never fires while already on /waiver, never loops (a session flag stops
- * the required-waiver check repeating every navigation).
+ * CP-137: the required-waiver redirect that used to live here is gone. It
+ * was a client-side useEffect, which made it advisory — the gate is now a
+ * server check in the customer app layout, which renders the waiver instead
+ * of the app. This component is back to one job: promo campaigns.
  */
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { campaignFromLocation, readCampaign, rememberCampaign } from "@/lib/campaign-storage";
 
 export function CampaignResumer({
-  businessSlug, businessId, membershipId,
+  businessSlug, membershipId,
 }: {
   businessSlug: string;
-  businessId: string;
+  /** Kept for callers; the waiver check that used it moved to the server. */
+  businessId?: string;
   membershipId: string | null;
 }) {
   const pathname = usePathname();
@@ -39,23 +39,7 @@ export function CampaignResumer({
       return;
     }
 
-    // 2. Required-at-signup waiver not yet signed.
-    if (!membershipId) return;
-    const flag = `atlas_waiver_checked:${businessId}`;
-    try { if (sessionStorage.getItem(flag)) return; } catch { /* ignore */ }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await createClient().rpc("my_waiver_status", { p_business_id: businessId });
-        if (cancelled) return;
-        const rows = (data ?? []) as { required_for_signup: boolean; is_current: boolean }[];
-        const missing = rows.some(r => r.required_for_signup && !r.is_current);
-        try { sessionStorage.setItem(flag, "1"); } catch { /* ignore */ }
-        if (missing) router.replace(`${base}/waiver`);
-      } catch { /* pre-CP-135 DB: nothing to do */ }
-    })();
-    return () => { cancelled = true; };
-  }, [pathname, businessSlug, businessId, membershipId, router]);
+  }, [pathname, businessSlug, membershipId, router]);
 
   return null;
 }

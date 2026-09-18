@@ -23,6 +23,9 @@ type Rec = {
   consent_text: string; body_sha256: string; user_agent: string | null;
   waiver_title: string; version_no: number; version_text: string; version_created_at: string;
   campaign_title: string | null; member_name: string | null; member_phone: string | null;
+  /** CP-137: who the signature covered. */
+  minors: Array<{ first?: string; last?: string; dob?: string | null }> | null;
+  signer_dob: string | null; signer_relationship: string | null;
 };
 
 export default async function WaiverRecordPage({ params }: { params: { business: string; id: string } }) {
@@ -60,8 +63,27 @@ export default async function WaiverRecordPage({ params }: { params: { business:
             <Field label="Signer">{rec.signer_name ?? "—"}{rec.signer_email && <div className="text-zinc-500 text-xs">{rec.signer_email}</div>}</Field>
             <Field label="Member account">{rec.member_name ?? "—"}{rec.member_phone && <div className="text-zinc-500 text-xs">{rec.member_phone}</div>}</Field>
             <Field label="Signed">{fmt(signed)}</Field>
+            {/* CP-137: an arcade waiver is usually signed FOR somebody. */}
+            <Field label="Signed as">
+              {rec.signer_relationship === "guardian" ? "Parent / legal guardian" : "Themselves"}
+              {rec.signer_dob && <div className="text-zinc-500 text-xs">Signer born {rec.signer_dob}</div>}
+            </Field>
             <Field label="Record id"><span className="font-mono text-xs break-all">{rec.id}</span></Field>
           </section>
+
+          {Array.isArray(rec.minors) && rec.minors.length > 0 && (
+            <section className="mb-6">
+              <div className="text-[11px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">Minors covered</div>
+              <ul className="text-[13px] text-zinc-800 space-y-1">
+                {rec.minors.map((m, i) => (
+                  <li key={i}>
+                    {[m.first, m.last].filter(Boolean).join(" ") || "—"}
+                    {m.dob && <span className="text-zinc-500"> · born {m.dob}</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <section className="mb-6">
             <div className="text-[11px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">Agreement text (as signed)</div>

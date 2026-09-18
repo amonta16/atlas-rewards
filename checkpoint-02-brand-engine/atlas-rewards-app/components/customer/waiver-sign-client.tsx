@@ -1,22 +1,35 @@
 "use client";
 /**
- * WaiverSignClient — CP-135
+ * WaiverSignClient — CP-135, extended by CP-137.
  *
  * The signing screen. Order matters and is enforced server-side too:
- *   read the waiver → name → signature (draw, or type as a fallback) →
- *   consent checkbox → Sign → sign_waiver() records it against the exact
- *   version, completes the campaign, and only THEN issues the reward.
- * A campaign without a waiver skips straight to complete_signup_campaign().
+ *   read the waiver → name → date of birth → who it covers → signature →
+ *   consent → sign_waiver_v2() records it against the exact version,
+ *   completes the campaign, and only THEN issues the reward.
+ *
+ * CP-137 adds three things:
+ *   · Date of birth, attested. An adult signature is the whole point of a
+ *     waiver, so a date under 18 is refused here AND in the database.
+ *   · "Just me" / "Me and minors" — the guardian names the children the
+ *     signature covers, which is what an arcade or batting cage actually
+ *     needs and what the ROLLER flow was collecting.
+ *   · The guardian path. A member who is under 18 gets no bypass button:
+ *     they name a parent, the parent receives a link, and the PARENT signs.
+ *     Nothing a minor (or an adult pretending to be one) can tap unlocks
+ *     the app.
+ *
+ * `gateMode` is the CP-137 hard gate: rendered by the customer app layout in
+ * place of the whole app, so there is nothing else on screen to navigate to.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileSignature, Gift, PenLine, Type } from "lucide-react";
+import { CheckCircle2, FileSignature, Gift, PenLine, Type, MailCheck, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { useAppBase } from "@/lib/use-app-base";
 import { SignaturePad } from "@/components/customer/signature-pad";
-import { forgetCampaign } from "@/lib/campaign-storage";
+import { campaignFromLocation, forgetCampaign, readCampaign } from "@/lib/campaign-storage";
 import type { Business } from "@/lib/types/database";
 
 export type CampaignInfo = {
@@ -27,12 +40,29 @@ export type WaiverInfo = {
   waiver_id: string; waiver_title: string; version_id: string; version_no: number;
   body_text: string; document_url: string | null;
 };
-type Result = { campaign_completed: boolean; reward_kind: string; reward_points: number | null; reward_code: string | null; reward_offer_title: string | null };
+type Result = {
+  campaign_completed: boolean; reward_kind: string; reward_points: number | null;
+  reward_code: string | null; reward_offer_title: string | null; submission_id?: string | null;
+};
+type Minor = { first: string; last: string; dob: string };
 
 const CONSENT = "I have read and understand this waiver, I am signing it voluntarily, and I agree to be bound by its terms.";
 
+/** Years between a yyyy-mm-dd string and today. Null when unparseable. */
+function ageFrom(dob: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return null;
+  const d = new Date(`${dob}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
+  return age;
+}
+
 export function WaiverSignClient({
   business, membershipId, defaultName, campaign, waiver, alreadySignedCurrent,
+  gateMode = false, minorsEnabled = true, awaitingGuardianEmail = null,
 }: {
   business: Business;
   membershipId: string | null;
@@ -40,6 +70,11 @@ export function WaiverSignClient({
   campaign: CampaignInfo | null;
   waiver: WaiverInfo | null;
   alreadySignedCurrent: boolean;
+  /** CP-137: rendered in place of the app because a waiver is required. */
+  gateMode?: boolean;
+  minorsEnabled?: boolean;
+  /** CP-137: a guardian request is already out to this address. */
+  awaitingGuardianEmail?: string | null;
 }) {
   const router = useRouter();
   const appBase = useAppBase(business.slug);
@@ -47,6 +82,9 @@ export function WaiverSignClient({
   const secondary = business.brand_colors.secondary;
 
   const [name, setName] = useState(defaultName);
+  const [dob, setDob] = useState("");
+  const [who, setWho] = useState<"self" | "minors">("self");
+  const [minors, setMinors] = useState<Minor[]>([{ first: "", last: "", dob: "" }]);
   const [mode, setMode] = useState<"draw" | "type">("draw");
   const [sig, setSig] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
@@ -55,6 +93,24 @@ export function WaiverSignClient({
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [scrolledEnd, setScrolledEnd] = useState(false);
+
+  // CP-137: in gate mode the layout renders us instead of whatever page the
+  // customer asked for — including /app/waiver?c=<promo>. The campaign slug
+  // would otherwise be dropped on the floor and the welcome reward never
+  // issued, so we recover it the same way CampaignResumer does and hand it
+  // to sign_waiver_v2, which does the rest.
+  const [gateCampaignSlug, setGateCampaignSlug] = useState<string | null>(null);
+  useEffect(() => {
+    if (!gateMode || campaign) return;
+    setGateCampaignSlug(campaignFromLocation() ?? readCampaign(business.slug));
+  }, [gateMode, campaign, business.slug]);
+
+  // Guardian path state.
+  const [guardianEmail, setGuardianEmail] = useState("");
+  const [guardianSent, setGuardianSent] = useState<string | null>(awaitingGuardianEmail);
+
+  const age = ageFrom(dob);
+  const isMinorSigner = age !== null && age < 18;
 
   const rewardLine = useMemo(() => {
     if (!campaign) return null;
@@ -78,22 +134,31 @@ export function WaiverSignClient({
     })();
   }, [campaign, waiver, result, membershipId, business.id, business.slug]);
 
+  const cleanMinors = minors
+    .map(m => ({ first: m.first.trim(), last: m.last.trim(), dob: m.dob }))
+    .filter(m => m.first || m.last);
+  const minorsValid = who === "self" || (cleanMinors.length > 0 && cleanMinors.every(m => m.first && m.last));
+
   const canSign = !!waiver && !!membershipId && name.trim().length >= 2 && agree
+    && age !== null && age >= 18 && minorsValid
     && (mode === "draw" ? !!sig : typed.trim().length >= 2);
 
   async function sign() {
     if (!waiver || !canSign) return;
     setBusy(true); setErr(null);
     const supabase = createClient();
-    const { data, error } = await supabase.rpc("sign_waiver", {
+    const { data, error } = await supabase.rpc("sign_waiver_v2", {
       p_business_id: business.id,
       p_waiver_id: waiver.waiver_id,
       p_version_id: waiver.version_id,
       p_signer_name: name.trim(),
+      p_signer_dob: dob,
+      p_relationship: who === "minors" ? "guardian" : "self",
+      p_minors: who === "minors" ? cleanMinors : [],
       p_signature_data_url: mode === "draw" ? sig : null,
       p_signature_typed: mode === "type" ? typed.trim() : null,
       p_consent_text: CONSENT,
-      p_campaign_slug: campaign?.slug ?? null,
+      p_campaign_slug: campaign?.slug ?? gateCampaignSlug,
       p_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
     });
     setBusy(false);
@@ -101,10 +166,47 @@ export function WaiverSignClient({
     const row = (Array.isArray(data) ? data[0] : data) as Result;
     forgetCampaign(business.slug);
     setResult(row);
+    // Emailed copy — E-SIGN says the signer has to be able to keep one.
+    // Best effort: a failure here must never cost them the signature.
+    if (row?.submission_id) {
+      fetch("/api/waivers/email-copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ submissionId: row.submission_id }),
+      }).catch(() => { /* ignore */ });
+    }
+  }
+
+  async function askGuardian() {
+    if (!waiver) return;
+    setBusy(true); setErr(null);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("request_guardian_signature", {
+      p_business_id: business.id,
+      p_waiver_id: waiver.waiver_id,
+      p_guardian_email: guardianEmail.trim(),
+      p_minor_name: name.trim(),
+      p_minor_dob: dob || null,
+    });
+    if (error) { setBusy(false); setErr(error.message); return; }
+    const row = (Array.isArray(data) ? data[0] : data) as { request_id: string; token: string };
+    const res = await fetch("/api/waivers/guardian-invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: row.token, businessId: business.id }),
+    }).catch(() => null);
+    setBusy(false);
+    if (!res || !res.ok) {
+      setErr("We saved the request but couldn't send the email. Ask the front desk to sign you in.");
+      return;
+    }
+    setGuardianSent(guardianEmail.trim());
   }
 
   function goHome() {
     const pts = result?.campaign_completed && result.reward_kind === "points" ? result.reward_points ?? 0 : 0;
+    // In gate mode the layout itself re-checks — a refresh is what opens the app.
+    if (gateMode) { router.refresh(); return; }
     router.replace(pts > 0 ? `${appBase}?celebrate=${pts}` : appBase);
     router.refresh();
   }
@@ -119,7 +221,7 @@ export function WaiverSignClient({
             <CheckCircle2 className="h-8 w-8" />
           </div>
           <h1 className="text-2xl font-black mt-4 text-zinc-900">{waiver ? "Waiver signed" : "You're in"}</h1>
-          {waiver && <p className="text-sm text-zinc-500 mt-1">We&apos;ve recorded it — staff can see it at the front desk.</p>}
+          {waiver && <p className="text-sm text-zinc-500 mt-1">We&apos;ve recorded it — staff can see it at the front desk, and a copy is on its way to your email.</p>}
 
           {result.campaign_completed && result.reward_kind === "points" && (
             <div className="mt-5 rounded-2xl p-4" style={{ background: `${primary}12` }}>
@@ -153,6 +255,28 @@ export function WaiverSignClient({
     );
   }
 
+  // ── waiting on a parent ──────────────────────────────────────────────
+  if (guardianSent) {
+    return (
+      <div className="p-4 pt-8">
+        <div className="rounded-3xl bg-white border shadow-sm p-6 text-center">
+          <div className="h-16 w-16 rounded-full mx-auto flex items-center justify-center" style={{ background: `${primary}15` }}>
+            <MailCheck className="h-8 w-8" style={{ color: primary }} />
+          </div>
+          <h1 className="text-xl font-black mt-4 text-zinc-900">Sent to your parent or guardian</h1>
+          <p className="text-sm text-zinc-500 mt-2">
+            We emailed <span className="font-semibold text-zinc-700">{guardianSent}</span> a link to read and sign
+            {business.name ? ` ${business.name}'s` : " the"} waiver for you. As soon as they sign, this unlocks.
+          </p>
+          <p className="text-xs text-zinc-400 mt-3">The link is good for 14 days. You can also just ask the front desk when you get there.</p>
+          <Button variant="outline" className="w-full h-11 mt-5" onClick={() => router.refresh()}>
+            They&apos;ve signed — check again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // ── nothing to sign ──────────────────────────────────────────────────
   if (!waiver) {
     return (
@@ -170,6 +294,15 @@ export function WaiverSignClient({
   // ── sign ─────────────────────────────────────────────────────────────
   return (
     <div className="p-4 pt-5 pb-10">
+      {gateMode && (
+        <div className="rounded-2xl border bg-amber-50 border-amber-200 p-3.5 mb-4">
+          <div className="text-sm font-black text-amber-900">One thing before you start</div>
+          <p className="text-[13px] text-amber-800 mt-0.5">
+            {business.name} needs this waiver signed before you can use the app.
+          </p>
+        </div>
+      )}
+
       {campaign && (
         <div className="rounded-3xl p-5 text-white shadow-lg mb-4"
           style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>
@@ -184,7 +317,7 @@ export function WaiverSignClient({
         </div>
       )}
 
-      {alreadySignedCurrent && (
+      {alreadySignedCurrent && !gateMode && (
         <div className="rounded-2xl border bg-emerald-50 border-emerald-200 p-3 text-sm text-emerald-800 mb-4">
           You&apos;ve already signed the current version of this waiver. Signing again is fine — it just adds a fresh record.
         </div>
@@ -217,40 +350,132 @@ export function WaiverSignClient({
           </div>
 
           <div>
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Signature</label>
-              <div className="inline-flex rounded-full bg-zinc-100 p-0.5">
-                <button type="button" onClick={() => setMode("draw")} className={`text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${mode === "draw" ? "bg-white shadow text-zinc-900" : "text-zinc-500"}`}><PenLine className="h-3 w-3" /> Draw</button>
-                <button type="button" onClick={() => setMode("type")} className={`text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${mode === "type" ? "bg-white shadow text-zinc-900" : "text-zinc-500"}`}><Type className="h-3 w-3" /> Type</button>
-              </div>
-            </div>
-            <div className="mt-1.5">
-              {mode === "draw" ? (
-                <SignaturePad onChange={setSig} primary="#111827" />
-              ) : (
-                <Input value={typed} onChange={e => setTyped(e.target.value)} placeholder="Type your full name as your signature"
-                  className="h-14 text-2xl italic font-serif" />
-              )}
-            </div>
+            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Your date of birth</label>
+            <Input type="date" value={dob} onChange={e => setDob(e.target.value)} className="mt-1.5 h-11" autoComplete="bday" />
+            {isMinorSigner && (
+              <p className="text-[12px] text-amber-700 mt-1.5">
+                You have to be 18 to sign this yourself — a parent or guardian signs for you.
+              </p>
+            )}
           </div>
 
-          <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer">
-            <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-0.5 h-5 w-5 rounded" />
-            <span className="text-[12.5px] leading-snug text-zinc-700">{CONSENT}</span>
-          </label>
+          {/* ── under 18: the guardian path. No self-attest button exists. ── */}
+          {isMinorSigner ? (
+            <div className="rounded-2xl border p-4" style={{ borderColor: `${primary}55`, background: `${primary}08` }}>
+              <div className="text-sm font-black text-zinc-900">Ask a parent or guardian to sign</div>
+              <p className="text-[12.5px] text-zinc-600 mt-1">
+                We&apos;ll email them the waiver. They read and sign it, and your account unlocks — you don&apos;t sign anything here.
+              </p>
+              <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mt-3 block">Their email</label>
+              <Input type="email" value={guardianEmail} onChange={e => setGuardianEmail(e.target.value)}
+                placeholder="parent@example.com" className="mt-1.5 h-11" autoComplete="off" />
+              {err && <p className="text-sm text-red-600 mt-2">{err}</p>}
+              <Button
+                onClick={askGuardian}
+                disabled={busy || name.trim().length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guardianEmail.trim())}
+                className="w-full h-11 mt-3 font-bold text-white" style={{ background: primary }}
+              >
+                {busy ? "Sending…" : "Send it to them"}
+              </Button>
+              <p className="text-[10.5px] text-zinc-400 mt-2">
+                Or bring a parent to the front desk — staff can sign you in there.
+              </p>
+            </div>
+          ) : (
+            <>
+              {minorsEnabled && (
+                <div>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Who does this cover?</label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    <button type="button" onClick={() => setWho("self")}
+                      className={`h-11 rounded-xl border-2 text-sm font-bold transition ${who === "self" ? "text-white" : "bg-white text-zinc-600 border-zinc-200"}`}
+                      style={who === "self" ? { background: primary, borderColor: primary } : undefined}>
+                      Just me
+                    </button>
+                    <button type="button" onClick={() => setWho("minors")}
+                      className={`h-11 rounded-xl border-2 text-sm font-bold transition ${who === "minors" ? "text-white" : "bg-white text-zinc-600 border-zinc-200"}`}
+                      style={who === "minors" ? { background: primary, borderColor: primary } : undefined}>
+                      Me and my kids
+                    </button>
+                  </div>
+                </div>
+              )}
 
-          {err && <p className="text-sm text-red-600">{err}</p>}
-          {!membershipId && <p className="text-sm text-amber-700">Finish creating your account first, then come back to sign.</p>}
+              {who === "minors" && (
+                <div className="space-y-3">
+                  {minors.map((m, i) => (
+                    <div key={i} className="rounded-xl border p-3 bg-zinc-50/60">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Child {i + 1}</div>
+                        {minors.length > 1 && (
+                          <button type="button" className="text-zinc-400 hover:text-zinc-600"
+                            onClick={() => setMinors(minors.filter((_, j) => j !== i))} aria-label={`Remove child ${i + 1}`}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <Input placeholder="First name" value={m.first}
+                          onChange={e => setMinors(minors.map((x, j) => j === i ? { ...x, first: e.target.value } : x))} className="h-10" />
+                        <Input placeholder="Last name" value={m.last}
+                          onChange={e => setMinors(minors.map((x, j) => j === i ? { ...x, last: e.target.value } : x))} className="h-10" />
+                      </div>
+                      <Input type="date" value={m.dob} aria-label={`Child ${i + 1} date of birth`}
+                        onChange={e => setMinors(minors.map((x, j) => j === i ? { ...x, dob: e.target.value } : x))} className="h-10 mt-2" />
+                    </div>
+                  ))}
+                  {minors.length < 12 && (
+                    <button type="button" onClick={() => setMinors([...minors, { first: "", last: "", dob: "" }])}
+                      className="w-full h-10 rounded-xl border-2 border-dashed text-sm font-bold text-zinc-500 inline-flex items-center justify-center gap-1.5">
+                      <Plus className="h-4 w-4" /> Add another child
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Signature</label>
+                  <div className="inline-flex rounded-full bg-zinc-100 p-0.5">
+                    <button type="button" onClick={() => setMode("draw")} className={`text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${mode === "draw" ? "bg-white shadow text-zinc-900" : "text-zinc-500"}`}><PenLine className="h-3 w-3" /> Draw</button>
+                    <button type="button" onClick={() => setMode("type")} className={`text-[11px] font-bold px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${mode === "type" ? "bg-white shadow text-zinc-900" : "text-zinc-500"}`}><Type className="h-3 w-3" /> Type</button>
+                  </div>
+                </div>
+                <div className="mt-1.5">
+                  {mode === "draw" ? (
+                    <SignaturePad onChange={setSig} primary="#111827" />
+                  ) : (
+                    <Input value={typed} onChange={e => setTyped(e.target.value)} placeholder="Type your full name as your signature"
+                      className="h-14 text-2xl italic font-serif" />
+                  )}
+                </div>
+              </div>
+
+              <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer">
+                <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-0.5 h-5 w-5 rounded" />
+                <span className="text-[12.5px] leading-snug text-zinc-700">
+                  {CONSENT}
+                  {who === "minors" && " I am the parent or legal guardian of the children named above and I am signing on their behalf."}
+                </span>
+              </label>
+
+              {err && <p className="text-sm text-red-600">{err}</p>}
+              {!membershipId && <p className="text-sm text-amber-700">Finish creating your account first, then come back to sign.</p>}
+            </>
+          )}
         </div>
 
-        <div className="p-5">
-          <Button onClick={sign} disabled={!canSign || busy} className="w-full h-13 text-base font-black text-white" style={{ background: primary }}>
-            {busy ? "Recording…" : campaign && rewardLine ? `Sign & claim ${rewardLine}` : "Sign waiver"}
-          </Button>
-          <p className="text-[10.5px] text-zinc-400 text-center mt-2">
-            Your signature, name, and the time are stored with version {waiver.version_no} of this document and are visible to {business.name} staff.
-          </p>
-        </div>
+        {!isMinorSigner && (
+          <div className="p-5">
+            <Button onClick={sign} disabled={!canSign || busy} className="w-full h-13 text-base font-black text-white" style={{ background: primary }}>
+              {busy ? "Recording…" : campaign && rewardLine ? `Sign & claim ${rewardLine}` : "Sign waiver"}
+            </Button>
+            <p className="text-[10.5px] text-zinc-400 text-center mt-2">
+              Your signature, name, date of birth{who === "minors" ? ", the children you named" : ""} and the time are stored with
+              version {waiver.version_no} of this document and are visible to {business.name} staff.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
