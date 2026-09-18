@@ -7,8 +7,10 @@
  *
  * How a PIN becomes a session WITHOUT storing/altering a password:
  *   1. verify_front_desk_pin (service-role RPC) matches the PIN against
- *      the bcrypt hashes for this business and returns the auth user_id
- *      (with per-business lockout throttling baked in).
+ *      the bcrypt hashes for this business and returns the auth user_id.
+ *      CP-141: lockout is throttled per (business, source IP), not per
+ *      business — a stranger failing PINs can no longer lock out the shop's
+ *      own device, which had been a one-request-per-5-minutes DoS.
  *   2. admin.generateLink({ type:'magiclink' }) mints a one-time token
  *      for that user — it does NOT email anything (Admin API).
  *   3. The cookie-bound server client verifyOtp()s that token, which
@@ -46,10 +48,21 @@ export async function POST(req: NextRequest) {
     .from("businesses").select("id, slug").eq("slug", slug).maybeSingle();
   if (!biz?.id) return NextResponse.json({ error: "business not found" }, { status: 404 });
 
+  // CP-141: the throttle is keyed on (business, source IP), so the RPC needs
+  // the caller's address. On Vercel the client IP is the FIRST entry of
+  // x-forwarded-for — later entries are proxy hops and are attacker-writable,
+  // so never read the whole header. Falls back to req.ip, then null (the RPC
+  // buckets a missing IP as 'unknown' and behaves as it did before CP-141).
+  const ip =
+    (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() ||
+    req.ip ||
+    null;
+
   // Match the PIN (throttled inside the RPC).
   const { data: vRows, error: vErr } = await admin.rpc("verify_front_desk_pin", {
     p_business_id: biz.id,
     p_pin: pin,
+    p_ip: ip,
   });
   if (vErr) {
     return NextResponse.json({ error: "Sign-in is temporarily unavailable" }, { status: 500 });
