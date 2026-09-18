@@ -60,9 +60,15 @@ export async function middleware(request: NextRequest) {
   // a parent who has no account and no business context — and it arrives by
   // email, so it may well be opened on the apex domain OR a business
   // subdomain. Either way it must reach app/g/[token], not /<slug>/g/....
+  // CP-142: /auth/confirm is where every emailed auth link lands. It must
+  // reach app/auth/confirm on ANY host — a mail client can open the link on
+  // the apex or on a business subdomain, and the rewrite below would turn it
+  // into /<slug>/auth/confirm → 404, burning a one-time token. Same class of
+  // bug as the CP-42 service-worker and CP-96.1 /legal rewrites.
   const isRootPage = url.pathname === "/support"
     || url.pathname.startsWith("/legal")
-    || url.pathname.startsWith("/g/");
+    || url.pathname.startsWith("/g/")
+    || url.pathname.startsWith("/auth/");
   const isRootAsset = ROOT_ASSETS.has(url.pathname) || url.pathname.startsWith("/api/") || isRootPage;
 
   if (!isRootAsset && subdomain && !RESERVED.has(subdomain)) {

@@ -45,6 +45,17 @@ function LoginForm() {
     const q = new URLSearchParams(window.location.search);
     const prefill = q.get("email");
     if (prefill) setEmail(prefill);
+    // CP-142: /auth/confirm sends people back here with a reason when a
+    // sign-in link can't be used. Say which, in plain words — "wrong
+    // browser" in particular is not something anyone guesses.
+    const reason = q.get("error");
+    if (reason === "link-expired") {
+      setErr("That sign-in link has expired or was already used. Tap the button below for a fresh one.");
+    } else if (reason === "wrong-browser") {
+      setErr("That link has to be opened in the same browser you requested it from. Request a new one here and open it on this device.");
+    } else if (reason === "missing-token") {
+      setErr("That link was incomplete. Tap the button below to send a new one.");
+    }
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
@@ -88,12 +99,17 @@ function LoginForm() {
       next = new URLSearchParams(window.location.search).get("next");
     }
     const dest = safeRedirect(next, "/agency");
+    // CP-142: land on /auth/confirm, NOT on dest directly. dest is behind a
+    // server-rendered gate that redirects before any browser code runs, so
+    // pointing the link there meant the token was never exchanged and the
+    // redirect dropped it — the button could never work. /auth/confirm
+    // exchanges the token server-side first, then forwards to dest.
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo:
           typeof window !== "undefined"
-            ? `${window.location.origin}${dest}`
+            ? `${window.location.origin}/auth/confirm?next=${encodeURIComponent(dest)}`
             : undefined,
       },
     });
