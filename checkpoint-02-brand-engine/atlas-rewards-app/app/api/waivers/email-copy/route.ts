@@ -63,5 +63,7 @@ export async function POST(req: Request) {
       sha256: data.body_sha256,
     }),
   );
-  return NextResponse.json({ ok: sent });
+  // Best-effort by design (the client fires and forgets), but report the
+  // real outcome so the reason shows up in logs — CP-141.
+  return NextResponse.json({ ok: sent.ok, reason: sent.reason });
 }

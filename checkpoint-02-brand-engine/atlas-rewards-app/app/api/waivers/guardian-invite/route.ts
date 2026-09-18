@@ -68,5 +68,17 @@ export async function POST(req: Request) {
       link,
     }),
   );
-  return NextResponse.json({ ok: sent });
+  // CP-141: this used to return 200 with { ok: false } when the mail never
+  // went out, and the client only checks res.ok — so a minor saw "Sent to
+  // your parent" and then waited forever for an email that was never sent.
+  // A failure to send is a failure of the request. The guardian request row
+  // stays pending either way, so the front desk can still sign them in and
+  // the member can retry.
+  if (!sent.ok) {
+    return NextResponse.json(
+      { ok: false, reason: sent.reason ?? "send_failed" },
+      { status: 502 },
+    );
+  }
+  return NextResponse.json({ ok: true });
 }
