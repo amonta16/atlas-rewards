@@ -71,6 +71,13 @@ export type ContactInfo = {
   hours?: string;
   /** CP-52.6: Google Maps link for the home-page location card. */
   map_url?: string;
+  /**
+   * CP-140: IANA timezone for this business's local clock (e.g.
+   * "America/Los_Angeles"). Deadlines — prize wheel windows today — land at
+   * the END of the day HERE, not at the end of the day in UTC. Unset or
+   * unrecognised falls back to Pacific server-side (business_timezone()).
+   */
+  timezone?: string;
 };
 
 export type Business = {

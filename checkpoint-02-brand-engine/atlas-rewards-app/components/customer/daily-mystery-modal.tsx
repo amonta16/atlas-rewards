@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { X, Lock, Zap, RotateCcw, Coins, Gift, PartyPopper } from "lucide-react";
+import { X, Lock, Zap, RotateCcw, Coins, Gift, PartyPopper, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
@@ -32,7 +32,23 @@ type Prize = {
   // CP-73: coupons removed — kinds are points | reward only.
   kind?: string;
   image?: string | null;
+  // CP-140: server-issued deadline for reward prizes (ISO). null for points.
+  expiresAt?: string | null;
 };
+
+// CP-140: the deadline is the whole point of a short window — it has to read
+// as a date on the win screen, not a countdown the customer has to do in
+// their head. "Use by Thu, Sep 21".
+function useByLabel(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  // The stored instant is midnight AFTER the last usable day, so step back
+  // inside that day before formatting.
+  return new Date(t - 60_000).toLocaleDateString(undefined, {
+    weekday: "short", month: "short", day: "numeric",
+  });
+}
 
 // CP-72: a wheel segment — mirrors one prize from the pool. `big` is the
 // headline text on the wedge ("50", "Free Latte"), `small` the qualifier
@@ -230,6 +246,7 @@ export function DailyMysteryModal({
       prize_name: string | null; prize_description: string | null;
       prize_image_url: string | null; kind: string | null;
       points_amount: number | null; coupon_code: string | null;
+      prize_expires_at: string | null;   // CP-140
     };
     const pts = Number(row.points_amount ?? 0);
     const tier: Prize["tier"] = pts >= 200 ? "jackpot" : pts >= 100 ? "lucky" : "nice";
@@ -239,6 +256,7 @@ export function DailyMysteryModal({
       tier,
       kind: row.kind ?? "points",
       image: row.prize_image_url,
+      expiresAt: row.prize_expires_at ?? null,   // CP-140
     };
     setPrize(p);
 
@@ -577,8 +595,25 @@ export function DailyMysteryModal({
                   </div>
                 </>
               ) : (
-                <div className="text-white/80 text-sm mb-6 px-4">
-                  Added to your rewards — show it at the counter to claim.
+                <div className="mb-6 px-4">
+                  <div className="text-white/80 text-sm">
+                    Added to your rewards — show it at the counter to claim.
+                  </div>
+                  {/* CP-140: a short window only drives a return visit if the
+                      customer is told about it at the moment they win. */}
+                  {useByLabel(prize.expiresAt) && (
+                    <div
+                      className="mt-2.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+                      style={{
+                        background: "rgba(244,63,94,0.14)",
+                        color: "#fda4af",
+                        border: "1px solid rgba(244,63,94,0.35)",
+                      }}
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      Use by {useByLabel(prize.expiresAt)}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -654,6 +689,14 @@ export function DailyMysteryModal({
                   {storedPrize.points > 0 && (
                     <div className="text-white/70 text-sm font-semibold">
                       +{storedPrize.points} bonus points
+                    </div>
+                  )}
+                  {/* CP-140: reopening the wheel later today is the most
+                      likely moment they check the deadline. */}
+                  {useByLabel(storedPrize.expiresAt) && (
+                    <div className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-rose-300">
+                      <Clock className="h-3.5 w-3.5" />
+                      Use by {useByLabel(storedPrize.expiresAt)}
                     </div>
                   )}
                 </>
