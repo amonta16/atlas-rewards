@@ -23,7 +23,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileSignature, Gift, PenLine, Type, MailCheck, Plus, X, RefreshCw, Send, AlertTriangle } from "lucide-react";
+import { CheckCircle2, FileSignature, Gift, PenLine, Type, MailCheck, Plus, X, RefreshCw, Send, AlertTriangle, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -114,6 +114,7 @@ export function WaiverSignClient({
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
   const [checkMsg, setCheckMsg] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);   // CP-141.1
 
   const age = ageFrom(dob);
   const isMinorSigner = age !== null && age < 18;
@@ -233,6 +234,40 @@ export function WaiverSignClient({
     setResending(false);
     setMailFailed(!ok);
     setCheckMsg(ok ? "Sent again — check the inbox and the spam folder." : null);
+  }
+
+  /**
+   * CP-141.1: back out of the guardian path.
+   *
+   * CP-137's gate is a deliberate dead end — pending request means the app
+   * renders the waiting screen INSTEAD of the app, with nothing else to tap.
+   * Right for a real minor, a trap for an adult who hit the wrong button.
+   * This cancels the request server-side (the gate then reads
+   * needs_signature again) and drops them back on the signing form.
+   *
+   * It is not a bypass: the form still refuses an under-18 date of birth,
+   * in the client AND in sign_waiver_v2().
+   */
+  async function cancelGuardian() {
+    if (cancelling) return;
+    const ok = window.confirm(
+      "Go back and sign this yourself?\n\n" +
+      "The link we emailed will stop working. You can always ask a parent again.",
+    );
+    if (!ok) return;
+    setCancelling(true); setCheckMsg(null); setErr(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("cancel_guardian_request", {
+      p_business_id: business.id,
+    });
+    setCancelling(false);
+    if (error) { setErr(error.message); return; }
+    // Clear the local screen AND re-read the gate, which now says
+    // needs_signature, so the signing form comes back in gate mode too.
+    setGuardianSent(null);
+    setGuardianToken(null);
+    setMailFailed(false);
+    router.refresh();
   }
 
   /**
@@ -366,6 +401,19 @@ export function WaiverSignClient({
           )}
 
           {checkMsg && <p className="text-xs text-zinc-500 mt-2">{checkMsg}</p>}
+          {err && <p className="text-xs text-red-600 mt-2">{err}</p>}
+
+          {/* CP-141.1: the way out. Without this an adult who mis-tapped the
+              guardian button is locked out of the app entirely, with no
+              screen to navigate to and no button to press. */}
+          <button
+            onClick={cancelGuardian}
+            disabled={cancelling}
+            className="mt-4 text-xs text-zinc-500 underline underline-offset-2 disabled:opacity-50 inline-flex items-center gap-1 mx-auto"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            {cancelling ? "Going back…" : "Wrong button? Go back and sign it myself"}
+          </button>
         </div>
       </div>
     );
