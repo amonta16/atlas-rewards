@@ -94,6 +94,36 @@ export function WaiverSignClient({
   const [result, setResult] = useState<Result | null>(null);
   const [scrolledEnd, setScrolledEnd] = useState(false);
 
+  /**
+   * CP-144: the form is a sequence now, not a wall.
+   *
+   * The old screen put the document, the name, the date of birth, the
+   * who-does-this-cover toggle, the minor rows, the signature pad and the
+   * consent box on one scroll. Every field was visible before any of them
+   * were relevant, and the single Sign button sat greyed out with no
+   * explanation of which of the seven inputs was missing.
+   *
+   * ROLLER's flow is the model: ask one thing, confirm, ask the next. Each
+   * step gates its own one or two fields, so "Continue" is always obviously
+   * blocked by something on screen rather than something below the fold.
+   */
+  const [step, setStep] = useState(0);
+  const [email, setEmail] = useState("");
+
+  // The signed copy has to reach them — E-SIGN expects the signer to be able
+  // to keep one. Until CP-144 sign_waiver_v2 took no email at all: it read
+  // profiles.email off the session and stored that, so the copy always went to
+  // the ACCOUNT address — frequently a parent's login, or whatever they typed
+  // at a kiosk two years ago. CP-144 adds p_signer_email; we pre-fill from the
+  // account so the common case is one tap, and let them correct it.
+  useEffect(() => {
+    let cancelled = false;
+    createClient().auth.getUser().then(({ data }) => {
+      if (!cancelled && data.user?.email) setEmail(e => e || data.user!.email!);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   // CP-137: in gate mode the layout renders us instead of whatever page the
   // customer asked for — including /app/waiver?c=<promo>. The campaign slug
   // would otherwise be dropped on the floor and the welcome reward never
@@ -167,6 +197,7 @@ export function WaiverSignClient({
       p_consent_text: CONSENT,
       p_campaign_slug: campaign?.slug ?? gateCampaignSlug,
       p_user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+      p_signer_email: email.trim() || null,   // CP-144
     });
     setBusy(false);
     if (error) { setErr(error.message); return; }
@@ -434,6 +465,45 @@ export function WaiverSignClient({
   }
 
   // ── sign ─────────────────────────────────────────────────────────────
+  // Steps are computed, not hard-coded: a business with minors turned off
+  // never sees the "who does this cover" step at all, so the dots stay
+  // honest about how much is left.
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+  const detailsOk = name.trim().length >= 2 && !!dob && age !== null && age >= 18 && age <= 120;
+  const coverOk = who === "self" || (cleanMinors.length > 0 && cleanMinors.every(m => m.first && m.last));
+
+  type StepId = "email" | "details" | "cover" | "sign";
+  const stepIds: StepId[] = minorsEnabled
+    ? ["email", "details", "cover", "sign"]
+    : ["email", "details", "sign"];
+  const current = stepIds[Math.min(step, stepIds.length - 1)];
+  const lastIndex = stepIds.length - 1;
+
+  const stepReady =
+    current === "email"   ? emailOk
+    : current === "details" ? detailsOk
+    : current === "cover"   ? coverOk
+    : canSign;
+
+  // Why "Continue" is blocked, named. The old screen made you guess.
+  const blockedBecause =
+    current === "email"   ? "Enter an email we can send your copy to"
+    : current === "details" ? (name.trim().length < 2 ? "Enter your full legal name" : !dob ? "Enter your date of birth" : "Check your date of birth")
+    : current === "cover"   ? "Every child needs a first and last name"
+    : (mode === "draw" && !sig) ? "Add your signature"
+      : (mode === "type" && typed.trim().length < 2) ? "Type your full name as your signature"
+      : !agree ? "Tick the box to agree"
+      : "Finish the details above";
+
+  const stepTitle =
+    current === "email"   ? "Your email"
+    : current === "details" ? "Your details"
+    : current === "cover"   ? "Who does this cover?"
+    : waiver.waiver_title;
+
+  function next() { setErr(null); setStep(s => Math.min(s + 1, lastIndex)); }
+  function back() { setErr(null); setStep(s => Math.max(s - 1, 0)); }
+
   return (
     <div className="p-4 pt-5 pb-10">
       {gateMode && (
@@ -445,7 +515,7 @@ export function WaiverSignClient({
         </div>
       )}
 
-      {campaign && (
+      {campaign && step === 0 && (
         <div className="rounded-3xl p-5 text-white shadow-lg mb-4"
           style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>
           <div className="text-[10px] font-black uppercase tracking-widest opacity-85">Welcome offer</div>
@@ -459,89 +529,95 @@ export function WaiverSignClient({
         </div>
       )}
 
-      {alreadySignedCurrent && !gateMode && (
+      {alreadySignedCurrent && !gateMode && step === 0 && (
         <div className="rounded-2xl border bg-emerald-50 border-emerald-200 p-3 text-sm text-emerald-800 mb-4">
           You&apos;ve already signed the current version of this waiver. Signing again is fine — it just adds a fresh record.
         </div>
       )}
 
       <div className="rounded-3xl bg-white border shadow-sm overflow-hidden">
+        {/* Progress. Dots rather than "Step 2 of 4" — the count is visible
+            without making four feel like a lot. */}
         <div className="px-5 pt-5">
-          <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{business.name} · version {waiver.version_no}</div>
-          <h1 className="text-xl font-black text-zinc-900 mt-1">{waiver.waiver_title}</h1>
-          <p className="text-xs text-zinc-500 mt-1">Please read the whole document before signing.</p>
+          <div className="flex items-center gap-1.5">
+            {stepIds.map((id, i) => (
+              <div key={id} className="h-1.5 flex-1 rounded-full transition-all"
+                style={{ background: i <= step ? primary : "#E4E4E7" }} />
+            ))}
+          </div>
+          <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mt-3">
+            {business.name} · version {waiver.version_no}
+          </div>
+          <h1 className="text-xl font-black text-zinc-900 mt-1">{stepTitle}</h1>
         </div>
 
-        <div
-          className="mx-5 mt-3 max-h-64 overflow-y-auto rounded-xl border bg-zinc-50 p-4 text-[13px] leading-relaxed text-zinc-800 whitespace-pre-line"
-          onScroll={(e) => { const t = e.currentTarget; if (t.scrollTop + t.clientHeight >= t.scrollHeight - 8) setScrolledEnd(true); }}
-        >
-          {waiver.body_text}
-        </div>
-        {waiver.document_url && (
-          <a href={waiver.document_url} target="_blank" rel="noreferrer" className="mx-5 mt-2 inline-block text-xs font-semibold underline" style={{ color: primary }}>
-            Open the full document
-          </a>
-        )}
-        {!scrolledEnd && <div className="mx-5 mt-1 text-[11px] text-zinc-400">Scroll to the end ↓</div>}
-
-        <div className="px-5 mt-5 space-y-4">
-          <div>
-            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Your full legal name</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="First and last name" className="mt-1.5 h-11" autoComplete="name" />
-          </div>
-
-          <div>
-            <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Your date of birth</label>
-            <Input type="date" value={dob} onChange={e => setDob(e.target.value)} className="mt-1.5 h-11" autoComplete="bday" />
-            {isMinorSigner && (
-              <p className="text-[12px] text-amber-700 mt-1.5">
-                You have to be 18 to sign this yourself — a parent or guardian signs for you.
+        <div className="px-5 mt-4 space-y-4">
+          {/* ── 1. email ─────────────────────────────────────────────── */}
+          {current === "email" && (
+            <div>
+              <p className="text-[13px] text-zinc-600 -mt-1 mb-3">
+                We&apos;ll send your signed copy here so you have it on record.
               </p>
-            )}
-          </div>
-
-          {/* ── under 18: the guardian path. No self-attest button exists. ── */}
-          {isMinorSigner ? (
-            <div className="rounded-2xl border p-4" style={{ borderColor: `${primary}55`, background: `${primary}08` }}>
-              <div className="text-sm font-black text-zinc-900">Ask a parent or guardian to sign</div>
-              <p className="text-[12.5px] text-zinc-600 mt-1">
-                We&apos;ll email them the waiver. They read and sign it, and your account unlocks — you don&apos;t sign anything here.
-              </p>
-              <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mt-3 block">Their email</label>
-              <Input type="email" value={guardianEmail} onChange={e => setGuardianEmail(e.target.value)}
-                placeholder="parent@example.com" className="mt-1.5 h-11" autoComplete="off" />
-              {err && <p className="text-sm text-red-600 mt-2">{err}</p>}
-              <Button
-                onClick={askGuardian}
-                disabled={busy || name.trim().length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guardianEmail.trim())}
-                className="w-full h-11 mt-3 font-bold text-white" style={{ background: primary }}
-              >
-                {busy ? "Sending…" : "Send it to them"}
-              </Button>
-              <p className="text-[10.5px] text-zinc-400 mt-2">
-                Or bring a parent to the front desk — staff can sign you in there.
-              </p>
+              <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Email address</label>
+              <Input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com" className="mt-1.5 h-12 text-base" autoComplete="email" inputMode="email" />
             </div>
-          ) : (
+          )}
+
+          {/* ── 2. details ───────────────────────────────────────────── */}
+          {current === "details" && (
             <>
-              {minorsEnabled && (
-                <div>
-                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Who does this cover?</label>
-                  <div className="mt-1.5 grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setWho("self")}
-                      className={`h-11 rounded-xl border-2 text-sm font-bold transition ${who === "self" ? "text-white" : "bg-white text-zinc-600 border-zinc-200"}`}
-                      style={who === "self" ? { background: primary, borderColor: primary } : undefined}>
-                      Just me
-                    </button>
-                    <button type="button" onClick={() => setWho("minors")}
-                      className={`h-11 rounded-xl border-2 text-sm font-bold transition ${who === "minors" ? "text-white" : "bg-white text-zinc-600 border-zinc-200"}`}
-                      style={who === "minors" ? { background: primary, borderColor: primary } : undefined}>
-                      Me and my kids
-                    </button>
-                  </div>
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Your full legal name</label>
+                <Input value={name} onChange={e => setName(e.target.value)} placeholder="First and last name"
+                  className="mt-1.5 h-12 text-base" autoComplete="name" />
+              </div>
+              <div>
+                <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Your date of birth</label>
+                <Input type="date" value={dob} onChange={e => setDob(e.target.value)}
+                  className="mt-1.5 h-12 text-base" autoComplete="bday" />
+              </div>
+
+              {/* Under 18 is terminal: no self-attest button exists anywhere
+                  in this flow, by design. */}
+              {isMinorSigner && (
+                <div className="rounded-2xl border p-4" style={{ borderColor: `${primary}55`, background: `${primary}08` }}>
+                  <div className="text-sm font-black text-zinc-900">Ask a parent or guardian to sign</div>
+                  <p className="text-[12.5px] text-zinc-600 mt-1">
+                    We&apos;ll email them the waiver. They read and sign it, and your account unlocks — you don&apos;t sign anything here.
+                  </p>
+                  <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mt-3 block">Their email</label>
+                  <Input type="email" value={guardianEmail} onChange={e => setGuardianEmail(e.target.value)}
+                    placeholder="parent@example.com" className="mt-1.5 h-11" autoComplete="off" />
+                  {err && <p className="text-sm text-red-600 mt-2">{err}</p>}
+                  <Button onClick={askGuardian}
+                    disabled={busy || name.trim().length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guardianEmail.trim())}
+                    className="w-full h-11 mt-3 font-bold text-white" style={{ background: primary }}>
+                    {busy ? "Sending…" : "Send it to them"}
+                  </Button>
+                  <p className="text-[10.5px] text-zinc-400 mt-2">
+                    Or bring a parent to the front desk — staff can sign you in there.
+                  </p>
                 </div>
               )}
+            </>
+          )}
+
+          {/* ── 3. who it covers ─────────────────────────────────────── */}
+          {current === "cover" && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setWho("self")}
+                  className={`h-14 rounded-xl border-2 text-sm font-bold transition ${who === "self" ? "text-white" : "bg-white text-zinc-600 border-zinc-200"}`}
+                  style={who === "self" ? { background: primary, borderColor: primary } : undefined}>
+                  Just me
+                </button>
+                <button type="button" onClick={() => setWho("minors")}
+                  className={`h-14 rounded-xl border-2 text-sm font-bold transition ${who === "minors" ? "text-white" : "bg-white text-zinc-600 border-zinc-200"}`}
+                  style={who === "minors" ? { background: primary, borderColor: primary } : undefined}>
+                  Me and my kids
+                </button>
+              </div>
 
               {who === "minors" && (
                 <div className="space-y-3">
@@ -574,6 +650,26 @@ export function WaiverSignClient({
                   )}
                 </div>
               )}
+            </>
+          )}
+
+          {/* ── 4. the document, then the signature ──────────────────── */}
+          {current === "sign" && (
+            <>
+              <p className="text-[13px] text-zinc-600 -mt-1">Please read the whole document before signing.</p>
+              <div
+                className="max-h-64 overflow-y-auto rounded-xl border bg-zinc-50 p-4 text-[13px] leading-relaxed text-zinc-800 whitespace-pre-line"
+                onScroll={(e) => { const t = e.currentTarget; if (t.scrollTop + t.clientHeight >= t.scrollHeight - 8) setScrolledEnd(true); }}
+              >
+                {waiver.body_text}
+              </div>
+              {waiver.document_url && (
+                <a href={waiver.document_url} target="_blank" rel="noreferrer"
+                  className="inline-block text-xs font-semibold underline" style={{ color: primary }}>
+                  Open the full document
+                </a>
+              )}
+              {!scrolledEnd && <div className="text-[11px] text-zinc-400">Scroll to the end ↓</div>}
 
               <div>
                 <div className="flex items-center justify-between">
@@ -607,17 +703,40 @@ export function WaiverSignClient({
           )}
         </div>
 
-        {!isMinorSigner && (
-          <div className="p-5">
-            <Button onClick={sign} disabled={!canSign || busy} className="w-full h-13 text-base font-black text-white" style={{ background: primary }}>
-              {busy ? "Recording…" : campaign && rewardLine ? `Sign & claim ${rewardLine}` : "Sign waiver"}
-            </Button>
+        {/* ── navigation ───────────────────────────────────────────── */}
+        <div className="p-5">
+          <div className="flex gap-2">
+            {step > 0 && (
+              <Button variant="outline" onClick={back} disabled={busy} className="h-14 px-5 font-bold">
+                Back
+              </Button>
+            )}
+            {/* Under 18: the guardian block above IS the step. No forward
+                button exists for them anywhere in this flow, by design. */}
+            {!isMinorSigner && (
+              current === "sign" ? (
+              <Button onClick={sign} disabled={!canSign || busy}
+                  className="flex-1 h-14 text-base font-black text-white" style={{ background: primary }}>
+                  {busy ? "Recording…" : campaign && rewardLine ? `Sign & claim ${rewardLine}` : "Sign waiver"}
+                </Button>
+              ) : (
+                <Button onClick={next} disabled={!stepReady}
+                  className="flex-1 h-14 text-base font-black text-white" style={{ background: primary }}>
+                  Continue
+                </Button>
+              )
+            )}
+          </div>
+          {!isMinorSigner && !stepReady && (
+            <p className="text-[11.5px] text-zinc-500 text-center mt-2">{blockedBecause}</p>
+          )}
+          {!isMinorSigner && current === "sign" && (
             <p className="text-[10.5px] text-zinc-400 text-center mt-2">
               Your signature, name, date of birth{who === "minors" ? ", the children you named" : ""} and the time are stored with
               version {waiver.version_no} of this document and are visible to {business.name} staff.
             </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
