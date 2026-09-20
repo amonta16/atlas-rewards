@@ -13,7 +13,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "react-qr-code";
-import { Plus, FileSignature, Save, X, History, QrCode, Copy, Check, Trash2, Edit2, Gift, ExternalLink } from "lucide-react";
+import { Plus, FileSignature, Save, X, History, QrCode, Copy, Check, Trash2, Edit2, Gift, ExternalLink, Monitor } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ import { businessUrl } from "@/lib/utils";
 import { WaiverSubmissions } from "@/components/manager/waiver-submissions";
 import type { Business } from "@/lib/types/database";
 
-type Waiver = { id: string; title: string; is_active: boolean; required_for_signup: boolean; current_version_id: string | null; created_at: string };
+type Waiver = { id: string; title: string; is_active: boolean; required_for_signup: boolean; current_version_id: string | null; created_at: string; kiosk_enabled: boolean };
 type Version = { id: string; waiver_id: string; version_no: number; body_text: string; document_url: string | null; created_at: string };
 type Campaign = {
   id: string; slug: string; title: string; headline: string; description: string | null;
@@ -159,6 +159,7 @@ export function WaiversManager({ business }: { business: Business }) {
                         <div className="font-semibold text-sm">{w.title}</div>
                         {!w.is_active && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-700">Inactive</span>}
                         {w.required_for_signup && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Required for every new member</span>}
+                        {w.kiosk_enabled && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Front-desk kiosk on</span>}
                         {cv ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">v{cv.version_no} live</span>
                         ) : (
