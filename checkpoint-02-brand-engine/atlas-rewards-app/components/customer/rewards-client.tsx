@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Gift, Lock, Users, ShoppingBag, Star, Calendar, ChevronRight, ExternalLink, Zap, Instagram, Facebook } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { RedeemFlow } from "./redeem-flow";
-import { ActiveRedemptions, type ActiveRedemption } from "./active-redemptions";
+import type { ActiveRedemption } from "./active-redemptions";
 import { ReferFriendModal } from "./refer-friend-modal";
 import { ReviewSubmitModal } from "./review-submit-modal";
 // CP-134: Instagram / Facebook follow rewards (same flow as the review).
@@ -17,6 +17,8 @@ import { TiltLoyaltyCard } from "./tilt-loyalty-card";
 // CP-43: DailyMysteryModal is no longer opened directly here — DailySpinButton
 // owns the slot-machine modal now.
 import { LimitedOffersSection } from "./limited-offers-section";
+import { WalletRail } from "./wallet-rail";
+import { MarqueeHeading } from "./marquee-heading";
 // CP-85: Raffle Giveaways — a new offer type. Cards live in the same area
 // as Limited offers, with a more premium treatment + live countdown.
 import { RafflesSection } from "./raffle-section";
@@ -31,7 +33,6 @@ import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { RewardDetailModal } from "./reward-detail-modal";
 import { badgeCss } from "@/lib/element-styles";
-import { SavedGiftsSection } from "./saved-gifts-section";
 import { SmartImage } from "@/components/ui/smart-image";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -267,16 +268,16 @@ export function RewardsClient({
       {/* CP-36: gifts the customer explicitly tapped "Save to my rewards"
           on land here, immediately above their active rewards. Hidden
           when the list is empty so the page stays tight. */}
-      <SavedGiftsSection
-        businessId={business.id}
-        primary={business.brand_colors.primary}
-        secondary={business.brand_colors.secondary}
-        membershipId={membership?.id ?? null}
-        layout={business.saved_gifts_layout ?? null}
-      />
+      {/* CP-143: "Saved gifts" and "Your active rewards" were two stacked
+          sections with two headings, two empty states and two treatments.
+          To a customer they are one thing — stuff I hold that expires — so
+          they merge into one rail sorted by what dies first, with the count
+          in the heading so the rail's depth is visible before you touch it.
 
-      {/* Active redemptions (above store) */}
-      <ActiveRedemptions
+          LimitedOffersSection below stays separate on purpose: those are
+          offers you can CLAIM and do not own yet. Different verb, different
+          lane. Merging them would have been tidier and wrong. */}
+      <WalletRail
         business={business}
         initialRedemptions={initialRedemptions}
         membershipId={membership?.id ?? null}
@@ -312,9 +313,30 @@ export function RewardsClient({
       {/* Rewards grid */}
       {business.widget_config.rewards_store && (
         <div className="px-4 mt-5">
-          <div className="flex items-center justify-between mb-2.5">
-            <SectionHeading business={business}>Rewards store</SectionHeading>
-          </div>
+          {/* CP-143: the balance moves INTO the heading. "REWARDS STORE ·
+              760 PTS" says what this is and what you can afford in one line;
+              the old bare label said neither. Opt-in per business — the
+              marquee is right for an arcade, loud for a med spa. */}
+          {business.heading_style === "marquee" ? (
+            <MarqueeHeading
+              primary={business.brand_colors.primary}
+              secondary={business.brand_colors.secondary}
+              chip={`${displayed.toLocaleString()} PTS`}
+              className="mb-3"
+            >
+              Rewards store
+            </MarqueeHeading>
+          ) : (
+            <div className="flex items-center justify-between mb-2.5">
+              <SectionHeading business={business}>Rewards store</SectionHeading>
+              <span
+                className="text-[11px] font-black tabular-nums rounded-lg px-2 py-1 text-white"
+                style={{ background: business.brand_colors.primary }}
+              >
+                {displayed.toLocaleString()} PTS
+              </span>
+            </div>
+          )}
           {/* CP-66: layout presets — grid (default) / list / carousel /
               spotlight. Structure only; the cards keep the same content. */}
           <div
