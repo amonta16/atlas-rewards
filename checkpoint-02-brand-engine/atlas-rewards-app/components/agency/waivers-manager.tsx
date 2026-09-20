@@ -64,6 +64,13 @@ export function WaiversManager({ business }: { business: Business }) {
 
   const currentVersion = (w: Waiver) => versions.find(v => v.id === w.current_version_id) ?? null;
 
+  // CP-142: the address the front-desk tablet opens. Built from the live
+  // origin so it is correct in dev, on preview and in production without
+  // another env var.
+  const kioskUrl = typeof window !== "undefined"
+    ? `${window.location.origin.replace(/\/$/, "")}/${business.slug}/kiosk`
+    : `/${business.slug}/kiosk`;
+
   async function saveWaiver() {
     if (!editW?.title) return;
     setBusy(true); setErr(null);
@@ -177,6 +184,40 @@ export function WaiversManager({ business }: { business: Business }) {
                       )}
                       <Button size="sm" variant="outline" onClick={() => setEditW(w)} aria-label="Edit"><Edit2 className="h-3 w-3" /></Button>
                     </div>
+                  </div>
+                  {/* CP-142: the front-desk tablet. Off by default — a public
+                      page serving this business's waiver text only exists once
+                      someone deliberately turns it on. */}
+                  <div className="mt-3 border-t pt-3 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold text-zinc-700 flex items-center gap-1.5">
+                        <Monitor className="h-3 w-3" /> Front-desk kiosk
+                      </div>
+                      {w.kiosk_enabled ? (
+                        <button
+                          onClick={() => copy(kioskUrl, `kiosk-${w.id}`)}
+                          className="text-[11px] text-sky-700 underline underline-offset-2 truncate max-w-full text-left"
+                          title="Copy the kiosk link"
+                        >
+                          {copied === `kiosk-${w.id}` ? "Copied — open this on the tablet" : kioskUrl}
+                        </button>
+                      ) : (
+                        <div className="text-[11px] text-muted-foreground">
+                          {cv ? "Turn on to hand walk-ins a tablet instead of paper." : "Publish text first."}
+                        </div>
+                      )}
+                    </div>
+                    <Switch
+                      checked={!!w.kiosk_enabled}
+                      disabled={!cv}
+                      onCheckedChange={async (v) => {
+                        setWaivers(ws => ws.map(x => x.id === w.id ? { ...x, kiosk_enabled: v } : x));
+                        const { error } = await supabase.rpc("set_waiver_kiosk", {
+                          p_id: w.id, p_business_id: business.id, p_enabled: v,
+                        });
+                        if (error) { setErr(error.message); load(); }
+                      }}
+                    />
                   </div>
                   {historyFor === w.id && (
                     <div className="mt-3 border-t pt-3 space-y-1.5">
