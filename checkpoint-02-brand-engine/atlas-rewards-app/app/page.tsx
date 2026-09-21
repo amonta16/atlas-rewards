@@ -11,10 +11,9 @@ import { IOS_APP_URL } from "@/lib/landing/config";
  * lives in components/landing/landing-page.tsx, which composes the sections
  * in conversion order:
  *
- *   Navbar → Hero → LogoCloud → VSLSection → ProblemSection →
- *   InteractiveDemo → RewardsDemo → FeatureShowcase → AnalyticsDemo →
- *   HowItWorks → BeforeAfter → SocialProof → CaseStudy → PricingSection →
- *   AgencyWaitlist → FAQ → FinalCTA → Footer
+ *   Navbar → Hero → NicheStrip → AppPicker → Features → HowItWorks →
+ *   VSLSection → CaseStudy → PricingSection → FAQ → FinalCTA → Footer
+ *   (CP-145 simplified redesign)
  *
  * Quick edits:
  *   • VSL video / poster / embed ........ lib/landing/config.ts  (VSL)
@@ -29,9 +28,9 @@ import { IOS_APP_URL } from "@/lib/landing/config";
  * /login, or the API routes outside /api/landing/*.
  */
 
-const TITLE = "Atlas Engine — Your own branded rewards app for local business";
+const TITLE = "Atlas Engine — The guest app for family entertainment centers";
 const DESCRIPTION =
-  "Give your business its own rewards app: points, streaks, a prize wheel, win-back offers, referrals and review requests — built in your brand, no developers. Book a free demo.";
+  "Parties that rebook, memberships, digital waivers and rewards in one app with your name on it. Built for arcades, batting cages, go-karts and fun centers. Book a free 15-minute demo.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },

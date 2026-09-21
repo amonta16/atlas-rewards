@@ -2,12 +2,12 @@
 import Link from "next/link";
 import { ArrowRight, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { DEMO_BOOKING_TARGET } from "@/lib/landing/config";
+import { ANCHORS, DEMO_BOOKING_TARGET } from "@/lib/landing/config";
 import { track, type LandingEvent } from "@/lib/landing/analytics";
 import { useLanding } from "./landing-providers";
 
 const base =
-  "lp-focus inline-flex items-center justify-center gap-2 rounded-xl font-semibold tracking-[-0.01em] transition-all duration-200 select-none whitespace-nowrap";
+  "lp-focus inline-flex items-center justify-center gap-2 rounded-full font-semibold tracking-[-0.01em] transition-all duration-200 select-none whitespace-nowrap";
 const sizes = {
   md: "h-11 px-5 text-[15px]",
   lg: "h-[52px] px-7 text-base",
@@ -29,16 +29,7 @@ export function DemoCta({
   children?: React.ReactNode;
 }) {
   const { openDemo } = useLanding();
-  const cls = cn(
-    base,
-    sizes[size],
-    "lp-cta-primary bg-[#38bdf8] text-[#062a44] hover:bg-[#7dd3fc] active:translate-y-px",
-    className,
-  );
-  const onClick = () => {
-    track(event, { source });
-    if (DEMO_BOOKING_TARGET === "modal") openDemo(source);
-  };
+  const cls = cn(base, sizes[size], "lp-cta-primary bg-[#14213d] text-white hover:bg-[#1f5f8b] active:translate-y-px", className);
   if (DEMO_BOOKING_TARGET !== "modal") {
     return (
       <Link href={DEMO_BOOKING_TARGET} className={cls} onClick={() => track(event, { source })} target="_blank" rel="noopener">
@@ -47,22 +38,56 @@ export function DemoCta({
     );
   }
   return (
-    <button type="button" className={cls} onClick={onClick} data-track={event}>
+    <button
+      type="button"
+      className={cls}
+      onClick={() => {
+        track(event, { source });
+        openDemo(source);
+      }}
+      data-track={event}
+    >
       {children} <ArrowRight className="h-4 w-4" aria-hidden />
     </button>
   );
 }
 
-/** Secondary action — scrolls to the VSL. */
+/** Secondary action — outlined, scrolls to the app picker. */
+export function PreviewCta({
+  source,
+  size = "lg",
+  className,
+  children = "Preview your app",
+}: {
+  source: string;
+  size?: keyof typeof sizes;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <a
+      href={`#${ANCHORS.demo}`}
+      className={cn(base, sizes[size], "border border-[#14213d]/20 bg-white text-[#14213d] hover:border-[#14213d]/50 hover:bg-[#f3f7fb]", className)}
+      onClick={() => track("demo_clicked", { source, kind: "preview" })}
+    >
+      {children}
+    </a>
+  );
+}
+
+/** Tertiary — opens the video modal. */
 export function WatchCta({
   source,
   size = "lg",
   className,
+  tone = "light",
   children = "Watch the 2-minute demo",
 }: {
   source: string;
   size?: keyof typeof sizes;
   className?: string;
+  /** "dark" when placed on a navy surface. */
+  tone?: "light" | "dark";
   children?: React.ReactNode;
 }) {
   const { openVideo } = useLanding();
@@ -72,7 +97,9 @@ export function WatchCta({
       className={cn(
         base,
         sizes[size],
-        "text-white border border-white/25 bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white/40",
+        tone === "dark"
+          ? "border border-white/30 bg-white/10 text-white hover:border-white/60 hover:bg-white/20"
+          : "border border-[#14213d]/20 bg-white text-[#14213d] hover:border-[#14213d]/50 hover:bg-[#f3f7fb]",
         className,
       )}
       onClick={() => {
@@ -80,10 +107,12 @@ export function WatchCta({
         openVideo(source);
       }}
     >
-      <span className="grid h-6 w-6 place-items-center rounded-full bg-[#38bdf8]/25 text-[#bfe6fa]">
+      <span className={cn("grid h-6 w-6 place-items-center rounded-full", tone === "dark" ? "bg-white/20 text-white" : "bg-[#1f5f8b]/10 text-[#1f5f8b]")}>
         <Play className="h-3 w-3 fill-current" aria-hidden />
       </span>
       {children}
     </button>
   );
 }
+
+// CP-145: light redesign — navy pill primary, outlined secondary. PreviewCta added.

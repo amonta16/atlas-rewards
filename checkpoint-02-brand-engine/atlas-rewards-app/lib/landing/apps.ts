@@ -22,6 +22,17 @@ export type AppMockup = {
 
 export const APP_MOCKUPS: AppMockup[] = [
   {
+    id: "flippos",
+    name: "Flippo's Arcade & Batting Cage",
+    label: "Arcade & cages",
+    color: "#38a8e8",
+    upright: "/landing/apps/flippos-upright.webp",
+    tilt: "/landing/apps/flippos-tilt.webp",
+    alt: "Flippo's Arcade and Batting Cage rewards app on an iPhone — blue-branded home screen with a happy hour offer",
+    offer: "Happy Hour Tuesday: 10% off cages",
+    points: "910 pts banked toward free play",
+  },
+  {
     id: "area51",
     name: "Area 51 Smoke Shop",
     label: "Smoke shop",
@@ -42,17 +53,6 @@ export const APP_MOCKUPS: AppMockup[] = [
     alt: "Reveal Medical Aesthetics rewards app on an iPhone — red-branded home screen with a body sculpting offer",
     offer: "10% off body sculpting",
     points: "Points on every treatment",
-  },
-  {
-    id: "flippos",
-    name: "Flippo's Arcade & Batting Cage",
-    label: "Arcade",
-    color: "#38a8e8",
-    upright: "/landing/apps/flippos-upright.webp",
-    tilt: "/landing/apps/flippos-tilt.webp",
-    alt: "Flippo's Arcade and Batting Cage rewards app on an iPhone — blue-branded home screen with a happy hour offer",
-    offer: "Happy Hour Tuesday: 10% off cages",
-    points: "910 pts banked toward free play",
   },
   {
     id: "spa",

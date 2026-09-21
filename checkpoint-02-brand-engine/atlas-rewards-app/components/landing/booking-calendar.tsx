@@ -15,7 +15,7 @@ import { COMMON_TZS, HOST_TZ, dayKey, getAvailableSlots, isDayAvailable, tzLabel
  * Availability comes from lib/landing/availability.ts (mock today; swap for
  * Calendly / Google Calendar there without touching this component).
  */
-const INDUSTRIES = ["Restaurant / café", "Gym / fitness", "Salon / barber", "Med spa / wellness", "Retail", "Other"];
+const INDUSTRIES = ["Arcade / family fun center", "Batting cages / sports", "Go-karts / mini golf", "Trampoline park / bowling", "Smoke shop", "Med spa", "Restaurant / cafe", "Other"];
 const field =
   "lp-focus h-11 w-full rounded-lg border border-[#e8dfd1] bg-white px-3.5 text-[15px] text-[#14213d] placeholder:text-slate-400 focus:border-[#1f5f8b]/60";
 

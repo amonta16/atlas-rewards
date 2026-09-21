@@ -10,7 +10,7 @@ import { CONTACT_EMAIL } from "@/lib/landing/config";
  * stores the lead in Supabase (`landing_demo_requests`) and emails
  * CONTACT_EMAIL when RESEND_API_KEY is configured.
  */
-const INDUSTRIES = ["Restaurant / café", "Gym / fitness", "Salon / barber", "Med spa / wellness", "Retail", "Other"];
+const INDUSTRIES = ["Arcade / family fun center", "Batting cages / sports", "Go-karts / mini golf", "Trampoline park / bowling", "Smoke shop", "Med spa", "Restaurant / cafe", "Other"];
 const TIMES = ["Mornings", "Afternoons", "Evenings", "Any time"];
 
 const field =

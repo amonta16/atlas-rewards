@@ -1,59 +1,45 @@
 import { LandingProviders } from "./landing-providers";
 import { Navbar } from "./navbar";
-import { OceanBackdrop } from "./ocean-backdrop";
 import { Hero } from "./hero";
-import { LogoCloud } from "./logo-cloud";
-import { VSLSection } from "./vsl-section";
-import { ProblemSection } from "./problem-section";
-import { InteractiveDemo } from "./interactive-demo";
-import { RewardsDemo } from "./rewards-demo";
-import { FeatureShowcase } from "./feature-showcase";
-import { AnalyticsDemo } from "./analytics-demo";
+import { NicheStrip } from "./niche-strip";
+import { AppPicker } from "./app-picker";
+import { Features } from "./features";
 import { HowItWorks } from "./how-it-works";
-import { BeforeAfter } from "./before-after";
-import { SocialProof } from "./social-proof";
+import { VSLSection } from "./vsl-section";
 import { CaseStudy } from "./case-study";
-import { TeamSection } from "./team-section";
 import { PricingSection } from "./pricing-section";
-import { AgencyWaitlist } from "./agency-waitlist";
 import { FAQ } from "./faq";
 import { FinalCTA } from "./final-cta";
 import { Footer } from "./footer";
 
 /**
- * Atlas Engine marketing landing page — CP-100.
+ * Atlas Engine marketing landing page — CP-145 (simplified redesign).
  *
- * Conversion flow (top → bottom):
- *   Hero (promise + phone rebranding itself) → trust strip → VSL →
- *   problem (chains have apps) → interactive brand demo → engagement
- *   mechanics you can touch → feature vignettes → Impact dashboard →
- *   how it works → before/after → results + testimonials → case study →
- *   pricing + Founding Program → agency waitlist → FAQ → final CTA.
+ * Nine sections, white page, one message per section:
+ *   Hero (promise + phone) → who it's for → preview your app →
+ *   what it does (4 cards) → how it works (3 steps) → video →
+ *   live install → pricing → FAQ → final CTA.
  *
  * One primary objective everywhere: "Book a free demo" (DemoCta).
+ * Retired from the page (files kept for reference): ProblemSection,
+ * InteractiveDemo, RewardsDemo, FeatureShowcase, AnalyticsDemo,
+ * BeforeAfter, SocialProof, TeamSection, AgencyWaitlist, LogoCloud,
+ * OceanBackdrop.
  */
 export function LandingPage({ fontClassName = "" }: { fontClassName?: string }) {
   return (
     <LandingProviders fontClassName={fontClassName}>
       <div className={`lp-root lp-page ${fontClassName} min-h-screen antialiased`}>
-        <OceanBackdrop />
         <Navbar />
         <main id="main">
           <Hero />
-          <LogoCloud />
-          <VSLSection />
-          <ProblemSection />
-          <InteractiveDemo />
-          <RewardsDemo />
-          <FeatureShowcase />
-          <AnalyticsDemo />
+          <NicheStrip />
+          <AppPicker />
+          <Features />
           <HowItWorks />
-          <BeforeAfter />
-          <SocialProof />
+          <VSLSection />
           <CaseStudy />
-          <TeamSection />
           <PricingSection />
-          <AgencyWaitlist />
           <FAQ />
           <FinalCTA />
         </main>

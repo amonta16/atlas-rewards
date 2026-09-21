@@ -58,7 +58,7 @@ export function VideoPlayer({ autoStart = false }: { autoStart?: boolean }) {
     requestAnimationFrame(() => videoRef.current?.play().catch(() => {}));
   };
 
-  const frame = "relative aspect-video w-full overflow-hidden rounded-2xl border border-white/20 bg-[#062a44] shadow-[0_30px_80px_-30px_rgba(6,42,68,0.8)]";
+  const frame = "relative aspect-video w-full overflow-hidden rounded-2xl border border-[#e3e9f0] bg-[#14213d] shadow-[0_30px_80px_-40px_rgba(20,33,61,0.6)]";
 
   // 1) Self-hosted
   if (VSL.src) {
