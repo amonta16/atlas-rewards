@@ -11,7 +11,7 @@
  * just want to get to the desk. No email, no password, no "forgot" flow.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Delete, Loader2, ShieldCheck } from "lucide-react";
+import { Delete, Loader2, ShieldCheck, KeyRound } from "lucide-react";
 
 const PIN_LENGTH = 4;
 
@@ -87,6 +87,16 @@ export function FrontDeskKeypad({
 
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
+  // CP-147: managers / owners don't have a PIN by default — give them a way
+  // off the keypad. Base-aware: /<slug>/frontdesk → /<slug>/login, and on
+  // the subdomain form /frontdesk → /login. ?staff=1 makes the login page
+  // show its "Front desk sign-in" heading (CP-47).
+  const [managerHref, setManagerHref] = useState(`/${slug}/login?staff=1`);
+  useEffect(() => {
+    const base = window.location.pathname.replace(/\/frontdesk\/?$/, "");
+    setManagerHref(`${base}/login?staff=1`);
+  }, []);
+
   return (
     <main
       className="min-h-screen flex flex-col items-center justify-center px-6 py-10 select-none"
@@ -150,6 +160,14 @@ export function FrontDeskKeypad({
           <Delete className="h-6 w-6 mx-auto" />
         </KeypadButton>
       </div>
+
+      {/* CP-147: separate door for managers (email + password). */}
+      <a
+        href={managerHref}
+        className="mt-8 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12px] font-bold text-white/85 bg-white/10 ring-1 ring-white/25 hover:bg-white/20 transition"
+      >
+        <KeyRound className="h-3.5 w-3.5" /> Manager? Sign in with email
+      </a>
 
       <style>{`
         @keyframes shake {

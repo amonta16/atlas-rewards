@@ -18,7 +18,16 @@ type TopMember = { membership_id: string; member_name: string; member_email: str
 
 const PERIODS = [{ days: 7, label: "Last 7 days" }, { days: 30, label: "Last 30 days" }, { days: 90, label: "Last 90 days" }];
 
-export function BusinessInsights({ business }: { business: Business }) {
+/**
+ * CP-147: `variant="embedded"` is what the manager Insights tab renders
+ * INSIDE InsightsDashboard (its `trends` slot). Embedded drops everything
+ * the dashboard already shows — the "Atlas drove" hero, members / reviews
+ * KPIs, the top-members list and the member-health box — and keeps the one
+ * thing the dashboard lacks: a period picker with trend charts.
+ * `variant="full"` (default) is unchanged for the agency analytics pages.
+ */
+export function BusinessInsights({ business, variant = "full" }: { business: Business; variant?: "full" | "embedded" }) {
+  const embedded = variant === "embedded";
   const [days, setDays] = useState(30);
   const [stats, setStats] = useState<Analytics | null>(null);
   const [daily, setDaily] = useState<DailyRow[]>([]);
@@ -82,8 +91,8 @@ export function BusinessInsights({ business }: { business: Business }) {
       {/* Period selector */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Insights</h3>
-          <p className="text-sm text-muted-foreground mt-0.5">How this business is performing.</p>
+          <h3 className="font-semibold">{embedded ? "Trends" : "Insights"}</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">{embedded ? "Pick a window — the numbers and charts below follow it." : "How this business is performing."}</p>
         </div>
         <div className="relative">
           <select value={days} onChange={e => setDays(parseInt(e.target.value))}
@@ -95,7 +104,7 @@ export function BusinessInsights({ business }: { business: Business }) {
       </div>
 
       {/* ─── ROI Hero — "what Atlas earned you" ─────────────────────────── */}
-      <div
+      {!embedded && <div
         className="rounded-3xl p-6 text-white relative overflow-hidden shadow-lg"
         style={{
           background: `linear-gradient(135deg, ${primary} 0%, ${primary}cc 60%, ${primary} 100%)`,
@@ -143,17 +152,18 @@ export function BusinessInsights({ business }: { business: Business }) {
             />
           </div>
         </div>
-      </div>
+      </div>}
 
-      {/* KPI grid */}
+      {/* KPI grid — embedded keeps the period-scoped numbers the dashboard
+          doesn't have (members + reviews live up top already). */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={<DollarSign className="h-5 w-5" />} label="Revenue attributed" value={dollars(stats.revenue_cents)} tone="emerald" />
-        <StatCard icon={<Users className="h-5 w-5" />}      label="Total members"      value={stats.total_members} tone="indigo" />
+        {!embedded && <StatCard icon={<Users className="h-5 w-5" />} label="Total members" value={stats.total_members} tone="indigo" />}
         <StatCard icon={<UserPlus className="h-5 w-5" />}   label="New members"        value={stats.new_members} tone="cyan" />
-        <StatCard icon={<Activity className="h-5 w-5" />}   label="Active visits"      value={stats.transactions} tone="amber" />
+        <StatCard icon={<Activity className="h-5 w-5" />}   label="Visits"             value={stats.transactions} tone="amber" />
         <StatCard icon={<Coins className="h-5 w-5" />}      label="Points issued"      value={stats.points_issued.toLocaleString()} tone="indigo" />
         <StatCard icon={<Gift className="h-5 w-5" />}       label="Rewards redeemed"   value={stats.redemptions} tone="rose" />
-        <StatCard icon={<Star className="h-5 w-5" />}       label="Reviews earned"     value={stats.reviews_earned} tone="amber" />
+        {!embedded && <StatCard icon={<Star className="h-5 w-5" />} label="Reviews earned" value={stats.reviews_earned} tone="amber" />}
         <StatCard icon={<UserPlus className="h-5 w-5" />}   label="Referrals"          value={stats.referrals} tone="cyan" />
       </div>
 
@@ -181,25 +191,25 @@ export function BusinessInsights({ business }: { business: Business }) {
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-white p-5">
+        {!embedded && <div className="rounded-2xl border bg-white p-5">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-bold">Points issued</h4>
             <span className="text-xs text-muted-foreground">{stats.points_issued.toLocaleString()} pts</span>
           </div>
           <MiniChart values={daily.map(d => d.points_issued)} color="#6366f1" height={96} />
-        </div>
+        </div>}
 
-        <div className="rounded-2xl border bg-white p-5">
+        {!embedded && <div className="rounded-2xl border bg-white p-5">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-bold">Points redeemed</h4>
             <span className="text-xs text-muted-foreground">{stats.points_redeemed.toLocaleString()} pts</span>
           </div>
           <MiniChart values={daily.map(d => d.points_redeemed)} color="#f43f5e" height={96} />
-        </div>
+        </div>}
       </div>
 
       {/* Top members */}
-      <div className="rounded-2xl border bg-white">
+      {!embedded && <div className="rounded-2xl border bg-white">
         <div className="p-5 border-b">
           <h4 className="text-sm font-bold">Top members by lifetime points</h4>
           <p className="text-xs text-muted-foreground mt-0.5">Your most valuable customers.</p>
@@ -229,17 +239,17 @@ export function BusinessInsights({ business }: { business: Business }) {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Health indicators */}
-      <div className="rounded-2xl border bg-white p-5">
+      {!embedded && <div className="rounded-2xl border bg-white p-5">
         <h4 className="text-sm font-bold mb-3">Member health</h4>
         <div className="grid grid-cols-3 gap-3">
           <Health label="Active" value={stats.active_members} color="emerald" />
           <Health label="Dormant" value={stats.dormant_members} color="amber" />
           <Health label="Avg lifetime pts" value={stats.avg_ltv_points.toLocaleString()} color="indigo" />
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

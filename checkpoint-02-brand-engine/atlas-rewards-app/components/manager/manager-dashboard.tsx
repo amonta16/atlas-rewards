@@ -43,7 +43,10 @@ import { CreditCard, BarChart3, Crown, Users } from "lucide-react";
 import { MembersDirectory } from "@/components/manager/members-directory";
 // CP-135: signed-waiver log (staff + manager).
 import { WaiverSubmissions } from "@/components/manager/waiver-submissions";
-import { FileSignature } from "lucide-react";
+import { FileSignature, CalendarClock } from "lucide-react";
+// CP-147: Booking v2 — schedule + walk-ins + resource set-up.
+import { BookingsDesk } from "@/components/manager/bookings-desk";
+import { bookingEnabled } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
 // Booking tab removed — Atlas is loyalty-only.
@@ -51,7 +54,7 @@ import type { Business } from "@/lib/types/database";
 // + per-business notification toggles now live in the agency admin's
 // business settings (NotificationSettings panel) so the entire
 // notification surface is owned by the agency, not the front desk.
-type ManagerTab = "desk" | "users" | "offers" | "news" | "waivers" | "insights" | "billing" | "membership" | "team";
+type ManagerTab = "desk" | "users" | "bookings" | "offers" | "news" | "waivers" | "insights" | "billing" | "membership" | "team";
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -79,13 +82,20 @@ function formatPhone(digits: string): string {
 // CP-22: front-desk (business_staff) is locked out of Billing + Insights —
 // they don't see the tabs, and the underlying RPCs are RLS-gated on
 // is_business_manager() too so a direct API call also returns nothing.
-function managerTabsFor(_business: Business, role: AppRole): { id: ManagerTab; label: string; icon: React.ReactNode }[] {
+function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; label: string; icon: React.ReactNode }[] {
   const isManager = role === "business_manager" || role === "agency_admin";
   const tabs: { id: ManagerTab; label: string; icon: React.ReactNode }[] = [
     { id: "desk", label: "Front desk", icon: <Home className="h-4 w-4" /> },
     // CP-48: Users directory — visible to front desk too (support/debug).
     { id: "users", label: "Users", icon: <Users className="h-4 w-4" /> },
   ];
+  // CP-147: Bookings — the desk sees it wherever booking is on or the
+  // niche books by nature (entertainment / medspa); managers always, so
+  // they can set it up.
+  const booksByNature = business.layout_preset === "entertainment" || business.layout_preset === "medspa";
+  if (isManager || bookingEnabled(business) || booksByNature) {
+    tabs.push({ id: "bookings", label: "Bookings", icon: <CalendarClock className="h-4 w-4" /> });
+  }
   if (isManager) {
     tabs.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
   }
@@ -126,7 +136,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   const pathname = usePathname();
   const [business, setBusiness] = useState<Business>(initialBusiness);
   const [tab, setTab] = useState<ManagerTab>("desk");
-  const [mode, setMode] = useState<"idle" | "scanning" | "code-entry">("idle");
+  // CP-147: the phone/code box is OPEN by default — for Flippo's the desk
+  // asks for a phone number on most visits, and the extra tap to reveal the
+  // box was the most common "where do I type it" question.
+  const [mode, setMode] = useState<"idle" | "scanning" | "code-entry">("code-entry");
   const [code, setCode] = useState("");
   const [member, setMember] = useState<Member | null>(null);
   // CP-95: remember the last member the desk worked with, so staff can
@@ -299,11 +312,21 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
 
   async function signOut() {
     const supabase = createClient();
+    // CP-147: capture the role BEFORE signing out — it decides where to land.
+    const wasFrontDesk = role === "business_staff";
     await supabase.auth.signOut();
     // CP-45: slug-aware — path-based access lives at /<slug>/manage, so a
     // bare "/login" loses the slug and 404s. Subdomain stays "/login".
     const base = pathname?.match(/^(.*?)\/manage(\/|$)/)?.[1] ?? "";
-    router.push(`${base}/login`);
+    // CP-147: front-desk PIN accounts have no email/password (CP-49), so
+    // bouncing them to the email form was a dead end — "sign out" now
+    // returns the tablet to the branded PIN pad. Managers land on the
+    // staff sign-in (which also carries the "Enter with PIN" link).
+    if (wasFrontDesk) {
+      window.location.assign(`${base}/frontdesk`);
+      return;
+    }
+    router.push(`${base}/login?staff=1`);
     router.refresh();
   }
 
@@ -318,7 +341,9 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         <AwardPointsPanel
           business={business}
           member={member}
-          onClose={() => { setMember(null); router.refresh(); }}
+          // CP-147: back to the desk with the phone box open + cleared,
+          // ready for the next customer.
+          onClose={() => { setMember(null); setCode(""); setMode("code-entry"); router.refresh(); }}
         />
       </>
     );
@@ -330,7 +355,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         <RedemptionFulfillPanel
           business={business}
           redemption={redemption}
-          onClose={() => { setRedemption(null); router.refresh(); }}
+          onClose={() => { setRedemption(null); setCode(""); setMode("code-entry"); router.refresh(); }}
         />
       </>
     );
@@ -461,7 +486,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                     <ScanLine className="h-5 w-5 mr-2"/> Scan code
                   </Button>
                   <Button
-                    onClick={() => setMode("code-entry")}
+                    onClick={() => setMode(mode === "code-entry" ? "idle" : "code-entry")}
                     className="bg-white/15 backdrop-blur-sm border border-white/40 text-white hover:bg-white/25 h-12 font-extrabold text-base"
                   >
                     <UserSearch className="h-5 w-5 mr-2"/> Phone number
@@ -557,7 +582,6 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                       onChange={e => setCode(e.target.value.toUpperCase())}
                       placeholder="(805) 555-0123"
                       maxLength={16}
-                      autoFocus
                       inputMode="tel"
                       autoComplete="off"
                       // CP-30: noticeably larger input — easier to type into on
@@ -568,7 +592,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                       )}
                     />
                     <p className="text-[11px] text-zinc-500 text-center">
-                      Their 10-digit phone number, or a member / redemption code.
+                      Their 10-digit phone number. (Old member / redemption codes still work here too.)
                     </p>
                   </div>
                   {err && (
@@ -695,11 +719,16 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         )}
 
         {tab === "insights" && (
-          <div className="space-y-4">
-            <InsightsDashboard business={business} />
-            {/* CP-48: customer revenue / transactions graphs live here too. */}
-            <BusinessInsights business={business} />
-          </div>
+          // CP-147: ONE insights page. BusinessInsights used to stack a
+          // second "Atlas drove $X" hero, a second members/revenue KPI row,
+          // a second top-members list and a "member health" box under the
+          // InsightsDashboard that already showed all of it. It now renders
+          // embedded (period picker + KPIs + two charts) inside the
+          // dashboard, after the operations row.
+          <InsightsDashboard
+            business={business}
+            trends={<BusinessInsights business={business} variant="embedded" />}
+          />
         )}
 
         {tab === "offers" && (
@@ -743,6 +772,14 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           </div>
         )}
 
+        {tab === "bookings"   && (
+          <BookingsDesk
+            business={business}
+            isManager={role === "business_manager" || role === "agency_admin"}
+            lastMember={lastMember}
+            onBusinessPatched={(patch) => setBusiness(b => ({ ...b, ...patch }))}
+          />
+        )}
         {tab === "news"       && <NewsManager             business={business} />}
         {tab === "waivers"    && <ManagerWaiversTab       business={business} />}
         {tab === "billing"    && <ManagerBilling         business={business} />}

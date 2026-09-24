@@ -34,6 +34,7 @@ export type HomeModule =
   | "membership"
   | "specials"        // CP-132: "This week" weekly-deal strip
   | "events"          // CP-132: "Coming up" dated events
+  | "booking"         // CP-147: "Book a cage / bay / lane" card → /book
   | "featured_offer"
   | "top_rewards"
   | "spin_streak"
@@ -65,7 +66,7 @@ export type LayoutPresetSpec = {
 
 const HOME_CUSTOM: HomeModule[] = [
   "member_card", "winback", "referral", "raffle", "featured_offer",
-  "top_rewards", "spin_streak", "membership", "specials", "events", "news", "location",
+  "top_rewards", "spin_streak", "membership", "specials", "events", "booking", "news", "location",
 ];
 
 export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
@@ -150,7 +151,7 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "scan", label: "Check in" },
     ],
     home: [
-      "membership", "member_card", "featured_offer", "events", "referral",
+      "membership", "member_card", "booking", "featured_offer", "events", "referral",
       "winback", "top_rewards", "news", "location",
     ],
     topRewardsHeading: "Your rewards",
@@ -174,7 +175,7 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "rewards", label: "Rewards" },
     ],
     home: [
-      "membership", "member_card", "specials", "events", "featured_offer",
+      "membership", "member_card", "booking", "specials", "events", "featured_offer",
       "news", "referral", "top_rewards", "winback", "location",
     ],
     topRewardsHeading: "Redeem now",

@@ -35,6 +35,9 @@ import { SpecialsStrip, type SpecialRow } from "@/components/customer/specials-s
 import type { Business, Membership } from "@/lib/types/database";
 // CP-131: per-niche layout preset → order of the Home modules.
 import { presetSpec, type HomeModule } from "@/lib/layout-presets";
+// CP-147: "Book a cage / bay / lane" card → /book (entertainment presets).
+import { BookCard } from "@/components/customer/book-card";
+import { bookingEnabled, type BookingResource } from "@/lib/booking";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +61,7 @@ export default async function CustomerHome({ params }: { params: { business: str
   if (!business) notFound();
 
   const supabase = createClient();
-  const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }] = await Promise.all([
+  const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }, { data: resourceRows }] = await Promise.all([
     getCachedUser(),
     getMyMembership(business.id),
     getFeaturedOffer(business.id),
@@ -69,12 +72,18 @@ export default async function CustomerHome({ params }: { params: { business: str
     // pre-CP-132 DB → the sections simply don't render).
     supabase.rpc("list_business_events",   { p_business_id: business.id, p_limit: 6 }),
     supabase.rpc("list_business_specials", { p_business_id: business.id }),
+    // CP-147: bookable resources (only fetched when booking is switched on;
+    // returns [] on a pre-CP-147 DB so the card simply doesn't render).
+    bookingEnabled(business)
+      ? supabase.rpc("list_booking_resources", { p_business_id: business.id })
+      : Promise.resolve({ data: [] as BookingResource[] }),
   ]);
 
   const topRewards = (rewards ?? []) as TopReward[];
   const newsPosts = (news ?? []) as NewsRow[];
   const upcomingEvents = (eventRows ?? []) as EventRow[];
   const weeklySpecials = (specialRows ?? []) as SpecialRow[];
+  const bookable = ((resourceRows ?? []) as BookingResource[]).filter(r => r.is_active);
 
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
   const firstName = (profile?.full_name ?? user!.email?.split("@")[0] ?? "there").split(" ")[0];
@@ -266,6 +275,9 @@ export default async function CustomerHome({ params }: { params: { business: str
 
     // CP-132: next few dated events ("Coming up") — hides itself when empty.
     events: <EventsSection business={business} events={upcomingEvents} limit={3} />,
+
+    // CP-147: booking card — only when booking is on and resources exist.
+    booking: bookingEnabled(business) ? <BookCard business={business} slug={params.business} resources={bookable} /> : null,
 
     // News & updates — CP-69: billboard cards + tappable detail sheet.
     news: newsPosts.length > 0 ? <NewsSection business={business} posts={newsPosts} /> : null,

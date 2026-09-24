@@ -91,7 +91,7 @@ const INACTIVE_WINDOWS = [7, 14, 30, 60, 90] as const;
 // Andrew explicitly asked for two months.
 const INACTIVE_DAYS = 60;
 
-export function InsightsDashboard({ business }: { business: Business }) {
+export function InsightsDashboard({ business, trends }: { business: Business; trends?: React.ReactNode }) {
   const { toast } = useToast();
   const [rollup, setRollup]       = useState<Rollup | null>(null);
   const [impact, setImpact]       = useState<Impact | null>(null);
@@ -513,6 +513,11 @@ export function InsightsDashboard({ business }: { business: Business }) {
           />
         </div>
       </div>
+
+      {/* CP-147: period-scoped trends (embedded BusinessInsights) sit right
+          under the operations row so the page reads top-down: impact →
+          reviews → today's ops → trends → people. */}
+      {trends}
 
       {/* ===================== TOP LOYAL MEMBERS ===================== */}
       <div className="rounded-2xl border bg-white overflow-hidden">

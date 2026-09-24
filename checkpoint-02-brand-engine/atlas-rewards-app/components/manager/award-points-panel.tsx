@@ -8,6 +8,8 @@ import { MemberHistoryPanel } from "@/components/manager/member-history-panel";
 import { MemberPasswordReset } from "@/components/manager/member-password-reset";
 // CP-120: manager-only demo flag + account reset for test members.
 import { MemberDemoTools } from "@/components/manager/member-demo-tools";
+// CP-147: per-platform follow points (same source approve_review uses).
+import { readSocialConfig, socialRewardLive } from "@/lib/social-config";
 import type { Business } from "@/lib/types/database";
 
 type Member = {
@@ -21,14 +23,33 @@ type Mode = "menu" | "purchase" | "remove";
 /** CP-130: removals above this many points need a reason + a second tap. */
 const LARGE_REMOVAL = 500;
 
+// CP-147: Google review + Instagram / Facebook follows moved OUT of this
+// list — they are once-per-member and now go through desk_award_social()
+// (see SOCIAL_TILES below). What's left are the repeatable quick rules.
 const QUICK_RULES: { key: keyof Business["point_rules"]; label: string; icon: React.ReactNode; tone: string }[] = [
-  { key: "review",            label: "Google Review",  icon: <Star className="h-4 w-4" />,     tone: "amber" },
   { key: "visit",             label: "Visit / Check-in", icon: <MapPin className="h-4 w-4" />,  tone: "emerald" },
   { key: "referral_referrer", label: "Referral",         icon: <Users className="h-4 w-4" />,   tone: "indigo" },
   { key: "birthday",          label: "Birthday Bonus",   icon: <Calendar className="h-4 w-4" />, tone: "rose" },
-  { key: "social_follow",     label: "Social Follow",    icon: <Sparkles className="h-4 w-4" />, tone: "cyan" },
   { key: "profile_complete",  label: "Profile Complete", icon: <Check className="h-4 w-4" />,    tone: "violet" },
 ];
+
+/** CP-147: once-per-member social tiles. Points resolve exactly like the
+ *  server: review → point_rules.review; follows → social_config[platform]
+ *  .points → point_rules.social_follow. */
+type SocialPlatform = "google" | "instagram" | "facebook";
+const SOCIAL_TILES: { key: SocialPlatform; label: string; sub: string; color: string; icon: React.ReactNode }[] = [
+  { key: "google",    label: "Google review",    sub: "Left us a review",   color: "#34A853", icon: <Star className="h-4 w-4" /> },
+  { key: "instagram", label: "Instagram follow", sub: "Followed @ on IG",   color: "#E1306C", icon: <Sparkles className="h-4 w-4" /> },
+  { key: "facebook",  label: "Facebook follow",  sub: "Liked / followed",   color: "#1877F2", icon: <Users className="h-4 w-4" /> },
+];
+function socialPoints(business: Business, p: SocialPlatform): number {
+  if (p === "google") return Number(business.point_rules?.review ?? 0) || 0;
+  const live = socialRewardLive(business, p);
+  const fallback = Number(business.point_rules?.social_follow ?? 0) || 0;
+  if (!live && fallback <= 0) return 0;
+  return readSocialConfig(business, p).points;
+}
+type SocialAward = { platform: string; status: string; verified_at: string | null };
 
 const TONE_BG: Record<string, string> = {
   amber:   "bg-amber-50 text-amber-700",
@@ -138,6 +159,9 @@ export function AwardPointsPanel({
   const [vip, setVip] = useState<VipStatus | null>(null);
   // CP-135: signed-waiver status strip (only when the business has waivers).
   const [waivers, setWaivers] = useState<WaiverStatus[]>([]);
+  // CP-147: which social tiles this member already earned (review/follows).
+  const [social, setSocial] = useState<Record<string, SocialAward>>({});
+  const [socialBusy, setSocialBusy] = useState<string | null>(null);
   // CP-95: LIVE points balance. The member prop is a snapshot from the scan
   // — after a check-in / award the staff now returns to this panel instead
   // of being kicked to the dashboard, so the balance must refresh itself.
@@ -189,7 +213,54 @@ export function AwardPointsPanel({
       if (error) return;
       setWaivers((data ?? []) as WaiverStatus[]);
     })();
+    // CP-147: earned social rewards. Silent no-op before the cp147 SQL.
+    (async () => {
+      const { data, error } = await supabase.rpc("member_social_awards", {
+        p_membership_id: member.membership_id,
+      });
+      if (error) return;
+      const map: Record<string, SocialAward> = {};
+      for (const r of (data ?? []) as SocialAward[]) map[r.platform] = r;
+      setSocial(map);
+    })();
   }, [business.id, member.membership_id, reloadKey]);
+
+  // CP-147: once-per-member awards (Google review / IG / FB follow). The
+  // RPC writes the same `reviews` row the customer path writes, so a second
+  // tap comes back `already` and the customer's app shows it as earned.
+  async function awardSocial(platform: SocialPlatform) {
+    setSocialBusy(platform);
+    setErr(null);
+    const supabase = createClient();
+    const oldBalance = balance;
+    const { data, error } = await supabase.rpc("desk_award_social", {
+      p_membership_id: member.membership_id,
+      p_platform: platform,
+    });
+    setSocialBusy(null);
+    if (error) { setErr(error.message); return; }
+    const row = (Array.isArray(data) ? data[0] : data) as { points_awarded: number; new_balance: number; already: boolean } | null;
+    if (!row) return;
+    setSocial(s => ({ ...s, [platform]: { platform, status: "verified", verified_at: new Date().toISOString() } }));
+    if (row.already) {
+      setErr(`${SOCIAL_TILES.find(t => t.key === platform)?.label ?? "That"} was already awarded to ${member.full_name ?? "this member"} — no double points.`);
+      return;
+    }
+    setBalance(row.new_balance);
+    setSuccess(row.points_awarded);
+    if (row.points_awarded > 0) {
+      fetch("/api/notifications/award-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          business_id: business.id,
+          membership_id: member.membership_id,
+          old_balance: oldBalance,
+          new_balance: row.new_balance,
+        }),
+      }).catch(() => { /* silent */ });
+    }
+  }
 
   async function checkIn() {
     setSubmitting(true); setErr(null);
@@ -689,6 +760,54 @@ export function AwardPointsPanel({
                 <div className="text-white/80 text-xl font-bold shrink-0">→</div>
               </button>
             </div>
+
+            {/* CP-147: once-per-member social tiles — review / IG / FB. */}
+            {SOCIAL_TILES.some(t => socialPoints(business, t.key) > 0) && (
+              <div className="mt-6">
+                <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Review &amp; follow rewards</h3>
+                <p className="text-[11px] text-zinc-500 mt-0.5">One per customer — earned tiles turn green and can&apos;t pay twice.</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {SOCIAL_TILES.map(t => {
+                    const pts = socialPoints(business, t.key);
+                    if (pts <= 0) return null;
+                    const earned = social[t.key]?.status === "verified";
+                    const pending = social[t.key]?.status === "pending";
+                    const busy = socialBusy === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => awardSocial(t.key)}
+                        disabled={submitting || busy || earned}
+                        className={cn(
+                          "rounded-2xl border p-3 flex flex-col items-start gap-2 text-left transition disabled:opacity-100",
+                          earned ? "bg-emerald-50 border-emerald-300" : "bg-white hover:bg-zinc-50 active:scale-[0.98]",
+                        )}
+                      >
+                        <div
+                          className="h-9 w-9 rounded-lg flex items-center justify-center text-white"
+                          style={{ background: earned ? "#059669" : t.color }}
+                        >
+                          {earned ? <Check className="h-4 w-4" /> : busy ? <span className="h-3 w-3 rounded-full border-2 border-white/60 border-t-white animate-spin" /> : t.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-semibold leading-tight">{t.label}</div>
+                          {earned ? (
+                            <div className="text-[11px] font-bold text-emerald-700">
+                              Earned{social[t.key]?.verified_at ? ` ${new Date(social[t.key].verified_at!).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] font-bold" style={{ color: business.brand_colors.primary }}>
+                              +{pts} pts{pending ? " · they asked" : ""}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="mt-6">
               <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Quick award</h3>
