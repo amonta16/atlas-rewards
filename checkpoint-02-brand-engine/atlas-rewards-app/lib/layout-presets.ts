@@ -165,11 +165,15 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
   entertainment: {
     id: "entertainment",
     label: "Entertainment",
-    blurb: "Pass card, this week's specials, events, book a party.",
+    blurb: "Pass card, book a lane, this week's specials and events on Home.",
     fits: "Bowling, arcades, trampoline parks, mini golf · monthly, in groups",
+    // CP-147: "Events" tab swapped for "Book". Events + weekly specials
+    // already live on Home for this preset, so the tab was a duplicate; the
+    // bar slot goes to booking. (app-shell falls back to the Events tab
+    // while widget_config.booking is OFF, so the bar never has a dead tab.)
     tabs: [
       { id: "home", label: "Home" },
-      { id: "offers", label: "Events" },
+      { id: "book", label: "Book" },
       { id: "scan", label: "Check in" },
       { id: "membership", label: "Pass" },
       { id: "rewards", label: "Rewards" },

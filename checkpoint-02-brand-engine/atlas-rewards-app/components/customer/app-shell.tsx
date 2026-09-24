@@ -48,9 +48,14 @@ void SHOP; // Shop tab retired in CP-06; kept so the icon import stays honest.
  * tab (smoke shops say "Deals", entertainment says "Pass") — the label
  * comes from the preset, the route from the tab id. Capped at 5.
  */
-export function tabsForConfig(_w: WidgetConfig, layoutPreset?: string | null): TabDef[] {
+export function tabsForConfig(w: WidgetConfig, layoutPreset?: string | null): TabDef[] {
   const spec = presetSpec(layoutPreset);
-  return spec.tabs.slice(0, 5).map(t => ({ ...TAB_BY_ID[t.id], label: t.label }));
+  return spec.tabs.slice(0, 5).map(t => {
+    // CP-147: a preset may put "book" on the bar; until the business turns
+    // booking on (widget_config.booking) that slot shows Events instead.
+    if (t.id === "book" && !w?.booking) return { ...TAB_BY_ID.offers, label: "Events" };
+    return { ...TAB_BY_ID[t.id], label: t.label };
+  });
 }
 
 /**
