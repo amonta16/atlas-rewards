@@ -146,6 +146,34 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       {step === "resource" && (
         <div className="space-y-3">
           {resources.map(r => (
+            // CP-148: photo-first card when the venue uploaded one; the compact
+            // icon row is the fallback.
+            r.image_url ? (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => chooseResource(r)}
+                className="w-full rounded-3xl bg-white border shadow-sm overflow-hidden text-left active:scale-[0.99] transition"
+              >
+                <div className="relative aspect-[16/9] bg-zinc-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={r.image_url} alt={r.name} className="absolute inset-0 h-full w-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute left-4 right-4 bottom-3 text-white">
+                    <div className="text-lg font-extrabold leading-tight drop-shadow">{r.name}</div>
+                    <div className="text-[11px] font-semibold opacity-90">
+                      {r.durations.map(durationLabel).join(" · ")}
+                      {r.price_cents ? <> · {dollars(r.price_cents)}</> : null}
+                      {" · "}up to {r.max_party}
+                    </div>
+                  </div>
+                  <span className="absolute right-3 top-3 h-8 w-8 rounded-full bg-white/90 flex items-center justify-center shadow" style={{ color: primary }}>
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
+                </div>
+                {r.description && <div className="px-4 py-2.5 text-xs text-zinc-600 line-clamp-2">{r.description}</div>}
+              </button>
+            ) : (
             <button
               key={r.id}
               type="button"
@@ -156,10 +184,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
                 className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0 overflow-hidden"
                 style={{ background: `${primary}14` }}
               >
-                {r.image_url
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  ? <img src={r.image_url} alt="" className="h-full w-full object-cover" />
-                  : (r.emoji ?? "📅")}
+                {r.emoji ?? "📅"}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold truncate">{r.name}</div>
@@ -172,6 +197,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
               </div>
               <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
             </button>
+            )
           ))}
 
           <MyBookingsList upcoming={upcoming} past={past} primary={primary} onCancel={cancel} />
@@ -278,14 +304,23 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       {step === "confirm" && resource && picked && (
         <div className="space-y-4">
           <div
-            className="rounded-3xl p-5 text-white shadow-lg"
+            className="rounded-3xl p-5 text-white shadow-lg relative overflow-hidden"
             style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}
           >
+            {resource.image_url && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={resource.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/20" />
+              </>
+            )}
+            <div className="relative">
             <div className="text-[10px] font-black uppercase tracking-widest opacity-85">{resource.name}</div>
             <div className="text-2xl font-extrabold mt-1">{dayLabel(new Date(picked.slot_start))}</div>
             <div className="text-sm font-semibold opacity-95 mt-0.5 flex items-center gap-3">
               <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {timeLabel(picked.slot_start)} – {timeLabel(picked.slot_end)}</span>
               <span className="inline-flex items-center gap-1"><CalendarClock className="h-3.5 w-3.5" /> {durationLabel(duration)}</span>
+            </div>
             </div>
           </div>
 

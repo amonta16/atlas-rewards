@@ -15,7 +15,9 @@ export function BookCard({ business, slug, resources }: { business: Business; sl
   if (resources.length === 0) return null;
   const primary = business.brand_colors.primary;
   const secondary = business.brand_colors.secondary;
-  const names = resources.slice(0, 3).map(r => r.name.toLowerCase());
+  const photo = resources.find(r => r.image_url)?.image_url ?? null;
+  // "Batting Cage #1 (softball)", "Batting Cage #2" … → "batting cage".
+  const names = [...new Set(resources.map(r => r.name.toLowerCase().replace(/\s*(#|no\.?|number)?\s*\d+.*$/i, "").trim() || r.name.toLowerCase()))].slice(0, 3);
   const what = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} or ${names[1]}` : `${names[0]}, ${names[1]} and more`;
   return (
     <div className="px-4 mt-5">
@@ -25,10 +27,21 @@ export function BookCard({ business, slug, resources }: { business: Business; sl
         className="block rounded-3xl p-5 text-white shadow-lg relative overflow-hidden active:scale-[0.99] transition"
         style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)`, boxShadow: `0 10px 24px -8px ${primary}99` }}
       >
-        <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-white/15 blur-2xl pointer-events-none" />
+        {photo ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${primary}ee 0%, ${primary}b3 55%, ${primary}55 100%)` }} />
+          </>
+        ) : (
+          <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-white/15 blur-2xl pointer-events-none" />
+        )}
         <div className="relative flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center text-2xl shrink-0">
-            {resources[0].emoji ?? <CalendarClock className="h-6 w-6" />}
+          <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+            {photo
+              /* eslint-disable-next-line @next/next/no-img-element */
+              ? <img src={photo} alt="" className="h-full w-full object-cover" />
+              : (resources[0].emoji ?? <CalendarClock className="h-6 w-6" />)}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-black uppercase tracking-widest opacity-85">Reserve your spot</div>

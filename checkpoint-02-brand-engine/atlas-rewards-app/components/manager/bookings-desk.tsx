@@ -1,21 +1,24 @@
 "use client";
 /**
- * BookingsDesk — CP-147 · the front desk's Bookings tab
+ * BookingsDesk — CP-147 → CP-148 · the front desk's Bookings tab
  *
- *   · Schedule: Today / Tomorrow / Next 7 days, grouped by start time, with
- *     one-tap Confirm / Arrived (complete) / No-show / Cancel.
- *   · Walk-in: staff books a cage / bay / room for a phone caller or a
- *     walk-in (optionally attached to a member) — lands as CONFIRMED.
- *   · Set up (managers): the bookable resources — name, how many, lengths,
- *     party cap, hours, price / deposit (display only until payments land).
- *     Also the customer-facing on/off switch (widget_config.booking).
+ *   · DAY SHEET (default): time down the side, one column per cage / bay /
+ *     lane / room. Blocks = bookings (amber = needs confirm, green =
+ *     confirmed, grey = done, faded red = cancelled / no-show). Tap an
+ *     empty cell → walk-in form pre-filled with that spot + time. Tap a
+ *     block → action card (Confirm · Arrived · No-show · Cancel).
+ *   · ‹ › day arrows, "Today", and "Next week →" / "← This week" jumps.
+ *   · Walk-in / phone form (attach the previous customer in one tap).
+ *   · Set up (managers): resources + the customer on/off switch — shared
+ *     with the app builder's Bookings tab.
  *
- * Realtime-free on purpose (CP-85/88 stampede lessons): the list refreshes
- * on tab focus, after every action, and every 2 minutes.
+ * Realtime-free on purpose (CP-85/88 stampede lessons): refreshes on tab
+ * focus, after every action, and every 2 minutes.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, Check, Loader2, Plus, Users, Phone, X, UserX, Settings2 } from "lucide-react";
+import { CalendarClock, Check, Loader2, Plus, Users, Phone, X, UserX, Settings2, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { BookingResourceSetup } from "@/components/manager/booking-resource-setup";
+import { BookingTimesheet } from "@/components/manager/booking-timesheet";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,36 +30,41 @@ import {
 } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
-type Range = "today" | "tomorrow" | "week";
-
 type MemberLite = { membership_id: string; full_name: string | null; phone: string | null; email: string | null };
 
+function addDays(day: string, n: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return isoDay(new Date(y, m - 1, d + n));
+}
+
 export function BookingsDesk({
-  business, isManager, lastMember, onBusinessPatched,
+  business, isManager, lastMember, onBusinessPatched, onActionsChanged,
 }: {
   business: Business;
   isManager: boolean;
   /** CP-95's "previous customer" — one tap attaches the walk-in to them. */
   lastMember: MemberLite | null;
   onBusinessPatched: (patch: Partial<Business>) => void;
+  /** CP-148: tell the shell to recount the needs-action badge. */
+  onActionsChanged?: () => void;
 }) {
   const primary = business.brand_colors.primary;
-  const [range, setRange] = useState<Range>("today");
+  const today = isoDay(new Date());
+  const [day, setDay] = useState<string>(today);
   const [rows, setRows] = useState<DeskBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [resources, setResources] = useState<BookingResource[]>([]);
-  const [showWalkIn, setShowWalkIn] = useState(false);
+  const [walkIn, setWalkIn] = useState<WalkInPrefill | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [selected, setSelected] = useState<DeskBooking | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const enabled = bookingEnabled(business);
 
   const window_ = useMemo(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (range === "today") return { from: start, to: new Date(start.getTime() + 86_400_000) };
-    if (range === "tomorrow") return { from: new Date(start.getTime() + 86_400_000), to: new Date(start.getTime() + 2 * 86_400_000) };
-    return { from: start, to: new Date(start.getTime() + 7 * 86_400_000) };
-  }, [range]);
+    const [y, m, d] = day.split("-").map(Number);
+    const from = new Date(y, m - 1, d);
+    return { from, to: new Date(y, m - 1, d + 1) };
+  }, [day]);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -66,8 +74,10 @@ export function BookingsDesk({
       }),
       supabase.rpc("list_booking_resources", { p_business_id: business.id }),
     ]);
-    setRows((data ?? []) as DeskBooking[]);
+    const list = (data ?? []) as DeskBooking[];
+    setRows(list);
     setResources((res ?? []) as BookingResource[]);
+    setSelected(sel => sel ? (list.find(b => b.id === sel.id) ?? null) : null);
     setLoading(false);
   }, [business.id, window_]);
 
@@ -85,7 +95,9 @@ export function BookingsDesk({
     const { error } = await createClient().rpc("update_booking_status", { p_id: id, p_status: status, p_reason: null });
     setBusyId(null);
     if (error) { alert(error.message); return; }
+    if (status !== "confirmed") setSelected(null);
     load();
+    onActionsChanged?.();
   }
 
   async function toggleEnabled() {
@@ -95,8 +107,13 @@ export function BookingsDesk({
     onBusinessPatched({ widget_config: next });
   }
 
+  const active = resources.filter(r => r.is_active);
   const live = rows.filter(r => r.status === "pending" || r.status === "confirmed");
   const pendingCount = rows.filter(r => r.status === "pending").length;
+  const dayDate = useMemo(() => { const [y, m, d] = day.split("-").map(Number); return new Date(y, m - 1, d); }, [day]);
+  const diff = Math.round((dayDate.getTime() - new Date(new Date().setHours(0, 0, 0, 0)).getTime()) / 86_400_000);
+  const dayTitle = diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : diff === -1 ? "Yesterday" : dayDate.toLocaleDateString(undefined, { weekday: "long" });
+  const inNextWeek = diff >= 7 && diff < 14;
 
   return (
     <div className="space-y-4">
@@ -107,23 +124,23 @@ export function BookingsDesk({
       >
         <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/15 blur-3xl pointer-events-none" />
         <div className="relative flex items-center gap-3 flex-wrap">
-          <div className="flex-1 min-w-[180px]">
+          <div className="flex-1 min-w-[200px]">
             <div className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase bg-white/20 px-2.5 py-1 rounded-full">
               <CalendarClock className="h-3 w-3" /> Bookings
             </div>
             <h2 className="text-2xl font-black mt-1.5">
-              {loading ? "—" : `${live.length} ${range === "today" ? "today" : range === "tomorrow" ? "tomorrow" : "this week"}`}
+              {loading ? "—" : `${live.length} ${dayTitle === "Today" || dayTitle === "Tomorrow" ? dayTitle.toLowerCase() : "on " + dayDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`}
             </h2>
             <p className="text-xs text-white/90 mt-0.5">
-              {pendingCount > 0 ? <><b>{pendingCount}</b> waiting for a confirm tap</> : "Everything's confirmed."}
+              {pendingCount > 0 ? <><b>{pendingCount}</b> waiting for a confirm tap</> : live.length > 0 ? "Everything's confirmed." : "Tap any open cell on the sheet to book it."}
               {!enabled && " · Customers can't book yet (off in Set up)."}
             </p>
           </div>
-          <Button onClick={() => { setShowWalkIn(v => !v); setShowSetup(false); }} className="bg-white text-zinc-900 hover:bg-zinc-100 h-11 font-extrabold shadow-lg" disabled={resources.length === 0}>
+          <Button onClick={() => { setWalkIn(walkIn ? null : { day }); setShowSetup(false); }} className="bg-white text-zinc-900 hover:bg-zinc-100 h-11 font-extrabold shadow-lg" disabled={active.length === 0}>
             <Plus className="h-4 w-4 mr-1.5" /> Walk-in / phone
           </Button>
           {isManager && (
-            <Button onClick={() => { setShowSetup(v => !v); setShowWalkIn(false); }} className="bg-white/15 border border-white/40 text-white hover:bg-white/25 h-11 font-extrabold">
+            <Button onClick={() => { setShowSetup(v => !v); setWalkIn(null); }} className="bg-white/15 border border-white/40 text-white hover:bg-white/25 h-11 font-extrabold">
               <Settings2 className="h-4 w-4 mr-1.5" /> Set up
             </Button>
           )}
@@ -141,13 +158,15 @@ export function BookingsDesk({
         </div>
       )}
 
-      {showWalkIn && resources.length > 0 && (
+      {walkIn && active.length > 0 && (
         <WalkInForm
+          key={`${walkIn.resourceId ?? ""}|${walkIn.startsAt ?? ""}|${walkIn.day ?? ""}`}
           business={business}
-          resources={resources.filter(r => r.is_active)}
+          resources={active}
           lastMember={lastMember}
-          onDone={() => { setShowWalkIn(false); load(); }}
-          onCancel={() => setShowWalkIn(false)}
+          prefill={walkIn}
+          onDone={() => { setWalkIn(null); load(); onActionsChanged?.(); }}
+          onCancel={() => setWalkIn(null)}
         />
       )}
 
@@ -161,93 +180,105 @@ export function BookingsDesk({
         />
       )}
 
-      {/* Range picker */}
-      <div className="flex rounded-xl bg-zinc-100 p-1 gap-1">
-        {([["today", "Today"], ["tomorrow", "Tomorrow"], ["week", "Next 7 days"]] as [Range, string][]).map(([id, label]) => (
+      {/* Day navigation */}
+      <div className="rounded-2xl border bg-white px-3 py-2 flex items-center gap-2 flex-wrap">
+        <button type="button" onClick={() => setDay(d => addDays(d, -1))} className="h-9 w-9 rounded-full hover:bg-zinc-100 flex items-center justify-center" aria-label="Previous day"><ChevronLeft className="h-5 w-5" /></button>
+        <div className="min-w-[190px]">
+          <div className="text-base font-extrabold leading-tight">{dayTitle}</div>
+          <div className="text-[11px] text-zinc-500">{dayDate.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</div>
+        </div>
+        <button type="button" onClick={() => setDay(d => addDays(d, 1))} className="h-9 w-9 rounded-full hover:bg-zinc-100 flex items-center justify-center" aria-label="Next day"><ChevronRight className="h-5 w-5" /></button>
+        <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+          {day !== today && (
+            <button type="button" onClick={() => setDay(today)} className="h-9 px-3 rounded-full text-xs font-bold border bg-white hover:bg-zinc-50">Today</button>
+          )}
           <button
-            key={id}
-            onClick={() => setRange(id)}
-            className={cn("flex-1 rounded-lg py-2 text-xs font-semibold transition-colors", range === id ? "bg-white text-zinc-900 shadow-sm" : "text-muted-foreground hover:text-foreground")}
+            type="button"
+            onClick={() => setDay(inNextWeek ? today : addDays(today, 7))}
+            className="h-9 px-3 rounded-full text-xs font-bold text-white inline-flex items-center gap-1"
+            style={{ background: primary }}
           >
-            {label}
+            <CalendarDays className="h-3.5 w-3.5" /> {inNextWeek ? "← This week" : "Next week →"}
           </button>
-        ))}
+        </div>
       </div>
 
-      {/* Schedule */}
-      <div className="rounded-2xl border bg-white overflow-hidden">
-        {loading ? (
-          <div className="p-8 text-center text-sm text-zinc-500"><Loader2 className="h-4 w-4 animate-spin inline mr-1.5" /> Loading…</div>
-        ) : rows.length === 0 ? (
-          <div className="p-8 text-center text-sm text-zinc-500">No bookings {range === "week" ? "in the next 7 days" : range}.</div>
-        ) : (
-          <div className="divide-y">
-            {rows.map(r => {
-              const s = STATUS_STYLE[r.status];
-              const done = r.status === "completed" || r.status === "cancelled" || r.status === "no_show";
-              const startsIn = new Date(r.scheduled_at).getTime() - Date.now();
-              const soon = !done && startsIn > 0 && startsIn < 45 * 60_000;
-              return (
-                <div key={r.id} className={cn("px-4 py-3 flex items-center gap-3", done && "opacity-60")}>
-                  <div className="w-[64px] shrink-0 text-center">
-                    <div className="text-sm font-black tabular-nums leading-tight">{timeLabel(r.scheduled_at)}</div>
-                    {range === "week" && <div className="text-[10px] text-zinc-500">{new Date(r.scheduled_at).toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}</div>}
-                    <div className="text-[10px] text-zinc-500">{durationLabel(r.duration_minutes)}</div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold truncate flex items-center gap-2">
-                      {r.customer_name ?? "Guest"}
-                      <span className="text-[10px] font-semibold text-zinc-500 inline-flex items-center gap-0.5"><Users className="h-3 w-3" />{r.party_size}</span>
-                      {soon && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-800">soon</span>}
-                    </div>
-                    <div className="text-[11px] text-zinc-500 truncate">
-                      {r.resource_name}
-                      {r.customer_phone && <> · <Phone className="h-3 w-3 inline -mt-0.5" /> {r.customer_phone}</>}
-                      {r.payment_status === "due" && r.deposit_cents ? <> · <b className="text-amber-700">{dollars(r.deposit_cents)} deposit due</b></> : null}
-                      {r.payment_status === "paid" && <> · <b className="text-emerald-700">paid</b></>}
-                      {r.notes && <> · “{r.notes}”</>}
-                    </div>
-                  </div>
-                  <span className={cn("text-[10px] font-bold px-2 py-1 rounded-full shrink-0", s.cls)}>{s.label}</span>
-                  {!done && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      {r.status === "pending" && (
-                        <IconBtn title="Confirm" onClick={() => setStatus(r.id, "confirmed")} busy={busyId === r.id} tone="emerald"><Check className="h-4 w-4" /></IconBtn>
-                      )}
-                      {r.status === "confirmed" && (
-                        <IconBtn title="Arrived" onClick={() => setStatus(r.id, "completed")} busy={busyId === r.id} tone="emerald"><Check className="h-4 w-4" /></IconBtn>
-                      )}
-                      <IconBtn title="No-show" onClick={() => setStatus(r.id, "no_show")} busy={busyId === r.id} tone="amber"><UserX className="h-4 w-4" /></IconBtn>
-                      <IconBtn title="Cancel" onClick={() => setStatus(r.id, "cancelled")} busy={busyId === r.id} tone="rose"><X className="h-4 w-4" /></IconBtn>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+      {/* Selected booking — action card */}
+      {selected && (() => {
+        const s = STATUS_STYLE[selected.status];
+        const done = selected.status === "completed" || selected.status === "cancelled" || selected.status === "no_show";
+        return (
+          <div className="rounded-2xl border bg-white p-4 flex items-center gap-3 flex-wrap shadow-sm ring-1" style={{ ["--tw-ring-color" as string]: `${primary}55` }}>
+            <div className="flex-1 min-w-[220px]">
+              <div className="text-sm font-extrabold flex items-center gap-2">
+                {selected.customer_name ?? "Guest"}
+                <span className="text-[11px] font-semibold text-zinc-500 inline-flex items-center gap-0.5"><Users className="h-3 w-3" />{selected.party_size}</span>
+                <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", s.cls)}>{s.label}</span>
+              </div>
+              <div className="text-[12px] text-zinc-600 mt-0.5">
+                {selected.resource_name} · {timeLabel(selected.scheduled_at)}–{timeLabel(selected.scheduled_end)} · {durationLabel(selected.duration_minutes)}
+                {selected.customer_phone && <> · <Phone className="h-3 w-3 inline -mt-0.5" /> {selected.customer_phone}</>}
+                {selected.payment_status === "due" && selected.deposit_cents ? <> · <b className="text-amber-700">{dollars(selected.deposit_cents)} deposit due</b></> : null}
+                {selected.payment_status === "paid" && <> · <b className="text-emerald-700">paid</b></>}
+                {selected.notes && <> · “{selected.notes}”</>}
+                <span className="text-zinc-400"> · booked {selected.source === "desk" ? "at the desk" : "in the app"}</span>
+              </div>
+            </div>
+            {!done && (
+              <div className="flex items-center gap-1.5">
+                {selected.status === "pending" && (
+                  <Button size="sm" onClick={() => setStatus(selected.id, "confirmed")} disabled={busyId === selected.id} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"><Check className="h-4 w-4 mr-1" /> Confirm</Button>
+                )}
+                {selected.status === "confirmed" && (
+                  <Button size="sm" onClick={() => setStatus(selected.id, "completed")} disabled={busyId === selected.id} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"><Check className="h-4 w-4 mr-1" /> Arrived</Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setStatus(selected.id, "no_show")} disabled={busyId === selected.id} className="text-amber-700 border-amber-300"><UserX className="h-4 w-4 mr-1" /> No-show</Button>
+                <Button size="sm" variant="outline" onClick={() => setStatus(selected.id, "cancelled")} disabled={busyId === selected.id} className="text-rose-700 border-rose-300"><X className="h-4 w-4 mr-1" /> Cancel</Button>
+              </div>
+            )}
+            <button type="button" onClick={() => setSelected(null)} className="h-8 w-8 rounded-full hover:bg-zinc-100 flex items-center justify-center" aria-label="Close"><X className="h-4 w-4" /></button>
           </div>
-        )}
+        );
+      })()}
+
+      {/* Day sheet */}
+      {loading && rows.length === 0 && resources.length === 0 ? (
+        <div className="rounded-2xl border bg-white p-8 text-center text-sm text-zinc-500"><Loader2 className="h-4 w-4 animate-spin inline mr-1.5" /> Loading…</div>
+      ) : resources.length > 0 && (
+        <BookingTimesheet
+          business={business}
+          resources={active}
+          bookings={rows}
+          day={day}
+          selectedId={selected?.id}
+          onPickBooking={b => { setSelected(b); }}
+          onPickSlot={(r, at) => { setShowSetup(false); setWalkIn({ resourceId: r.id, day, startsAt: at.toISOString() }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+        />
+      )}
+
+      <div className="flex items-center gap-3 text-[11px] text-zinc-500 px-1 flex-wrap">
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-amber-100 border border-amber-300" /> needs confirm</span>
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-emerald-100 border border-emerald-300" /> confirmed</span>
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-zinc-100 border border-zinc-300" /> done</span>
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-rose-50 border border-rose-200" /> cancelled / no-show</span>
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-[repeating-linear-gradient(135deg,#f4f4f5_0_3px,#fafafa_3px_6px)] border" /> closed</span>
+        <span className="ml-auto">Tap an empty cell to book it.</span>
       </div>
     </div>
   );
 }
 
-function IconBtn({ children, onClick, busy, tone, title }: { children: React.ReactNode; onClick: () => void; busy: boolean; tone: "emerald" | "amber" | "rose"; title: string }) {
-  const cls = { emerald: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100", amber: "bg-amber-50 text-amber-700 hover:bg-amber-100", rose: "bg-rose-50 text-rose-700 hover:bg-rose-100" }[tone];
-  return (
-    <button type="button" title={title} aria-label={title} onClick={onClick} disabled={busy} className={cn("h-9 w-9 rounded-full flex items-center justify-center transition disabled:opacity-50", cls)}>
-      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : children}
-    </button>
-  );
-}
-
 /* ── Walk-in / phone booking ─────────────────────────────────────────── */
+export type WalkInPrefill = { resourceId?: string; day?: string; startsAt?: string };
+
 function WalkInForm({
-  business, resources, lastMember, onDone, onCancel,
-}: { business: Business; resources: BookingResource[]; lastMember: MemberLite | null; onDone: () => void; onCancel: () => void }) {
+  business, resources, lastMember, onDone, onCancel, prefill,
+}: { business: Business; resources: BookingResource[]; lastMember: MemberLite | null; onDone: () => void; onCancel: () => void; prefill?: WalkInPrefill }) {
   const primary = business.brand_colors.primary;
-  const [resource, setResource] = useState<BookingResource>(resources[0]);
-  const [duration, setDuration] = useState<number>(resources[0].durations[0]);
-  const [day, setDay] = useState<string>(() => isoDay(new Date()));
+  const initial = resources.find(r => r.id === prefill?.resourceId) ?? resources[0];
+  const [resource, setResource] = useState<BookingResource>(initial);
+  const [duration, setDuration] = useState<number>(initial.durations[0]);
+  const [day, setDay] = useState<string>(() => prefill?.day ?? isoDay(new Date()));
   const [slots, setSlots] = useState<BookingSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [picked, setPicked] = useState<BookingSlot | null>(null);
@@ -272,11 +303,18 @@ function WalkInForm({
       const { data, error } = await createClient().rpc("booking_resource_slots", { p_resource_id: resource.id, p_day: day, p_duration: duration });
       if (cancelled) return;
       if (error) setErr(error.message);
-      setSlots((data ?? []) as BookingSlot[]);
+      const list = (data ?? []) as BookingSlot[];
+      setSlots(list);
+      // CP-148: tapped an empty cell on the day sheet → pre-select that time.
+      if (prefill?.startsAt) {
+        const want = new Date(prefill.startsAt).getTime();
+        const hit = list.find(x => new Date(x.slot_start).getTime() === want && x.units_left > 0);
+        if (hit) setPicked(hit);
+      }
       setLoadingSlots(false);
     })();
     return () => { cancelled = true; };
-  }, [resource.id, day, duration]);
+  }, [resource.id, day, duration, prefill?.startsAt]);
 
   function attachMember(m: MemberLite) {
     setAttach(m);
@@ -301,7 +339,7 @@ function WalkInForm({
   return (
     <div className="rounded-2xl border bg-white p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold">New booking</h3>
+        <h3 className="font-bold">New booking {prefill?.startsAt ? <span className="text-zinc-500 font-semibold">· {resource.name} · {timeLabel(prefill.startsAt)}</span> : null}</h3>
         <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
       </div>
 
@@ -310,7 +348,11 @@ function WalkInForm({
           <button key={r.id} type="button" onClick={() => { setResource(r); setDuration(r.durations[0]); setParty(Math.min(2, r.max_party)); }}
             className={cn("rounded-xl border p-3 text-left text-sm font-bold flex items-center gap-2", resource.id === r.id ? "text-white" : "bg-white")}
             style={resource.id === r.id ? { background: primary, borderColor: primary } : undefined}>
-            <span className="text-lg">{r.emoji ?? "📅"}</span><span className="truncate">{r.name}</span>
+            {r.image_url
+              /* eslint-disable-next-line @next/next/no-img-element */
+              ? <img src={r.image_url} alt="" className="h-7 w-7 rounded-md object-cover shrink-0" />
+              : <span className="text-lg">{r.emoji ?? "📅"}</span>}
+            <span className="truncate">{r.name}</span>
           </button>
         ))}
       </div>

@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ScanLine, UserSearch, History, LogOut, Tag, Newspaper, Home, Check, Shield, Lightbulb } from "lucide-react";
+import { ScanLine, UserSearch, History, LogOut, Tag, Newspaper, Home, Check, Shield, Lightbulb, Bell } from "lucide-react";
+// CP-148: needs-action counts (review/follow requests, booking requests,
+// pending passes) for the sidebar badges + bell.
+import { useDeskActions } from "@/lib/use-desk-actions";
 import { ManagerTutorial, useTutorialAutoOpen } from "@/components/manager/manager-tutorial";
 // CP-37.18 — Install-app affordance for managers + front-desk.
 import { ManagerPwaInstall } from "@/components/manager/manager-pwa-install";
@@ -174,6 +177,13 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   }, [business.id]);
 
   const visibleTabs = managerTabsFor(business, role);
+  // CP-148: what needs a human right now — drives the badges on the nav.
+  const actions = useDeskActions(business.id);
+  const badgeFor = (id: ManagerTab): number =>
+    id === "bookings" ? actions.bookings : id === "desk" ? actions.reviews + actions.memberships : 0;
+  // Recount whenever the user switches tabs (they probably just acted on something).
+  useEffect(() => { actions.refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+  const roleLabel = role === "agency_admin" ? "Agency admin" : role === "business_manager" ? "Manager" : role === "business_staff" ? "Front desk" : "Manage";
   // If the user clicked into a tab that role-loading then disallows
   // (e.g. they were on Billing and the role resolved to business_staff),
   // bounce them back to the always-available Front desk.
@@ -362,7 +372,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-50 lg:flex">
       {/* CP-30: USB QR scanner support — catches HID-class scanner
           keystrokes and runs resolveCode. No UI footprint.
           CP-98: enabled on EVERY tab (was desk-only) — staff can be on
@@ -371,8 +381,80 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
       <ScannerListener
         onScan={(code) => resolveCode(code)}
       />
-      <header className="bg-white border-b">
-        <div className="max-w-2xl lg:max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+
+      {/* CP-148: LEFT SIDEBAR (lg+) — the CRM-familiar layout. Brand on
+          top, sections in the middle with needs-action badges, tutorial /
+          install / sign-out pinned to the bottom. Below lg (phones, portrait
+          tablets) the original top header + scrolling tab bar remain. */}
+      <aside className="hidden lg:flex lg:flex-col w-64 shrink-0 bg-white border-r sticky top-0 h-screen">
+        <div className="px-5 h-20 flex items-center gap-3 border-b">
+          {business.logo_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={business.logo_url} alt="" className="h-10 w-10 rounded-xl object-contain bg-zinc-50 p-1 ring-1 ring-black/5" />
+          ) : (
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white text-sm font-black"
+              style={{ background: business.brand_colors.primary }}>{business.name[0]}</div>
+          )}
+          <div className="min-w-0">
+            <div className="text-sm font-extrabold truncate">{business.name}</div>
+            <div className="text-[10px] text-muted-foreground tracking-wider uppercase font-bold">{roleLabel}</div>
+          </div>
+        </div>
+
+        {actions.total > 0 && (
+          <button
+            type="button"
+            onClick={() => setTab(actions.bookings > 0 && actions.reviews + actions.memberships === 0 ? "bookings" : "desk")}
+            className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-left"
+          >
+            <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-amber-800">
+              <span className="relative inline-flex">
+                <Bell className="h-4 w-4" />
+                <span className="absolute -top-1.5 -right-2 h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{actions.total}</span>
+              </span>
+              Needs action
+            </div>
+            <div className="text-[11px] text-amber-900/90 mt-1 leading-snug">
+              {[
+                actions.reviews > 0 && `${actions.reviews} review / follow request${actions.reviews === 1 ? "" : "s"}`,
+                actions.bookings > 0 && `${actions.bookings} booking request${actions.bookings === 1 ? "" : "s"}`,
+                actions.memberships > 0 && `${actions.memberships} pass${actions.memberships === 1 ? "" : "es"} to confirm`,
+              ].filter(Boolean).join(" · ")}
+            </div>
+          </button>
+        )}
+
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+          <div className="px-2 pb-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Front desk</div>
+          {visibleTabs.filter(t => ["desk", "users", "bookings", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+          {visibleTabs.some(t => ["offers", "news", "membership"].includes(t.id)) && (
+            <div className="px-2 pt-4 pb-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Customer app</div>
+          )}
+          {visibleTabs.filter(t => ["offers", "news", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+          {visibleTabs.some(t => ["insights", "billing", "team"].includes(t.id)) && (
+            <div className="px-2 pt-4 pb-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400">Business</div>
+          )}
+          {visibleTabs.filter(t => ["insights", "billing", "team"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+        </nav>
+
+        <div className="border-t px-3 py-3 space-y-0.5">
+          <ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} />
+          <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-zinc-600 hover:bg-zinc-100">
+            <Lightbulb className="h-4 w-4" /> Tutorial
+          </button>
+          <button type="button" onClick={signOut} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-zinc-600 hover:bg-zinc-100">
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+          {bizSavedAt && (
+            <span className="px-3 text-[11px] text-emerald-600 flex items-center gap-1"><Check className="h-3 w-3"/> Saved</span>
+          )}
+        </div>
+      </aside>
+
+      <div className="flex-1 min-w-0">
+      {/* Mobile / portrait-tablet header (hidden once the sidebar shows). */}
+      <header className="bg-white border-b lg:hidden">
+        <div className="max-w-2xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {business.logo_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
@@ -383,25 +465,23 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             )}
             <div>
               <div className="text-sm font-bold">{business.name}</div>
-              {/* CP-42 fix: was hardcoded to "Front desk" for every role —
-                  misleading for agency_admin / manager viewers. Surface
-                  the actual role so it matches what the user can do. */}
-              <div className="text-[10px] text-muted-foreground tracking-wider uppercase">
-                {role === "agency_admin"
-                  ? "Agency admin"
-                  : role === "business_manager"
-                  ? "Manager"
-                  : role === "business_staff"
-                  ? "Front desk"
-                  : "Manage"}
-              </div>
+              {/* CP-42 fix: surface the actual role so it matches what the user can do. */}
+              <div className="text-[10px] text-muted-foreground tracking-wider uppercase">{roleLabel}</div>
             </div>
           </div>
-          {/* CP-37.5: header tutorial button. Subtle until tapped —
-              walks the user through their role's features one step
-              at a time. Auto-opens on first sign-in for new accounts.
-              CP-37.18: install-app affordance now sits next to it. */}
           <div className="flex items-center gap-1">
+            {actions.total > 0 && (
+              <button
+                type="button"
+                onClick={() => setTab(actions.bookings > 0 && actions.reviews + actions.memberships === 0 ? "bookings" : "desk")}
+                className="relative h-9 w-9 rounded-full hover:bg-zinc-100 flex items-center justify-center"
+                aria-label={`${actions.total} things need action`}
+                title="Needs action"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{actions.total}</span>
+              </button>
+            )}
             <ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} />
             <Button
               variant="ghost"
@@ -429,23 +509,27 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         }}
       />
 
-      {/* Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-2xl lg:max-w-7xl mx-auto px-2 flex overflow-x-auto">
-          {visibleTabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap",
-                tab === t.id
-                  ? "border-zinc-900 text-zinc-900"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {t.icon}{t.label}
-            </button>
-          ))}
+      {/* Tabs (below lg only — the sidebar carries them on desktop / landscape tablet) */}
+      <div className="bg-white border-b lg:hidden">
+        <div className="max-w-2xl mx-auto px-2 flex overflow-x-auto">
+          {visibleTabs.map(t => {
+            const n = badgeFor(t.id);
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap",
+                  tab === t.id
+                    ? "border-zinc-900 text-zinc-900"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {t.icon}{t.label}
+                {n > 0 && <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{n}</span>}
+              </button>
+            );
+          })}
           {bizSavedAt && (
             <span className="ml-auto self-center text-[11px] text-emerald-600 flex items-center gap-1 pr-2">
               <Check className="h-3 w-3"/> Saved
@@ -454,7 +538,16 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         </div>
       </div>
 
-      <main className="max-w-2xl lg:max-w-7xl mx-auto p-4 space-y-4">
+      {/* Desktop page title bar */}
+      <div className="hidden lg:flex items-center justify-between px-6 h-14 bg-white border-b">
+        <div className="text-sm font-extrabold flex items-center gap-2">
+          {visibleTabs.find(t => t.id === tab)?.icon}
+          {visibleTabs.find(t => t.id === tab)?.label}
+        </div>
+        <div className="text-[11px] text-zinc-500">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
+      </div>
+
+      <main className="max-w-2xl lg:max-w-none mx-auto p-4 lg:p-6 space-y-4">
         {tab === "desk" && (
           <>
             {/* CP-42 (round 3): Scanner hero MOVES UP to the top — Andrew
@@ -778,6 +871,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             isManager={role === "business_manager" || role === "agency_admin"}
             lastMember={lastMember}
             onBusinessPatched={(patch) => setBusiness(b => ({ ...b, ...patch }))}
+            onActionsChanged={actions.refresh}
           />
         )}
         {tab === "news"       && <NewsManager             business={business} />}
@@ -804,7 +898,31 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             longer carries this tab — keeps the front-desk surface focused
             on day-to-day ops. */}
       </main>
+      </div>
     </div>
+  );
+}
+
+// CP-148: sidebar item with optional needs-action badge.
+function SideItem({ t, active, badge, primary, onClick }: {
+  t: { id: ManagerTab; label: string; icon: React.ReactNode }; active: boolean; badge: number; primary: string; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold transition text-left",
+        active ? "text-white shadow-sm" : "text-zinc-700 hover:bg-zinc-100",
+      )}
+      style={active ? { background: primary } : undefined}
+    >
+      <span className={cn("shrink-0", active ? "opacity-100" : "opacity-70")}>{t.icon}</span>
+      <span className="flex-1 truncate">{t.label}</span>
+      {badge > 0 && (
+        <span className={cn("h-5 min-w-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center", active ? "bg-white/25 text-white" : "bg-rose-500 text-white")}>{badge}</span>
+      )}
+    </button>
   );
 }
 

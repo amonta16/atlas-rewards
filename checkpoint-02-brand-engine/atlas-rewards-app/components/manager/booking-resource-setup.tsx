@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { type BookingResource, dollars, durationLabel } from "@/lib/booking";
+// CP-148: a real photo of the cage / bay instead of an emoji.
+import { ImageUploader } from "@/components/agency/image-uploader";
 import type { Business } from "@/lib/types/database";
 
 /* ── Manager: resources set-up ───────────────────────────────────────── */
@@ -27,6 +29,7 @@ type Draft = {
   id: string | null; name: string; description: string; emoji: string; units: number; unit_label: string;
   durations: number[]; slot_minutes: number; buffer_minutes: number; max_party: number;
   price: string; deposit: string; hours: Record<string, [string, string][]> | null; is_active: boolean;
+  image_url: string | null;
 };
 
 function draftFrom(r: BookingResource | null): Draft {
@@ -34,10 +37,10 @@ function draftFrom(r: BookingResource | null): Draft {
     id: r.id, name: r.name, description: r.description ?? "", emoji: r.emoji ?? "", units: r.units, unit_label: r.unit_label,
     durations: r.durations, slot_minutes: r.slot_minutes, buffer_minutes: r.buffer_minutes, max_party: r.max_party,
     price: r.price_cents != null ? (r.price_cents / 100).toString() : "", deposit: r.deposit_cents != null ? (r.deposit_cents / 100).toString() : "",
-    hours: r.hours, is_active: r.is_active,
+    hours: r.hours, is_active: r.is_active, image_url: r.image_url ?? null,
   } : {
     id: null, name: "", description: "", emoji: "", units: 1, unit_label: "spot", durations: [60], slot_minutes: 30, buffer_minutes: 0,
-    max_party: 8, price: "", deposit: "", hours: null, is_active: true,
+    max_party: 8, price: "", deposit: "", hours: null, is_active: true, image_url: null,
   };
 }
 
@@ -72,15 +75,23 @@ export function BookingResourceSetup({
     if (draft.durations.length === 0) { setErr("Pick at least one length."); return; }
     setSaving(true); setErr(null);
     const toCents = (s: string) => { const n = parseFloat(s); return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null; };
-    const { error } = await createClient().rpc("upsert_booking_resource", {
+    const supabase = createClient();
+    const { data: savedId, error } = await supabase.rpc("upsert_booking_resource", {
       p_id: draft.id, p_business_id: business.id, p_name: draft.name.trim(), p_description: draft.description.trim() || null,
       p_emoji: draft.emoji.trim() || null, p_units: draft.units, p_unit_label: draft.unit_label.trim() || "spot",
       p_durations: [...draft.durations].sort((a, b) => a - b), p_slot_minutes: draft.slot_minutes, p_buffer_minutes: draft.buffer_minutes,
       p_max_party: draft.max_party, p_price_cents: toCents(draft.price), p_deposit_cents: toCents(draft.deposit),
       p_hours: draft.hours, p_is_active: draft.is_active, p_sort_order: draft.id ? (resources.find(r => r.id === draft.id)?.sort_order ?? 0) : resources.length,
     });
+    if (error) { setSaving(false); setErr(error.message); return; }
+    // CP-148: photo. Written straight to the row (bres_staff_write RLS) so
+    // the RPC signature stays as shipped in cp147.
+    const id = (savedId as string | null) ?? draft.id;
+    if (id) {
+      const { error: imgErr } = await supabase.from("booking_resources").update({ image_url: draft.image_url }).eq("id", id);
+      if (imgErr) { setSaving(false); setErr("Saved, but the photo didn't stick: " + imgErr.message); changed(); return; }
+    }
     setSaving(false);
-    if (error) { setErr(error.message); return; }
     setDraft(null);
     changed();
   }
@@ -122,7 +133,10 @@ export function BookingResourceSetup({
             {resources.length === 0 && <div className="p-4 text-sm text-zinc-500">No bookable spots yet.</div>}
             {resources.map(r => (
               <div key={r.id} className={cn("px-3 py-2.5 flex items-center gap-3", !r.is_active && "opacity-60")}>
-                <span className="text-xl">{r.emoji ?? "📅"}</span>
+                {r.image_url
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={r.image_url} alt="" className="h-10 w-14 rounded-lg object-cover shrink-0" />
+                  : <span className="text-xl w-14 text-center">{r.emoji ?? "📅"}</span>}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold truncate">{r.name} {!r.is_active && <span className="text-[10px] font-semibold text-zinc-500">(hidden)</span>}</div>
                   <div className="text-[11px] text-zinc-500 truncate">
@@ -147,6 +161,20 @@ export function BookingResourceSetup({
 
       {draft && (
         <div className="space-y-4">
+          <div>
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Photo (what customers see)</Label>
+            <div className="mt-1 max-w-sm">
+              <ImageUploader
+                bucket="news-images"
+                pathPrefix={`${business.id}/booking`}
+                value={draft.image_url}
+                onChange={(url) => setDraft({ ...draft, image_url: url })}
+                aspectClass="aspect-video"
+                label="Photo"
+              />
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-1">A real shot of the cage / bay / room beats an icon. The icon below is the fallback when there&apos;s no photo.</p>
+          </div>
           <div className="grid grid-cols-[64px_1fr] gap-3">
             <div>
               <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Icon</Label>
