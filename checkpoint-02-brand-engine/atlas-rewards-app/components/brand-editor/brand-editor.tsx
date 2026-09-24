@@ -68,9 +68,11 @@ import { WaiversManager } from "@/components/agency/waivers-manager";
 // CP-42: TemplateApplyPanel removed — industry template only applied during create.
 import { WidgetToggleGroups } from "@/components/agency/widget-toggle-groups";
 import { BookingTagsManager } from "@/components/agency/booking-tags-manager";
+// CP-147: Booking v2 — bookable resources (cages / bays / rooms) + on/off.
+import { BookingResourceSetup } from "@/components/manager/booking-resource-setup";
 import { BusinessSettingsPanel } from "@/components/agency/business-settings-panel";
 import { NotificationSettingsPanel } from "@/components/agency/notification-settings-panel";
-import { CalendarClock, FileSignature } from "lucide-react";
+import { CalendarClock, CalendarCheck, FileSignature } from "lucide-react";
 // CP-42: IndustryTemplate import removed alongside TemplateApplyPanel.
 import type { PreviewBookingTag } from "@/components/customer-preview/customer-preview";
 
@@ -113,7 +115,7 @@ const POINT_MAXES: Record<string, number> = {
   profile_complete:    500,
 };
 
-type Tab = "brand" | "design" | "insights" | "offers" | "events" | "membership" | "rewards" | "news" | "waivers" | "settings";
+type Tab = "brand" | "design" | "insights" | "offers" | "events" | "bookings" | "membership" | "rewards" | "news" | "waivers" | "settings";
 
 function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }[] {
   const all: { id: Tab; label: string; icon: React.ReactNode; gatedBy?: keyof Business["widget_config"] }[] = [
@@ -125,7 +127,9 @@ function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }
     { id: "offers",     label: "Offers",          icon: <Tag className="h-4 w-4" /> },
     // CP-132: events + weekly specials (the Events tab's content).
     { id: "events",     label: "Events",          icon: <CalendarClock className="h-4 w-4" /> },
-    // Booking, Products, and Leaderboard tabs removed — Atlas is loyalty-only.
+    // CP-147: Bookings is back (resources with capacity). Products and
+    // Leaderboard stay removed.
+    { id: "bookings",   label: "Bookings",        icon: <CalendarCheck className="h-4 w-4" /> },
     // CP-132: entertainment venues call it a Pass.
     { id: "membership", label: resolvePreset(b.layout_preset) === "entertainment" ? "Passes" : "Membership", icon: <Crown className="h-4 w-4" /> },
     { id: "news",       label: "News",            icon: <Newspaper className="h-4 w-4" />,     gatedBy: "news" },
@@ -372,7 +376,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
       <div
         className={cn(
           "px-8 py-8 grid gap-8",
-          tab === "insights" || tab === "membership" || tab === "settings" || tab === "events" || tab === "waivers"
+          tab === "insights" || tab === "membership" || tab === "settings" || tab === "events" || tab === "waivers" || tab === "bookings"
             ? "lg:grid-cols-1"
             : "lg:grid-cols-[1fr_400px]",
         )}
@@ -1475,6 +1479,26 @@ export function BrandEditor({ initial }: { initial: Business }) {
           )}
 
           {tab === "waivers" && <WaiversManager business={b} />}
+
+          {tab === "bookings" && (
+            <div className="space-y-6">
+              {/* CP-147: same component the venue's front desk uses under
+                  Bookings → Set up, so both sides edit one list. Resources
+                  save instantly; the customer on/off switch is
+                  widget_config.booking and goes out with Save. */}
+              <Section
+                title="Bookings"
+                subtitle="What customers can reserve in the app — batting cages, sim bays, lanes, a party room — with how many you have, the lengths offered and party caps. Prices and deposits are shown to customers, not charged (online payment comes later). The on/off switch is published when you hit Save."
+              >
+                <BookingResourceSetup
+                  business={b}
+                  enabled={!!b.widget_config.booking}
+                  onToggleEnabled={() => patch({ widget_config: { ...b.widget_config, booking: !b.widget_config.booking } })}
+                  onChanged={() => setLiveReloadKey(k => k + 1)}
+                />
+              </Section>
+            </div>
+          )}
 
           {tab === "rewards" && (
             <>

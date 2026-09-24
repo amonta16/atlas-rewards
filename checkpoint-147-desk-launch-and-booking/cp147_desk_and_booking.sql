@@ -62,6 +62,7 @@ declare
   v_review_id   uuid;
   v_award       record;
   v_balance     int;
+  v_enabled     boolean;
 begin
   if p_platform not in ('google', 'instagram', 'facebook') then
     raise exception 'unknown platform %', p_platform;
@@ -91,18 +92,28 @@ begin
     return;
   end if;
 
-  -- Points + ledger note: identical to approve_review() (CP-134).
+  -- Points + ledger note: identical to approve_review() (CP-134), AND the
+  -- desk can only award what the app builder has switched on — the tile is
+  -- hidden client-side for the same reasons; this is the server-side truth.
   if p_platform in ('instagram', 'facebook') then
     select coalesce(
              nullif((b.social_config -> p_platform ->> 'points')::int, 0),
              nullif((b.point_rules ->> 'social_follow')::int, 0),
-             25)
-      into v_pts from public.businesses b where b.id = v_business_id;
+             25),
+           coalesce((b.social_config -> p_platform ->> 'enabled')::boolean, false)
+      into v_pts, v_enabled from public.businesses b where b.id = v_business_id;
+    if not v_enabled then
+      raise exception '% follow reward is switched off in the app builder', initcap(p_platform);
+    end if;
     v_rule := 'social_follow';
     v_note := initcap(p_platform) || ' follow verified at the desk';
   else
-    select coalesce(nullif((b.point_rules ->> 'review')::int, 0), 5)
-      into v_pts from public.businesses b where b.id = v_business_id;
+    select coalesce(nullif((b.point_rules ->> 'review')::int, 0), 5),
+           coalesce((b.widget_config ->> 'reviews')::boolean, false)
+      into v_pts, v_enabled from public.businesses b where b.id = v_business_id;
+    if not v_enabled then
+      raise exception 'Google review reward is switched off in the app builder';
+    end if;
     v_rule := 'review';
     v_note := 'Google review verified at the desk';
   end if;

@@ -9,7 +9,7 @@ import { MemberPasswordReset } from "@/components/manager/member-password-reset"
 // CP-120: manager-only demo flag + account reset for test members.
 import { MemberDemoTools } from "@/components/manager/member-demo-tools";
 // CP-147: per-platform follow points (same source approve_review uses).
-import { readSocialConfig, socialRewardLive } from "@/lib/social-config";
+import { readSocialConfig } from "@/lib/social-config";
 import type { Business } from "@/lib/types/database";
 
 type Member = {
@@ -42,12 +42,17 @@ const SOCIAL_TILES: { key: SocialPlatform; label: string; sub: string; color: st
   { key: "instagram", label: "Instagram follow", sub: "Followed @ on IG",   color: "#E1306C", icon: <Sparkles className="h-4 w-4" /> },
   { key: "facebook",  label: "Facebook follow",  sub: "Liked / followed",   color: "#1877F2", icon: <Users className="h-4 w-4" /> },
 ];
+/** Mirrors the app builder exactly: Google = "Reviews" widget on + the
+ *  "Google Review reward" points; Instagram / Facebook = that platform's
+ *  switch ON in "Social follow rewards" + its points box. 0 = tile hidden. */
 function socialPoints(business: Business, p: SocialPlatform): number {
-  if (p === "google") return Number(business.point_rules?.review ?? 0) || 0;
-  const live = socialRewardLive(business, p);
-  const fallback = Number(business.point_rules?.social_follow ?? 0) || 0;
-  if (!live && fallback <= 0) return 0;
-  return readSocialConfig(business, p).points;
+  if (p === "google") {
+    if (!business.widget_config?.reviews) return 0;
+    return Number(business.point_rules?.review ?? 0) || 0;
+  }
+  const cfg = readSocialConfig(business, p);
+  if (!cfg.enabled) return 0;
+  return cfg.points;
 }
 type SocialAward = { platform: string; status: string; verified_at: string | null };
 
@@ -765,7 +770,7 @@ export function AwardPointsPanel({
             {SOCIAL_TILES.some(t => socialPoints(business, t.key) > 0) && (
               <div className="mt-6">
                 <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Review &amp; follow rewards</h3>
-                <p className="text-[11px] text-zinc-500 mt-0.5">One per customer — earned tiles turn green and can&apos;t pay twice.</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">One per customer — earned tiles turn green, can&apos;t pay twice, and show as Done in their app. Points come from the app builder.</p>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {SOCIAL_TILES.map(t => {
                     const pts = socialPoints(business, t.key);
