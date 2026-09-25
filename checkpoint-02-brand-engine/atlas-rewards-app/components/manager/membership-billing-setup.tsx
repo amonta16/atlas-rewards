@@ -25,6 +25,8 @@
  * the customer side, and membership_billing_public() strips it.
  */
 
+// CP-149: Stripe Connect replaces the pasted secret key.
+import { StripeConnectCard } from "@/components/manager/stripe-connect-card";
 import { useEffect, useMemo, useState } from "react";
 import {
   CreditCard, Eye, EyeOff, Check, AlertCircle, Loader2,
@@ -85,6 +87,8 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
+  // CP-149: true once the business's Stripe Connect account can take charges.
+  const [connectLive, setConnectLive] = useState(false);
   const [newPerk, setNewPerk] = useState("");
   const [newPassMonths, setNewPassMonths] = useState<number>(12);
   const [newPassPrice, setNewPassPrice] = useState<string>("");
@@ -111,7 +115,7 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
 
   /* ── the single reading of this config, shared with the customer app ── */
   const view = useMemo(() => readMembership(cfg), [cfg]);
-  const blockers = membershipBlockers(view, !!cfg.stripe_secret_key);
+  const blockers = membershipBlockers(view, connectLive || !!cfg.stripe_secret_key);
   const canGoLive = blockers.length === 0;
   const dirty = loaded && savedCfg !== "" && JSON.stringify(cfg) !== savedCfg;
 
@@ -443,7 +447,7 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
             active={cfg.payment_mode === "stripe"} primary={primary}
             onClick={() => setCfg(c => ({ ...c, payment_mode: "stripe" }))}
             icon={<Zap className="h-4 w-4" />} title="Stripe (automatic)"
-            blurb="Built-in checkout. Members activate themselves — no staff step. Needs your Stripe key." />
+            blurb="Built-in checkout. Members activate themselves — no staff step. Connect your Stripe in ~10 min." />
         </div>
 
         {cfg.payment_mode === "external_link" && (
@@ -473,10 +477,20 @@ export function MembershipBillingSetup({ business }: { business: Business }) {
         )}
 
         {cfg.payment_mode === "stripe" && (
+          <StripeConnectCard
+            businessId={business.id}
+            primary={primary}
+            legacyKeyOnFile={!!cfg.stripe_secret_key}
+            onStatus={setConnectLive}
+          />
+        )}
+
+        {/* LEGACY (pre-CP-149) — only shown while an old pasted key is still
+            on file, so the owner can clear it. New businesses never see this. */}
+        {cfg.payment_mode === "stripe" && !!cfg.stripe_secret_key && (
           <div className="space-y-3 rounded-xl border bg-zinc-50/60 p-3">
             <div className="text-[11px] text-zinc-600">
-              <strong>dashboard.stripe.com</strong> → Developers → API keys → copy your{" "}
-              <strong>Secret key</strong>.
+              <strong>Legacy key</strong> — clear this once Connect shows Charges ✓ and Save.
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Stripe secret key</Label>

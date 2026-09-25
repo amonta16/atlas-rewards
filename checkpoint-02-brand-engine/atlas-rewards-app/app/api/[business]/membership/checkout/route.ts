@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+// CP-149: Stripe Connect — checkout runs on the business's connected account.
+import { liveStripeAccount } from "@/lib/payments/accounts";
+import { createCheckoutSession, StripeError } from "@/lib/payments/stripe";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +80,13 @@ export async function POST(
   if (!billing.is_enabled) {
     return NextResponse.json({ error: "Membership subscriptions are not currently enabled." }, { status: 400 });
   }
-  if (!billing.stripe_secret_key) {
+
+  // CP-149: preferred path — the business's Stripe CONNECT account. Atlas
+  // holds no key for it; the platform key acts on its behalf. The legacy
+  // pasted-secret-key path below stays only until every stripe-mode
+  // business has clicked "Connect Stripe", then it gets deleted.
+  const connected = await liveStripeAccount(biz.id);
+  if (!connected && !billing.stripe_secret_key) {
     return NextResponse.json({ error: "Stripe is not connected for this business." }, { status: 400 });
   }
 
@@ -100,7 +109,48 @@ export async function POST(
     }
   }
 
-  // ── call Stripe REST API to create a Checkout Session ─────────────────────
+  if (connected) {
+    const { data: authUser } = await admin.auth.admin.getUserById(userId);
+    // Reuse the Stripe customer this member already has on this account so
+    // renewals, receipts and the portal all line up.
+    const { data: prev } = await admin
+      .from("membership_subscriptions")
+      .select("provider_customer_id, business_memberships!inner(user_id)")
+      .eq("business_id", biz.id)
+      .eq("provider", "stripe")
+      .eq("business_memberships.user_id", userId)
+      .not("provider_customer_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    try {
+      const session = await createCheckoutSession({
+        account: connected,
+        businessId: biz.id,
+        businessSlug,
+        businessName: biz.name,
+        userId,
+        membershipId: membershipId ?? null,
+        customerEmail: authUser?.user?.email ?? null,
+        customerId: (prev as any)?.provider_customer_id ?? null,
+        productName: pass ? `${billing.membership_name} — ${pass.label}` : billing.membership_name,
+        description: pass ? `${pass.months}-month membership pass at ${biz.name}` : `Monthly membership at ${biz.name}`,
+        priceCents: pass ? pass.price_cents : billing.price_cents,
+        kind: pass ? "pass" : "monthly",
+        passMonths: pass?.months ?? null,
+        passLabel: pass?.label ?? null,
+        successUrl,
+        cancelUrl,
+      });
+      return NextResponse.json({ url: session.url });
+    } catch (e: any) {
+      const msg = e instanceof StripeError ? e.message : (e?.message ?? "Stripe error");
+      console.error("connect checkout error:", msg);
+      return NextResponse.json({ error: msg }, { status: 502 });
+    }
+  }
+
+  // ── LEGACY (pre-CP-149): business's own pasted secret key ─────────────────
   // We use fetch + URLSearchParams instead of the npm stripe package.
   // CP-86: a pass is a ONE-TIME payment (mode=payment); the monthly plan
   // stays a subscription.

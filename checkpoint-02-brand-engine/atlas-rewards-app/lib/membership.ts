@@ -150,10 +150,10 @@ export function joinFinePrint(v: MembershipView, chosen?: MembershipOffer | null
 }
 
 /** Reasons this config cannot go live. Empty = ready. Used by the builder. */
-export function membershipBlockers(v: MembershipView, hasStripeKey: boolean): string[] {
+export function membershipBlockers(v: MembershipView, stripeReady: boolean): string[] {
   const out: string[] = [];
-  if (v.paymentMode === "stripe" && !hasStripeKey) {
-    out.push("Paste your Stripe secret key — without it nobody can check out.");
+  if (v.paymentMode === "stripe" && !stripeReady) {
+    out.push("Connect Stripe (the button below) — until Stripe says charges are enabled nobody can check out.");
   }
   if (v.paymentMode === "external_link" && !v.externalUrl) {
     out.push("Add the payment link — it's the page members get sent to.");

@@ -21,6 +21,8 @@
  * builder panel, so this screen can only ever show what a business actually
  * configured.
  */
+// CP-149: card-billed members manage (cancel / update card) in-app via Stripe.
+import { ManageMembership } from "@/components/customer/manage-membership";
 import { useEffect, useState } from "react";
 import {
   Crown, Sparkles, Check, ChevronRight, Zap, CalendarCheck,
@@ -152,6 +154,8 @@ export function MembershipSection({
             ) : null}
           </div>
         </div>
+        {/* CP-149: renders only for Stripe-Connect-billed members. */}
+        <ManageMembership business={business} />
       </div>
     );
   }
