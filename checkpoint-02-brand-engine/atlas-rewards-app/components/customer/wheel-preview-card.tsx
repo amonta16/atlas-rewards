@@ -112,12 +112,14 @@ export function WheelPreviewCard({ business, membershipId }: { business: Busines
               >
                 {segs.map((s, i) => (
                   <div key={i} className="absolute inset-0 pointer-events-none" style={{ transform: `rotate(${i * angle + angle / 2}deg)` }}>
-                    <div className="absolute left-1/2 -translate-x-1/2 top-1.5 flex flex-col items-center text-white">
+                    {/* CP-152.1: icon-only wedges — labels were unreadable at this size */}
+                    <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center justify-center text-white">
                       {s.image
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        ? <img src={s.image} alt="" className="h-4 w-4 rounded-full object-cover ring-1 ring-white/60" />
-                        : s.kind === "points" ? <Coins className="h-3 w-3 text-yellow-300" /> : <Gift className="h-3 w-3 text-yellow-300" />}
-                      <span className="text-[7px] font-black leading-none mt-0.5">{s.label}</span>
+                        ? <img src={s.image} alt="" className="h-6 w-6 rounded-full object-cover ring-2 ring-white/80 shadow" />
+                        : s.kind === "points"
+                          ? <span className="h-6 w-6 rounded-full bg-yellow-300 flex items-center justify-center shadow"><Coins className="h-3.5 w-3.5 text-zinc-900" /></span>
+                          : <span className="h-6 w-6 rounded-full bg-white flex items-center justify-center shadow"><Gift className="h-3.5 w-3.5" style={{ color: primary }} /></span>}
                     </div>
                   </div>
                 ))}
