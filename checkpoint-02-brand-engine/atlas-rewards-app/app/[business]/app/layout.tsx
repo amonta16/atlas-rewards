@@ -17,6 +17,10 @@ import { patternStyle, readableTextColor } from "@/lib/patterns";
 import { designVars } from "@/lib/design-styles";
 import { CustomerHeader } from "@/components/customer/customer-header";
 import type { Business, Membership } from "@/lib/types/database";
+// CP-153: house promos for the banner when nothing is featured.
+import { buildHousePromos, type HousePromoFacts } from "@/lib/house-promos";
+import { bookingEnabled } from "@/lib/booking";
+import { presetSpec } from "@/lib/layout-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -74,10 +78,18 @@ export default async function CustomerAppLayout({
     guardian_email: string | null;
   } | null;
 
-  const [{ data: billing }, bannerOffer] = await Promise.all([
+  const [{ data: billing }, bannerOffer, { data: promoFactRows }] = await Promise.all([
     supabase.rpc("membership_billing_public", { p_business_id: business.id }),
     getFeaturedOffer(business.id),
+    // CP-153: one round-trip of live numbers for the banner's fallback lines
+    // (returns nothing on a pre-CP-153 DB → banner simply hides as before).
+    supabase.rpc("house_promo_facts", { p_business_id: business.id }),
   ]);
+  const promoFacts = ((Array.isArray(promoFactRows) ? promoFactRows[0] : promoFactRows) ?? null) as HousePromoFacts | null;
+  const housePromos = buildHousePromos(promoFacts, membership, {
+    bookingEnabled: bookingEnabled(business),
+    membershipTabLabel: presetSpec(business.layout_preset).membershipTitle,
+  });
   const billingRow = (Array.isArray(billing) ? billing[0] : billing) as { is_enabled?: boolean } | null;
   const vipEnabled = !!billingRow?.is_enabled;
 
@@ -143,6 +155,7 @@ export default async function CustomerAppLayout({
         /* CP-85.1: a featured OPEN raffle takes over this banner; tapping it
            jumps to the Rewards tab where the entry flow lives. */
         slug={params.business}
+        promos={housePromos}
       />
       {/* CP-86: manager-posted announcement ("closing early Tuesday") —
           renders on every tab, realtime, dismissible per device. */}

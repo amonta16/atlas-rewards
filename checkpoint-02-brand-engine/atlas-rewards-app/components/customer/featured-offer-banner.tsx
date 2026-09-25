@@ -20,7 +20,7 @@
  * high-contrast white pill on the right showing days-left + a live red dot.
  */
 import { useEffect, useRef, useState } from "react";
-import { Tag, Play, Pause, Ticket } from "lucide-react";
+import { Tag, Play, Pause, Ticket, Gift, Sparkles, CalendarDays, Crown, Zap } from "lucide-react";
 import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +28,13 @@ import { bannerStyle } from "@/lib/banner-styles";
 // CP-85.1: a featured OPEN raffle takes over the banner (raffle > offer —
 // it's the bigger hype moment and it has a hard deadline).
 import { type FeaturedRaffle, formatCountdown } from "@/lib/raffles";
+// CP-153: when there is no raffle and no active offer, the band stays up and
+// rotates number-driven house promos (points to next reward, spin top prize,
+// cages to book, member plan) instead of disappearing.
+import type { HousePromo } from "@/lib/house-promos";
+
+const PROMO_ICON = { gift: Gift, sparkles: Sparkles, calendar: CalendarDays, crown: Crown, zap: Zap } as const;
+const PROMO_ROTATE_MS = 6500;
 
 export type FeaturedBannerOffer = {
   title: string;
@@ -45,6 +52,7 @@ export function FeaturedOfferBanner({
   secondary,
   accent,
   slug,
+  promos = [],
 }: {
   primary: string;
   offer: FeaturedBannerOffer | null;
@@ -58,6 +66,8 @@ export function FeaturedOfferBanner({
   /** CP-85.1: URL slug — when a featured raffle owns the banner, tapping it
    *  jumps to /{slug}/app/rewards where the entry flow lives. */
   slug?: string;
+  /** CP-153: fallback lines shown when nothing is featured. */
+  promos?: HousePromo[];
 }) {
   // CP-106: base-aware in-app href (path form vs subdomain/PWA).
   const appBase = useAppBase(slug);
@@ -69,6 +79,13 @@ export function FeaturedOfferBanner({
   // <audio> element per banner instance; play/pause toggles via state.
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  // CP-153: house-promo rotator index.
+  const [promoIdx, setPromoIdx] = useState(0);
+  useEffect(() => {
+    if (promos.length < 2) return;
+    const t = setInterval(() => setPromoIdx(i => (i + 1) % promos.length), PROMO_ROTATE_MS);
+    return () => clearInterval(t);
+  }, [promos.length]);
 
   // CP-24: keep server-rendered initial value, but refetch on realtime
   // changes so the banner updates the moment the agency creates / features
@@ -157,17 +174,56 @@ export function FeaturedOfferBanner({
     return slug ? <Link href={`${appBase}/rewards`} className="block">{inner}</Link> : inner;
   }
 
-  if (!liveOffer) return null;
-
-  const daysLeft = liveOffer.expires_at
+  const daysLeft = liveOffer?.expires_at
     ? Math.max(
         0,
         Math.ceil((new Date(liveOffer.expires_at).getTime() - Date.now()) / 86_400_000),
       )
     : null;
 
-  // Hide expired offers — the customer should never see a stale "0d" badge.
-  if (daysLeft === 0 && liveOffer.expires_at) return null;
+  // No live (unexpired) offer → CP-153 house promos take the band. Expired
+  // offers count as "none": the customer should never see a stale "0d" badge.
+  const offerLive = !!liveOffer && !(daysLeft === 0 && liveOffer.expires_at);
+  if (!offerLive) {
+    if (!promos.length) return null;
+    const promo = promos[promoIdx % promos.length];
+    const Icon = PROMO_ICON[promo.icon] ?? Gift;
+    const inner = (
+      <div
+        className="sticky z-40 px-3 py-3 flex items-center justify-between text-white text-[13px] font-bold shadow-sm relative overflow-hidden"
+        style={{ ...bannerStyle(bannerStyleId, primary, secondary, accent), top: "env(safe-area-inset-top, 0px)" }}
+        role="status"
+        aria-live="polite"
+        aria-label={promo.text}
+      >
+        {/* key = promo id so each rotation re-mounts and replays the slide-in */}
+        <span key={promo.id} className="truncate pr-2 flex items-center gap-1.5 relative atlas-promo-in">
+          <Icon className="h-3.5 w-3.5 shrink-0 opacity-95 drop-shadow-sm" />
+          <span className="drop-shadow-sm font-black tracking-tight uppercase truncate">{promo.text}</span>
+        </span>
+        <span className="shrink-0 bg-white rounded-full pl-2 pr-2.5 py-0.5 flex items-center gap-1.5 relative shadow-sm">
+          {promo.urgent && <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />}
+          <span className={`text-[11px] font-extrabold ${promo.urgent ? "text-red-600" : ""}`} style={promo.urgent ? undefined : { color: primary }}>
+            {promo.pill}
+          </span>
+        </span>
+        {promos.length > 1 && (
+          <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-1">
+            {promos.map((p, i) => (
+              <span key={p.id} className="h-[3px] rounded-full bg-white transition-all" style={{ width: i === promoIdx % promos.length ? 10 : 4, opacity: i === promoIdx % promos.length ? 0.95 : 0.4 }} />
+            ))}
+          </span>
+        )}
+        <style>{`
+          @keyframes atlas-promo-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+          .atlas-promo-in { animation: atlas-promo-in .45s cubic-bezier(.2,.8,.2,1) both; }
+        `}</style>
+      </div>
+    );
+    return slug ? <Link href={`${appBase}${promo.href}`} className="block">{inner}</Link> : inner;
+  }
+  // From here on liveOffer is a live, unexpired offer.
+  if (!liveOffer) return null;
 
   return (
     <div

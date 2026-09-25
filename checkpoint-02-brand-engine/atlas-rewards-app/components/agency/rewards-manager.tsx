@@ -23,6 +23,8 @@ type Reward = {
   images?: string[] | null;
   /** CP-134: per-reward fine print (rewards.terms). */
   terms?: string | null;
+  /** CP-153: set when a reward with redemption history was "deleted". */
+  archived_at?: string | null;
 };
 
 // CP-42: starter category suggestions surfaced as quick-pick chips when
@@ -54,7 +56,8 @@ export function RewardsManager({ business }: { business: Business }) {
       .from("rewards").select("*")
       .eq("business_id", business.id)
       .order("sort_order").order("created_at");
-    setRewards((data ?? []) as Reward[]);
+    // CP-153: archived rewards (deleted, but redemption history kept) stay out.
+    setRewards(((data ?? []) as Reward[]).filter(r => !r.archived_at));
     // CP-42: pull the live category list. RPC silently no-ops if the
     // cp42 migration hasn't been applied — we fall back to deriving
     // categories client-side from the rewards we just loaded.
@@ -108,15 +111,28 @@ export function RewardsManager({ business }: { business: Business }) {
     load();
   }
 
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // CP-153: delete used to fail silently whenever the reward had ever been
+  // redeemed (redemptions.reward_id is ON DELETE RESTRICT). The RPC now
+  // archives in that case and tells us which it did; errors surface.
   async function remove(r: Reward) {
-    if (!confirm(`Delete "${r.name}"?`)) return;
+    if (!confirm(`Delete "${r.name}"? Members who already redeemed it keep their history.`)) return;
     const supabase = createClient();
-    await supabase.rpc("delete_reward", { p_id: r.id, p_business_id: business.id });
+    const { data, error } = await supabase.rpc("delete_reward", { p_id: r.id, p_business_id: business.id });
+    if (error) { setNotice(`Couldn't delete "${r.name}": ${error.message}`); return; }
+    setNotice(data === "archived"
+      ? `"${r.name}" removed. It had redemptions, so it's archived (hidden everywhere, history kept).`
+      : `"${r.name}" deleted.`);
+    setTimeout(() => setNotice(null), 6000);
     load();
   }
 
   return (
     <div className="rounded-2xl border bg-white p-6">
+      {notice && (
+        <div className="mb-3 rounded-xl border bg-zinc-50 px-3 py-2 text-[12px] font-semibold text-zinc-700">{notice}</div>
+      )}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="font-semibold">Rewards store</h3>

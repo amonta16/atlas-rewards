@@ -70,6 +70,7 @@ export function MysteryPoolManager({ business }: { business: Business }) {
         .order("weight", { ascending: false }),
       supabase.from("rewards").select("id, name, image_url")
         .eq("business_id", business.id)
+        .is("archived_at", null) // CP-153
         .order("sort_order").order("created_at"),
     ]);
     setPrizes((p ?? []) as Prize[]);
