@@ -70,8 +70,13 @@ function hslToHex(h: number, s: number, l: number): string {
 
 /* ── the ramp ─────────────────────────────────────────────────────────── */
 
-/** Saturation band: below is lifeless grey, above is neon. */
-const S_MIN = 0.18, S_MAX = 0.58;
+/** Saturation band: below is lifeless grey, above is neon.
+ *  CP-150: S_MAX was 0.58 — a fully saturated brand like Flippo's #0284c7
+ *  (S 0.98) came out as a muted steel-blue slab while every pill, chip and
+ *  wallet card around it used the vivid raw color, so the hero card was the
+ *  one element that looked "off-brand". 0.86 keeps the brand's punch and
+ *  still stops true neon. */
+const S_MIN = 0.18, S_MAX = 0.86;
 /** Lightness band: below swallows the white text, above washes it out. */
 const L_MIN = 0.30, L_MAX = 0.46;
 
@@ -89,15 +94,30 @@ export type LoyaltyCardRamp = {
  * so the card still reads as the business's color — a blue brand gets a blue
  * card — it just can't be neon, muddy, or so pale that white text dies on it.
  */
-export function loyaltyCardRamp(primary: string | null | undefined): LoyaltyCardRamp {
+export function loyaltyCardRamp(primary: string | null | undefined, secondary?: string | null): LoyaltyCardRamp {
   const [h, s0, l0] = rgbToHsl(...hexToRgb(primary || "#3b82f6"));
   const s = Math.min(Math.max(s0, S_MIN), S_MAX);
   const l = Math.min(Math.max(l0, L_MIN), L_MAX);
   const base = hslToHex(h, s, l);
+  // CP-150: the lit corner leans toward the brand SECONDARY (when it is a
+  // near hue), so the card carries the same primary→secondary sweep as the
+  // pills, wallet card and buttons instead of a private darker palette.
+  // Lightness is capped so white text still reads on the top-left face.
+  let hi = hslToHex(h, s * 0.96, Math.min(0.92, l + 0.10));
+  if (secondary) {
+    const [h2, s2, l2] = rgbToHsl(...hexToRgb(secondary));
+    const hueGap = Math.min(Math.abs(h2 - h), 360 - Math.abs(h2 - h));
+    // chroma, not raw saturation — a pastel like #eef is "saturated" in HSL
+    // terms but carries no colour worth borrowing.
+    const chroma = s2 * (1 - Math.abs(2 * l2 - 1));
+    if (hueGap <= 40 && chroma >= 0.25) {
+      hi = hslToHex(h2, Math.min(Math.max(s2, S_MIN), S_MAX), Math.min(0.60, Math.max(l + 0.08, l2 - 0.06)));
+    }
+  }
   return {
-    hi: hslToHex(h, s * 0.96, Math.min(0.92, l + 0.10)),
+    hi,
     base,
-    lo: hslToHex(h, Math.min(0.72, s * 1.04), Math.max(0.06, l - 0.17)),
+    lo: hslToHex(h, Math.min(0.92, s * 1.04), Math.max(0.06, l - 0.15)),
   };
 }
 

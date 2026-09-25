@@ -43,7 +43,7 @@ export function TiltLoyaltyCard({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
   const [interacting, setInteracting] = useState(false);
-  const ramp = loyaltyCardRamp(business.brand_colors.primary);
+  const ramp = loyaltyCardRamp(business.brand_colors.primary, business.brand_colors.secondary);
 
   /* ----- Pointer / touch follow-the-finger tilt ----- */
   function handlePointer(clientX: number, clientY: number) {

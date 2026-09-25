@@ -30,6 +30,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, ChevronRight, Gift, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { MarqueeHeading } from "./marquee-heading";
+import { SectionHeading } from "./section-elements";
 import { RedemptionDetail } from "./redemption-detail";
 import { SavedGiftDetail } from "./saved-gift-detail";
 import type { ActiveRedemption } from "./active-redemptions";
@@ -182,7 +183,13 @@ export function WalletRail({
   // An empty "Your wallet" with an apology underneath is worse than no wallet.
   if (items.length === 0) return null;
 
-  const heading = (
+  // CP-150: the heading wears the SAME style as every other section on the
+  // tab. It was hard-wired to the black-uppercase marquee, so on a business
+  // using sticker / pill headings (Flippo's) "YOUR WALLET" sat between two
+  // blue pills in a different typeface — the one thing on the page that
+  // didn't match. Marquee only when the business chose marquee (same rule
+  // the Rewards store heading follows).
+  const heading = business.heading_style === "marquee" ? (
     <MarqueeHeading
       primary={primary}
       secondary={secondary}
@@ -192,6 +199,18 @@ export function WalletRail({
     >
       Your wallet
     </MarqueeHeading>
+  ) : (
+    <div className="flex items-center justify-between mb-2.5">
+      <SectionHeading business={business}>Your wallet</SectionHeading>
+      {items.length > 1 && (
+        <span
+          className="text-[10px] font-extrabold tracking-widest uppercase px-2.5 py-1 rounded-full text-white"
+          style={{ background: `linear-gradient(135deg, ${primary}, ${secondary ?? primary})` }}
+        >
+          {items.length} items
+        </span>
+      )}
+    </div>
   );
 
   const Thumb = ({ it, size }: { it: WalletItem; size: string }) =>

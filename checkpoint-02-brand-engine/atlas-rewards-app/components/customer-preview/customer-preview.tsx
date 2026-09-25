@@ -593,7 +593,7 @@ function RewardsBody({ business: b, rewards, membershipImageUrl }: { business: B
           lockstep or the builder lies about what the customer sees. */}
       <div className="px-4 pt-3">
         <div className="relative rounded-3xl p-5 min-h-[176px] text-white overflow-hidden flex flex-col"
-          style={loyaltyCardSurface(loyaltyCardRamp(b.brand_colors.primary))}>
+          style={loyaltyCardSurface(loyaltyCardRamp(b.brand_colors.primary, b.brand_colors.secondary))}>
           {membershipImageUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={membershipImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
