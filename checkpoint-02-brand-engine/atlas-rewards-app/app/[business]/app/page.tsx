@@ -37,6 +37,8 @@ import type { Business, Membership } from "@/lib/types/database";
 import { presetSpec, type HomeModule } from "@/lib/layout-presets";
 // CP-147: "Book a cage / bay / lane" card → /book (entertainment presets).
 import { BookCard } from "@/components/customer/book-card";
+// CP-152: full-width Daily Spin card (entertainment preset).
+import { WheelPreviewCard } from "@/components/customer/wheel-preview-card";
 import { bookingEnabled, type BookingResource } from "@/lib/booking";
 
 export const dynamic = "force-dynamic";
@@ -275,6 +277,9 @@ export default async function CustomerHome({ params }: { params: { business: str
 
     // CP-132: next few dated events ("Coming up") — hides itself when empty.
     events: <EventsSection business={business} events={upcomingEvents} limit={3} />,
+
+    // CP-152: the Daily Spin as a full card with a live mini wheel.
+    spin: mem?.id ? <WheelPreviewCard business={business} membershipId={mem.id} /> : null,
 
     // CP-147: booking card — only when booking is on and resources exist.
     booking: bookingEnabled(business) ? <BookCard business={business} slug={params.business} resources={bookable} /> : null,

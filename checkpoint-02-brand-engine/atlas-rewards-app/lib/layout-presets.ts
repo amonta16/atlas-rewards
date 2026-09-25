@@ -35,6 +35,7 @@ export type HomeModule =
   | "specials"        // CP-132: "This week" weekly-deal strip
   | "events"          // CP-132: "Coming up" dated events
   | "booking"         // CP-147: "Book a cage / bay / lane" card → /book
+  | "spin"            // CP-152: full-width Daily Spin card with a live mini wheel
   | "featured_offer"
   | "top_rewards"
   | "spin_streak"
@@ -175,17 +176,19 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "home", label: "Home" },
       { id: "book", label: "Book" },
       { id: "scan", label: "Check in" },
-      { id: "membership", label: "Pass" },
+      // CP-152: "Pass" → "Member" (Andrew). Membership lives on this tab
+      // only — it no longer opens the Home feed; the points card does.
+      { id: "membership", label: "Member" },
       { id: "rewards", label: "Rewards" },
     ],
     home: [
-      "membership", "member_card", "booking", "specials", "events", "featured_offer",
+      "member_card", "spin", "booking", "specials", "events", "featured_offer",
       "news", "referral", "top_rewards", "winback", "location",
     ],
     topRewardsHeading: "Redeem now",
     offersTitle: "Events & specials",
     offersSubtitle: "This week's deals, events and league nights.",
-    membershipTitle: "Pass",
+    membershipTitle: "Member",
     streaks: false,
     spin: false,
   },

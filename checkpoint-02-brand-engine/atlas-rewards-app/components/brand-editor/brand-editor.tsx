@@ -131,7 +131,7 @@ function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }
     // Leaderboard stay removed.
     { id: "bookings",   label: "Bookings",        icon: <CalendarCheck className="h-4 w-4" /> },
     // CP-132: entertainment venues call it a Pass.
-    { id: "membership", label: resolvePreset(b.layout_preset) === "entertainment" ? "Passes" : "Membership", icon: <Crown className="h-4 w-4" /> },
+    { id: "membership", label: "Membership", icon: <Crown className="h-4 w-4" /> },
     { id: "news",       label: "News",            icon: <Newspaper className="h-4 w-4" />,     gatedBy: "news" },
     // CP-135: waivers + promo campaigns (optional per business).
     { id: "waivers",    label: "Waivers",         icon: <FileSignature className="h-4 w-4" /> },
