@@ -14,7 +14,7 @@ import { LiveMemberCard } from "@/components/customer/live-member-card";
 import { WinbackBanner } from "@/components/customer/winback-banner";
 // CP-87: referred friends see their "spend $X to unlock your bonus" progress.
 import { ReferralProgressCard } from "@/components/customer/referral-progress-card";
-import { MembershipSection } from "@/components/customer/membership-section";
+import { MembershipHub } from "@/components/customer/membership-hub";
 import { LocationCard } from "@/components/customer/location-card";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 // CP-85.1: raffle edition of the Featured card — renders itself only when a
@@ -263,7 +263,7 @@ export default async function CustomerHome({ params }: { params: { business: str
     // Membership — single-tier exclusive card with billing CTA (hides itself
     // when the business hasn't enabled memberships).
     membership: (
-      <MembershipSection
+      <MembershipHub
         business={business}
         membership={mem}
         userId={user!.id}

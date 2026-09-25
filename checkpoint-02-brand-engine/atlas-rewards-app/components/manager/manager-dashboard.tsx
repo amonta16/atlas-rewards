@@ -41,7 +41,7 @@ import { NewsManager } from "@/components/agency/news-manager";
 import { ManagerBilling } from "@/components/manager/manager-billing";
 import { InsightsDashboard } from "@/components/manager/insights-dashboard";
 import { BusinessInsights } from "@/components/agency/business-insights";
-import { MembershipBillingSetup } from "@/components/manager/membership-billing-setup";
+import { MembershipStudio } from "@/components/manager/membership-studio";
 import { CreditCard, BarChart3, Crown, Users } from "lucide-react";
 import { MembersDirectory } from "@/components/manager/members-directory";
 // CP-135: signed-waiver log (staff + manager).
@@ -877,7 +877,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         {tab === "news"       && <NewsManager             business={business} />}
         {tab === "waivers"    && <ManagerWaiversTab       business={business} />}
         {tab === "billing"    && <ManagerBilling         business={business} />}
-        {tab === "membership" && <MembershipBillingSetup business={business} />}
+        {tab === "membership" && <MembershipStudio business={business} />}
         {tab === "team"       && (role === "business_manager" || role === "agency_admin") && (
           <div className="space-y-6">
             <TeamMembers

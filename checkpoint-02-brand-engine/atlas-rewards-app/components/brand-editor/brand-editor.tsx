@@ -50,10 +50,10 @@ import { BusinessInsights } from "@/components/agency/business-insights";
 import { BusinessDiscoveryQR } from "@/components/agency/business-discovery-qr";
 import { OffersManager } from "@/components/agency/offers-manager";
 import { AutomatedOffersManager } from "@/components/agency/automated-offers-manager";
-import { MembershipEditor } from "@/components/agency/membership-editor";
+// CP-151: MembershipEditor (v1 RPC) removed — it overwrote passes saved by the other editor.
 // CP-87: the SAME payments / plans & passes setup the manager dashboard
 // has (CP-34 payment modes + CP-86 duration passes) — parity for admins.
-import { MembershipBillingSetup } from "@/components/manager/membership-billing-setup";
+import { MembershipStudio } from "@/components/manager/membership-studio";
 // CP-87: manager-only announcement composer, surfaced for admins here too.
 import { AnnouncementComposer } from "@/components/manager/announcement-composer";
 import { NewsManager } from "@/components/agency/news-manager";
@@ -1613,16 +1613,9 @@ export function BrandEditor({ initial }: { initial: Business }) {
             </div>
           )}
           {tab === "membership" && (
-            <div className="space-y-6">
-              <MembershipEditor business={b} onUpdate={patch} />
-              {/* CP-87: payment modes + plans & passes (CP-86) — the exact
-                  setup the manager sees on their Membership tab, so admins
-                  can configure passes from the app builder too. */}
-              <div>
-                <h3 className="font-semibold text-sm mb-2">Payments, plans & passes</h3>
-                <MembershipBillingSetup business={b} />
-              </div>
-            </div>
+            // CP-151: ONE studio (same component as the manager portal) with
+            // a live preview of the exact card customers see.
+            <MembershipStudio business={b} onSaved={() => setLiveReloadKey(k => k + 1)} />
           )}
           {tab === "news"       && <NewsManager business={b} />}
           {tab === "settings"   && (

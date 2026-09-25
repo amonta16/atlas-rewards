@@ -9,7 +9,7 @@
 import { notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getMyMembership } from "@/lib/data/customer-app";
-import { MembershipSection } from "@/components/customer/membership-section";
+import { MembershipHub } from "@/components/customer/membership-hub";
 import { presetSpec } from "@/lib/layout-presets";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,7 @@ export default async function MembershipTab({ params }: { params: { business: st
       </div>
 
       {enabled ? (
-        <MembershipSection business={business} membership={mem} userId={user!.id} />
+        <MembershipHub business={business} membership={mem} userId={user!.id} standalone />
       ) : (
         <div className="mx-4 mt-4 rounded-2xl border bg-white p-5 text-center">
           <div
