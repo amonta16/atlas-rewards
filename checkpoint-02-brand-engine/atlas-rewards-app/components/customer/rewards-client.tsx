@@ -531,7 +531,11 @@ export function RewardsClient({
                   /* CP-105: see the list branch above — locked is a state, not
                      a dead end. Same handler for grid / carousel / spotlight. */
                   onClick={() => (locked ? setDetailReward(r) : setRedeemingReward(r))}
-                  className={`rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow ${
+                  /* CP-158: flex column + reserved 2-line title + mt-auto footer
+                     → every card in a row is the same height and the progress
+                     bars line up (titles of different lengths used to stagger
+                     them). */
+                  className={`rounded-2xl border bg-white overflow-hidden text-left shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow flex flex-col h-full ${
                     storeLayout === "carousel" ? "w-40 shrink-0 snap-start" : ""
                   } ${big ? "col-span-2" : ""}`}
                   /* CP-99 3b.1: card shell chrome comes from the business's
@@ -569,8 +573,8 @@ export function RewardsClient({
                       </span>
                     )}
                   </div>
-                  <div className="p-3">
-                    <div className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  <div className="p-3 flex flex-col flex-1">
+                    <div className="self-start inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={rcDark
                         ? { background: "rgba(255,255,255,0.15)", color: "#ffffff" }
                         : { background: `${business.brand_colors.primary}15`, color: business.brand_colors.primary }}>
@@ -578,12 +582,12 @@ export function RewardsClient({
                         ? <Lock className="h-2.5 w-2.5" />
                         : <Zap className="h-2.5 w-2.5" />} {r.point_cost.toLocaleString()} POINTS
                     </div>
-                    <div className={`${big ? "text-base" : "text-sm"} font-bold mt-1 leading-tight ${rcDark ? "text-white" : ""}`}>{r.name}</div>
+                    <div className={`${big ? "text-base" : "text-sm"} font-bold mt-1 leading-tight line-clamp-2 ${big ? "" : "min-h-[2.5em]"} ${rcDark ? "text-white" : ""}`}>{r.name}</div>
 
                     {/* CP-27: progress to this reward.
                         CP-95: claimable cards trade the 10px whisper for a
                         full-width gradient REDEEM NOW button (matches Home). */}
-                    <div className="mt-2">
+                    <div className="mt-auto pt-2">
                       {locked ? (
                         <>
                           <div className={`h-1.5 rounded-full overflow-hidden ${rcDark ? "bg-white/15" : "bg-zinc-100"}`}>

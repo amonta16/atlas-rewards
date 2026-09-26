@@ -92,14 +92,15 @@ export function TopRewardsGrid({
                   </span>
                 )}
               </div>
-              <div className="p-2.5">
+              {/* CP-158: same equal-height treatment as the Rewards tab. */}
+              <div className="p-2.5 flex flex-col flex-1">
                 <div className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: rcDark ? "#ffffff" : primary }}>
                   {unlocked
                     ? <Zap className="h-2.5 w-2.5" />
                     : <Lock className="h-2.5 w-2.5" />} {r.point_cost.toLocaleString()} POINTS
                 </div>
-                <div className={`text-xs font-bold mt-0.5 ${rcDark ? "text-white" : ""}`}>{r.name}</div>
-                <div className="mt-1.5">
+                <div className={`text-xs font-bold mt-0.5 leading-tight line-clamp-2 ${big ? "" : "min-h-[2.5em]"} ${rcDark ? "text-white" : ""}`}>{r.name}</div>
+                <div className="mt-auto pt-1.5">
                   {unlocked ? (
                     // CP-94: a real call-to-action instead of 9px whisper text.
                     <span
@@ -132,7 +133,7 @@ export function TopRewardsGrid({
             </>
           );
 
-          const cls = "rounded-xl border bg-white overflow-hidden block text-left w-full shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow";
+          const cls = "rounded-xl border bg-white overflow-hidden flex flex-col h-full text-left w-full shadow-sm ring-1 ring-black/5 hover:shadow-md transition-shadow";
 
           /* CP-99 3b.1: shell chrome from the business preset. Classic keeps
              the exact CP-94 look (borderColor + breathing claim pulse); the
