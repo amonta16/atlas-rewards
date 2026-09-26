@@ -12,7 +12,7 @@
  * no-payment provider, whose describe() tells the customer to pay at the
  * counter (or that a deposit is due there). See lib/booking.ts.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { ArrowLeft, Check, Users, Clock, CalendarClock, Loader2, ChevronRight, XCircle, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   type BookingResource, type BookingSlot, type MyBooking,
-  dollars, durationLabel, timeLabel, dayLabel, isoDay, STATUS_STYLE, paymentProviderFor,
-} from "@/lib/booking";
+  dollars, durationLabel, timeLabel, dayLabel, isoDay, STATUS_STYLE, paymentProviderFor, groupResources } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
 type Step = "resource" | "time" | "confirm" | "done";
@@ -145,7 +144,20 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       {/* STEP 1 — what */}
       {step === "resource" && (
         <div className="space-y-3">
-          {resources.map(r => (
+          {/* CP-155: sections per category (Batting cages / Parties / Pool).
+              A single unnamed group renders exactly as before — no header. */}
+          {groupResources(resources).map((g, gi, all) => (
+            <Fragment key={g.category}>
+              {(all.length > 1 || g.category !== "Other") && (
+                <div className={gi === 0 ? "pt-1" : "pt-4"}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>{g.category}</span>
+                    <span className="text-[10px] font-semibold text-zinc-400">{g.items.length}</span>
+                    <span className="flex-1 h-px" style={{ background: `${primary}33` }} />
+                  </div>
+                </div>
+              )}
+              {g.items.map(r => (
             // CP-148: photo-first card when the venue uploaded one; the compact
             // icon row is the fallback.
             r.image_url ? (
@@ -198,6 +210,8 @@ export function ResourceBooking({ business, resources }: { business: Business; r
               <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />
             </button>
             )
+          ))}
+            </Fragment>
           ))}
 
           <MyBookingsList upcoming={upcoming} past={past} primary={primary} onCancel={cancel} />

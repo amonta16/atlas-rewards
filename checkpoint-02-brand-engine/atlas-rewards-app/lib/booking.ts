@@ -35,7 +35,25 @@ export type BookingResource = {
   horizon_days: number;
   is_active: boolean;
   sort_order: number;
+  /** CP-155: section this resource sits in ("Batting cages", "Parties", "Pool"). null → "Other". */
+  category?: string | null;
 };
+
+/** CP-155: starter chips in the builder. Free text — any label becomes a section. */
+export const BOOKING_CATEGORY_SUGGESTIONS = ["Batting cages", "Parties", "Pool", "Golf sims", "Paintball", "Lanes", "Rooms"];
+
+/** CP-155: group resources into ordered sections (order = first appearance by sort_order). */
+export function groupResources<T extends { category?: string | null; sort_order: number }>(resources: T[]): { category: string; items: T[] }[] {
+  const out: { category: string; items: T[] }[] = [];
+  for (const r of [...resources].sort((a, b) => a.sort_order - b.sort_order)) {
+    const c = (r.category ?? "").trim() || "Other";
+    let g = out.find(x => x.category === c);
+    if (!g) { g = { category: c, items: [] }; out.push(g); }
+    g.items.push(r);
+  }
+  // "Other" always last.
+  return out.sort((a, b) => (a.category === "Other" ? 1 : 0) - (b.category === "Other" ? 1 : 0));
+}
 
 export type BookingSlot = { slot_start: string; slot_end: string; units_left: number };
 

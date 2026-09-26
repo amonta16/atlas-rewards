@@ -26,8 +26,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   type BookingResource, type BookingSlot, type DeskBooking, type BookingStatus,
-  dollars, durationLabel, timeLabel, dayLabel, isoDay, STATUS_STYLE, bookingEnabled,
-} from "@/lib/booking";
+  dollars, durationLabel, timeLabel, dayLabel, isoDay, STATUS_STYLE, bookingEnabled, groupResources } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
 type MemberLite = { membership_id: string; full_name: string | null; phone: string | null; email: string | null };
@@ -108,6 +107,10 @@ export function BookingsDesk({
   }
 
   const active = resources.filter(r => r.is_active);
+  // CP-155: section filter for the day sheet (Batting cages / Parties / Pool).
+  const [section, setSection] = useState<string>("all");
+  const sections = useMemo(() => groupResources(active), [active]);
+  const sheetResources = section === "all" ? active : (sections.find(g => g.category === section)?.items ?? active);
   const live = rows.filter(r => r.status === "pending" || r.status === "confirmed");
   const pendingCount = rows.filter(r => r.status === "pending").length;
   const dayDate = useMemo(() => { const [y, m, d] = day.split("-").map(Number); return new Date(y, m - 1, d); }, [day]);
@@ -241,13 +244,31 @@ export function BookingsDesk({
         );
       })()}
 
+      {/* CP-155: section tabs — only when there is more than one section */}
+      {sections.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
+          {[{ category: "all", items: active }, ...sections].map(g => {
+            const on = section === g.category;
+            const count = rows.filter(b => (b.status === "pending" || b.status === "confirmed") && (g.category === "all" || g.items.some(r => r.id === b.resource_id))).length;
+            return (
+              <button key={g.category} type="button" onClick={() => setSection(g.category)}
+                className={cn("shrink-0 rounded-full border px-3 h-8 text-xs font-bold inline-flex items-center gap-1.5", on ? "text-white border-transparent shadow-sm" : "bg-white hover:bg-zinc-50")}
+                style={on ? { background: primary } : undefined}>
+                {g.category === "all" ? "All" : g.category}
+                <span className={cn("rounded-full px-1.5 text-[10px] font-extrabold", on ? "bg-white/25" : "bg-zinc-100 text-zinc-600")}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Day sheet */}
       {loading && rows.length === 0 && resources.length === 0 ? (
         <div className="rounded-2xl border bg-white p-8 text-center text-sm text-zinc-500"><Loader2 className="h-4 w-4 animate-spin inline mr-1.5" /> Loading…</div>
       ) : resources.length > 0 && (
         <BookingTimesheet
           business={business}
-          resources={active}
+          resources={sheetResources}
           bookings={rows}
           day={day}
           selectedId={selected?.id}

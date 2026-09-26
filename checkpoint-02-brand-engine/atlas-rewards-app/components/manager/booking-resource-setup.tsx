@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { type BookingResource, dollars, durationLabel } from "@/lib/booking";
+import { type BookingResource, dollars, durationLabel, BOOKING_CATEGORY_SUGGESTIONS, groupResources } from "@/lib/booking";
 // CP-148: a real photo of the cage / bay instead of an emoji.
 import { ImageUploader } from "@/components/agency/image-uploader";
 import type { Business } from "@/lib/types/database";
@@ -30,6 +30,8 @@ type Draft = {
   durations: number[]; slot_minutes: number; buffer_minutes: number; max_party: number;
   price: string; deposit: string; hours: Record<string, [string, string][]> | null; is_active: boolean;
   image_url: string | null;
+  /** CP-155 */
+  category: string;
 };
 
 function draftFrom(r: BookingResource | null): Draft {
@@ -37,10 +39,10 @@ function draftFrom(r: BookingResource | null): Draft {
     id: r.id, name: r.name, description: r.description ?? "", emoji: r.emoji ?? "", units: r.units, unit_label: r.unit_label,
     durations: r.durations, slot_minutes: r.slot_minutes, buffer_minutes: r.buffer_minutes, max_party: r.max_party,
     price: r.price_cents != null ? (r.price_cents / 100).toString() : "", deposit: r.deposit_cents != null ? (r.deposit_cents / 100).toString() : "",
-    hours: r.hours, is_active: r.is_active, image_url: r.image_url ?? null,
+    hours: r.hours, is_active: r.is_active, image_url: r.image_url ?? null, category: r.category ?? "",
   } : {
     id: null, name: "", description: "", emoji: "", units: 1, unit_label: "spot", durations: [60], slot_minutes: 30, buffer_minutes: 0,
-    max_party: 8, price: "", deposit: "", hours: null, is_active: true, image_url: null,
+    max_party: 8, price: "", deposit: "", hours: null, is_active: true, image_url: null, category: "",
   };
 }
 
@@ -88,8 +90,9 @@ export function BookingResourceSetup({
     // the RPC signature stays as shipped in cp147.
     const id = (savedId as string | null) ?? draft.id;
     if (id) {
-      const { error: imgErr } = await supabase.from("booking_resources").update({ image_url: draft.image_url }).eq("id", id);
-      if (imgErr) { setSaving(false); setErr("Saved, but the photo didn't stick: " + imgErr.message); changed(); return; }
+      // CP-155: category rides along the same direct write.
+      const { error: imgErr } = await supabase.from("booking_resources").update({ image_url: draft.image_url, category: draft.category.trim() || null }).eq("id", id);
+      if (imgErr) { setSaving(false); setErr("Saved, but the photo/section didn't stick: " + imgErr.message); changed(); return; }
     }
     setSaving(false);
     setDraft(null);
@@ -131,7 +134,13 @@ export function BookingResourceSetup({
         <>
           <div className="divide-y rounded-xl border">
             {resources.length === 0 && <div className="p-4 text-sm text-zinc-500">No bookable spots yet.</div>}
-            {resources.map(r => (
+            {groupResources(resources).flatMap((g, gi, all) => [
+              (all.length > 1 || g.category !== "Other") ? (
+                <div key={`h-${g.category}`} className={cn("px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] bg-zinc-50", gi > 0 && "border-t")} style={{ color: primary }}>
+                  {g.category} <span className="text-zinc-400 font-semibold">· {g.items.length}</span>
+                </div>
+              ) : null,
+              ...g.items.map(r => (
               <div key={r.id} className={cn("px-3 py-2.5 flex items-center gap-3", !r.is_active && "opacity-60")}>
                 {r.image_url
                   /* eslint-disable-next-line @next/next/no-img-element */
@@ -148,7 +157,7 @@ export function BookingResourceSetup({
                 <Button size="sm" variant="outline" onClick={() => { setDraft(draftFrom(r)); setHoursOpen(!!r.hours); }}>Edit</Button>
                 <button type="button" onClick={() => remove(r)} className="h-9 w-9 rounded-full hover:bg-rose-50 text-rose-600 flex items-center justify-center" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
               </div>
-            ))}
+            ))])}
           </div>
           <Button onClick={() => { setDraft(draftFrom(null)); setHoursOpen(false); }} className="text-white" style={{ background: primary }}>
             <Plus className="h-4 w-4 mr-1.5" /> Add something bookable
@@ -183,6 +192,18 @@ export function BookingResourceSetup({
             <div>
               <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Name</Label>
               <Input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="Batting cage" className="mt-1" />
+            </div>
+          </div>
+          {/* CP-155 · section */}
+          <div>
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Section (groups the Book tab &amp; desk sheet)</Label>
+            <Input value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })} placeholder="Batting cages" className="mt-1" maxLength={30} />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {Array.from(new Set([...resources.map(r => (r.category ?? "").trim()).filter(Boolean), ...BOOKING_CATEGORY_SUGGESTIONS])).slice(0, 10).map(c => (
+                <button key={c} type="button" onClick={() => setDraft({ ...draft, category: c })}
+                  className={cn("rounded-full border px-2.5 h-7 text-[11px] font-semibold", draft.category.trim().toLowerCase() === c.toLowerCase() ? "text-white border-transparent" : "bg-white hover:bg-zinc-50")}
+                  style={draft.category.trim().toLowerCase() === c.toLowerCase() ? { background: primary } : undefined}>{c}</button>
+              ))}
             </div>
           </div>
           <div>
