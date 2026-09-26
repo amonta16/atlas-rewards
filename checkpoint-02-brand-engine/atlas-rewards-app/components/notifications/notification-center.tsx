@@ -45,7 +45,8 @@ const KIND_META: Record<NotifKind, { icon: typeof Flame; tone: string; label: st
   daily_check:        { icon: ClipboardCheck,     tone: "bg-emerald-100 text-emerald-700", label: "Daily Check" },
   automated_offer:    { icon: Sparkles,           tone: "bg-violet-100 text-violet-700",   label: "Automated Offer" },
   customer_offer:     { icon: MessageSquareHeart, tone: "bg-rose-100 text-rose-700",       label: "From the team" },
-  reward_expiration:  { icon: Gift,               tone: "bg-yellow-100 text-yellow-800",   label: "Reward expiring" },
+  // CP-161: expiring = urgent → red, not yellow.
+  reward_expiration:  { icon: Gift,               tone: "bg-red-100 text-red-700",         label: "Expiring soon" },
   generic:            { icon: Bell,               tone: "bg-zinc-100 text-zinc-700",       label: "Notification" },
 };
 

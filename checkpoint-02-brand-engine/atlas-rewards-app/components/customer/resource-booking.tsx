@@ -462,13 +462,31 @@ function MyBookingsList({
       </div>
     );
   };
+  // CP-161: history stays out of the way — completed visits collapse behind
+  // one line, cancelled/no-show older than 30 days drop off entirely.
+  const cutoff = Date.now() - 30 * 86_400_000;
+  const history = past.filter(m => m.status === "completed" || m.status === "confirmed" || new Date(m.scheduled_end).getTime() > cutoff);
   return (
     <div className="mt-6">
       <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Your bookings</h3>
-      <div className="rounded-2xl bg-white border overflow-hidden divide-y">
-        {upcoming.map(m => <Row key={m.id} m={m} canCancel />)}
-        {past.slice(0, 5).map(m => <Row key={m.id} m={m} canCancel={false} />)}
-      </div>
+      {upcoming.length > 0 ? (
+        <div className="rounded-2xl bg-white border overflow-hidden divide-y">
+          {upcoming.map(m => <Row key={m.id} m={m} canCancel />)}
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-white border px-4 py-3 text-sm text-zinc-500">Nothing booked right now.</div>
+      )}
+      {history.length > 0 && (
+        <details className="mt-2 group">
+          <summary className="cursor-pointer list-none flex items-center justify-between rounded-xl px-3 py-2 text-[11px] font-bold text-zinc-500 hover:bg-zinc-100">
+            <span>Past bookings · {history.length}</span>
+            <span className="transition group-open:rotate-90">›</span>
+          </summary>
+          <div className="mt-1 rounded-2xl bg-white border overflow-hidden divide-y opacity-80">
+            {history.slice(0, 10).map(m => <Row key={m.id} m={m} canCancel={false} />)}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
