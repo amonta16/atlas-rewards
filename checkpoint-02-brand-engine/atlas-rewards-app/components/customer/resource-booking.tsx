@@ -52,6 +52,10 @@ export function ResourceBooking({ business, resources }: { business: Business; r
   const [mine, setMine] = useState<MyBooking[]>([]);
   const [doneId, setDoneId] = useState<string | null>(null);
 
+  // CP-155.1: section chips on top of the list (Andrew) — one section shown at
+  // a time, so the other kinds of bookings are visible without scrolling.
+  const groups = useMemo(() => groupResources(resources), [resources]);
+  const [sectionIdx, setSectionIdx] = useState(0);
   const days = useMemo(() => nextDays(Math.min(14, (resource?.horizon_days ?? 14) + 1)), [resource?.horizon_days]);
 
   const loadMine = useCallback(async () => {
@@ -144,19 +148,32 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       {/* STEP 1 — what */}
       {step === "resource" && (
         <div className="space-y-3">
-          {/* CP-155: sections per category (Batting cages / Parties / Pool).
-              A single unnamed group renders exactly as before — no header. */}
-          {groupResources(resources).map((g, gi, all) => (
+          {/* CP-155.1: horizontal section bar (Batting cages · Parties · Pool).
+              Tapping a chip swaps the list below; a single section hides the bar. */}
+          {groups.length > 1 && (
+            <div className="-mx-4 px-4 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+              <div className="flex gap-2 pb-1 w-max">
+                {groups.map((g, i) => {
+                  const on = i === Math.min(sectionIdx, groups.length - 1);
+                  const cover = g.items.find(r => r.image_url)?.image_url ?? null;
+                  return (
+                    <button key={g.category} type="button" onClick={() => setSectionIdx(i)}
+                      className={`shrink-0 inline-flex items-center gap-2 rounded-full pl-1 pr-3.5 h-10 text-[13px] font-extrabold border transition active:scale-[0.98] ${on ? "text-white border-transparent shadow-md" : "bg-white text-zinc-700"}`}
+                      style={on ? { background: primary, boxShadow: `0 8px 20px -10px ${primary}` } : undefined}>
+                      {cover
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        ? <img src={cover} alt="" className="h-8 w-8 rounded-full object-cover ring-2 ring-white/80" />
+                        : <span className="h-8 w-8 rounded-full flex items-center justify-center text-base" style={{ background: on ? "rgba(255,255,255,0.2)" : `${primary}14` }}>{g.items[0]?.emoji ?? "📅"}</span>}
+                      {g.category}
+                      <span className={`text-[10px] font-black rounded-full px-1.5 ${on ? "bg-white/25" : "bg-zinc-100 text-zinc-500"}`}>{g.items.length}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {groups.filter((_, i) => groups.length === 1 || i === Math.min(sectionIdx, groups.length - 1)).map(g => (
             <Fragment key={g.category}>
-              {(all.length > 1 || g.category !== "Other") && (
-                <div className={gi === 0 ? "pt-1" : "pt-4"}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: primary }}>{g.category}</span>
-                    <span className="text-[10px] font-semibold text-zinc-400">{g.items.length}</span>
-                    <span className="flex-1 h-px" style={{ background: `${primary}33` }} />
-                  </div>
-                </div>
-              )}
               {g.items.map(r => (
             // CP-148: photo-first card when the venue uploaded one; the compact
             // icon row is the fallback.
