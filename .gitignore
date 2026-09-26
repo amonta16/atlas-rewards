@@ -1,0 +1,45 @@
+# ─── Secrets — never commit these ──────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.local.example
+*.pem
+*.p8
+*.p12
+*.keystore
+*.jks
+# NOTE: mobile-shell's google-services.json / GoogleService-Info.plist are
+# deliberately tracked. They are Firebase *client* config (no service-account
+# private key) and the native builds need them.
+
+# ─── Source / build archives ───────────────────────────────────────
+# These snapshots have leaked .env.local files in the past. Ship code
+# through git, not through tarballs.
+*.tgz
+*.tar
+*.tar.gz
+*.zip
+
+# ─── Dependencies and build output ─────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+.expo/
+.vercel/
+*.tsbuildinfo
+
+# ─── Native build artifacts ────────────────────────────────────────
+mobile-shell/android/build/
+mobile-shell/android/app/build/
+mobile-shell/android/.gradle/
+mobile-shell/ios/App/Pods/
+mobile-shell/ios/App/build/
+
+# ─── OS / editor cruft ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
