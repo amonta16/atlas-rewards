@@ -56,6 +56,13 @@ export async function POST(req: NextRequest) {
     const hint = /connect/i.test(msg) && /not (yet )?(enabled|activated|signed)/i.test(msg)
       ? " — enable Connect in the Atlas Stripe dashboard (Settings → Connect) first."
       : "";
-    return NextResponse.json({ error: msg + hint }, { status: 502 });
+    // CP-154: say which key this deployment is actually using — live vs test
+    // (sandbox) — because "sign up for Connect" in LIVE mode means the
+    // platform review hasn't cleared, while in a SANDBOX it means Connect
+    // was never switched on inside that sandbox.
+    const k = process.env.STRIPE_SECRET_KEY ?? "";
+    const mode = k.startsWith("sk_test") || k.startsWith("rk_test") ? "test/sandbox" : k ? "LIVE" : "unset";
+    const tail = k ? `…${k.slice(-4)}` : "";
+    return NextResponse.json({ error: `${msg}${hint} [key: ${mode} ${tail}]` }, { status: 502 });
   }
 }

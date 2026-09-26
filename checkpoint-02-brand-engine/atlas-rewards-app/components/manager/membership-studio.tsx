@@ -34,6 +34,8 @@ import { StripeConnectCard } from "@/components/manager/stripe-connect-card";
 import { MembershipOfferCard } from "@/components/customer/membership-hub";
 import { readMembership, membershipBlockers, money, defaultPassLabel, type MembershipPass, type PaymentMode } from "@/lib/membership";
 import type { Business } from "@/lib/types/database";
+// CP-154: sales-video link (YouTube / Vimeo) shown on the Member tab.
+import { parseVideoUrl } from "@/lib/video-embed";
 
 type Draft = {
   is_enabled: boolean;
@@ -70,8 +72,15 @@ export function MembershipStudio({ business, onSaved }: { business: Business; on
   const [err, setErr] = useState<string | null>(null);
   const [connectLive, setConnectLive] = useState(false);
   const [newPerk, setNewPerk] = useState("");
+  // CP-154: video link lives in its own column + RPCs (not part of the v3 upsert).
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoSaved, setVideoSaved] = useState("");
 
   const load = useCallback(async () => {
+    createClient().rpc("membership_video_public", { p_business_id: business.id }).then(({ data, error }) => {
+      const v = error ? "" : ((data as string | null) ?? "");
+      setVideoUrl(v); setVideoSaved(v);
+    });
     const { data, error } = await createClient().rpc("membership_billing_public", { p_business_id: business.id });
     const r = (Array.isArray(data) ? data[0] : data) as any;
     if (!error && r) {
@@ -106,7 +115,9 @@ export function MembershipStudio({ business, onSaved }: { business: Business; on
   }), [draft]);
   const blockers = membershipBlockers(view, connectLive);
   const canGoLive = blockers.length === 0;
-  const dirty = loaded && JSON.stringify(draft) !== saved;
+  const videoEmbed = parseVideoUrl(videoUrl);
+  const videoBad = videoUrl.trim() !== "" && !videoEmbed;
+  const dirty = loaded && (JSON.stringify(draft) !== saved || videoUrl.trim() !== videoSaved.trim());
   const [previewSel, setPreviewSel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -140,6 +151,11 @@ export function MembershipStudio({ business, onSaved }: { business: Business; on
       p_pass_options: passes,
       p_offer_monthly: draft.offer_monthly,
     });
+    if (!error && videoUrl.trim() !== videoSaved.trim() && !videoBad) {
+      const { error: vErr } = await createClient().rpc("set_membership_video", { p_business_id: business.id, p_video_url: videoUrl.trim() });
+      if (vErr) { setSaving(false); setErr(`Saved, but the video link didn't: ${vErr.message}`); return; }
+      setVideoSaved(videoUrl.trim());
+    }
     setSaving(false);
     if (error) { setErr(error.message); return; }
     const next = { ...draft, is_enabled: live, pass_options: passes };
@@ -240,7 +256,18 @@ export function MembershipStudio({ business, onSaved }: { business: Business; on
         </Section>
 
         {/* 3 · Plans */}
-        <Section n={3} title="What they can buy" sub="A monthly plan, one or more passes, or both.">
+        {/* CP-154 · sales video */}
+        <Section n={3} title="Sell it with a video (optional)" sub="Paste a YouTube or Vimeo link. Members see a play card right above the offer — a 30–60s owner walkthrough converts far better than perks text alone.">
+          <Input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="https://youtu.be/… or https://vimeo.com/…" className={cn("h-10", videoBad && "border-rose-300")} />
+          {videoBad && <p className="mt-1.5 text-[11px] text-rose-600">That doesn't look like a YouTube or Vimeo link.</p>}
+          {videoEmbed && (
+            <div className="mt-3 rounded-2xl overflow-hidden ring-1 ring-black/5 bg-black aspect-video max-w-sm">
+              <iframe src={videoEmbed.src} title="Membership video preview" className="h-full w-full" allow="fullscreen; picture-in-picture" allowFullScreen />
+            </div>
+          )}
+        </Section>
+
+        <Section n={4} title="What they can buy" sub="A monthly plan, one or more passes, or both.">
           <div className={cn("rounded-xl border p-3 transition", draft.offer_monthly ? "bg-white" : "bg-zinc-50")}>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -291,7 +318,7 @@ export function MembershipStudio({ business, onSaved }: { business: Business; on
         </Section>
 
         {/* 4 · Payment */}
-        <Section n={4} title="How they pay you" sub="Pick one. You can change it later without losing members.">
+        <Section n={5} title="How they pay you" sub="Pick one. You can change it later without losing members.">
           <div className="grid sm:grid-cols-3 gap-2">
             <ModeTile active={draft.payment_mode === "in_person"} onClick={() => set("payment_mode", "in_person")} primary={primary} icon={<Store className="h-4 w-4" />} title="Front desk" blurb="They tap Join, pay at the counter, staff activates. Works with any register." />
             <ModeTile active={draft.payment_mode === "external_link"} onClick={() => set("payment_mode", "external_link")} primary={primary} icon={<Link2 className="h-4 w-4" />} title="Your payment link" blurb="Square, PayPal, Venmo… they pay there, staff confirms here." />

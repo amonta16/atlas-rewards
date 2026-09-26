@@ -23,6 +23,9 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { readMembership, joinFinePrint, money, type MembershipRow, type MembershipView, type MembershipOffer } from "@/lib/membership";
 import { ManageMembership } from "@/components/customer/manage-membership";
+// CP-154: optional sales video (YouTube / Vimeo) above the offer card.
+import { parseVideoUrl } from "@/lib/video-embed";
+import { PlayCircle } from "lucide-react";
 import type { Business, Membership } from "@/lib/types/database";
 
 type PaidStatus = { is_paid: boolean; paid_at: string | null; renewal_due_at: string | null; expires_at?: string | null; plan_label?: string | null };
@@ -155,18 +158,22 @@ export function MembershipHub({
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const primary = business.brand_colors.primary;
   const secondary = business.brand_colors.secondary;
 
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [b, s, m] = await Promise.all([
+    const [b, s, m, v] = await Promise.all([
       supabase.rpc("membership_billing_public", { p_business_id: business.id }),
       supabase.rpc("member_membership_status", { p_business_id: business.id }),
       membership?.id
         ? supabase.from("business_memberships").select("status, membership_payment_status, membership_pending_plan").eq("id", membership.id).maybeSingle()
         : Promise.resolve({ data: null }),
+      // CP-154: null/error on a pre-CP-154 DB → no video, nothing else changes.
+      supabase.rpc("membership_video_public", { p_business_id: business.id }),
     ]);
+    setVideoUrl((v as any)?.error ? null : (((v as any)?.data as string | null) ?? null));
     const r = (Array.isArray(b.data) ? b.data[0] : b.data) ?? null;
     setRow(r as MembershipRow);
     const p = (Array.isArray(s.data) ? s.data[0] : s.data) as PaidStatus | undefined;
@@ -306,6 +313,7 @@ export function MembershipHub({
   if (!view.purchasable) return null;
   return (
     <div className={wrap}>
+      <MembershipVideo url={videoUrl} primary={primary} name={view.name} />
       <MembershipOfferCard
         business={business}
         view={{ ...view, imageUrl: (row as any)?.image_url ?? null }}
@@ -315,6 +323,41 @@ export function MembershipHub({
         busy={busy}
         err={err}
       />
+    </div>
+  );
+}
+
+/** CP-154: the sales video — a poster-style card that swaps to the player on tap
+ *  (no third-party iframe loads until the member actually wants to watch). */
+function MembershipVideo({ url, primary, name }: { url: string | null; primary: string; name: string }) {
+  const [play, setPlay] = useState(false);
+  const embed = parseVideoUrl(url);
+  if (!embed) return null;
+  return (
+    <div className="mb-3 rounded-3xl overflow-hidden ring-1 ring-black/5 shadow-[0_14px_36px_-20px_rgba(15,23,42,0.45)] bg-black">
+      <div className="relative aspect-video">
+        {play ? (
+          <iframe
+            src={`${embed.src}&autoplay=1`}
+            title={`${name} — watch`}
+            className="absolute inset-0 h-full w-full"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            allowFullScreen
+          />
+        ) : (
+          <button type="button" onClick={() => setPlay(true)} className="absolute inset-0 w-full h-full text-left" aria-label="Play video">
+            <div className="absolute inset-0" style={{ background: `radial-gradient(120% 90% at 20% 0%, ${primary} 0%, #0f1026 70%)` }} />
+            <div className="absolute inset-0 opacity-25" style={{ backgroundImage: "repeating-linear-gradient(135deg, rgba(255,255,255,0.12) 0 2px, transparent 2px 14px)" }} />
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+              <span className="h-16 w-16 rounded-full bg-white/95 text-zinc-900 flex items-center justify-center shadow-[0_0_0_10px_rgba(255,255,255,0.18)] animate-[pulsering_1.8s_ease-out_infinite]">
+                <PlayCircle className="h-9 w-9" style={{ color: primary }} />
+              </span>
+              <span className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-white/85">Watch · why {name}</span>
+            </div>
+          </button>
+        )}
+      </div>
+      <style>{`@keyframes pulsering { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.45); } 100% { box-shadow: 0 0 0 18px rgba(255,255,255,0); } }`}</style>
     </div>
   );
 }

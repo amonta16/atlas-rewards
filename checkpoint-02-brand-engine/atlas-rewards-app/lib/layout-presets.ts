@@ -178,8 +178,10 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "scan", label: "Check in" },
       // CP-152: "Pass" → "Member" (Andrew). Membership lives on this tab
       // only — it no longer opens the Home feed; the points card does.
-      { id: "membership", label: "Member" },
+      // CP-154: Rewards before Member (Andrew) — the redeem tab is the
+      // higher-frequency one; Member sits at the far right.
       { id: "rewards", label: "Rewards" },
+      { id: "membership", label: "Member" },
     ],
     home: [
       "member_card", "spin", "booking", "specials", "events", "featured_offer",
