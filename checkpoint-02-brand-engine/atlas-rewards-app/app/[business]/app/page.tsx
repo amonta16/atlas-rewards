@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Gift, ChevronRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
@@ -175,7 +176,7 @@ export default async function CustomerHome({ params }: { params: { business: str
             <div className="rounded-[20px] overflow-hidden" style={cardCss}>
               {offer.image_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={offer.image_url} alt={offer.title} className="h-40 w-full object-cover" />
+                <img src={optimizedUrl(offer.image_url, 800)} alt={offer.title} className="h-40 w-full object-cover" />
               ) : (
                 <div className="h-40 flex items-center justify-center"
                   style={{ background: `linear-gradient(135deg, ${business.brand_colors.accent} 0%, ${business.brand_colors.secondary} 100%)` }}>
@@ -304,7 +305,7 @@ export default async function CustomerHome({ params }: { params: { business: str
       <div className="relative h-56 overflow-hidden">
         {business.hero_image_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={business.hero_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={optimizedUrl(business.hero_image_url, 800)} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
           <div
             className="absolute inset-0"

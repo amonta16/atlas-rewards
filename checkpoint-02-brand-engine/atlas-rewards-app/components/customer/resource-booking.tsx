@@ -13,6 +13,7 @@
  * counter (or that a deposit is due there). See lib/booking.ts.
  */
 import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { ArrowLeft, Check, Users, Clock, CalendarClock, Loader2, ChevronRight, XCircle, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -192,7 +193,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
                       style={on ? { background: primary, boxShadow: `0 8px 20px -10px ${primary}` } : undefined}>
                       {cover
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        ? <img src={cover} alt="" className="h-8 w-8 rounded-full object-cover ring-2 ring-white/80" />
+                        ? <img src={optimizedUrl(cover, 160)} alt="" className="h-8 w-8 rounded-full object-cover ring-2 ring-white/80" />
                         : <span className="h-8 w-8 rounded-full flex items-center justify-center text-base" style={{ background: on ? "rgba(255,255,255,0.2)" : `${primary}14` }}>{g.items[0]?.emoji ?? "📅"}</span>}
                       {g.category}
                       <span className={`text-[10px] font-black rounded-full px-1.5 ${on ? "bg-white/25" : "bg-zinc-100 text-zinc-500"}`}>{g.items.length}</span>
@@ -219,7 +220,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
                     booked right now, amber when partly in use. */}
                 <div className="relative aspect-[2.2/1] bg-zinc-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={r.image_url} alt={r.name} className="absolute inset-0 h-full w-full object-cover" />
+                  <img src={optimizedUrl(r.image_url, 800)} alt={r.name} className="absolute inset-0 h-full w-full object-cover" />
                   <div className={`absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t to-transparent ${liveTone(liveMap[r.id]) === "full" ? "from-red-700/85 via-red-600/40" : "from-black/70"}`} />
                   <div className="absolute left-4 right-14 bottom-2.5 text-white">
                     <div className="text-[17px] font-extrabold leading-tight drop-shadow">{r.name}</div>
@@ -283,7 +284,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
               <div key={p.id} className="rounded-3xl bg-white border shadow-sm overflow-hidden">
                 {p.image_url && (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={p.image_url} alt="" className="w-full aspect-[2.4/1] object-cover" />
+                  <img src={optimizedUrl(p.image_url, 800)} alt="" className="w-full aspect-[2.4/1] object-cover" />
                 )}
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -434,7 +435,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
             {resource.image_url && (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={resource.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={optimizedUrl(resource.image_url, 800)} alt="" className="absolute inset-0 h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/20" />
               </>
             )}

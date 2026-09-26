@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { ArrowLeft, Check, Clock, Phone, CalendarClock, Sparkles, Loader2, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -211,7 +212,7 @@ export function BookFlow({ business: b, tags, ghlOn }: { business: Business; tag
                 <div className="aspect-video relative bg-zinc-100 overflow-hidden">
                   {t.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={t.image_url} alt={t.name} className="h-full w-full object-cover" />
+                    <img src={optimizedUrl(t.image_url, 800)} alt={t.name} className="h-full w-full object-cover" />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-5xl"
                       style={{ background: `${primary}10` }}>
@@ -346,7 +347,7 @@ export function BookFlow({ business: b, tags, ghlOn }: { business: Business; tag
             <div className="flex items-center gap-3">
               {tag?.image_url ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={tag.image_url} alt={tag.name} className="h-12 w-12 rounded-lg object-cover" />
+                <img src={optimizedUrl(tag.image_url, 160)} alt={tag.name} className="h-12 w-12 rounded-lg object-cover" />
               ) : (
                 <div className="h-12 w-12 rounded-lg flex items-center justify-center text-3xl bg-zinc-50">
                   {tag?.emoji ?? "✨"}

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Sparkles, Gift, Loader2, Check, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { jitteredPollMs } from "@/lib/realtime-jitter";
@@ -143,7 +144,7 @@ export function MysteryRewardCard({ business, membershipId }: { business: Busine
               <div className="h-16 w-16 rounded-2xl bg-white flex items-center justify-center shrink-0 backdrop-blur-sm overflow-hidden ring-2 ring-white/60">
                 {business.logo_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={business.logo_url} alt="" className="h-full w-full object-contain p-1.5" />
+                  <img src={optimizedUrl(business.logo_url, 800)} alt="" className="h-full w-full object-contain p-1.5" />
                 ) : (
                   <Check className="h-8 w-8" style={{ color: primary }} />
                 )}

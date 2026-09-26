@@ -11,6 +11,7 @@
  * don't reimplement redemption here).
  */
 import { useMemo, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Gift, Lock, Sparkles, Search, ChevronRight } from "lucide-react";
 import Link from "next/link";
 // CP-123: base-aware links — the raw path-form hrefs here were the same
@@ -286,7 +287,7 @@ function RewardImage({
 }: { reward: Reward; primary: string; className?: string }) {
   if (reward.image_url) {
     /* eslint-disable-next-line @next/next/no-img-element */
-    return <img src={reward.image_url} alt={reward.name} className={"w-full object-cover " + (className ?? "")} />;
+    return <img src={optimizedUrl(reward.image_url, 800)} alt={reward.name} className={"w-full object-cover " + (className ?? "")} />;
   }
   return (
     <div

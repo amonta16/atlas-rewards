@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import { shrinkImage } from "@/lib/shrink-image";
 import { Upload, X, ImageIcon, LayoutGrid } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -40,12 +41,15 @@ export function ImageUploader({
   const [err, setErr] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
 
-  async function handleFile(file: File) {
+  async function handleFile(raw: File) {
     setUploading(true); setErr(null);
     const supabase = createClient();
+    // CP-164: shrink in the browser first (18 MB camera PNG → ~250 KB WebP),
+    // and tell the CDN to cache the object for a year (the URL is unique).
+    const file = await shrinkImage(raw);
     const ext = file.name.split(".").pop() ?? "jpg";
     const path = `${pathPrefix}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true, cacheControl: "31536000", contentType: file.type || undefined });
     if (error) {
       const msg = /bucket not found/i.test(error.message)
         ? `Storage bucket "${bucket}" is missing. Run checkpoint-14-bug-fixes/01_storage_all_buckets.sql in the Supabase SQL Editor to create it.`

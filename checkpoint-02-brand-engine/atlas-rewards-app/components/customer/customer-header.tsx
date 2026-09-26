@@ -8,6 +8,7 @@
  * touch of warmth over the plain white.
  */
 import { HeaderActions } from "./header-actions";
+import { optimizedUrl } from "@/lib/img";
 import { readableTextColor } from "@/lib/patterns";
 import type { Business, Membership } from "@/lib/types/database";
 
@@ -40,7 +41,7 @@ export function CustomerHeader({
     >
       {business.logo_url ? (
         /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={business.logo_url} alt={business.name} className="h-9 max-w-[140px] object-contain" />
+        <img src={optimizedUrl(business.logo_url, 160)} alt={business.name} className="h-9 max-w-[140px] object-contain" />
       ) : (
         <div
           className="h-9 px-3 rounded-full flex items-center text-white text-xs font-bold max-w-[160px]"

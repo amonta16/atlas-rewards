@@ -8,6 +8,7 @@
  * Used on Home (compact: first few) and on the Events tab (full list).
  */
 import { useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { CalendarDays, MapPin, ChevronRight, ExternalLink, X } from "lucide-react";
 import { SectionHeading } from "./section-elements";
 import type { Business } from "@/lib/types/database";
@@ -112,7 +113,7 @@ export function EventsSection({
                 </div>
                 {ev.image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={ev.image_url} alt="" className="h-14 w-14 rounded-xl object-cover shrink-0" />
+                  <img src={optimizedUrl(ev.image_url, 160)} alt="" className="h-14 w-14 rounded-xl object-cover shrink-0" />
                 ) : (
                   <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0" />
                 )}
@@ -131,7 +132,7 @@ export function EventsSection({
           >
             {open.image_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={open.image_url} alt="" className="h-44 w-full object-cover" />
+              <img src={optimizedUrl(open.image_url, 800)} alt="" className="h-44 w-full object-cover" />
             ) : (
               <div className="h-24 w-full" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }} />
             )}

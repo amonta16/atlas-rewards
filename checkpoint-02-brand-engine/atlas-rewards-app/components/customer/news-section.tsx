@@ -8,6 +8,7 @@
  * sheet with the full-size image and the complete body text.
  */
 import { useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Newspaper, X, ChevronRight } from "lucide-react";
 import { SectionHeading } from "./section-elements";
 import type { Business } from "@/lib/types/database";
@@ -54,7 +55,7 @@ export function NewsSection({
             >
               {post.image_url && (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={post.image_url} alt={post.title} className="h-36 w-full object-cover" />
+                <img src={optimizedUrl(post.image_url, 800)} alt={post.title} className="h-36 w-full object-cover" />
               )}
               <div className="p-3.5">
                 <div className="text-base font-extrabold leading-tight text-zinc-900">{post.title}</div>
@@ -91,7 +92,7 @@ export function NewsSection({
 
             {open.image_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={open.image_url} alt={open.title} className="h-56 w-full object-cover shrink-0" />
+              <img src={optimizedUrl(open.image_url, 800)} alt={open.title} className="h-56 w-full object-cover shrink-0" />
             ) : (
               <div
                 className="h-24 w-full shrink-0"

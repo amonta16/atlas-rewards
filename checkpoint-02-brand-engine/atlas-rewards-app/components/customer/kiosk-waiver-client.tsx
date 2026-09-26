@@ -31,6 +31,7 @@
  * sees the "who does this cover" step, so the progress bar stays honest.
  */
 import { useMemo, useRef, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import QRCode from "react-qr-code";
 import { CheckCircle2, PenLine, Type, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -224,7 +225,7 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
         <div className="text-center mb-5">
           {business.logo_url && (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={business.logo_url} alt="" className="h-14 mx-auto object-contain mb-3" />
+            <img src={optimizedUrl(business.logo_url, 160)} alt="" className="h-14 mx-auto object-contain mb-3" />
           )}
           <h1 className="text-2xl font-black text-zinc-900">{business.name}</h1>
           <p className="text-zinc-500 mt-0.5">Please read and sign before you play.</p>

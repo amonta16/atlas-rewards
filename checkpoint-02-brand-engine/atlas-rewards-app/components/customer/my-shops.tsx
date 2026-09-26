@@ -20,6 +20,7 @@
  *     password, one account, many shops.
  */
 import { useEffect, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Store, Plus, ChevronRight, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isNative } from "@/lib/native";
@@ -129,7 +130,7 @@ export function MyShops({
                 {icon ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={icon}
+                    src={optimizedUrl(icon, 160)}
                     alt=""
                     className="h-10 w-10 rounded-xl object-cover shrink-0 ring-1 ring-black/5"
                   />

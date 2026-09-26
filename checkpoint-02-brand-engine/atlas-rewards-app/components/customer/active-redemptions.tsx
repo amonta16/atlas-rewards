@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Gift, ChevronRight, Clock, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { RedemptionDetail } from "./redemption-detail";
@@ -122,7 +123,7 @@ export function ActiveRedemptions({
                     {r.reward_image ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={r.reward_image}
+                        src={optimizedUrl(r.reward_image, 800)}
                         alt=""
                         className="h-full w-full object-cover"
                       />

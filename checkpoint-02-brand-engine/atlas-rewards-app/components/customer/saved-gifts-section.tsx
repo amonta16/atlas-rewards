@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Gift, Clock, Sparkles, QrCode, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SavedGiftDetail } from "./saved-gift-detail";
@@ -182,7 +183,7 @@ export function SavedGiftsSection({
                 <div className="h-24 bg-white/10 flex items-center justify-center overflow-hidden">
                   {o.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={o.image_url} alt="" className="h-full w-full object-contain" />
+                    <img src={optimizedUrl(o.image_url, 800)} alt="" className="h-full w-full object-contain" />
                   ) : (
                     <Gift className="h-9 w-9 text-white/90" />
                   )}
@@ -226,7 +227,7 @@ export function SavedGiftsSection({
                 <div className="h-16 w-16 rounded-xl overflow-hidden shrink-0 bg-white/15 border border-white/25 flex items-center justify-center">
                   {o.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={o.image_url} alt="" className="h-full w-full object-cover" />
+                    <img src={optimizedUrl(o.image_url, 800)} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <Gift className="h-7 w-7 text-white" />
                   )}

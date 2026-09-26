@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import {
   loyaltyCardRamp, loyaltyCardSurface, loyaltyCardSheen, loyaltyCardVolume,
 } from "@/lib/loyalty-card";
@@ -115,11 +116,11 @@ export function TiltLoyaltyCard({
             bottom-right — the corner this layout deliberately keeps free. */}
         {membershipImageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={membershipImageUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
+          <img src={optimizedUrl(membershipImageUrl, 800)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
         ) : business.logo_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
-            src={business.logo_url}
+            src={optimizedUrl(business.logo_url, 320)}
             alt=""
             className="absolute right-5 bottom-4 h-24 max-w-[45%] object-contain opacity-[0.13] pointer-events-none"
           />

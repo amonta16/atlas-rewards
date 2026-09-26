@@ -29,6 +29,7 @@
  * gift_kind stays authoritative (CP-49).
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import {
   Flame, Gift, Trophy, Lock, Check, CalendarDays, QrCode, Sparkles, ChevronUp, Star, Crown, Zap,
   Play, Square,
@@ -436,10 +437,10 @@ export function StreaksClient({
               <div className="h-24 w-24 rounded-xl overflow-hidden shrink-0 bg-slate-100 flex items-center justify-center ring-1 ring-black/5">
                 {isReward(nextMilestone) && nextMilestone.reward_image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={nextMilestone.reward_image_url} alt={rewardTitle(nextMilestone)} className="h-full w-full object-contain" />
+                  <img src={optimizedUrl(nextMilestone.reward_image_url, 800)} alt={rewardTitle(nextMilestone)} className="h-full w-full object-contain" />
                 ) : !isReward(nextMilestone) && business.logo_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={business.logo_url} alt="" className="h-full w-full object-contain p-1.5" />
+                  <img src={optimizedUrl(business.logo_url, 800)} alt="" className="h-full w-full object-contain p-1.5" />
                 ) : (
                   <Gift className="h-8 w-8 text-slate-400" />
                 )}
@@ -1197,7 +1198,7 @@ function RewardRoad({
                           photo shows, never a forced crop. */}
                       <div className={`relative flex items-center justify-center ${unlocked ? "bg-white/15" : "bg-slate-100"}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={m.reward_image_url} alt="" className={`w-full object-contain ${isNext ? "h-24" : "h-20"}`}
+                        <img src={optimizedUrl(m.reward_image_url, 320)} alt="" className={`w-full object-contain ${isNext ? "h-24" : "h-20"}`}
                           style={{ opacity: unlocked || isNext ? 1 : 0.7, filter: unlocked || isNext ? undefined : "saturate(0.55)" }} />
                       </div>
                       <div className="p-2.5">
@@ -1233,7 +1234,7 @@ function RewardRoad({
                         }`}>
                           {pointsGift && logoUrl ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={logoUrl} alt="" className="h-full w-full object-contain p-1" />
+                            <img src={optimizedUrl(logoUrl, 800)} alt="" className="h-full w-full object-contain p-1" />
                           ) : (
                             <Gift className={`h-6 w-6 ${unlocked ? "" : "text-slate-400"}`}
                               style={unlocked ? { color: earnedInk } : undefined} />
@@ -1389,7 +1390,7 @@ function ClaimOverlay({
               style={{ background: `linear-gradient(160deg, ${mid} 0%, ${deep} 100%)` }}>
               {done.kind === "reward" && done.image ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={done.image} alt="" className="mx-auto h-24 object-contain drop-shadow-lg" />
+                <img src={optimizedUrl(done.image, 320)} alt="" className="mx-auto h-24 object-contain drop-shadow-lg" />
               ) : (
                 <div className="mx-auto h-16 w-16 rounded-2xl bg-white/20 flex items-center justify-center">
                   <Gift className="h-8 w-8 text-white" />

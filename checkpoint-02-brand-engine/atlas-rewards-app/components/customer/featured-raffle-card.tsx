@@ -14,6 +14,7 @@
  * featured offer card — a live giveaway is the bigger hype moment.
  */
 import { useEffect, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Clock, Ticket, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
@@ -94,7 +95,7 @@ export function FeaturedRaffleCard({
           <div className="relative">
             {raffle.image_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={raffle.image_url} alt={raffle.title} className="h-40 w-full object-cover" />
+              <img src={optimizedUrl(raffle.image_url, 800)} alt={raffle.title} className="h-40 w-full object-cover" />
             ) : (
               <div className="h-40 flex items-center justify-center"
                 style={{ background: `linear-gradient(135deg, ${primary} 0%, ${sec} 100%)` }}>

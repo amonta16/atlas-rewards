@@ -44,6 +44,17 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* CP-164: open the TLS connection to Supabase (API + image CDN)
+            while the HTML is still parsing — saves ~100–300 ms on the first
+            image and the first RPC on every cold open. */}
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <>
+            <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL} />
+          </>
+        )}
+      </head>
       <body className="min-h-screen antialiased">
         {/* CP-31: app-wide toaster — every alert() should migrate to this. */}
         {/* CP-76: native shell glue — renders nothing on the web/PWA. */}

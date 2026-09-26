@@ -11,6 +11,7 @@
  */
 
 import { useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 
 export function ImageCarousel({
   images,
@@ -37,7 +38,7 @@ export function ImageCarousel({
   if (images.length === 1) {
     // Single image: identical markup to the legacy render.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={images[0]} alt={alt} className={imgClassName} />;
+    return <img src={optimizedUrl(images[0], 800)} alt={alt} className={imgClassName} />;
   }
 
   return (
@@ -54,7 +55,7 @@ export function ImageCarousel({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`${src}-${i}`}
-            src={src}
+            src={optimizedUrl(src, 800)}
             alt={i === 0 ? alt : ""}
             className={`${imgClassName} w-full shrink-0 snap-center`}
             draggable={false}

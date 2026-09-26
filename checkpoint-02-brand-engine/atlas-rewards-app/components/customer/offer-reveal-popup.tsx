@@ -23,6 +23,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Gift, Sparkles, X, Play, Pause, Clock, Check } from "lucide-react";
 
 export type RevealOffer = {
@@ -224,7 +225,7 @@ export function OfferRevealPopup({
                 {offer.image_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
-                    src={offer.image_url}
+                    src={optimizedUrl(offer.image_url, 800)}
                     alt={offer.title}
                     className="absolute inset-0 h-full w-full object-cover"
                   />

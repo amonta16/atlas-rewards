@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useState } from "react";
+import { shrinkImage } from "@/lib/shrink-image";
 import QRCode from "react-qr-code";
 import { Loader2, Sparkles, Camera, Check, ExternalLink, Copy, X, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -125,7 +126,7 @@ export function FieldDemoModal({
     if (logoFile) {
       const ext = (logoFile.name.split(".").pop() || "png").toLowerCase();
       const path = `demos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("business-logos").upload(path, logoFile, { upsert: true });
+      const { error: upErr } = await supabase.storage.from("business-logos").upload(path, await shrinkImage(logoFile, 1024), { upsert: true, cacheControl: "31536000" });
       if (!upErr) {
         logoUrl = supabase.storage.from("business-logos").getPublicUrl(path).data.publicUrl;
       }

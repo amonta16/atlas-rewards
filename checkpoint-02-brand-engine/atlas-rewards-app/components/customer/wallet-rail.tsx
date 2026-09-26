@@ -27,6 +27,7 @@
  * that you cannot tell how far they run, so people never scroll them.
  */
 import { useEffect, useMemo, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Clock, ChevronRight, Gift, Ticket } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { MarqueeHeading } from "./marquee-heading";
@@ -216,7 +217,7 @@ export function WalletRail({
   const Thumb = ({ it, size }: { it: WalletItem; size: string }) =>
     it.image ? (
       /* eslint-disable-next-line @next/next/no-img-element */
-      <img src={it.image} alt="" className={`${size} rounded-xl object-cover`} />
+      <img src={optimizedUrl(it.image, 800)} alt="" className={`${size} rounded-xl object-cover`} />
     ) : (
       <div className={`${size} rounded-xl grid place-items-center`} style={{ background: `${primary}22` }}>
         {it.kind === "gift"

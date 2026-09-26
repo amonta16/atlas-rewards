@@ -20,6 +20,7 @@
  *    up on desktop.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import {
   Flame, Gift, Sparkles, Trophy, Check, X, ChevronLeft, ChevronRight, Lock, CalendarDays,
 } from "lucide-react";
@@ -498,7 +499,7 @@ export function StreakWidget({
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={milestone!.reward_image_url!}
+                            src={optimizedUrl(milestone!.reward_image_url!, 800)}
                             alt={milestone!.reward_name ?? milestone!.label}
                             className="absolute inset-0 h-full w-full object-cover rounded-xl"
                             style={{ opacity: isFilled ? 1 : 0.55 }}
@@ -528,7 +529,7 @@ export function StreakWidget({
                         <>
                           {business.logo_url ? (
                             /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={business.logo_url} alt="" className="h-6 w-6 rounded-md object-contain bg-white/90 p-0.5" />
+                            <img src={optimizedUrl(business.logo_url, 160)} alt="" className="h-6 w-6 rounded-md object-contain bg-white/90 p-0.5" />
                           ) : (
                             <span className="text-lg leading-none">⭐</span>
                           )}
@@ -651,14 +652,14 @@ export function StreakWidget({
                         {isRewardGift && m.reward_image_url ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
-                            src={m.reward_image_url}
+                            src={optimizedUrl(m.reward_image_url, 800)}
                             alt=""
                             className="h-full w-full object-cover"
                           />
                         ) : isPointsGift && business.logo_url ? (
                           // CP-44.1: points milestone → business logo.
                           /* eslint-disable-next-line @next/next/no-img-element */
-                          <img src={business.logo_url} alt="" className="h-full w-full object-contain bg-white p-0.5" />
+                          <img src={optimizedUrl(business.logo_url, 800)} alt="" className="h-full w-full object-contain bg-white p-0.5" />
                         ) : claimed ? (
                           <Trophy className="h-4 w-4 text-white" />
                         ) : isPointsGift ? (

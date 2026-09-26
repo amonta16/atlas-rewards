@@ -18,6 +18,7 @@
  * what the owner sees in the studio IS what the customer gets.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Check, Crown, Loader2, Sparkles, Zap, CalendarCheck, Wallet, Clock, ExternalLink, Store, BadgeCheck, Repeat, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,7 @@ export function MembershipOfferCard({
         {view.imageUrl && (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={view.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={optimizedUrl(view.imageUrl, 800)} alt="" className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${primary}22 0%, ${primary}e6 100%)` }} />
           </>
         )}

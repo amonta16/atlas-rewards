@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { X, Lock, Zap, RotateCcw, Coins, Gift, PartyPopper, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { rewardGameMeta } from "@/lib/reward-games";
@@ -455,7 +456,7 @@ export function DailyMysteryModal({
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={s.image}
+                          src={optimizedUrl(s.image, 160)}
                           alt={s.big}
                           className={`rounded-full object-cover ring-1 ring-white/80 shadow mb-0.5 ${
                             dense === 2 ? "h-6 w-6" : dense === 1 ? "h-8 w-8" : "h-10 w-10"
@@ -487,7 +488,7 @@ export function DailyMysteryModal({
               <div className="h-16 w-16 rounded-full bg-white flex items-center justify-center shadow-xl ring-2 ring-black/10 overflow-hidden">
                 {business.logo_url ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={business.logo_url} alt="" className="h-full w-full object-contain p-1.5" />
+                  <img src={optimizedUrl(business.logo_url, 800)} alt="" className="h-full w-full object-contain p-1.5" />
                 ) : (
                   <Zap className="h-6 w-6" style={{ color: primary }} />
                 )}
@@ -578,7 +579,7 @@ export function DailyMysteryModal({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={prize.image || business.logo_url || ""}
+                      src={optimizedUrl(prize.image || business.logo_url || "", 800)}
                       alt={prize.label}
                       className={`h-full w-full ${prize.image ? "object-cover" : "object-contain p-2"}`}
                     />
@@ -693,7 +694,7 @@ export function DailyMysteryModal({
                     {(storedPrize.image || business.logo_url) ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={storedPrize.image || business.logo_url || ""}
+                        src={optimizedUrl(storedPrize.image || business.logo_url || "", 800)}
                         alt={storedPrize.label}
                         className={`h-full w-full ${storedPrize.image ? "object-cover" : "object-contain p-2"}`}
                       />

@@ -7,6 +7,7 @@
  * Server component — links through AppLink (base-aware, no reload).
  */
 import { CalendarClock, ChevronRight } from "lucide-react";
+import { optimizedUrl } from "@/lib/img";
 import { AppLink } from "@/components/customer/app-link";
 import type { BookingResource } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
@@ -30,7 +31,7 @@ export function BookCard({ business, slug, resources }: { business: Business; sl
         {photo ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={optimizedUrl(photo, 800)} alt="" className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${primary}ee 0%, ${primary}b3 55%, ${primary}55 100%)` }} />
           </>
         ) : (
@@ -40,7 +41,7 @@ export function BookCard({ business, slug, resources }: { business: Business; sl
           <div className="h-12 w-12 rounded-2xl bg-white/20 backdrop-blur-sm ring-1 ring-white/40 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
             {photo
               /* eslint-disable-next-line @next/next/no-img-element */
-              ? <img src={photo} alt="" className="h-full w-full object-cover" />
+              ? <img src={optimizedUrl(photo, 800)} alt="" className="h-full w-full object-cover" />
               : (resources[0].emoji ?? <CalendarClock className="h-6 w-6" />)}
           </div>
           <div className="flex-1 min-w-0">

@@ -21,6 +21,7 @@
  * a push subscription against this business.
  */
 import { useEffect, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Bell, Sparkles, Check } from "lucide-react";
 import { ensurePushSubscription } from "@/lib/notifications/push-client";
 import { isNative } from "@/lib/native";
@@ -125,7 +126,7 @@ export function PwaWelcomeOverlay({
           <div className="mx-auto h-24 w-24 rounded-3xl bg-white ring-4 ring-white/40 shadow-xl flex items-center justify-center overflow-hidden">
             {logoUrl ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={logoUrl} alt={businessName} className="h-full w-full object-contain p-3" />
+              <img src={optimizedUrl(logoUrl, 800)} alt={businessName} className="h-full w-full object-contain p-3" />
             ) : (
               <Sparkles className="h-10 w-10" style={{ color: primary }} />
             )}

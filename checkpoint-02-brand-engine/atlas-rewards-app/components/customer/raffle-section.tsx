@@ -28,6 +28,7 @@
  *   after via the card.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import confetti from "canvas-confetti";
 import {
   AlertCircle, Clock, Crown, PartyPopper, Sparkles, Ticket, Trophy, X,
@@ -275,7 +276,7 @@ export function RafflesSection({
                 <div className="relative h-32 w-full">
                   {r.image_url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={r.image_url} alt={r.title} className="absolute inset-0 h-full w-full object-cover" />
+                    <img src={optimizedUrl(r.image_url, 800)} alt={r.title} className="absolute inset-0 h-full w-full object-cover" />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center"
                       style={{ background: `linear-gradient(135deg, ${primary} 0%, ${sec} 100%)` }}>

@@ -12,6 +12,7 @@
  * unchanged — it's a true drop-in.
  */
 import { useState, type CSSProperties } from "react";
+import { optimizedUrl, optimizedSrcSet } from "@/lib/img";
 
 export function SmartImage({
   src,
@@ -20,6 +21,7 @@ export function SmartImage({
   tint,
   eager = false,
   style,
+  width = 480,
 }: {
   src: string;
   alt?: string;
@@ -29,6 +31,8 @@ export function SmartImage({
   /** Above-the-fold? Fetch eagerly + high priority. */
   eager?: boolean;
   style?: CSSProperties;
+  /** CP-164: rendered CSS width — requests a resized copy from Supabase (1× + 2×). Default 480. */
+  width?: number;
 }) {
   const [loaded, setLoaded] = useState(false);
   const shimmer = tint ? `${tint}14` : "#eef1f4"; // ~8% brand tint, else soft grey
@@ -36,7 +40,8 @@ export function SmartImage({
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
-      src={src}
+      src={optimizedUrl(src, width)}
+      srcSet={optimizedSrcSet(src, width)}
       alt={alt}
       loading={eager ? "eager" : "lazy"}
       decoding="async"

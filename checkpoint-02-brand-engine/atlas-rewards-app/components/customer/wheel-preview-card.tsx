@@ -13,6 +13,7 @@
  * food) don't render this; entertainment gets it under the points card.
  */
 import { useEffect, useMemo, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { Sparkles, Clock, Lock, Coins, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { jitteredPollMs } from "@/lib/realtime-jitter";
@@ -116,7 +117,7 @@ export function WheelPreviewCard({ business, membershipId }: { business: Busines
                     <div className="absolute left-1/2 -translate-x-1/2 top-2 flex items-center justify-center text-white">
                       {s.image
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        ? <img src={s.image} alt="" className="h-6 w-6 rounded-full object-cover ring-2 ring-white/80 shadow" />
+                        ? <img src={optimizedUrl(s.image, 160)} alt="" className="h-6 w-6 rounded-full object-cover ring-2 ring-white/80 shadow" />
                         : s.kind === "points"
                           ? <span className="h-6 w-6 rounded-full bg-yellow-300 flex items-center justify-center shadow"><Coins className="h-3.5 w-3.5 text-zinc-900" /></span>
                           : <span className="h-6 w-6 rounded-full bg-white flex items-center justify-center shadow"><Gift className="h-3.5 w-3.5" style={{ color: primary }} /></span>}
