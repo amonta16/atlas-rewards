@@ -226,7 +226,10 @@ export function CustomerAppShell({
           surface that cancels this padding must cancel 6rem, not 5rem. */}
       {/* landscape:pb-28 = extra clearance for anyone still on a build that
           can rotate (pre-portrait-lock native, or a mobile browser). */}
-      <main className="flex-1 pb-24 landscape:pb-28">{children}</main>
+      {/* CP-157: clearance = nav height + the phone's home-indicator inset.
+          pb-24 alone was ~1–2 rows short on iPhones (the "View more rewards"
+          button sat under the bar). */}
+      <main className="flex-1" style={{ paddingBottom: "calc(7.25rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
       <nav
         className="fixed bottom-0 left-0 right-0 max-w-md mx-auto border-t px-1 pt-2.5 flex items-center justify-around z-40"
         // CP-110 (mobile): the layout runs viewport-fit=cover, so on notched

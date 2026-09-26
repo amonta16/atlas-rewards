@@ -58,6 +58,22 @@ export function ResourceBooking({ business, resources }: { business: Business; r
   const [sectionIdx, setSectionIdx] = useState(0);
   const days = useMemo(() => nextDays(Math.min(14, (resource?.horizon_days ?? 14) + 1)), [resource?.horizon_days]);
 
+  // CP-157: live occupancy per resource ("2 of 6 in use", "Fully booked ·
+  // free at 3:30"). Refreshes with my bookings and every 60s while on step 1.
+  type LiveRow = { resource_id: string; units: number; busy_now: number; next_free_at: string | null; booked_today: number };
+  const [liveMap, setLiveMap] = useState<Record<string, LiveRow>>({});
+  const loadLive = useCallback(async () => {
+    const { data, error } = await createClient().rpc("booking_resources_now", { p_business_id: business.id });
+    if (error || !Array.isArray(data)) return;
+    setLiveMap(Object.fromEntries((data as LiveRow[]).map(r => [r.resource_id, r])));
+  }, [business.id]);
+  useEffect(() => {
+    loadLive();
+    if (step !== "resource") return;
+    const t = setInterval(loadLive, 60_000);
+    return () => clearInterval(t);
+  }, [loadLive, step]);
+
   const loadMine = useCallback(async () => {
     const { data } = await createClient().rpc("my_bookings", { p_business_id: business.id });
     setMine((data ?? []) as MyBooking[]);
@@ -184,18 +200,22 @@ export function ResourceBooking({ business, resources }: { business: Business; r
                 onClick={() => chooseResource(r)}
                 className="w-full rounded-3xl bg-white border shadow-sm overflow-hidden text-left active:scale-[0.99] transition"
               >
-                <div className="relative aspect-[16/9] bg-zinc-100">
+                {/* CP-157: shorter photo (2.2:1, was 16:9) so six cages fit
+                    with less scrolling; a red gradient + pill when it's fully
+                    booked right now, amber when partly in use. */}
+                <div className="relative aspect-[2.2/1] bg-zinc-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={r.image_url} alt={r.name} className="absolute inset-0 h-full w-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute left-4 right-4 bottom-3 text-white">
-                    <div className="text-lg font-extrabold leading-tight drop-shadow">{r.name}</div>
+                  <div className={`absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t to-transparent ${liveTone(liveMap[r.id]) === "full" ? "from-red-700/85 via-red-600/40" : "from-black/70"}`} />
+                  <div className="absolute left-4 right-14 bottom-2.5 text-white">
+                    <div className="text-[17px] font-extrabold leading-tight drop-shadow">{r.name}</div>
                     <div className="text-[11px] font-semibold opacity-90">
                       {r.durations.map(durationLabel).join(" · ")}
                       {r.price_cents ? <> · {dollars(r.price_cents)}</> : null}
                       {" · "}up to {r.max_party}
                     </div>
                   </div>
+                  <LivePill row={liveMap[r.id]} className="absolute left-3 top-3" />
                   <span className="absolute right-3 top-3 h-8 w-8 rounded-full bg-white/90 flex items-center justify-center shadow" style={{ color: primary }}>
                     <ChevronRight className="h-4 w-4" />
                   </span>
@@ -207,7 +227,10 @@ export function ResourceBooking({ business, resources }: { business: Business; r
               key={r.id}
               type="button"
               onClick={() => chooseResource(r)}
-              className="w-full rounded-2xl bg-white border shadow-sm p-4 flex items-center gap-3 text-left active:scale-[0.99] transition"
+              className="w-full rounded-2xl border shadow-sm p-4 flex items-center gap-3 text-left active:scale-[0.99] transition relative overflow-hidden"
+              style={liveTone(liveMap[r.id]) === "full"
+                ? { background: "linear-gradient(90deg, #ffffff 0%, #ffffff 55%, rgba(239,68,68,0.16) 100%)", borderColor: "rgba(239,68,68,0.35)" }
+                : { background: "#fff" }}
             >
               <div
                 className="h-12 w-12 rounded-xl flex items-center justify-center text-2xl shrink-0 overflow-hidden"
@@ -216,7 +239,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
                 {r.emoji ?? "📅"}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold truncate">{r.name}</div>
+                <div className="font-bold truncate flex items-center gap-2">{r.name} <LivePill row={liveMap[r.id]} /></div>
                 <div className="text-[11px] text-muted-foreground truncate">
                   {r.durations.map(durationLabel).join(" · ")}
                   {r.price_cents ? <> · {dollars(r.price_cents)}</> : null}
@@ -447,5 +470,26 @@ function MyBookingsList({
         {past.slice(0, 5).map(m => <Row key={m.id} m={m} canCancel={false} />)}
       </div>
     </div>
+  );
+}
+
+
+/* ── CP-157: live occupancy helpers ─────────────────────────────────────── */
+type LiveTone = "full" | "busy" | "open" | "unknown";
+function liveTone(row?: { units: number; busy_now: number } | null): LiveTone {
+  if (!row) return "unknown";
+  if (row.busy_now >= row.units) return "full";
+  if (row.busy_now > 0) return "busy";
+  return "open";
+}
+function LivePill({ row, className = "" }: { row?: { units: number; busy_now: number; next_free_at: string | null } | null; className?: string }) {
+  const tone = liveTone(row);
+  if (tone === "unknown" || tone === "open") return null;
+  const free = row?.next_free_at ? new Date(row.next_free_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 h-6 text-[10px] font-black uppercase tracking-wide shadow-sm ${tone === "full" ? "bg-red-600 text-white" : "bg-amber-400 text-zinc-900"} ${className}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${tone === "full" ? "bg-white animate-pulse" : "bg-zinc-900/70"}`} />
+      {tone === "full" ? (free ? `Booked · free ${free}` : "Booked now") : `${row!.busy_now} of ${row!.units} in use`}
+    </span>
   );
 }
