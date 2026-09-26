@@ -120,9 +120,10 @@ export function BookingsDesk({
 
   return (
     <div className="space-y-4">
-      {/* Header strip */}
+      {/* Header strip — CP-162: anchor for the sidebar's Needs-action jump. */}
       <div
-        className="rounded-3xl p-5 text-white relative overflow-hidden shadow-xl"
+        id="desk-actions"
+        className="rounded-3xl p-5 text-white relative overflow-hidden shadow-xl scroll-mt-4"
         style={{ background: `linear-gradient(135deg, ${primary} 0%, ${business.brand_colors.secondary} 100%)` }}
       >
         <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/15 blur-3xl pointer-events-none" />

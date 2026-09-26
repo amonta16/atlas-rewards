@@ -183,6 +183,17 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   const visibleTabs = managerTabsFor(business, role);
   // CP-148: what needs a human right now — drives the badges on the nav.
   const actions = useDeskActions(business.id);
+  // CP-162: the "Needs action" card doesn't just switch tabs — it scrolls to
+  // the queue that needs the tap and flashes a ring around it.
+  const [flashActions, setFlashActions] = useState(false);
+  function jumpToActions(target: "desk" | "bookings") {
+    setTab(target);
+    setTimeout(() => {
+      document.getElementById("desk-actions")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setFlashActions(true);
+      setTimeout(() => setFlashActions(false), 2600);
+    }, 120);
+  }
   const badgeFor = (id: ManagerTab): number =>
     id === "bookings" ? actions.bookings : id === "desk" ? actions.reviews + actions.memberships : 0;
   // Recount whenever the user switches tabs (they probably just acted on something).
@@ -414,8 +425,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         {actions.total > 0 && (
           <button
             type="button"
-            onClick={() => setTab(actions.bookings > 0 && actions.reviews + actions.memberships === 0 ? "bookings" : "desk")}
-            className="mx-4 mt-4 rounded-2xl bg-white px-3.5 py-3 text-left shadow-lg"
+            onClick={() => jumpToActions(actions.bookings > 0 && actions.reviews + actions.memberships === 0 ? "bookings" : "desk")}
+            className="mx-4 mt-4 rounded-2xl bg-white px-3.5 py-3 text-left shadow-lg active:scale-[0.98] transition"
           >
             <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-amber-700">
               <span className="relative inline-flex">
@@ -437,10 +448,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
           <div className="px-2 pb-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">Front desk</div>
           {visibleTabs.filter(t => ["desk", "users", "bookings", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
-          {visibleTabs.some(t => ["offers", "news", "membership"].includes(t.id)) && (
+          {visibleTabs.some(t => ["offers", "news", "campaigns", "membership"].includes(t.id)) && (
             <div className="px-2 pt-4 pb-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">Customer app</div>
           )}
-          {visibleTabs.filter(t => ["offers", "news", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+          {visibleTabs.filter(t => ["offers", "news", "campaigns", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["insights", "billing", "team"].includes(t.id)) && (
             <div className="px-2 pt-4 pb-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">Business</div>
           )}
@@ -641,14 +652,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               </button>
             )}
 
-            {/* CP-43.4: prominent "install on this computer" card. Self-hides
-                once the app is installed / running standalone, so it only
-                shows during first-time setup at the front desk. */}
-            <ManagerPwaInstall
-              primary={business.brand_colors.primary}
-              businessName={business.name}
-              variant="card"
-            />
+            {/* CP-162: the big install card is gone — the small "Install"
+                button in the sidebar footer / phone header is the only one. */}
 
             {/* Scanner panel */}
             {mode === "scanning" && (
@@ -739,23 +744,22 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
               secondary={business.brand_colors.secondary}
             />
 
-            {/* CP-86: announcements — MANAGER-ONLY (business_staff never
-                sees it; the SQL RPCs are manager-gated too). */}
-            {(role === "business_manager" || role === "agency_admin") && (
-              <AnnouncementComposer
-                businessId={business.id}
-                primary={business.brand_colors.primary}
-              />
-            )}
+            {/* CP-162: announcements moved to the Users tab (they're a
+                message to the whole member list, not a desk action). */}
 
             {/* CP-48: insights moved OFF the front-desk tab — they live in the
                 Insights tab. The desk stays focused on day-to-day ops. */}
 
-            <ReviewQueue business={business} />
+            {/* CP-162: anchor + flash target for the sidebar's Needs-action card. */}
+            <div id="desk-actions" className={`scroll-mt-4 rounded-3xl transition-shadow duration-500 ${flashActions ? "ring-4 ring-amber-300 shadow-[0_0_0_10px_rgba(252,211,77,0.25)]" : ""}`}>
+              <div className="space-y-6">
+                <ReviewQueue business={business} />
 
-            {/* CP-34: pending memberships awaiting in-person / external-link
-                payment confirmation. Self-hides when empty. */}
-            <PendingMembershipsQueue business={business} />
+                {/* CP-34: pending memberships awaiting in-person / external-link
+                    payment confirmation. Self-hides when empty. */}
+                <PendingMembershipsQueue business={business} />
+              </div>
+            </div>
 
             {/* CP-43.2: notification types / diagnostics / send-to-all
                 removed from the front desk per Andrew — those live in the
@@ -814,11 +818,21 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         )}
 
         {tab === "users" && (
-          <MembersDirectory
-            businessId={business.id}
-            primary={business.brand_colors.primary}
-            onPick={(m) => setMember(m as Member)}
-          />
+          <div className="space-y-6">
+            <MembersDirectory
+              businessId={business.id}
+              primary={business.brand_colors.primary}
+              onPick={(m) => setMember(m as Member)}
+            />
+            {/* CP-86 / CP-162: announcements — MANAGER-ONLY, now with the
+                member list it speaks to (was on the Front desk tab). */}
+            {(role === "business_manager" || role === "agency_admin") && (
+              <AnnouncementComposer
+                businessId={business.id}
+                primary={business.brand_colors.primary}
+              />
+            )}
+          </div>
         )}
 
         {tab === "insights" && (

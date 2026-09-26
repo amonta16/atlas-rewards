@@ -110,6 +110,14 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
   // CP-36: we-miss-you composer — opens with either a single membership
   // selected, or null (= send-to-all-inactive).
   const [composer, setComposer] = useState<{ target: Inactive | "all" } | null>(null);
+  // CP-162: store-visible rewards for the win-back gift picker.
+  const [winbackRewards, setWinbackRewards] = useState<{ id: string; name: string; point_cost: number; image_url: string | null }[]>([]);
+  useEffect(() => {
+    createClient().from("rewards").select("id,name,point_cost,image_url")
+      .eq("business_id", business.id).eq("is_active", true).is("archived_at", null)
+      .order("point_cost").limit(30)
+      .then(({ data }) => setWinbackRewards((data ?? []) as any));
+  }, [business.id]);
 
   async function loadAll() {
     const supabase = createClient();
@@ -150,7 +158,9 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
   // CP-36: send a we-miss-you notification (+ optional bonus points) to
   // a single inactive member OR to the entire inactive list. Targets the
   // existing send_winback RPC per row.
-  async function sendWeMissYou(target: Inactive | "all", bonusPoints: number, message: string) {
+  // CP-162: the gift can be points, a free REWARD (expiring redemption), or
+  // both — via send_winback_v2, which also writes the (gated) notification.
+  async function sendWeMissYou(target: Inactive | "all", bonusPoints: number, message: string, rewardId: string | null = null, expiresDays = 7) {
     const targets: Inactive[] = target === "all" ? inactive : [target];
     if (targets.length === 0) {
       toast.error("Nobody inactive right now");
@@ -161,31 +171,19 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
     try {
       // Fire them in parallel — each call is an independent insert.
       await Promise.all(
-        targets.map(t => supabase.rpc("send_winback", {
+        targets.map(t => supabase.rpc("send_winback_v2", {
           p_business_id: business.id,
           p_membership_id: t.membership_id,
           p_title: "We miss you ✨",
           p_body: message,
           p_bonus_points: bonusPoints > 0 ? bonusPoints : null,
-        }))
+          p_reward_id: rewardId,
+          p_expires_days: expiresDays,
+        }).then(r => { if (r.error) throw r.error; return r; }))
       );
-      // CP-43: send_winback writes the in-app row; this fires the INSTANT
-      // phone push via the same path the test button / "Send to all" use,
-      // so the win-back lights up phones immediately instead of waiting on
-      // the process-pending cron. Fire-and-forget — the in-app row is the
-      // safety net if push isn't configured.
-      fetch("/api/notifications/push-now", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          business_id: business.id,
-          membership_ids: targets.map(t => t.membership_id),
-          title: "We miss you ✨",
-          body: message,
-          link_path: "/app/rewards",
-          kind: "we_miss_you",
-        }),
-      }).catch(() => { /* silent — cron will still pick up the in-app row */ });
+      // CP-162: send_winback_v2 writes the notification row itself, and the
+      // universal push-fanout trigger delivers the phone push from that row —
+      // the old extra push-now call here would have been a second push.
       toast.success(
         target === "all"
           ? `Sent to ${targets.length} member${targets.length === 1 ? "" : "s"}`
@@ -663,7 +661,8 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
               : sending === composer.target.membership_id
           }
           onCancel={() => setComposer(null)}
-          onSend={(bonus, msg) => sendWeMissYou(composer.target, bonus, msg)}
+          rewards={winbackRewards}
+          onSend={(bonus, msg, rewardId, days) => sendWeMissYou(composer.target, bonus, msg, rewardId, days)}
         />
       )}
     </div>
@@ -678,16 +677,20 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
  * member and for the send-to-all path — same UI, different recipient set.
  */
 function WeMissYouComposer({
-  target, totalIfAll, brand, busy, onCancel, onSend,
+  target, totalIfAll, brand, busy, onCancel, onSend, rewards,
 }: {
   target: Inactive | "all";
   totalIfAll: number;
   brand: string;
   busy: boolean;
   onCancel: () => void;
-  onSend: (bonusPoints: number, message: string) => void;
+  onSend: (bonusPoints: number, message: string, rewardId: string | null, expiresDays: number) => void;
+  rewards: { id: string; name: string; point_cost: number; image_url: string | null }[];
 }) {
   const [bonus, setBonus] = useState<number>(50);
+  // CP-162: optional free reward + how long the whole thing stays valid.
+  const [rewardId, setRewardId] = useState<string | null>(null);
+  const [days, setDays] = useState<number>(7);
   const [message, setMessage] = useState<string>(
     "Here's a little bonus to welcome you back — come see us soon."
   );
@@ -718,9 +721,45 @@ function WeMissYouComposer({
             Sending to <b>{recipientLabel}</b>.
           </div>
 
+          {/* CP-162 · free reward */}
+          <div>
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Free reward (optional)</Label>
+            <div className="mt-1 grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5">
+              <button type="button" onClick={() => setRewardId(null)}
+                className={`rounded-xl border px-2.5 py-2 text-left text-[12px] font-semibold ${rewardId === null ? "border-transparent text-white" : "bg-white hover:bg-zinc-50"}`}
+                style={rewardId === null ? { background: brand } : undefined}>No reward — points / message only</button>
+              {rewards.map(r => (
+                <button key={r.id} type="button" onClick={() => setRewardId(r.id)}
+                  className={`rounded-xl border px-2 py-1.5 text-left flex items-center gap-2 ${rewardId === r.id ? "border-transparent text-white" : "bg-white hover:bg-zinc-50"}`}
+                  style={rewardId === r.id ? { background: brand } : undefined}>
+                  {r.image_url
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={r.image_url} alt="" className="h-7 w-7 rounded-md object-cover shrink-0" />
+                    : <span className="h-7 w-7 rounded-md bg-zinc-100 shrink-0" />}
+                  <span className="min-w-0">
+                    <span className="block text-[12px] font-semibold truncate">{r.name}</span>
+                    <span className={`block text-[10px] ${rewardId === r.id ? "text-white/80" : "text-zinc-500"}`}>free · worth {r.point_cost.toLocaleString()} pts</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-1">A free redemption lands in their Rewards tab with a code. It expires — and they get a reminder before it does.</p>
+          </div>
+
+          <div>
+            <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Valid for</Label>
+            <div className="mt-1 flex gap-1.5">
+              {[3, 7, 14].map(d => (
+                <button key={d} type="button" onClick={() => setDays(d)}
+                  className={`rounded-full border px-3 h-8 text-[12px] font-bold ${days === d ? "border-transparent text-white" : "bg-white hover:bg-zinc-50"}`}
+                  style={days === d ? { background: brand } : undefined}>{d} days</button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-              Bonus credits (0 = just a message)
+              Bonus credits (0 = none)
             </Label>
             <Input
               type="number"
@@ -756,7 +795,7 @@ function WeMissYouComposer({
             Cancel
           </button>
           <Button
-            onClick={() => onSend(bonus, message)}
+            onClick={() => onSend(bonus, message, rewardId, days)}
             disabled={busy || !message.trim()}
             className="rounded-full px-5 text-white"
             style={{ background: brand }}

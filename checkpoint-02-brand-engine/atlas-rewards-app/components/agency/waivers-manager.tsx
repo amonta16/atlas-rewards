@@ -23,6 +23,9 @@ import { businessUrl } from "@/lib/utils";
 import { WaiverSubmissions } from "@/components/manager/waiver-submissions";
 import type { Business } from "@/lib/types/database";
 
+/** CP-162: promo-QR campaigns hidden from the builder (see section 2). */
+const SHOW_CAMPAIGNS = false;
+
 type Waiver = { id: string; title: string; is_active: boolean; required_for_signup: boolean; current_version_id: string | null; created_at: string; kiosk_enabled: boolean; valid_days?: number | null };
 /** CP-160: how long a signature stays good. 0 = forever. */
 const VALIDITY_CHOICES = [{ d: 180, label: "6 months" }, { d: 365, label: "1 year" }, { d: 730, label: "2 years" }, { d: 0, label: "Never expires" }];
@@ -265,7 +268,11 @@ export function WaiversManager({ business }: { business: Business }) {
         )}
       </div>
 
-      {/* ── 2. Campaigns ───────────────────────────────────────────── */}
+      {/* ── 2. Campaigns — CP-162: hidden. The promo-QR signup campaign was
+             the "sign the waiver at the door" path; since CP-137 the waiver
+             is a hard gate on every signup, so the campaign UI only confused
+             (Andrew). Data + RPCs stay; flip SHOW_CAMPAIGNS to bring it back. */}
+      {SHOW_CAMPAIGNS && (
       <div className="rounded-2xl border bg-white p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -314,6 +321,8 @@ export function WaiversManager({ business }: { business: Business }) {
           </div>
         )}
       </div>
+
+      )}
 
       {/* ── 3. Submissions ─────────────────────────────────────────── */}
       <WaiverSubmissions business={business} waivers={waivers.map(w => ({ id: w.id, title: w.title }))} />
