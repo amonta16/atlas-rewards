@@ -157,6 +157,8 @@ export function AwardPointsPanel({
   const [success, setSuccess] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [streak, setStreak] = useState<StreakSnapshot | null>(null);
+  // CP-159: presence is inferred server-side from staff awards (no button).
+  const [presence, setPresence] = useState<{ checked_in_at: string; cooldown_until: string } | null>(null);
   const [checkInResult, setCheckInResult] = useState<{ streak: number; milestone: string | null; mystery: boolean } | null>(null);
   // CP-44: total $ this member has spent (front desk + manager + admin see it).
   const [spentCents, setSpentCents] = useState<number | null>(null);
@@ -195,6 +197,11 @@ export function AwardPointsPanel({
       });
       const row = (Array.isArray(data) ? data[0] : data) as StreakSnapshot | null;
       setStreak(row);
+    })();
+    (async () => {
+      const { data, error } = await supabase.rpc("member_presence", { p_membership_id: member.membership_id });
+      const row = (Array.isArray(data) ? data[0] : data) as { checked_in_at: string; cooldown_until: string } | null;
+      setPresence(error ? null : (row ?? null));
     })();
     (async () => {
       const { data } = await supabase.rpc("member_total_spent", { p_membership_id: member.membership_id });
@@ -267,69 +274,8 @@ export function AwardPointsPanel({
     }
   }
 
-  async function checkIn() {
-    setSubmitting(true); setErr(null);
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("member_checkin", {
-      p_business_id: business.id, p_membership_id: member.membership_id,
-    });
-    setSubmitting(false);
-    if (error) { setErr(error.message); return; }
-    const row = (Array.isArray(data) ? data[0] : data) as {
-      streak_after: number;
-      awarded_points: number;
-      is_milestone: boolean;
-      milestone_label: string | null;
-      milestone_mystery_unlocked: boolean;
-      already_checked_in: boolean;
-    } | null;
-    if (!row) return;
-    if (row.already_checked_in) {
-      setErr("Checked in less than 12 hours ago — this visit is already counted.");
-      return;
-    }
-
-    // CP-81: a check-in IS a visit. If the business configured a per-visit
-    // "Check-in reward" (point_rules.visit), award it here alongside any
-    // streak milestone points — so staff only ever need this one button.
-    // Previously the per-visit reward ONLY paid out via the separate
-    // "Visit / Check-in" quick-award tile, which read as "check-in gives
-    // no points" the first time someone tested it. The streak cooldown
-    // above (already_checked_in) is the double-award guard: this only
-    // fires on a genuinely new check-in for the period.
-    let visitPoints = 0;
-    const perVisit = Number(business.point_rules?.visit ?? 0);
-    if (perVisit > 0) {
-      const oldBalance = balance;
-      const { data: qData, error: qErr } = await supabase.rpc("quick_award", {
-        p_membership_id: member.membership_id,
-        p_rule_key: "visit",
-        p_notes: "Check-in",
-      });
-      if (!qErr) {
-        visitPoints = qData?.[0]?.points_awarded ?? perVisit;
-        // Same award-event fanout as the quick-award tile (CP-37.20).
-        fetch("/api/notifications/award-event", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            business_id: business.id,
-            membership_id: member.membership_id,
-            old_balance: oldBalance,
-            new_balance: oldBalance + visitPoints,
-          }),
-        }).catch(() => { /* silent */ });
-      }
-    }
-
-    setCheckInResult({
-      streak: row.streak_after,
-      milestone: row.is_milestone ? row.milestone_label : null,
-      mystery: row.milestone_mystery_unlocked,
-    });
-    const totalAwarded = row.awarded_points + visitPoints;
-    if (totalAwarded > 0) setSuccess(totalAwarded);
-  }
+  // CP-159: the manual checkIn() handler is gone — presence is recorded by the
+  // _auto_checkin_on_award trigger whenever staff award points.
 
   const dollars = parseFloat(amount || "0") || 0;
   const pointsToAward = Math.floor(dollars * business.point_rules.purchase_per_dollar);
@@ -632,53 +578,43 @@ export function AwardPointsPanel({
         {/* MODE: menu — choose what to award */}
         {mode === "menu" && (
           <>
-            {/* ============ STREAK CHECK-IN ============ */}
+            {/* ============ PRESENCE (CP-159) ============
+                The Check-in button is gone. Awarding points at the desk IS the
+                check-in: a DB trigger counts the visit, unlocks the wheel and
+                advances the streak (12h cooldown), so staff only ever do one
+                thing. This card just reports what the system already knows. */}
+            <div className="mt-6">
+              <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Visit</h3>
+              <div
+                className="mt-2 w-full rounded-2xl p-4 flex items-center gap-3 shadow-sm border"
+                style={presence
+                  ? { background: "linear-gradient(135deg, #ecfdf5, #d1fae5)", borderColor: "#a7f3d0", color: "#065f46" }
+                  : { background: "#fff", color: "#3f3f46" }}
+              >
+                <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: presence ? "rgba(16,185,129,0.18)" : `${business.brand_colors.primary}14`, color: presence ? "#059669" : business.brand_colors.primary }}>
+                  {presence ? <Check className="h-6 w-6" /> : <Flame className="h-6 w-6" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-base leading-tight">
+                    {presence ? "Visit counted — wheel unlocked" : "Visit counts when you award points"}
+                  </div>
+                  <div className="text-xs opacity-90 mt-0.5">
+                    {presence ? (
+                      <>Checked in {new Date(presence.checked_in_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                        {streak?.is_enabled && streak.current_streak > 0 && <> · streak <strong>{streak.current_streak}</strong></>}
+                        {" · next visit counts in "}<strong>{timeLeftLabel(new Date(presence.cooldown_until).getTime() - Date.now())}</strong></>
+                    ) : (
+                      <>Ring up a purchase or a quick award and Atlas records the visit{streak?.is_enabled ? ", streak" : ""} and daily spin automatically.</>
+                    )}
+                  </div>
+                </div>
+                {streak?.is_enabled && streak.current_streak > 0 && (
+                  <div className="text-2xl font-extrabold tabular-nums shrink-0">{streak.current_streak}</div>
+                )}
+              </div>
             {streak?.is_enabled && (
-              <div className="mt-6">
-                <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Attendance</h3>
-                <button
-                  onClick={checkIn}
-                  disabled={submitting || inCheckinCooldown}
-                  className="mt-2 w-full rounded-2xl p-4 flex items-center gap-3 text-left transition shadow-md active:scale-[0.98] disabled:active:scale-100 disabled:opacity-70"
-                  style={{
-                    background: inCheckinCooldown
-                      ? "linear-gradient(135deg, #d1fae5, #a7f3d0)"
-                      : `linear-gradient(135deg, ${business.brand_colors.primary}, ${business.brand_colors.secondary})`,
-                    color: inCheckinCooldown ? "#065f46" : "white",
-                  }}
-                >
-                  <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: "rgba(255,255,255,0.25)" }}>
-                    {inCheckinCooldown ? <Check className="h-6 w-6" /> : <Flame className="h-6 w-6" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-bold text-base leading-tight">
-                      {inCheckinCooldown ? "Checked in — come back later" : "Check in"}
-                    </div>
-                    <div className="text-xs opacity-90 mt-0.5">
-                      {inCheckinCooldown ? (
-                        <>Next check-in in <strong>{timeLeftLabel(cooldownEndsMs - Date.now())}</strong> (12h between visits)</>
-                      ) : streak.checked_in_this_period ? (
-                        // CP-125: streak already advanced this period, but the
-                        // visit + wheel spin STILL count — say so, don't block.
-                        <>Streak already counted this {streak.period_type === "daily" ? "day" : streak.period_type.replace("ly", "")} — this check-in still counts the visit &amp; unlocks the wheel</>
-                      ) : streak.current_streak > 0 ? (
-                        <>Streak: <strong>{streak.current_streak}</strong> {streak.period_type === "daily" ? "day" : streak.period_type}{streak.current_streak === 1 ? "" : "s"} in a row</>
-                      ) : (
-                        "Start their streak today"
-                      )}
-                      {!inCheckinCooldown && streak.longest_streak > streak.current_streak && (
-                        <> · longest {streak.longest_streak}</>
-                      )}
-                    </div>
-                  </div>
-                  {streak.current_streak > 0 && (
-                    <div className="text-2xl font-extrabold tabular-nums shrink-0">
-                      {streak.current_streak}
-                    </div>
-                  )}
-                </button>
-
+              <div>
                 {/* CP-103: NEXT CHECK-IN — front desk can now answer "when
                     should I come back?" without opening the customer app. */}
                 {(() => {
@@ -738,6 +674,7 @@ export function AwardPointsPanel({
                 )}
               </div>
             )}
+            </div>
 
             {/* CP-37.2: "By transaction" is now the dominant CTA on the
                 screen. Filled with the brand color, white text, larger

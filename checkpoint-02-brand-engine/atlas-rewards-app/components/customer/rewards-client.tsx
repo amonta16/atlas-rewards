@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Fragment, useMemo } from "react";
 import { Gift, Lock, Users, ShoppingBag, Star, Calendar, ChevronRight, ExternalLink, Zap, Instagram, Facebook } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { RedeemFlow } from "./redeem-flow";
@@ -44,6 +44,8 @@ type Reward = {
   /** CP-99 gallery photos (cover = image_url). The page selects *, so these
    *  arrive already — the type just never declared them. */
   images?: string[] | null;
+  /** CP-159: free-form category from the builder ("Food", "Discounts"). */
+  category?: string | null;
 };
 
 type FeaturedOffer = {
@@ -60,6 +62,20 @@ export function RewardsClient({
   const [featuredOffer, setFeaturedOffer] = useState<FeaturedOffer | null>(initialFeaturedOffer);
   // CP-66: rewards-store layout preset (grid / list / carousel / spotlight).
   const storeLayout = rewardsLayout(business.rewards_layout);
+  // CP-159: category sections for grid/list. Order = first appearance
+  // (rewards arrive sorted by sort_order), uncategorized last as "More".
+  const rewardGroups = useMemo(() => {
+    if (storeLayout !== "grid" && storeLayout !== "list") return [{ category: "", items: rewards }];
+    const out: { category: string; items: Reward[] }[] = [];
+    for (const r of rewards) {
+      const c = (r.category ?? "").trim() || "More";
+      let g = out.find(x => x.category === c);
+      if (!g) { g = { category: c, items: [] }; out.push(g); }
+      g.items.push(r);
+    }
+    out.sort((a, b) => (a.category === "More" ? 1 : 0) - (b.category === "More" ? 1 : 0));
+    return out.length ? out : [{ category: "", items: rewards }];
+  }, [rewards, storeLayout]);
   // CP-99 3b.1: reward-panel style preset (classic/outline/glow/tint/
   // midnight/luxe) — picked in the brand editor. Dark presets flip the
   // card text to white.
@@ -338,7 +354,20 @@ export function RewardsClient({
             </div>
           )}
           {/* CP-66: layout presets — grid (default) / list / carousel /
-              spotlight. Structure only; the cards keep the same content. */}
+              spotlight. Structure only; the cards keep the same content.
+              CP-159: grid + list are split into category sections (Food,
+              Discounts, …) with a small brand-colored header; one unnamed
+              category renders exactly as before. Carousel / spotlight / kart
+              stay flat — they're single-strip layouts by design. */}
+          {rewardGroups.map((g, gi) => (
+          <Fragment key={g.category}>
+          {rewardGroups.length > 1 && (
+            <div className={`flex items-center gap-2 ${gi === 0 ? "mb-2" : "mt-6 mb-2"}`}>
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: business.brand_colors.primary }}>{g.category}</span>
+              <span className="text-[10px] font-semibold text-zinc-400">{g.items.length}</span>
+              <span className="flex-1 h-px" style={{ background: `${business.brand_colors.primary}33` }} />
+            </div>
+          )}
           <div
             className={
               storeLayout === "list"
@@ -350,7 +379,7 @@ export function RewardsClient({
                     : "grid grid-cols-2 gap-3"
             }
           >
-            {rewards.map((r, ri) => {
+            {g.items.map((r, ri) => {
               const locked = displayed < r.point_cost;
               // CP-27: progress = current points / cost, capped at 100%.
               const pct = r.point_cost > 0
@@ -625,6 +654,8 @@ export function RewardsClient({
               </div>
             )}
           </div>
+          </Fragment>
+          ))}
 
           {/* CP-52.1: same high-contrast "View more rewards" button as Home —
               goes straight to the full categorized catalog. */}
