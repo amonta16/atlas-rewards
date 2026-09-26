@@ -154,6 +154,12 @@ export function DailyMysteryModal({
 
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
   const primary = business.brand_colors.primary;
+  // CP-156: slow idle turn while the wheel is just being looked at (locked or
+  // ready) — same feel as the Home preview card. Stopped the instant a real
+  // spin starts; the current angle is folded into wheelRot so the landing
+  // math (absolute degrees) still points at the awarded wedge.
+  const wheelRef = useRef<HTMLDivElement | null>(null);
+  const [idle, setIdle] = useState(true);
 
   // CP-72: load the segment labels (no weights/odds — those stay server-side).
   useEffect(() => {
@@ -214,10 +220,25 @@ export function DailyMysteryModal({
     setErr(null);
     setPhase("spinning");
 
+    // CP-156: freeze the idle turn exactly where it is, then spin from there.
+    let startAngle = wheelRot;
+    if (idle && wheelRef.current) {
+      const t = getComputedStyle(wheelRef.current).transform;
+      const m = t && t !== "none" ? t.match(/matrix\(([^)]+)\)/) : null;
+      if (m) {
+        const [a, b] = m[1].split(",").map(Number);
+        startAngle = ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
+      }
+      setIdle(false);
+      setWheelMs(0);
+      setWheelRot(startAngle);
+      await new Promise<void>(res => requestAnimationFrame(() => requestAnimationFrame(() => res())));
+    }
+
     // Long lazy spin while we wait; overridden with the precise landing
     // rotation once the server answers.
     setWheelMs(9000);
-    setWheelRot((r) => r + 1440);
+    setWheelRot(startAngle + 1440);
 
     // Ask the server to pick + award the prize. The client cannot influence
     // the amount, can only spin for itself, and the cooldown is enforced here
@@ -394,12 +415,15 @@ export function DailyMysteryModal({
             {/* CP-133: bigger wheel — fills the phone width (capped so it
                 still fits above the spin button on short screens). */}
             <div
+              ref={wheelRef}
               className="relative rounded-full"
               style={{
                 width: "min(88vw, 46vh, 360px)",
                 height: "min(88vw, 46vh, 360px)",
                 transform: `rotate(${wheelRot}deg)`,
                 transition: wheelMs ? `transform ${wheelMs}ms cubic-bezier(0.12, 0.8, 0.22, 1)` : "none",
+                // CP-156: idle turn only before the first spin of this session.
+                animation: idle && (phase === "locked" || phase === "ready") ? "wheelidle 40s linear infinite" : undefined,
                 background: `conic-gradient(${segments.map(
                   (_, i) => `${i % 2 ? `${primary}cc` : "#181830"} ${i * segAngle}deg ${(i + 1) * segAngle}deg`,
                 ).join(", ")})`,
@@ -752,6 +776,7 @@ export function DailyMysteryModal({
             0%, 100% { opacity: 1; }
             50%       { opacity: 0.4; }
           }
+          @keyframes wheelidle { to { transform: rotate(360deg); } }
         `}</style>
       </div>
     </div>
