@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { type BookingResource, dollars, durationLabel, BOOKING_CATEGORY_SUGGESTIONS, groupResources } from "@/lib/booking";
+import { type BookingResource, type BookingPackage, dollars, durationLabel, BOOKING_CATEGORY_SUGGESTIONS, groupResources } from "@/lib/booking";
 // CP-148: a real photo of the cage / bay instead of an emoji.
 import { ImageUploader } from "@/components/agency/image-uploader";
 import type { Business } from "@/lib/types/database";
@@ -32,7 +32,16 @@ type Draft = {
   image_url: string | null;
   /** CP-155 */
   category: string;
+  /** CP-163: party packages (price typed in dollars for the form). */
+  packages: PkgDraft[];
 };
+type PkgDraft = { id: string; name: string; price: string; blurb: string; includes: string; duration: number | null; image_url: string | null };
+const newPkg = (): PkgDraft => ({ id: Math.random().toString(36).slice(2, 10), name: "", price: "", blurb: "", includes: "", duration: null, image_url: null });
+const pkgFrom = (p: BookingPackage): PkgDraft => ({ id: p.id, name: p.name, price: p.price_cents != null ? (p.price_cents / 100).toString() : "", blurb: p.blurb ?? "", includes: (p.includes ?? []).join("\n"), duration: p.duration ?? null, image_url: p.image_url ?? null });
+const pkgOut = (d: PkgDraft): BookingPackage | null => d.name.trim() ? ({
+  id: d.id, name: d.name.trim(), price_cents: d.price.trim() ? Math.round(parseFloat(d.price) * 100) : null,
+  blurb: d.blurb.trim() || null, includes: d.includes.split("\n").map(x => x.trim()).filter(Boolean), duration: d.duration, image_url: d.image_url,
+}) : null;
 
 function draftFrom(r: BookingResource | null): Draft {
   return r ? {
@@ -40,9 +49,10 @@ function draftFrom(r: BookingResource | null): Draft {
     durations: r.durations, slot_minutes: r.slot_minutes, buffer_minutes: r.buffer_minutes, max_party: r.max_party,
     price: r.price_cents != null ? (r.price_cents / 100).toString() : "", deposit: r.deposit_cents != null ? (r.deposit_cents / 100).toString() : "",
     hours: r.hours, is_active: r.is_active, image_url: r.image_url ?? null, category: r.category ?? "",
+    packages: (r.packages ?? []).map(pkgFrom),
   } : {
     id: null, name: "", description: "", emoji: "", units: 1, unit_label: "spot", durations: [60], slot_minutes: 30, buffer_minutes: 0,
-    max_party: 8, price: "", deposit: "", hours: null, is_active: true, image_url: null, category: "",
+    max_party: 8, price: "", deposit: "", hours: null, is_active: true, image_url: null, category: "", packages: [],
   };
 }
 
@@ -91,7 +101,10 @@ export function BookingResourceSetup({
     const id = (savedId as string | null) ?? draft.id;
     if (id) {
       // CP-155: category rides along the same direct write.
-      const { error: imgErr } = await supabase.from("booking_resources").update({ image_url: draft.image_url, category: draft.category.trim() || null }).eq("id", id);
+      const { error: imgErr } = await supabase.from("booking_resources").update({
+        image_url: draft.image_url, category: draft.category.trim() || null,
+        packages: draft.packages.map(pkgOut).filter(Boolean),   // CP-163
+      }).eq("id", id);
       if (imgErr) { setSaving(false); setErr("Saved, but the photo/section didn't stick: " + imgErr.message); changed(); return; }
     }
     setSaving(false);
@@ -209,6 +222,45 @@ export function BookingResourceSetup({
           <div>
             <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Short description (optional)</Label>
             <Input value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} placeholder="Fast & slow pitch, helmets included" className="mt-1" maxLength={160} />
+          </div>
+
+          {/* CP-163 · packages */}
+          <div className="rounded-xl border bg-zinc-50 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Packages (optional)</Label>
+                <p className="text-[11px] text-zinc-500 mt-0.5">For party rooms: customers pick one before choosing a time. Name + price + a short line; the details hide behind &quot;What&apos;s included&quot;.</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setDraft({ ...draft, packages: [...draft.packages, newPkg()] })}><Plus className="h-3.5 w-3.5 mr-1" /> Package</Button>
+            </div>
+            {draft.packages.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {draft.packages.map((p, i) => {
+                  const set = (patch: Partial<PkgDraft>) => setDraft({ ...draft, packages: draft.packages.map((x, j) => j === i ? { ...x, ...patch } : x) });
+                  return (
+                    <div key={p.id} className="rounded-xl border bg-white p-3 space-y-2">
+                      <div className="grid grid-cols-[1fr_96px_36px] gap-2">
+                        <Input value={p.name} onChange={e => set({ name: e.target.value })} placeholder="Birthday Blast" className="h-9 font-semibold" maxLength={40} />
+                        <Input value={p.price} onChange={e => set({ price: e.target.value })} placeholder="$ 249" inputMode="decimal" className="h-9" />
+                        <button type="button" onClick={() => setDraft({ ...draft, packages: draft.packages.filter((_, j) => j !== i) })} className="h-9 w-9 rounded-full hover:bg-rose-50 text-rose-600 flex items-center justify-center" aria-label="Remove"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                      <Input value={p.blurb} onChange={e => set({ blurb: e.target.value })} placeholder="One line that sells it — “2 hours, 10 kids, pizza and a cage.”" className="h-9" maxLength={120} />
+                      <textarea value={p.includes} onChange={e => set({ includes: e.target.value })} rows={3} placeholder={"What's included — one per line\n2 hours in the party room\n10 arcade cards · 60 min cage time\n2 large pizzas + drinks"} className="w-full rounded-md border px-3 py-2 text-sm" />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Length</span>
+                        <button type="button" onClick={() => set({ duration: null })} className={cn("rounded-full border px-2.5 h-7 text-[11px] font-semibold", p.duration === null ? "bg-zinc-900 text-white border-zinc-900" : "bg-white")}>Customer picks</button>
+                        {draft.durations.map(d => (
+                          <button key={d} type="button" onClick={() => set({ duration: d })} className={cn("rounded-full border px-2.5 h-7 text-[11px] font-semibold", p.duration === d ? "bg-zinc-900 text-white border-zinc-900" : "bg-white")}>{durationLabel(d)}</button>
+                        ))}
+                      </div>
+                      <div className="max-w-[220px]">
+                        <ImageUploader bucket="news-images" pathPrefix={`${business.id}/booking/pkg`} value={p.image_url} onChange={url => set({ image_url: url })} aspectClass="aspect-[2.4/1]" label="Flyer / photo (optional)" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">

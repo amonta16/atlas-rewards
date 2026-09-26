@@ -37,6 +37,20 @@ export type BookingResource = {
   sort_order: number;
   /** CP-155: section this resource sits in ("Batting cages", "Parties", "Pool"). null → "Other". */
   category?: string | null;
+  /** CP-163: selectable packages (party rooms). Empty = plain booking. */
+  packages?: BookingPackage[] | null;
+};
+
+/** CP-163: one package on a resource ("Birthday Blast · $249 · 2 hrs"). */
+export type BookingPackage = {
+  id: string;
+  name: string;
+  price_cents: number | null;
+  blurb: string | null;
+  includes: string[];
+  /** Fixed length in minutes; null = customer picks from the resource's durations. */
+  duration: number | null;
+  image_url?: string | null;
 };
 
 /** CP-155: starter chips in the builder. Free text — any label becomes a section. */

@@ -21,10 +21,10 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   type BookingResource, type BookingSlot, type MyBooking,
-  dollars, durationLabel, timeLabel, dayLabel, isoDay, STATUS_STYLE, paymentProviderFor, groupResources } from "@/lib/booking";
+  dollars, durationLabel, timeLabel, dayLabel, isoDay, STATUS_STYLE, paymentProviderFor, groupResources, type BookingPackage } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
-type Step = "resource" | "time" | "confirm" | "done";
+type Step = "resource" | "package" | "time" | "confirm" | "done";
 
 function nextDays(n: number): Date[] {
   const out: Date[] = [];
@@ -47,6 +47,9 @@ export function ResourceBooking({ business, resources }: { business: Business; r
   const [picked, setPicked] = useState<BookingSlot | null>(null);
   const [party, setParty] = useState(2);
   const [notes, setNotes] = useState("");
+  // CP-163: chosen package (party rooms). null = plain booking.
+  const [pkg, setPkg] = useState<BookingPackage | null>(null);
+  const [pkgOpen, setPkgOpen] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [mine, setMine] = useState<MyBooking[]>([]);
@@ -101,6 +104,14 @@ export function ResourceBooking({ business, resources }: { business: Business; r
     setResource(r);
     setDuration(r.durations[0]);
     setParty(Math.min(2, r.max_party));
+    setPkg(null);
+    // CP-163: resources with packages get a picker step first.
+    setStep((r.packages?.length ?? 0) > 0 ? "package" : "time");
+  }
+  function choosePackage(p: BookingPackage) {
+    setPkg(p);
+    if (p.duration && resource) setDuration(p.duration);
+    if (resource) setParty(Math.min(Math.max(party, 8), resource.max_party));
     setStep("time");
   }
 
@@ -112,7 +123,9 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       p_starts_at: picked.slot_start,
       p_duration: duration,
       p_party: party,
-      p_notes: notes.trim() || null,
+      // CP-163: the package rides in the notes so the desk sheet + detail
+      // card show it without a schema change ("Package: Birthday Blast · …").
+      p_notes: [pkg ? `Package: ${pkg.name}${pkg.price_cents ? ` (${dollars(pkg.price_cents)})` : ""}` : null, notes.trim() || null].filter(Boolean).join(" — ") || null,
     });
     setSubmitting(false);
     if (error) { setErr(error.message); return; }
@@ -137,7 +150,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       {step !== "resource" && step !== "done" && (
         <button
           type="button"
-          onClick={() => setStep(step === "confirm" ? "time" : "resource")}
+          onClick={() => setStep(step === "confirm" ? "time" : step === "time" && (resource?.packages?.length ?? 0) > 0 ? "package" : "resource")}
           className="h-9 w-9 rounded-full bg-white border flex items-center justify-center shrink-0"
           aria-label="Back"
         >
@@ -146,11 +159,12 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       )}
       <div className="min-w-0">
         <h1 className="text-xl font-extrabold leading-tight">
-          {step === "resource" ? "Book a spot" : step === "time" ? resource?.name : step === "confirm" ? "Confirm booking" : "You're booked!"}
+          {step === "resource" ? "Book a spot" : step === "package" ? "Pick a package" : step === "time" ? resource?.name : step === "confirm" ? "Confirm booking" : "You're booked!"}
         </h1>
         <p className="text-xs text-muted-foreground">
           {step === "resource" ? "Reserve your time before you come in." :
-           step === "time" ? "Pick a length, a day and a start time." :
+           step === "package" ? `${resource?.name} · choose what's included, then pick a time.` :
+           step === "time" ? (pkg ? `${pkg.name} · pick a day and a start time.` : "Pick a length, a day and a start time.") :
            step === "confirm" ? "One last look before we hold it." : "See you soon."}
         </p>
       </div>
@@ -259,6 +273,62 @@ export function ResourceBooking({ business, resources }: { business: Business; r
       )}
 
       {/* STEP 2 — when */}
+      {/* STEP 1b — CP-163: package picker (party rooms). One card per package,
+          details tucked behind "What's included" so it never feels crammed. */}
+      {step === "package" && resource && (
+        <div className="space-y-3">
+          {(resource.packages ?? []).map(p => {
+            const open = pkgOpen === p.id;
+            return (
+              <div key={p.id} className="rounded-3xl bg-white border shadow-sm overflow-hidden">
+                {p.image_url && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={p.image_url} alt="" className="w-full aspect-[2.4/1] object-cover" />
+                )}
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[17px] font-extrabold leading-tight">{p.name}</div>
+                      <div className="text-[11px] font-semibold text-zinc-500 mt-0.5">
+                        {p.duration ? durationLabel(p.duration) : resource.durations.map(durationLabel).join(" · ")} · up to {resource.max_party}
+                      </div>
+                    </div>
+                    {p.price_cents != null && (
+                      <div className="shrink-0 text-right">
+                        <div className="text-xl font-black tabular-nums" style={{ color: primary }}>{dollars(p.price_cents)}</div>
+                      </div>
+                    )}
+                  </div>
+                  {p.blurb && <p className="text-[13px] text-zinc-600 mt-2 leading-snug">{p.blurb}</p>}
+                  {p.includes.length > 0 && (
+                    <button type="button" onClick={() => setPkgOpen(open ? null : p.id)} className="mt-2 text-[12px] font-bold inline-flex items-center gap-1" style={{ color: primary }}>
+                      What&apos;s included <ChevronRight className={`h-3.5 w-3.5 transition ${open ? "rotate-90" : ""}`} />
+                    </button>
+                  )}
+                  {open && (
+                    <ul className="mt-2 grid grid-cols-1 gap-1">
+                      {p.includes.map((line, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[12px] text-zinc-700">
+                          <Check className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{ color: primary }} /> {line}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <button type="button" onClick={() => choosePackage(p)}
+                    className="mt-3 w-full h-11 rounded-2xl text-white font-extrabold text-sm active:scale-[0.99] transition"
+                    style={{ background: primary, boxShadow: `0 8px 20px -10px ${primary}` }}>
+                    Choose {p.name}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          <button type="button" onClick={() => setStep("time")} className="w-full text-[12px] font-semibold text-zinc-500 py-2">
+            Just book the room without a package
+          </button>
+        </div>
+      )}
+
       {step === "time" && resource && (
         <div className="space-y-4">
           {resource.durations.length > 1 && (
