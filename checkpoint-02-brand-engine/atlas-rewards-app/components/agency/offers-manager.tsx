@@ -44,7 +44,10 @@ export function OffersManager({
     const { data, error } = await supabase.from("offers").select("*")
       .eq("business_id", business.id).order("is_featured", { ascending: false }).order("created_at", { ascending: false });
     if (error) console.error("offers load:", error.message);
-    setOffers((data ?? []) as Offer[]);
+    // CP-160: welcome / birthday gift MASTER rows (welcome_config_id set) are
+    // plumbing for the per-member saved gift, not a one-time offer — they're
+    // managed from the Automated tab and never listed here.
+    setOffers(((data ?? []) as (Offer & { welcome_config_id?: string | null })[]).filter(o => !o.welcome_config_id));
   }
   useEffect(() => { load(); }, [business.id]);
 

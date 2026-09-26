@@ -35,6 +35,12 @@ function readLastBrand(): { primary?: string; logo_url?: string | null } | null 
  * registration, no Preferences. iOS injects everywhere, which is why
  * this only bit Android. Regular web browsers keep the subdomain flow.
  */
+/** CP-160: the Atlas first-run screen wears Atlas blue instead of white. */
+const ATLAS_BLUE = "#065ea4";
+const ATLAS_SHELL: React.CSSProperties = {
+  background: `radial-gradient(120% 80% at 50% -10%, #2f8fe0 0%, ${ATLAS_BLUE} 45%, #033f70 100%)`,
+};
+
 function businessEntryUrl(slug: string): string {
   return isNative() ? `/${slug}` : `/qr/${slug}`;
 }
@@ -264,19 +270,16 @@ export default function JoinPage() {
   if (chooser) {
     return (
       <main
-        className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex flex-col items-center justify-center px-6 py-12"
-        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 3rem)" }}
+        className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden"
+        style={{ ...ATLAS_SHELL, paddingTop: "calc(env(safe-area-inset-top, 0px) + 3rem)" }}
       >
-        <div className="w-full max-w-sm">
+        <AtlasBackdrop />
+        <div className="w-full max-w-sm relative">
           <div className="text-center mb-6">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/atlas-icon-512.png"
-              alt="Atlas Rewards"
-              className="inline-block h-14 w-14 rounded-2xl shadow-lg shadow-blue-900/25 mb-3"
-            />
-            <h1 className="text-xl font-extrabold tracking-tight text-zinc-900">Where to today?</h1>
-            <p className="text-sm text-zinc-500 mt-1">Pick a shop — your points are waiting at each one.</p>
+            <img src="/atlas-logo-white.png" alt="Atlas" className="inline-block h-9 w-auto mb-4 drop-shadow" />
+            <h1 className="text-xl font-extrabold tracking-tight text-white">Where to today?</h1>
+            <p className="text-sm text-white/75 mt-1">Pick a shop — your points are waiting at each one.</p>
           </div>
 
           <div className="rounded-3xl border bg-white shadow-sm overflow-hidden divide-y">
@@ -341,8 +344,9 @@ export default function JoinPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-cyan-50 via-white to-white flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm">
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden" style={ATLAS_SHELL}>
+      <AtlasBackdrop />
+      <div className="w-full max-w-sm relative">
         {/* CP-116: Back to my shops — so a multi-shop customer who tapped
             "Join a new shop instead" (or lands on the code screen) isn't
             stranded with nowhere to go. Only shown when there's a shop list
@@ -359,27 +363,22 @@ export default function JoinPage() {
               }
               setChooser(stashedShops); setStashedShops(null); setBiz(null); setCode(""); setErr(null);
             }}
-            className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-500 hover:text-zinc-800"
+            className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white"
           >
             <ArrowRight className="h-4 w-4 rotate-180" />
             {stashedShops.length === 1 ? "Back to my shop" : "Back to my shops"}
           </button>
         )}
-        {/* Atlas header — neutral until a business is found */}
+        {/* Atlas header — CP-160: white wordmark on Atlas blue until a
+            business is found, then the card below takes their brand. */}
         <div className="text-center mb-8">
-          {/* CP-81.3: real Atlas logo instead of the placeholder sparkle. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/atlas-icon-512.png"
-            alt="Atlas Rewards"
-            className="inline-block h-16 w-16 rounded-2xl shadow-lg shadow-blue-900/25 mb-4"
-          />
-          <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900">Atlas Rewards</h1>
-          <p className="text-sm text-zinc-500 mt-1">One app for your favorite local spots.</p>
+          <img src="/atlas-logo-white.png" alt="Atlas Rewards" className="inline-block h-11 w-auto mb-4 drop-shadow-lg" />
+          <p className="text-[13px] font-semibold text-white/80 tracking-wide">One app for your favorite local spots.</p>
         </div>
 
         {!biz ? (
-          <div className="rounded-3xl border bg-white p-6 shadow-sm">
+          <div className="rounded-3xl bg-white p-6 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.55)] ring-1 ring-white/40">
             <h2 className="font-bold text-zinc-900">Join your business</h2>
             <p className="text-sm text-zinc-500 mt-1 mb-4">
               Enter the code from the sign, sticker, or receipt at the counter.
@@ -393,10 +392,11 @@ export default function JoinPage() {
                 autoCorrect="off"
                 spellCheck={false}
                 maxLength={16}
-                className="h-12 text-center text-lg font-bold tracking-[0.25em] uppercase"
+                className="h-14 text-center text-xl font-black tracking-[0.3em] uppercase rounded-2xl border-2 focus-visible:ring-4"
+                style={{ borderColor: `${ATLAS_BLUE}55`, boxShadow: "inset 0 2px 6px rgba(0,0,0,0.06)" }}
               />
               {err && <p className="text-sm text-red-600">{err}</p>}
-              <Button type="submit" disabled={loading} className="w-full h-12 text-base font-semibold">
+              <Button type="submit" disabled={loading} className="w-full h-12 text-base font-semibold rounded-2xl text-white" style={{ background: ATLAS_BLUE }}>
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>Find my business <ArrowRight className="h-4 w-4 ml-1" /></>}
               </Button>
             </form>
@@ -464,5 +464,18 @@ export default function JoinPage() {
         )}
       </div>
     </main>
+  );
+}
+
+
+/** CP-160: soft geometric backdrop behind the Atlas blue shell. */
+function AtlasBackdrop() {
+  return (
+    <div aria-hidden className="absolute inset-0 pointer-events-none">
+      <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute top-1/3 -right-28 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl" />
+      <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "repeating-linear-gradient(135deg, #fff 0 2px, transparent 2px 22px)" }} />
+    </div>
   );
 }

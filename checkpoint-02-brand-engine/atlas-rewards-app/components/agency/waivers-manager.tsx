@@ -23,7 +23,9 @@ import { businessUrl } from "@/lib/utils";
 import { WaiverSubmissions } from "@/components/manager/waiver-submissions";
 import type { Business } from "@/lib/types/database";
 
-type Waiver = { id: string; title: string; is_active: boolean; required_for_signup: boolean; current_version_id: string | null; created_at: string; kiosk_enabled: boolean };
+type Waiver = { id: string; title: string; is_active: boolean; required_for_signup: boolean; current_version_id: string | null; created_at: string; kiosk_enabled: boolean; valid_days?: number | null };
+/** CP-160: how long a signature stays good. 0 = forever. */
+const VALIDITY_CHOICES = [{ d: 180, label: "6 months" }, { d: 365, label: "1 year" }, { d: 730, label: "2 years" }, { d: 0, label: "Never expires" }];
 type Version = { id: string; waiver_id: string; version_no: number; body_text: string; document_url: string | null; created_at: string };
 type Campaign = {
   id: string; slug: string; title: string; headline: string; description: string | null;
@@ -218,6 +220,31 @@ export function WaiversManager({ business }: { business: Business }) {
                         if (error) { setErr(error.message); load(); }
                       }}
                     />
+                  </div>
+                  {/* CP-160: validity — after this long, the member signs again on next open. */}
+                  <div className="mt-3 border-t pt-3 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold text-zinc-700 flex items-center gap-1.5">
+                        <History className="h-3 w-3" /> Signature valid for
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">Members are asked to sign again when it lapses — the desk log keeps every past signature.</div>
+                    </div>
+                    <div className="flex gap-1">
+                      {VALIDITY_CHOICES.map(c => {
+                        const on = (w.valid_days ?? 365) === c.d;
+                        return (
+                          <button key={c.d} type="button"
+                            onClick={async () => {
+                              setWaivers(ws => ws.map(x => x.id === w.id ? { ...x, valid_days: c.d } : x));
+                              const { error } = await supabase.rpc("set_waiver_validity", { p_id: w.id, p_business_id: business.id, p_valid_days: c.d });
+                              if (error) { setErr(error.message); load(); }
+                            }}
+                            className={`rounded-full border px-2.5 h-7 text-[11px] font-semibold ${on ? "bg-zinc-900 text-white border-zinc-900" : "bg-white hover:bg-zinc-50"}`}>
+                            {c.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                   {historyFor === w.id && (
                     <div className="mt-3 border-t pt-3 space-y-1.5">

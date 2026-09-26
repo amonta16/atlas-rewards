@@ -31,6 +31,8 @@ import { Label } from "@/components/ui/label";
 import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast";
 import type { Business } from "@/lib/types/database";
+// CP-160: visits / spins / bookings / follows / members / waivers rollup.
+import { EngagementSection } from "@/components/manager/engagement-section";
 
 type Rollup = {
   total_members: number; new_members_30d: number; active_members_30d: number;
@@ -467,6 +469,10 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
         })()}
         </div>
       </div>
+
+      {/* CP-160: what the app has captured beyond points — visits, spins,
+          bookings, follows, members, waivers, birthdays — with a 12-week trend. */}
+      <EngagementSection business={business} />
 
       {/* ============================================================
           ATLAS DASHBOARD (legacy rollup — kept beneath)

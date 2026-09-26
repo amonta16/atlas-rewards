@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ScanLine, UserSearch, History, LogOut, Tag, Newspaper, Home, Check, Shield, Lightbulb, Bell } from "lucide-react";
+import { ScanLine, UserSearch, History, LogOut, Tag, Newspaper, Home, Check, Shield, Lightbulb, Bell, Megaphone } from "lucide-react";
 // CP-148: needs-action counts (review/follow requests, booking requests,
 // pending passes) for the sidebar badges + bell.
 import { useDeskActions } from "@/lib/use-desk-actions";
@@ -49,6 +49,7 @@ import { WaiverSubmissions } from "@/components/manager/waiver-submissions";
 import { FileSignature, CalendarClock } from "lucide-react";
 // CP-147: Booking v2 — schedule + walk-ins + resource set-up.
 import { BookingsDesk } from "@/components/manager/bookings-desk";
+import { CampaignsStudio } from "@/components/manager/campaigns-studio";
 import { bookingEnabled } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
@@ -57,7 +58,7 @@ import type { Business } from "@/lib/types/database";
 // + per-business notification toggles now live in the agency admin's
 // business settings (NotificationSettings panel) so the entire
 // notification surface is owned by the agency, not the front desk.
-type ManagerTab = "desk" | "users" | "bookings" | "offers" | "news" | "waivers" | "insights" | "billing" | "membership" | "team";
+type ManagerTab = "desk" | "users" | "bookings" | "offers" | "news" | "campaigns" | "waivers" | "insights" | "billing" | "membership" | "team";
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -104,6 +105,9 @@ function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; la
   }
   tabs.push({ id: "offers", label: "Offers", icon: <Tag className="h-4 w-4" /> });
   tabs.push({ id: "news",   label: "News",   icon: <Newspaper className="h-4 w-4" /> });
+  // CP-160: Campaigns (email + in-app) — managers only; UI shipped, sending
+  // is under construction.
+  if (isManager) tabs.push({ id: "campaigns", label: "Campaigns", icon: <Megaphone className="h-4 w-4" /> });
   // CP-135: front desk needs the signed-waiver log to verify a customer.
   tabs.push({ id: "waivers", label: "Waivers", icon: <FileSignature className="h-4 w-4" /> });
   if (isManager) {
@@ -881,6 +885,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           />
         )}
         {tab === "news"       && <NewsManager             business={business} />}
+        {tab === "campaigns"  && <CampaignsStudio business={business} />}
         {tab === "waivers"    && <ManagerWaiversTab       business={business} />}
         {tab === "billing"    && <ManagerBilling         business={business} />}
         {tab === "membership" && <MembershipStudio business={business} />}
