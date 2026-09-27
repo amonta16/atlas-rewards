@@ -1,3 +1,5 @@
+import { preload } from "react-dom";
+import { optimizedUrl } from "@/lib/img";
 import { redirect, notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getFeaturedOffer, getMyMembership } from "@/lib/data/customer-app";
@@ -116,6 +118,11 @@ export default async function CustomerAppLayout({
   // one deliberate piece. Default matches CustomerHeader's own `#fcfcfd`
   // fallback exactly, so an unconfigured business is seamless.
   const notchFill = headerColor ?? "#fcfcfd";
+
+  // CP-168: the logo is on every screen — ask the browser for it before the
+  // client bundle even boots (same trick the big chain apps use for their
+  // above-the-fold assets). Same URL the header renders, so it's a cache hit.
+  if (business.logo_url) preload(optimizedUrl(business.logo_url, 160), { as: "image" });
 
   return (
     // CP-58: `atlas-surface` scopes the card-style utility remaps (globals.css)

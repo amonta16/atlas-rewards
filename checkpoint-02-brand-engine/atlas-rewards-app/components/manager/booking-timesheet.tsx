@@ -24,12 +24,14 @@ const ROW_MIN = 30;          // minutes per row
 const ROW_PX = 44;           // px per row
 const HEAD_H = 56;
 
+// CP-168: solid, high-contrast blocks — a 2px status border + a saturated
+// fill so a booking reads from across the counter, not a pastel wash.
 const BLOCK_STYLE: Record<BookingStatus, string> = {
-  pending:   "bg-amber-100 border-amber-300 text-amber-900",
-  confirmed: "bg-emerald-100 border-emerald-300 text-emerald-900",
-  completed: "bg-zinc-100 border-zinc-300 text-zinc-600",
-  cancelled: "bg-rose-50 border-rose-200 text-rose-500 line-through opacity-70",
-  no_show:   "bg-rose-50 border-rose-200 text-rose-600 opacity-80",
+  pending:   "bg-amber-200 border-amber-500 text-amber-950 border-l-[5px]",
+  confirmed: "bg-emerald-200 border-emerald-600 text-emerald-950 border-l-[5px]",
+  completed: "bg-zinc-200 border-zinc-400 text-zinc-700 border-l-[5px]",
+  cancelled: "bg-rose-100 border-rose-400 text-rose-700 line-through opacity-80 border-l-[5px]",
+  no_show:   "bg-rose-100 border-rose-400 text-rose-800 opacity-90 border-l-[5px]",
 };
 
 function toMin(t: string): number { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); }
@@ -131,32 +133,34 @@ export function BookingTimesheet({
   const colW = cols.length <= 4 ? "minmax(150px,1fr)" : "minmax(120px,1fr)";
 
   return (
-    <div className="rounded-2xl border bg-white overflow-hidden">
+    <div className="rounded-2xl border-2 border-zinc-300 bg-white overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
         <div
           className="relative grid"
           style={{ gridTemplateColumns: `64px repeat(${cols.length}, ${colW})`, minWidth: 64 + cols.length * (cols.length <= 4 ? 150 : 120) }}
         >
           {/* Header row */}
-          <div className="sticky top-0 z-20 bg-white border-b" style={{ height: HEAD_H }} />
+          <div className="sticky top-0 z-20 bg-zinc-50 border-b-2 border-zinc-300 border-r-2" style={{ height: HEAD_H }} />
           {cols.map(c => (
-            <div key={c.key} className="sticky top-0 z-20 bg-white border-b border-l px-2 flex flex-col justify-center" style={{ height: HEAD_H }}>
-              <div className="text-[12px] font-extrabold leading-tight truncate">{c.label}</div>
-              {c.sub && <div className="text-[10px] text-zinc-500 truncate">{c.sub}</div>}
+            <div key={c.key} className="sticky top-0 z-20 bg-zinc-50 border-b-2 border-zinc-300 border-l-2 border-l-zinc-200 px-2.5 flex flex-col justify-center" style={{ height: HEAD_H, boxShadow: `inset 0 -3px 0 0 ${primary}` }}>
+              <div className="text-[13px] font-black leading-tight truncate text-zinc-900">{c.label}</div>
+              {c.sub && <div className="text-[10px] font-semibold text-zinc-500 truncate">{c.sub}</div>}
               {!c.sub && c.resource.durations.length > 0 && (
-                <div className="text-[10px] text-zinc-500 truncate">{c.resource.durations.map(d => d % 60 === 0 ? `${d / 60}h` : `${d}m`).join(" / ")}</div>
+                <div className="text-[10px] font-semibold text-zinc-500 truncate">{c.resource.durations.map(d => d % 60 === 0 ? `${d / 60}h` : `${d}m`).join(" / ")}</div>
               )}
             </div>
           ))}
 
           {/* Time gutter */}
-          <div className="relative" style={{ height: rows * ROW_PX }}>
+          <div className="relative bg-zinc-50 border-r-2 border-zinc-300" style={{ height: rows * ROW_PX }}>
             {Array.from({ length: rows }).map((_, i) => {
               const min = startMin + i * ROW_MIN;
               const onHour = min % 60 === 0;
               return (
-                <div key={i} className="absolute left-0 right-0 pr-2 text-right" style={{ top: i * ROW_PX - 7 }}>
-                  {onHour && <span className="text-[11px] font-semibold text-zinc-500">{hourLabel(min)}</span>}
+                <div key={i} className="absolute left-0 right-0 pr-2 text-right" style={{ top: i * ROW_PX - 8 }}>
+                  {onHour
+                    ? <span className="text-[12px] font-extrabold text-zinc-800 tabular-nums">{hourLabel(min)}</span>
+                    : <span className="text-[10px] font-semibold text-zinc-400 tabular-nums">:30</span>}
                 </div>
               );
             })}
@@ -167,7 +171,7 @@ export function BookingTimesheet({
             const w = windows.get(c.resource.id) ?? null;
             const blocks = bookings.filter(b => lanes.get(b.id) === c.key);
             return (
-              <div key={c.key} className="relative border-l" style={{ height: rows * ROW_PX }}>
+              <div key={c.key} className="relative border-l-2 border-zinc-200" style={{ height: rows * ROW_PX }}>
                 {/* cells */}
                 {Array.from({ length: rows }).map((_, i) => {
                   const min = startMin + i * ROW_MIN;
@@ -185,8 +189,8 @@ export function BookingTimesheet({
                       }}
                       className={cn(
                         "absolute left-0 right-0 border-t transition",
-                        onHour ? "border-zinc-200" : "border-zinc-100 border-dashed",
-                        closed ? "bg-[repeating-linear-gradient(135deg,#f4f4f5_0_6px,#fafafa_6px_12px)] cursor-default" : past ? "bg-zinc-50/60 hover:bg-zinc-100" : "hover:bg-sky-50",
+                        onHour ? "border-zinc-300 border-t-2" : "border-zinc-200",
+                        closed ? "bg-[repeating-linear-gradient(135deg,#e4e4e7_0_6px,#f4f4f5_6px_12px)] cursor-default" : past ? "bg-zinc-100/70 hover:bg-zinc-200/60" : "bg-white hover:bg-sky-100",
                       )}
                       style={{ top: i * ROW_PX, height: ROW_PX }}
                       aria-label={closed ? "Closed" : `Book ${c.label} at ${hourLabel(min)}`}
@@ -207,19 +211,19 @@ export function BookingTimesheet({
                       type="button"
                       onClick={() => onPickBooking(b)}
                       className={cn(
-                        "absolute left-1 right-1 rounded-lg border px-2 py-1 text-left shadow-sm overflow-hidden transition hover:shadow-md scroll-mt-28",
+                        "absolute left-1 right-1 rounded-lg border-2 px-2 py-1 text-left shadow-md overflow-hidden transition hover:shadow-lg scroll-mt-28",
                         BLOCK_STYLE[b.status],
                         selectedId === b.id && "ring-2 ring-offset-1",
                       )}
                       style={{ top: top + 1, height: h, ["--tw-ring-color" as string]: primary }}
                     >
-                      <div className="text-[12px] font-extrabold leading-tight truncate flex items-center gap-1">
+                      <div className="text-[13px] font-black leading-tight truncate flex items-center gap-1">
                         {b.customer_name ?? "Guest"}
                         <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold opacity-80"><Users className="h-3 w-3" />{b.party_size}</span>
                       </div>
                       {!short && (
-                        <div className="text-[10px] leading-tight opacity-80 truncate">
-                          {b.status === "pending" ? "Needs confirm · " : ""}
+                        <div className="text-[10px] font-semibold leading-tight opacity-90 truncate">
+                          {b.status === "pending" ? "NEEDS CONFIRM · " : b.status === "confirmed" ? "Confirmed · " : ""}
                           {b.customer_phone ? <><Phone className="h-2.5 w-2.5 inline -mt-0.5" /> {b.customer_phone}</> : b.source === "desk" ? "walk-in" : "app"}
                           {b.notes ? ` · ${b.notes}` : ""}
                         </div>
@@ -237,8 +241,8 @@ export function BookingTimesheet({
               className="absolute left-0 right-0 z-10 pointer-events-none flex items-center"
               style={{ top: HEAD_H + ((nowMin - startMin) / ROW_MIN) * ROW_PX }}
             >
-              <span className="ml-[52px] h-2.5 w-2.5 rounded-full bg-rose-500 shadow" />
-              <span className="flex-1 h-[2px] bg-rose-500/80" />
+              <span className="ml-[50px] h-3 w-3 rounded-full bg-rose-600 shadow ring-2 ring-white" />
+              <span className="flex-1 h-[3px] bg-rose-600" />
             </div>
           )}
         </div>

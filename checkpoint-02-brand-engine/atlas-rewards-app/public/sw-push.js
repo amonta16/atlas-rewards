@@ -4,8 +4,9 @@
  * browser when our server sends a web-push to a subscribed device,
  * and 'notificationclick' events to focus/open the right tab.
  *
- * Kept deliberately tiny — no caching, no fetch handling. The PWA
- * install/cache logic lives in /sw.js. This worker is scoped at '/'.
+ * CP-168: this worker REPLACES /sw.js on any device that turned push on
+ * (both register at scope '/'), so the image cache lives here too — see
+ * the bottom of the file. Keep the two copies identical.
  */
 
 self.addEventListener("install",  (e) => { self.skipWaiting(); });
@@ -50,5 +51,53 @@ self.addEventListener("notificationclick", (event) => {
       if (c.url.includes(target) && "focus" in c) return c.focus();
     }
     if (self.clients.openWindow) return self.clients.openWindow(target);
+  })());
+});
+
+/* CP-168 · image cache — how the big apps feel "instant"
+ *
+ * McDonald's / Starbucks ship their images once and serve them from the
+ * phone afterwards. We do the same for Supabase Storage: every image the
+ * app draws (logo, rewards, offers, bookings, wheel prizes) is stored in a
+ * Cache Storage bucket the first time it loads; later loads come from disk
+ * in ~1 ms and the network copy refreshes quietly in the background
+ * (stale-while-revalidate). Only GETs to our storage host are touched, the
+ * cache is capped so it never grows past a few hundred entries, and a
+ * version bump in IMG_CACHE evicts the old bucket on activate.
+ */
+const IMG_CACHE = "atlas-img-v1";
+const IMG_MAX = 400;
+
+function isStorageImage(req) {
+  if (req.method !== "GET") return false;
+  try {
+    const u = new URL(req.url);
+    return /\.supabase\.(co|in)$/.test(u.hostname) && u.pathname.indexOf("/storage/v1/") === 0;
+  } catch (_) { return false; }
+}
+
+async function trimCache(cache) {
+  const keys = await cache.keys();
+  if (keys.length <= IMG_MAX) return;
+  for (const k of keys.slice(0, keys.length - IMG_MAX)) await cache.delete(k);
+}
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    const names = await caches.keys();
+    await Promise.all(names.filter(n => n.indexOf("atlas-img-") === 0 && n !== IMG_CACHE).map(n => caches.delete(n)));
+  })());
+});
+
+self.addEventListener("fetch", (event) => {
+  if (!isStorageImage(event.request)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(IMG_CACHE);
+    const hit = await cache.match(event.request);
+    const refresh = fetch(event.request).then((res) => {
+      if (res && res.ok) { cache.put(event.request, res.clone()).then(() => trimCache(cache)).catch(() => {}); }
+      return res;
+    }).catch(() => hit);
+    return hit || refresh;
   })());
 });

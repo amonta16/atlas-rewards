@@ -67,17 +67,25 @@ export function BookingsDesk({
     return { from, to: new Date(y, m - 1, d + 1) };
   }, [day]);
 
+  // CP-168: every pending request in the next 60 days — the confirm queue
+  // shows them regardless of which day the sheet is on.
+  const [upcomingPending, setUpcomingPending] = useState<DeskBooking[]>([]);
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [{ data }, { data: res }] = await Promise.all([
+    const now = new Date();
+    const [{ data }, { data: res }, { data: up }] = await Promise.all([
       supabase.rpc("list_resource_bookings", {
         p_business_id: business.id, p_from: window_.from.toISOString(), p_to: window_.to.toISOString(),
       }),
       supabase.rpc("list_booking_resources", { p_business_id: business.id }),
+      supabase.rpc("list_resource_bookings", {
+        p_business_id: business.id, p_from: new Date(now.getTime() - 3_600_000).toISOString(), p_to: new Date(now.getTime() + 60 * 86_400_000).toISOString(),
+      }),
     ]);
     const list = (data ?? []) as DeskBooking[];
     setRows(list);
     setResources((res ?? []) as BookingResource[]);
+    setUpcomingPending(((up ?? []) as DeskBooking[]).filter(b => b.status === "pending" && new Date(b.scheduled_end).getTime() > now.getTime()).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)));
     setSelected(sel => sel ? (list.find(b => b.id === sel.id) ?? null) : null);
     setLoading(false);
   }, [business.id, window_]);
@@ -157,18 +165,14 @@ export function BookingsDesk({
         <div className="relative mt-4 -mx-1 px-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           <div className="flex gap-2 w-max">
             {live.length === 0 ? (
-              active.slice(0, 4).map(r => (
-                <div key={r.id} className="w-[132px] rounded-2xl bg-white/10 border border-dashed border-white/35 p-2 flex items-center gap-2 opacity-80">
-                  {r.image_url
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    ? <img src={optimizedUrl(r.image_url, 160)} alt="" className="h-10 w-10 rounded-lg object-cover grayscale opacity-70" />
-                    : <span className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center text-lg">{r.emoji ?? "📅"}</span>}
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold truncate">{r.name}</div>
-                    <div className="text-[10px] text-white/70">Open all day</div>
-                  </div>
+              /* CP-168: one crisp empty state instead of four ghost tiles. */
+              <div className="rounded-2xl bg-white/95 text-zinc-900 px-4 py-3 flex items-center gap-3 shadow-lg">
+                <span className="h-10 w-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: primary }}><CalendarDays className="h-5 w-5" /></span>
+                <div>
+                  <div className="text-[13px] font-extrabold leading-tight">Nothing booked {dayTitle === "Today" ? "yet today" : dayTitle.toLowerCase()}</div>
+                  <div className="text-[11px] text-zinc-500">{active.length} spot{active.length === 1 ? "" : "s"} open · tap a cell on the sheet or “Walk-in / phone” to add one.</div>
                 </div>
-              ))
+              </div>
             ) : (
               [...live].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)).map(b => {
                 const res = resources.find(r => r.id === b.resource_id);
@@ -180,8 +184,8 @@ export function BookingsDesk({
                       if (section !== "all" && res && !sheetResources.some(r => r.id === res.id)) setSection("all");
                       setTimeout(() => document.getElementById(`bk-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
                     }}
-                    className={cn("w-[150px] shrink-0 rounded-2xl bg-white text-zinc-900 text-left overflow-hidden shadow-lg active:scale-[0.98] transition",
-                      pending ? "ring-[3px] ring-amber-400" : "ring-1 ring-white/40")}>
+                    className={cn("w-[150px] shrink-0 rounded-2xl bg-white text-zinc-900 text-left overflow-hidden shadow-xl active:scale-[0.98] transition border-2",
+                      pending ? "border-amber-400 ring-[3px] ring-amber-300/60" : "border-emerald-500")}>
                     <div className="relative h-[72px] bg-zinc-100">
                       {res?.image_url
                         /* eslint-disable-next-line @next/next/no-img-element */
@@ -238,6 +242,42 @@ export function BookingsDesk({
           onToggleEnabled={toggleEnabled}
           onChanged={load}
         />
+      )}
+
+      {/* CP-168: the queue — what needs a tap, then what's locked in. Big
+          rows, bold status, one-tap Confirm / Arrived right in the row. */}
+      {(upcomingPending.length > 0 || live.some(b => b.status === "confirmed")) && (
+        <div className="rounded-2xl border-2 border-zinc-200 bg-white overflow-hidden shadow-sm">
+          {upcomingPending.length > 0 && (
+            <div className="border-l-[6px] border-amber-400">
+              <div className="px-4 pt-3 pb-1.5 flex items-center gap-2">
+                <span className="h-6 min-w-6 px-1.5 rounded-full bg-amber-400 text-zinc-900 text-[12px] font-black flex items-center justify-center tabular-nums">{upcomingPending.length}</span>
+                <span className="text-[12px] font-black uppercase tracking-[0.16em] text-amber-700">Needs confirmation</span>
+                <span className="text-[11px] text-zinc-500">· requests from the app</span>
+              </div>
+              <ul className="divide-y divide-zinc-100">
+                {upcomingPending.map(b => <QueueRow key={b.id} b={b} day={day} primary={primary} busy={busyId === b.id} selected={selected?.id === b.id}
+                  onOpen={() => { if (isoDay(new Date(b.scheduled_at)) !== day) setDay(isoDay(new Date(b.scheduled_at))); setSelected(b); setTimeout(() => document.getElementById(`bk-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 250); }}
+                  primaryAction={{ label: "Confirm", onClick: () => setStatus(b.id, "confirmed") }}
+                  secondaryAction={{ label: "Decline", onClick: () => setStatus(b.id, "cancelled") }} />)}
+              </ul>
+            </div>
+          )}
+          {live.some(b => b.status === "confirmed") && (
+            <div className={cn("border-l-[6px] border-emerald-500", upcomingPending.length > 0 && "border-t-2 border-t-zinc-100")}>
+              <div className="px-4 pt-3 pb-1.5 flex items-center gap-2">
+                <span className="h-6 min-w-6 px-1.5 rounded-full bg-emerald-500 text-white text-[12px] font-black flex items-center justify-center tabular-nums">{live.filter(b => b.status === "confirmed").length}</span>
+                <span className="text-[12px] font-black uppercase tracking-[0.16em] text-emerald-700">Confirmed · {dayTitle.toLowerCase()}</span>
+              </div>
+              <ul className="divide-y divide-zinc-100">
+                {[...live].filter(b => b.status === "confirmed").sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)).map(b => <QueueRow key={b.id} b={b} day={day} primary={primary} busy={busyId === b.id} selected={selected?.id === b.id}
+                  onOpen={() => { setSelected(b); setTimeout(() => document.getElementById(`bk-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}
+                  primaryAction={{ label: "Arrived", onClick: () => setStatus(b.id, "completed") }}
+                  secondaryAction={{ label: "No-show", onClick: () => setStatus(b.id, "no_show") }} />)}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Day navigation */}
@@ -309,7 +349,7 @@ export function BookingsDesk({
             const count = rows.filter(b => (b.status === "pending" || b.status === "confirmed") && (g.category === "all" || g.items.some(r => r.id === b.resource_id))).length;
             return (
               <button key={g.category} type="button" onClick={() => setSection(g.category)}
-                className={cn("shrink-0 rounded-full border px-3 h-8 text-xs font-bold inline-flex items-center gap-1.5", on ? "text-white border-transparent shadow-sm" : "bg-white hover:bg-zinc-50")}
+                className={cn("shrink-0 rounded-full border-2 px-3.5 h-9 text-[13px] font-extrabold inline-flex items-center gap-1.5", on ? "text-white border-transparent shadow-md" : "bg-white border-zinc-300 text-zinc-800 hover:bg-zinc-50")}
                 style={on ? { background: primary } : undefined}>
                 {g.category === "all" ? "All" : g.category}
                 <span className={cn("rounded-full px-1.5 text-[10px] font-extrabold", on ? "bg-white/25" : "bg-zinc-100 text-zinc-600")}>{count}</span>
@@ -334,15 +374,59 @@ export function BookingsDesk({
         />
       )}
 
-      <div className="flex items-center gap-3 text-[11px] text-zinc-500 px-1 flex-wrap">
-        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-amber-100 border border-amber-300" /> needs confirm</span>
-        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-emerald-100 border border-emerald-300" /> confirmed</span>
-        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-zinc-100 border border-zinc-300" /> done</span>
-        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-rose-50 border border-rose-200" /> cancelled / no-show</span>
+      <div className="flex items-center gap-3 text-[11px] font-semibold text-zinc-600 px-1 flex-wrap">
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-amber-300 border-2 border-amber-500" /> needs confirm</span>
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-emerald-300 border-2 border-emerald-600" /> confirmed</span>
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-zinc-200 border-2 border-zinc-400" /> done</span>
+        <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-rose-100 border-2 border-rose-400" /> cancelled / no-show</span>
         <span className="inline-flex items-center gap-1"><span className="h-3 w-3 rounded bg-[repeating-linear-gradient(135deg,#f4f4f5_0_3px,#fafafa_3px_6px)] border" /> closed</span>
         <span className="ml-auto">Tap an empty cell to book it.</span>
       </div>
     </div>
+  );
+}
+
+/* ── CP-168: queue row ─────────────────────────────────────────────────── */
+function QueueRow({ b, day, primary, busy, selected, onOpen, primaryAction, secondaryAction }: {
+  b: DeskBooking; day: string; primary: string; busy: boolean; selected: boolean; onOpen: () => void;
+  primaryAction: { label: string; onClick: () => void }; secondaryAction: { label: string; onClick: () => void };
+}) {
+  const pending = b.status === "pending";
+  const bDay = isoDay(new Date(b.scheduled_at));
+  const otherDay = bDay !== day;
+  const dt = new Date(b.scheduled_at);
+  return (
+    <li className={cn("px-3 sm:px-4 py-2.5 flex items-center gap-3 flex-wrap", selected && "bg-zinc-50")}>
+      <button type="button" onClick={onOpen} className="flex items-center gap-3 flex-1 min-w-[240px] text-left group">
+        <div className={cn("w-[72px] shrink-0 rounded-xl px-2 py-1.5 text-center text-white", pending ? "bg-amber-500" : "bg-emerald-600")}>
+          <div className="text-[15px] font-black leading-none tabular-nums">{timeLabel(b.scheduled_at)}</div>
+          <div className="text-[9px] font-bold uppercase tracking-wide opacity-90 mt-0.5">{otherDay ? dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric" }) : durationLabel(b.duration_minutes)}</div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-extrabold leading-tight truncate group-hover:underline">
+            {b.customer_name ?? "Guest"}
+            <span className="ml-2 text-[11px] font-semibold text-zinc-500 inline-flex items-center gap-0.5"><Users className="h-3 w-3" />{b.party_size}</span>
+          </div>
+          <div className="text-[12px] text-zinc-600 truncate">
+            <b className="text-zinc-800">{b.resource_name}</b>
+            {otherDay && <> · {dt.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</>}
+            {b.customer_phone && <> · <Phone className="h-3 w-3 inline -mt-0.5" /> {b.customer_phone}</>}
+            {b.payment_status === "due" && b.deposit_cents ? <> · <b className="text-amber-700">{dollars(b.deposit_cents)} due</b></> : null}
+            {b.notes && <> · “{b.notes}”</>}
+          </div>
+        </div>
+      </button>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <Button size="sm" onClick={primaryAction.onClick} disabled={busy}
+          className={cn("h-9 px-4 font-extrabold text-white", pending ? "bg-emerald-600 hover:bg-emerald-700" : "hover:opacity-90")}
+          style={!pending ? { background: primary } : undefined}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} {primaryAction.label}
+        </Button>
+        <Button size="sm" variant="outline" onClick={secondaryAction.onClick} disabled={busy} className="h-9 font-bold text-zinc-600 border-zinc-300">
+          {pending ? <X className="h-4 w-4 mr-1" /> : <UserX className="h-4 w-4 mr-1" />} {secondaryAction.label}
+        </Button>
+      </div>
+    </li>
   );
 }
 

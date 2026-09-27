@@ -26,7 +26,7 @@ export function optimizedUrl(url: string | null | undefined, width = 800, qualit
   if (/\.(svg|gif)(\?|$)/i.test(url)) return url;
   const base = url.replace(OBJECT, RENDER).split("?")[0];
   const w = Math.max(64, Math.min(2000, Math.round(width)));
-  return `${base}?width=${w}&quality=${quality}&resize=cover`;
+  return `${base}?width=${w}&quality=${quality}&resize=contain`;
 }
 
 /** 1× + 2× candidates for a given CSS width. */
