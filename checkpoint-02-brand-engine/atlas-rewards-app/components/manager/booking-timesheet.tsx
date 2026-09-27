@@ -203,10 +203,11 @@ export function BookingTimesheet({
                   return (
                     <button
                       key={b.id}
+                      id={`bk-${b.id}`}
                       type="button"
                       onClick={() => onPickBooking(b)}
                       className={cn(
-                        "absolute left-1 right-1 rounded-lg border px-2 py-1 text-left shadow-sm overflow-hidden transition hover:shadow-md",
+                        "absolute left-1 right-1 rounded-lg border px-2 py-1 text-left shadow-sm overflow-hidden transition hover:shadow-md scroll-mt-28",
                         BLOCK_STYLE[b.status],
                         selectedId === b.id && "ring-2 ring-offset-1",
                       )}

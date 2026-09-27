@@ -162,6 +162,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   // Insights from front desk. RLS still enforces the actual data block —
   // this is purely so staff don't see options they can't use.
   const [role, setRole] = useState<AppRole>(null);
+  // CP-165: who is signed in — shows under the business name in the sidebar.
+  const [whoami, setWhoami] = useState<string | null>(null);
 
   // CP-37.5: tutorial walkthrough state. Auto-opens once per role the
   // first time someone signs in (persisted to localStorage). Header
@@ -177,6 +179,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
     (async () => {
       const { data } = await supabase.rpc("current_app_role", { p_business_id: business.id });
       setRole((typeof data === "string" ? data : (data as any)?.[0]) as AppRole);
+      const { data: nm } = await supabase.rpc("my_display_name");
+      if (typeof nm === "string" && nm) setWhoami(nm);
     })();
   }, [business.id]);
 
@@ -404,11 +408,11 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
       {/* CP-152: the sidebar wears the brand — a solid contrast band next to
           the white work area so the two never blur together. */}
       <aside
-        className="hidden lg:flex lg:flex-col w-64 shrink-0 sticky top-0 h-screen text-white"
+        className="hidden lg:flex lg:flex-col w-60 shrink-0 sticky top-0 h-screen text-white"
         style={{ background: `linear-gradient(180deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary ?? business.brand_colors.primary} 140%)` }}
       >
-        <div className="px-5 h-20 flex items-center gap-3 border-b border-white/15">
-          <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow">
+        <div className="px-4 h-16 flex items-center gap-3 border-b border-white/15">
+          <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow">
             {business.logo_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={business.logo_url} alt="" className="h-full w-full object-contain p-1" />
@@ -417,8 +421,11 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
             )}
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-extrabold truncate">{business.name}</div>
-            <div className="text-[10px] text-white/70 tracking-wider uppercase font-bold">{roleLabel}</div>
+            <div className="text-[13px] font-extrabold truncate leading-tight">{business.name}</div>
+            {/* CP-165: the person, not just the role. */}
+            <div className="text-[11px] text-white/80 truncate leading-tight">
+              {whoami ? <><span className="font-bold text-white">{whoami}</span> · {roleLabel}</> : roleLabel}
+            </div>
           </div>
         </div>
 
@@ -445,25 +452,26 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           </button>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-          <div className="px-2 pb-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">Front desk</div>
+        {/* CP-165: compact nav — 36px rows, 13px labels, tighter groups. */}
+        <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-px">
+          <div className="px-2.5 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Front desk</div>
           {visibleTabs.filter(t => ["desk", "users", "bookings", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["offers", "news", "campaigns", "membership"].includes(t.id)) && (
-            <div className="px-2 pt-4 pb-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">Customer app</div>
+            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Customer app</div>
           )}
           {visibleTabs.filter(t => ["offers", "news", "campaigns", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["insights", "billing", "team"].includes(t.id)) && (
-            <div className="px-2 pt-4 pb-1.5 text-[10px] font-black uppercase tracking-widest text-white/60">Business</div>
+            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Business</div>
           )}
           {visibleTabs.filter(t => ["insights", "billing", "team"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
         </nav>
 
-        <div className="border-t border-white/15 px-3 py-3 space-y-0.5">
+        <div className="border-t border-white/15 px-2.5 py-2 space-y-px">
           <div className="[&_button]:text-white [&_button:hover]:bg-white/10"><ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} /></div>
-          <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-white/85 hover:bg-white/10">
+          <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-white/90 hover:bg-white/10">
             <Lightbulb className="h-4 w-4" /> Tutorial
           </button>
-          <button type="button" onClick={signOut} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold text-white/85 hover:bg-white/10">
+          <button type="button" onClick={signOut} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-white/90 hover:bg-white/10">
             <LogOut className="h-4 w-4" /> Sign out
           </button>
           {bizSavedAt && (
@@ -937,8 +945,8 @@ function SideItem({ t, active, badge, primary, onClick }: {
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold transition text-left",
-        active ? "bg-white shadow-md" : "text-white/85 hover:bg-white/10",
+        "w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold transition text-left",
+        active ? "bg-white shadow-md" : "text-white/90 hover:bg-white/10",
       )}
       style={active ? { color: primary } : undefined}
     >

@@ -8,6 +8,8 @@ import { MemberHistoryPanel } from "@/components/manager/member-history-panel";
 import { MemberPasswordReset } from "@/components/manager/member-password-reset";
 // CP-120: manager-only demo flag + account reset for test members.
 import { MemberDemoTools } from "@/components/manager/member-demo-tools";
+// CP-165: mini reward store — redeem for the member, no phone needed.
+import { DeskRewardStore } from "@/components/manager/desk-reward-store";
 // CP-147: per-platform follow points (same source approve_review uses).
 import { readSocialConfig } from "@/lib/social-config";
 import type { Business } from "@/lib/types/database";
@@ -702,6 +704,16 @@ export function AwardPointsPanel({
                 <div className="text-white/80 text-xl font-bold shrink-0">→</div>
               </button>
             </div>
+
+            {/* CP-165: what they can claim right now — the desk redeems for
+                them (member lost their phone, or just prefers to say a
+                phone number and be handed the thing). */}
+            <DeskRewardStore
+              membershipId={member.membership_id}
+              balance={balance}
+              primary={business.brand_colors.primary}
+              onRedeemed={(nb) => setBalance(nb)}
+            />
 
             {/* CP-147: once-per-member social tiles — review / IG / FB. */}
             {SOCIAL_TILES.some(t => socialPoints(business, t.key) > 0) && (

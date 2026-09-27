@@ -16,6 +16,7 @@
  * focus, after every action, and every 2 minutes.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { optimizedUrl } from "@/lib/img";
 import { CalendarClock, Check, Loader2, Plus, Users, Phone, X, UserX, Settings2, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { BookingResourceSetup } from "@/components/manager/booking-resource-setup";
 import { BookingTimesheet } from "@/components/manager/booking-timesheet";
@@ -148,6 +149,62 @@ export function BookingsDesk({
               <Settings2 className="h-4 w-4 mr-1.5" /> Set up
             </Button>
           )}
+        </div>
+
+        {/* CP-165: what's actually booked today, as picture tiles (the
+            resource's photo). Pending ones wear an amber ring; tap a tile
+            and the sheet scrolls to that block and opens its card — that's
+            the fastest route to clearing the red badge. */}
+        <div className="relative mt-4 -mx-1 px-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          <div className="flex gap-2 w-max">
+            {live.length === 0 ? (
+              active.slice(0, 4).map(r => (
+                <div key={r.id} className="w-[132px] rounded-2xl bg-white/10 border border-dashed border-white/35 p-2 flex items-center gap-2 opacity-80">
+                  {r.image_url
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={optimizedUrl(r.image_url, 160)} alt="" className="h-10 w-10 rounded-lg object-cover grayscale opacity-70" />
+                    : <span className="h-10 w-10 rounded-lg bg-white/15 flex items-center justify-center text-lg">{r.emoji ?? "📅"}</span>}
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-bold truncate">{r.name}</div>
+                    <div className="text-[10px] text-white/70">Open all day</div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              [...live].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)).map(b => {
+                const res = resources.find(r => r.id === b.resource_id);
+                const pending = b.status === "pending";
+                return (
+                  <button key={b.id} type="button"
+                    onClick={() => {
+                      setSelected(b);
+                      if (section !== "all" && res && !sheetResources.some(r => r.id === res.id)) setSection("all");
+                      setTimeout(() => document.getElementById(`bk-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+                    }}
+                    className={cn("w-[150px] shrink-0 rounded-2xl bg-white text-zinc-900 text-left overflow-hidden shadow-lg active:scale-[0.98] transition",
+                      pending ? "ring-[3px] ring-amber-400" : "ring-1 ring-white/40")}>
+                    <div className="relative h-[72px] bg-zinc-100">
+                      {res?.image_url
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        ? <img src={optimizedUrl(res.image_url, 320)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                        : <div className="absolute inset-0 flex items-center justify-center text-2xl">{res?.emoji ?? "📅"}</div>}
+                      <span className={cn("absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
+                        pending ? "bg-amber-400 text-zinc-900" : "bg-emerald-500 text-white")}>
+                        {pending ? "Confirm" : "Booked"}
+                      </span>
+                      <span className="absolute bottom-1 right-1.5 rounded-md bg-black/60 text-white px-1.5 py-0.5 text-[10px] font-extrabold tabular-nums">
+                        {timeLabel(b.scheduled_at)}
+                      </span>
+                    </div>
+                    <div className="px-2 py-1.5">
+                      <div className="text-[11px] font-extrabold truncate">{b.resource_name}</div>
+                      <div className="text-[10px] text-zinc-500 truncate">{b.customer_name ?? "Guest"} · {b.party_size ?? "—"} ppl</div>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
