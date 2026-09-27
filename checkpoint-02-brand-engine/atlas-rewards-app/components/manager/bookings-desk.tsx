@@ -21,6 +21,7 @@ import { CalendarClock, Check, Loader2, Plus, Users, Phone, X, UserX, Settings2,
 import { BookingResourceSetup } from "@/components/manager/booking-resource-setup";
 import { BookingTimesheet } from "@/components/manager/booking-timesheet";
 import { createClient } from "@/lib/supabase/client";
+import { useDeskLive } from "@/lib/desk-live";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -82,12 +83,10 @@ export function BookingsDesk({
   }, [business.id, window_]);
 
   useEffect(() => { setLoading(true); load(); }, [load]);
-  useEffect(() => {
-    const t = setInterval(load, 120_000);
-    const onFocus = () => load();
-    window.addEventListener("focus", onFocus);
-    return () => { clearInterval(t); window.removeEventListener("focus", onFocus); };
-  }, [load]);
+  // CP-167: reload on the desk's live feed (realtime on `bookings` +
+  // Refresh button + focus + 3-min safety poll) instead of a private timer.
+  const { tick } = useDeskLive();
+  useEffect(() => { if (tick > 0) load(); }, [tick, load]);
 
   async function setStatus(id: string, status: BookingStatus) {
     if (status === "cancelled" && !confirm("Cancel this booking?")) return;

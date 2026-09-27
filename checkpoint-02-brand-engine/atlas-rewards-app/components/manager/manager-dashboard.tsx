@@ -4,6 +4,8 @@ import { ScanLine, UserSearch, History, LogOut, Tag, Newspaper, Home, Check, Shi
 // CP-148: needs-action counts (review/follow requests, booking requests,
 // pending passes) for the sidebar badges + bell.
 import { useDeskActions } from "@/lib/use-desk-actions";
+// CP-167: one realtime feed + visible Refresh for the whole desk.
+import { DeskLiveProvider, DeskRefreshButton, useDeskLive } from "@/lib/desk-live";
 import { ManagerTutorial, useTutorialAutoOpen } from "@/components/manager/manager-tutorial";
 // CP-37.18 — Install-app affordance for managers + front-desk.
 import { ManagerPwaInstall } from "@/components/manager/manager-pwa-install";
@@ -138,7 +140,17 @@ type LedgerRow = {
   customer_name?: string | null;
 };
 
-export function ManagerDashboard({ business: initialBusiness, recent }: { business: Business; recent: LedgerRow[] }) {
+export function ManagerDashboard(props: { business: Business; recent: LedgerRow[] }) {
+  // CP-167: the live feed wraps the whole dashboard so every panel (and the
+  // dashboard's own Recent activity / Needs-action) shares one channel.
+  return (
+    <DeskLiveProvider businessId={props.business.id}>
+      <ManagerDashboardInner {...props} />
+    </DeskLiveProvider>
+  );
+}
+
+function ManagerDashboardInner({ business: initialBusiness, recent: initialRecent }: { business: Business; recent: LedgerRow[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [business, setBusiness] = useState<Business>(initialBusiness);
@@ -169,11 +181,29 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   // first time someone signs in (persisted to localStorage). Header
   // lightbulb button re-opens it any time.
   // CP-68.1: the tutorial's Role type has no "customer" — customers get no tutorial.
-  const [autoOpen, dismissAutoOpen] = useTutorialAutoOpen(role === "customer" ? null : role);
+  // CP-167: the tutorial no longer opens by itself — it kept popping up on
+  // the front-desk tablet every shift. It lives behind the Tutorial button
+  // in the sidebar / phone header, on demand. dismissAutoOpen still runs on
+  // close so the localStorage flag stays consistent if it's ever re-enabled.
+  const [, dismissAutoOpen] = useTutorialAutoOpen(role === "customer" ? null : role);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+
+  // CP-167: Recent activity used to be a one-shot server prop — it never
+  // changed until a full reload. Now it re-fetches on every live tick.
+  const live = useDeskLive();
+  const [recent, setRecent] = useState<LedgerRow[]>(initialRecent);
   useEffect(() => {
-    if (autoOpen) setTutorialOpen(true);
-  }, [autoOpen]);
+    if (live.tick === 0) return;
+    (async () => {
+      const { data } = await createClient().rpc("business_recent_activity", { p_business_id: business.id, p_limit: 20 });
+      if (Array.isArray(data)) {
+        setRecent((data as any[]).map(r => ({
+          id: r.id, delta: r.delta, rule_type: r.rule_type, notes: r.notes, created_at: r.created_at,
+          customer_name: r.customer_name ?? null,
+        })));
+      }
+    })();
+  }, [live.tick, business.id]);
   useEffect(() => {
     const supabase = createClient();
     (async () => {
@@ -201,7 +231,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
   const badgeFor = (id: ManagerTab): number =>
     id === "bookings" ? actions.bookings : id === "desk" ? actions.reviews + actions.memberships : 0;
   // Recount whenever the user switches tabs (they probably just acted on something).
-  useEffect(() => { actions.refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab]);
+  useEffect(() => { actions.refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab, live.tick]);
   const roleLabel = role === "agency_admin" ? "Agency admin" : role === "business_manager" ? "Manager" : role === "business_staff" ? "Front desk" : "Manage";
   // If the user clicked into a tab that role-loading then disallows
   // (e.g. they were on Billing and the role resolved to business_staff),
@@ -470,6 +500,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
         </nav>
 
         <div className="border-t border-white/10 px-2.5 py-2 space-y-px">
+          {/* CP-167: visible-but-quiet refresh — shows Live + last update. */}
+          <DeskRefreshButton tone="dark" className="w-full justify-start" />
           <div className="[&_button]:text-zinc-300 [&_button:hover]:bg-white/[0.07]"><ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} /></div>
           <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-zinc-300 hover:bg-white/[0.07] hover:text-white">
             <Lightbulb className="h-4 w-4" /> Tutorial
@@ -514,6 +546,7 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
                 <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{actions.total}</span>
               </button>
             )}
+            <DeskRefreshButton compact />
             <ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} />
             <Button
               variant="ghost"
@@ -576,7 +609,10 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           {visibleTabs.find(t => t.id === tab)?.icon}
           {visibleTabs.find(t => t.id === tab)?.label}
         </div>
-        <div className="text-[11px] text-zinc-500">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
+        <div className="flex items-center gap-2">
+          <div className="text-[11px] text-zinc-500">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
+          <DeskRefreshButton compact />
+        </div>
       </div>
 
       <main className="max-w-2xl lg:max-w-none mx-auto p-4 lg:p-6 space-y-4">
