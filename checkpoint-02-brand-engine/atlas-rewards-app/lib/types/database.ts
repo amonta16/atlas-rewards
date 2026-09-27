@@ -345,10 +345,13 @@ export type Booking = {
 };
 
 export type BookingHours = {
-  start: string;        // "09:00"
+  start: string;        // "09:00"  (legacy single window; still the fallback)
   end: string;          // "19:00"
   slot_minutes: number; // 15
   days: number[];       // ISO weekday numbers 1=Mon..7=Sun
+  /** CP-173: per-day windows keyed by isodow ("1"=Mon … "7"=Sun). A missing
+   *  day is closed. When present this wins over start/end/days. */
+  week?: Record<string, [string, string]>;
 };
 
 export type Membership = {

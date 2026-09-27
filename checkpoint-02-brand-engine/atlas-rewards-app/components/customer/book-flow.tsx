@@ -1,4 +1,5 @@
 "use client";
+import { businessDayWindow } from "@/lib/booking";
 import { useEffect, useMemo, useState } from "react";
 import { optimizedUrl } from "@/lib/img";
 import { ArrowLeft, Check, Clock, Phone, CalendarClock, Sparkles, Loader2, Lock } from "lucide-react";
@@ -440,10 +441,12 @@ function computeOtherSlots(b: Business, day: string, durationMinutes: number): s
   const hours = b.booking_hours ?? { start: "09:00", end: "19:00", slot_minutes: 15, days: [1,2,3,4,5,6] };
   const dayDate = new Date(day + "T00:00:00");
   const isoDow = ((dayDate.getDay() + 6) % 7) + 1;
-  if (!hours.days.includes(isoDow)) return [];
+  // CP-173: per-day windows win; legacy start/end/days is the fallback.
+  const win = businessDayWindow(b, isoDow);
+  if (!win) return [];
 
-  const [sh, sm] = hours.start.split(":").map(Number);
-  const [eh, em] = hours.end.split(":").map(Number);
+  const [sh, sm] = win[0].split(":").map(Number);
+  const [eh, em] = win[1].split(":").map(Number);
   const start = new Date(dayDate); start.setHours(sh, sm, 0, 0);
   const end   = new Date(dayDate); end.setHours(eh, em, 0, 0);
   const step  = (hours.slot_minutes ?? 15) * 60_000;

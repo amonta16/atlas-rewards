@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { optimizedUrl } from "@/lib/img";
-import { ArrowLeft, Check, Users, Clock, CalendarClock, Loader2, ChevronRight, XCircle, Ticket } from "lucide-react";
+import { ArrowLeft, Check, Users, Clock, CalendarClock, Loader2, ChevronRight, XCircle, Ticket, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,9 +172,25 @@ export function ResourceBooking({ business, resources }: { business: Business; r
     </div>
   );
 
+  // CP-173: the phone number, formatted, for "call to book" — parties,
+  // big groups and questions still go through a human.
+  const rawPhone = (business.contact_info?.phone ?? "").replace(/\D/g, "");
+  const phonePretty = rawPhone.length === 10 ? `(${rawPhone.slice(0, 3)}) ${rawPhone.slice(3, 6)}-${rawPhone.slice(6)}` : business.contact_info?.phone ?? "";
+  const callCard = rawPhone ? (
+    <a href={`tel:${rawPhone}`} className="mt-4 flex items-center gap-3 rounded-2xl border-2 bg-white px-4 py-3 shadow-sm active:scale-[0.99] transition" style={{ borderColor: `${primary}55` }}>
+      <span className="h-10 w-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: primary }}><Phone className="h-5 w-5" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-extrabold text-zinc-900 leading-tight">Rather call? Parties, big groups, questions</span>
+        <span className="block text-[15px] font-black tabular-nums leading-tight" style={{ color: primary }}>{phonePretty}</span>
+      </span>
+      <span className="text-[11px] font-bold text-zinc-500 shrink-0">Tap to call</span>
+    </a>
+  ) : null;
+
   return (
     <div className="px-4 pt-5 pb-10">
       {header}
+      {step === "resource" && callCard}
 
       {/* STEP 1 — what */}
       {step === "resource" && (

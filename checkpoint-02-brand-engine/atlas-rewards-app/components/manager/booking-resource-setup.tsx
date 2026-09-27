@@ -10,13 +10,13 @@
  * host decides how it persists (desk: instant update; builder: Save).
  */
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Trash2, Power, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Plus, Trash2, Power, ChevronDown, ChevronUp, Clock, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { type BookingResource, type BookingPackage, dollars, durationLabel, BOOKING_CATEGORY_SUGGESTIONS, groupResources } from "@/lib/booking";
+import { type BookingResource, type BookingPackage, dollars, durationLabel, BOOKING_CATEGORY_SUGGESTIONS, groupResources, ISO_DAYS, businessDayWindow } from "@/lib/booking";
 // CP-148: a real photo of the cage / bay instead of an emoji.
 import { ImageUploader } from "@/components/agency/image-uploader";
 import type { Business } from "@/lib/types/database";
@@ -145,6 +145,11 @@ export function BookingResourceSetup({
 
       {!draft && (
         <>
+          {/* CP-173: the business-wide booking hours — there was no way to
+              set these anywhere; the sheet and the customer slots ran on a
+              hard-coded Mon–Sat 9–7. Per day, so Fri/Sat can run later. */}
+          <BusinessHoursEditor business={business} primary={primary} onSaved={changed} />
+
           <div className="divide-y rounded-xl border">
             {resources.length === 0 && <div className="p-4 text-sm text-zinc-500">No bookable spots yet.</div>}
             {groupResources(resources).flatMap((g, gi, all) => [
@@ -370,6 +375,95 @@ function NumField({ label, value, min, max, onChange }: { label: string; value: 
     <div>
       <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{label}</Label>
       <Input type="number" min={min} max={max} value={value} onChange={e => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))} className="mt-1" />
+    </div>
+  );
+}
+
+
+/* ── CP-173: business booking hours (per weekday) ─────────────────────── */
+function BusinessHoursEditor({ business, primary, onSaved }: { business: Business; primary: string; onSaved: () => void }) {
+  const initial = () => {
+    const w: Record<string, [string, string] | null> = {};
+    for (const [d] of ISO_DAYS) w[String(d)] = businessDayWindow(business, d);
+    return w;
+  };
+  const [week, setWeek] = useState<Record<string, [string, string] | null>>(initial);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { setWeek(initial()); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [business.booking_hours]);
+
+  const fmt = (t: string) => { const [h, m] = t.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString(undefined, { hour: "numeric", minute: m ? "2-digit" : undefined }); };
+  const summary = ISO_DAYS.map(([d, l]) => { const w = week[String(d)]; return `${l} ${w ? `${fmt(w[0])}–${fmt(w[1])}` : "closed"}`; }).join(" · ");
+
+  async function save() {
+    setSaving(true); setErr(null);
+    const compact: Record<string, [string, string]> = {};
+    const days: number[] = [];
+    let earliest = "23:59", latest = "00:00";
+    for (const [d] of ISO_DAYS) {
+      const w = week[String(d)];
+      if (!w) continue;
+      if (w[0] >= w[1]) { setErr(`${ISO_DAYS.find(x => x[0] === d)![1]}: closing time must be after opening.`); setSaving(false); return; }
+      compact[String(d)] = w; days.push(d);
+      if (w[0] < earliest) earliest = w[0];
+      if (w[1] > latest) latest = w[1];
+    }
+    if (days.length === 0) { setErr("Open at least one day."); setSaving(false); return; }
+    // Legacy fields stay populated (widest window) for anything older that still reads them.
+    const next = { ...(business.booking_hours ?? { slot_minutes: 15 }), week: compact, days, start: earliest, end: latest, slot_minutes: business.booking_hours?.slot_minutes ?? 15 };
+    const { error } = await createClient().from("businesses").update({ booking_hours: next }).eq("id", business.id);
+    setSaving(false);
+    if (error) { setErr(error.message); return; }
+    business.booking_hours = next;   // keep the local prop in step until the parent refreshes
+    setSavedAt(Date.now()); setTimeout(() => setSavedAt(null), 2500);
+    onSaved();
+  }
+
+  return (
+    <div className="rounded-xl border-2 border-zinc-200 overflow-hidden">
+      <button type="button" onClick={() => setOpen(v => !v)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-zinc-50">
+        <span className="h-9 w-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: primary }}><Clock className="h-4 w-4" /></span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-extrabold">Booking hours</div>
+          <div className="text-[11px] text-zinc-500 truncate">{summary}</div>
+        </div>
+        {open ? <ChevronUp className="h-4 w-4 text-zinc-500" /> : <ChevronDown className="h-4 w-4 text-zinc-500" />}
+      </button>
+      {open && (
+        <div className="border-t px-3 py-3 space-y-2">
+          <p className="text-[11px] text-zinc-500">When customers can pick a time. A cage or room with its own hours (set in its editor) overrides these.</p>
+          {ISO_DAYS.map(([d, label]) => {
+            const w = week[String(d)];
+            return (
+              <div key={d} className="flex items-center gap-3 flex-wrap">
+                <label className="flex items-center gap-2 w-24 text-sm font-bold">
+                  <input type="checkbox" checked={!!w} onChange={e => setWeek({ ...week, [String(d)]: e.target.checked ? (week[String(d)] ?? ["10:00", "20:00"]) : null })} />
+                  {label}
+                </label>
+                {w ? (
+                  <>
+                    <input type="time" value={w[0]} onChange={e => setWeek({ ...week, [String(d)]: [e.target.value, w[1]] })} className="h-9 rounded-md border px-2 text-sm" />
+                    <span className="text-zinc-400 text-sm">to</span>
+                    <input type="time" value={w[1]} onChange={e => setWeek({ ...week, [String(d)]: [w[0], e.target.value] })} className="h-9 rounded-md border px-2 text-sm" />
+                    {d > 1 && (
+                      <button type="button" className="text-[11px] font-bold text-zinc-500 hover:text-zinc-800" onClick={() => setWeek({ ...week, [String(d)]: week[String(d - 1)] ?? w })}>same as {ISO_DAYS[d - 2][1]}</button>
+                    )}
+                  </>
+                ) : <span className="text-sm text-zinc-400">Closed</span>}
+              </div>
+            );
+          })}
+          {err && <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[12px] font-semibold text-rose-700">{err}</div>}
+          <div className="flex items-center gap-2 pt-1">
+            <Button onClick={save} disabled={saving} className="text-white h-9 font-extrabold" style={{ background: primary }}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} Save hours
+            </Button>
+            {savedAt && <span className="text-[12px] font-bold text-emerald-700">Saved — the sheet and the app use these now.</span>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

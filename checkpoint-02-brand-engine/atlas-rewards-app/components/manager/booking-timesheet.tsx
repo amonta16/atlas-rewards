@@ -15,7 +15,7 @@
 import { useMemo } from "react";
 import { Users, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { type BookingResource, type DeskBooking, type BookingStatus, isoDay } from "@/lib/booking";
+import { type BookingResource, type DeskBooking, type BookingStatus, isoDay, businessDayWindow } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
 export type SheetColumn = { key: string; resource: BookingResource; unitIndex: number; label: string; sub?: string };
@@ -43,10 +43,10 @@ function windowFor(r: BookingResource, business: Business, isodow: number): [num
     if (!w || w.length === 0) return null;
     return [Math.min(...w.map(x => toMin(x[0]))), Math.max(...w.map(x => toMin(x[1])))];
   }
-  const bh = business.booking_hours;
-  const days: number[] = (bh?.days as number[] | undefined) ?? [1, 2, 3, 4, 5, 6, 7];
-  if (!days.includes(isodow)) return null;
-  return [toMin(bh?.start ?? "09:00"), toMin(bh?.end ?? "21:00")];
+  // CP-173: per-day business hours (booking_hours.week) with legacy fallback.
+  const w = businessDayWindow(business, isodow);
+  if (!w) return null;
+  return [toMin(w[0]), toMin(w[1])];
 }
 
 export function columnsFor(resources: BookingResource[]): SheetColumn[] {

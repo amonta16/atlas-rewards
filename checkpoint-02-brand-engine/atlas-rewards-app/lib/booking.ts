@@ -189,3 +189,34 @@ export const noPayment: BookingPaymentProvider = {
 export function paymentProviderFor(_business: Pick<Business, "id">): BookingPaymentProvider {
   return noPayment;
 }
+
+
+/* ── CP-173: business-level per-day booking hours ─────────────────────── */
+export const ISO_DAYS: [number, string][] = [[1,"Mon"],[2,"Tue"],[3,"Wed"],[4,"Thu"],[5,"Fri"],[6,"Sat"],[7,"Sun"]];
+
+/** The business's booking window for a weekday (1=Mon…7=Sun) or null when closed.
+ *  Prefers booking_hours.week; falls back to the legacy start/end/days. */
+export function businessDayWindow(business: Business, isodow: number): [string, string] | null {
+  const bh = business.booking_hours;
+  if (bh?.week) {
+    const w = bh.week[String(isodow)];
+    return w && w[0] && w[1] ? [w[0], w[1]] : null;
+  }
+  const days: number[] = (bh?.days as number[] | undefined) ?? [1, 2, 3, 4, 5, 6, 7];
+  if (!days.includes(isodow)) return null;
+  return [bh?.start ?? "09:00", bh?.end ?? "21:00"];
+}
+
+/** Short human summary, e.g. "Mon–Thu 10 AM–8 PM · Fri–Sat 11 AM–9 PM · Sun 11 AM–7 PM". */
+export function businessHoursSummary(business: Business): string {
+  const fmt = (t: string) => { const [h, m] = t.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString(undefined, { hour: "numeric", minute: m ? "2-digit" : undefined }); };
+  const runs: { from: number; to: number; win: string }[] = [];
+  for (const [d, ] of ISO_DAYS) {
+    const w = businessDayWindow(business, d);
+    const win = w ? `${fmt(w[0])}–${fmt(w[1])}` : "Closed";
+    const last = runs[runs.length - 1];
+    if (last && last.win === win) last.to = d; else runs.push({ from: d, to: d, win });
+  }
+  const name = (d: number) => ISO_DAYS.find(x => x[0] === d)![1];
+  return runs.map(r => `${r.from === r.to ? name(r.from) : `${name(r.from)}–${name(r.to)}`} ${r.win}`).join(" · ");
+}
