@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
+import { businessUrl } from "@/lib/utils";
 import { Copy, Check, QrCode, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Business } from "@/lib/types/database";
@@ -27,9 +28,16 @@ export function BusinessDiscoveryQR({ business }: { business: Business }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Use the actual host the agency is viewing from — that's the live,
-    // reachable deployment. No stripping, no env guessing.
-    setOrigin(window.location.origin);
+    // CP-169: always encode the ROOT domain. The desk is usually open on the
+    // business subdomain (<slug>.<root>/manage); a QR built from that origin
+    // pointed at <slug>.<root>/j/<code>, which the subdomain rewrite 404'd
+    // (fixed in middleware too, but a printed QR should never depend on it).
+    // Local dev (lvh.me / localhost) keeps whatever host it's on.
+    const loc = window.location;
+    const local = /lvh\.me|localhost|127\.0\.0\.1/.test(loc.hostname);
+    const envRoot = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "").trim().toLowerCase().split(":")[0];
+    if (local || !envRoot) { setOrigin(loc.origin); return; }
+    setOrigin(businessUrl(envRoot));
   }, []);
 
   // CP-74: QRs now point at the smart landing /j/<join_code>, which serves

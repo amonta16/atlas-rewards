@@ -65,10 +65,20 @@ export async function middleware(request: NextRequest) {
   // the apex or on a business subdomain, and the rewrite below would turn it
   // into /<slug>/auth/confirm → 404, burning a one-time token. Same class of
   // bug as the CP-42 service-worker and CP-96.1 /legal rewrites.
+  // CP-169: /j/<code>, /qr/<slug> and /join are the ONBOARDING entry points
+  // (printed QR → smart landing → browser PWA / native join). They live at
+  // the project root, but the desk's "Your app QR code" card built them from
+  // window.location.origin — and when the desk is open on the business
+  // subdomain that produced https://<slug>.<root>/j/<code>, which this
+  // rewrite turned into /<slug>/j/<code> → 404 for every scan. Same class
+  // of bug as /g/ and /auth/. Host-agnostic now.
   const isRootPage = url.pathname === "/support"
     || url.pathname.startsWith("/legal")
     || url.pathname.startsWith("/g/")
-    || url.pathname.startsWith("/auth/");
+    || url.pathname.startsWith("/auth/")
+    || url.pathname.startsWith("/j/")
+    || url.pathname.startsWith("/qr/")
+    || url.pathname === "/join";
   const isRootAsset = ROOT_ASSETS.has(url.pathname) || url.pathname.startsWith("/api/") || isRootPage;
 
   if (!isRootAsset && subdomain && !RESERVED.has(subdomain)) {

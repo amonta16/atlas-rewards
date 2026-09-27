@@ -80,6 +80,10 @@ export default async function CustomerAppLayout({
     guardian_email: string | null;
   } | null;
 
+  const gateWaiver = gate && gate.state !== "ok" && gate.waiver_id && gate.version_id
+    ? { ...gate, waiver_id: gate.waiver_id, version_id: gate.version_id } : null;
+  const gateActive = gateWaiver !== null;
+
   const [{ data: billing }, bannerOffer, { data: promoFactRows }] = await Promise.all([
     supabase.rpc("membership_billing_public", { p_business_id: business.id }),
     getFeaturedOffer(business.id),
@@ -149,7 +153,10 @@ export default async function CustomerAppLayout({
         membershipId={membershipId}
         businessId={business.id}
       />
-      <PWAInstall primary={business.brand_colors.primary} businessName={business.name} />
+      {/* CP-169: the "Get the app" card and the gift reveal stay out of the
+          waiver gate — a new member's first screen is the waiver, and 5 s in
+          the install card slid up over its sign button. */}
+      {!gateActive && <PWAInstall primary={business.brand_colors.primary} businessName={business.name} />}
       <FeaturedOfferBanner
         primary={business.brand_colors.primary}
         offer={bannerOffer}
@@ -173,7 +180,7 @@ export default async function CustomerAppLayout({
       />
       {/* CP-29.1: auto-popping offer reveal — only renders if the customer
           hasn't already seen this offer on this device. */}
-      {!!business.widget_config.offers && (
+      {!!business.widget_config.offers && !gateActive && (
         <OfferRevealWatcher
           businessId={business.id}
           businessName={business.name}
@@ -183,24 +190,24 @@ export default async function CustomerAppLayout({
           membershipId={membershipId}
         />
       )}
-      {gate && gate.state !== "ok" && gate.waiver_id && gate.version_id ? (
+      {gateWaiver ? (
         <WaiverSignClient
           business={business}
           membershipId={membershipId}
           defaultName={user.user_metadata?.full_name ?? ""}
           campaign={null}
           waiver={{
-            waiver_id: gate.waiver_id,
-            waiver_title: gate.waiver_title ?? "Waiver",
-            version_id: gate.version_id,
-            version_no: gate.version_no ?? 1,
-            body_text: gate.body_text ?? "",
-            document_url: gate.document_url,
+            waiver_id: gateWaiver.waiver_id,
+            waiver_title: gateWaiver.waiver_title ?? "Waiver",
+            version_id: gateWaiver.version_id,
+            version_no: gateWaiver.version_no ?? 1,
+            body_text: gateWaiver.body_text ?? "",
+            document_url: gateWaiver.document_url,
           }}
           alreadySignedCurrent={false}
           gateMode
-          minorsEnabled={gate.minors_enabled ?? true}
-          awaitingGuardianEmail={gate.state === "awaiting_guardian" ? gate.guardian_email : null}
+          minorsEnabled={gateWaiver.minors_enabled ?? true}
+          awaitingGuardianEmail={gateWaiver.state === "awaiting_guardian" ? gateWaiver.guardian_email : null}
         />
       ) : (
       <CustomerAppShell
