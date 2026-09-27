@@ -763,31 +763,11 @@ export function AwardPointsPanel({
               </div>
             )}
 
-            <div className="mt-6">
-              <h3 className="text-sm font-bold tracking-wide text-zinc-500 uppercase">Quick award</h3>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {QUICK_RULES.map(r => {
-                  const value = business.point_rules[r.key];
-                  if (!value || value <= 0) return null;
-                  return (
-                    <button key={r.key}
-                      onClick={() => quickAward(r.key)}
-                      disabled={submitting}
-                      className="rounded-2xl border bg-white p-3 flex flex-col items-start gap-2 hover:bg-zinc-50 text-left disabled:opacity-50">
-                      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center", TONE_BG[r.tone])}>
-                        {r.icon}
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold">{r.label}</div>
-                        <div className="text-xs font-bold" style={{ color: business.brand_colors.primary }}>
-                          +{value} pts
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* CP-166: "Quick award" (visit / referral / birthday / profile)
+                removed from the desk (Andrew). Visits are counted
+                automatically on any purchase (CP-159), birthdays and
+                referrals pay out by themselves — staff never needed to
+                tap them, and the tiles only invited double-awards. */}
 
             {/* CP-43 — remove points. Corrections, refunds, or clawing back
                 points awarded in error / for abuse. Subtle, destructive-

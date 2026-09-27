@@ -407,11 +407,14 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           tablets) the original top header + scrolling tab bar remain. */}
       {/* CP-152: the sidebar wears the brand — a solid contrast band next to
           the white work area so the two never blur together. */}
+      {/* CP-166: flat, narrower sidebar — a solid near-black slate with a
+          thin brand accent line instead of the brand gradient; white text
+          on a flat dark surface reads better than on a color ramp. */}
       <aside
-        className="hidden lg:flex lg:flex-col w-60 shrink-0 sticky top-0 h-screen text-white"
-        style={{ background: `linear-gradient(180deg, ${business.brand_colors.primary} 0%, ${business.brand_colors.secondary ?? business.brand_colors.primary} 140%)` }}
+        className="hidden lg:flex lg:flex-col w-56 shrink-0 sticky top-0 h-screen text-white bg-[#151a22] border-r border-black/40"
+        style={{ boxShadow: `inset -3px 0 0 0 ${business.brand_colors.primary}` }}
       >
-        <div className="px-4 h-16 flex items-center gap-3 border-b border-white/15">
+        <div className="px-4 h-16 flex items-center gap-3 border-b border-white/10">
           <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 shadow">
             {business.logo_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
@@ -423,8 +426,8 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
           <div className="min-w-0">
             <div className="text-[13px] font-extrabold truncate leading-tight">{business.name}</div>
             {/* CP-165: the person, not just the role. */}
-            <div className="text-[11px] text-white/80 truncate leading-tight">
-              {whoami ? <><span className="font-bold text-white">{whoami}</span> · {roleLabel}</> : roleLabel}
+            <div className="text-[11px] text-zinc-400 truncate leading-tight">
+              {whoami ? <><span className="font-bold text-zinc-100">{whoami}</span> · {roleLabel}</> : roleLabel}
             </div>
           </div>
         </div>
@@ -454,24 +457,24 @@ export function ManagerDashboard({ business: initialBusiness, recent }: { busine
 
         {/* CP-165: compact nav — 36px rows, 13px labels, tighter groups. */}
         <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-px">
-          <div className="px-2.5 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Front desk</div>
+          <div className="px-2.5 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Front desk</div>
           {visibleTabs.filter(t => ["desk", "users", "bookings", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["offers", "news", "campaigns", "membership"].includes(t.id)) && (
-            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Customer app</div>
+            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Customer app</div>
           )}
           {visibleTabs.filter(t => ["offers", "news", "campaigns", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["insights", "billing", "team"].includes(t.id)) && (
-            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Business</div>
+            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Business</div>
           )}
           {visibleTabs.filter(t => ["insights", "billing", "team"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
         </nav>
 
-        <div className="border-t border-white/15 px-2.5 py-2 space-y-px">
-          <div className="[&_button]:text-white [&_button:hover]:bg-white/10"><ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} /></div>
-          <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-white/90 hover:bg-white/10">
+        <div className="border-t border-white/10 px-2.5 py-2 space-y-px">
+          <div className="[&_button]:text-zinc-300 [&_button:hover]:bg-white/[0.07]"><ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} /></div>
+          <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-zinc-300 hover:bg-white/[0.07] hover:text-white">
             <Lightbulb className="h-4 w-4" /> Tutorial
           </button>
-          <button type="button" onClick={signOut} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-white/90 hover:bg-white/10">
+          <button type="button" onClick={signOut} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-zinc-300 hover:bg-white/[0.07] hover:text-white">
             <LogOut className="h-4 w-4" /> Sign out
           </button>
           {bizSavedAt && (
@@ -946,11 +949,11 @@ function SideItem({ t, active, badge, primary, onClick }: {
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold transition text-left",
-        active ? "bg-white shadow-md" : "text-white/90 hover:bg-white/10",
+        active ? "text-white shadow-md" : "text-zinc-300 hover:bg-white/[0.07] hover:text-white",
       )}
-      style={active ? { color: primary } : undefined}
+      style={active ? { background: primary } : undefined}
     >
-      <span className={cn("shrink-0", active ? "opacity-100" : "opacity-80")}>{t.icon}</span>
+      <span className={cn("shrink-0", active ? "opacity-100" : "opacity-75")}>{t.icon}</span>
       <span className="flex-1 truncate">{t.label}</span>
       {badge > 0 && (
         <span className={cn("h-5 min-w-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center text-white", active ? "bg-rose-500" : "bg-rose-500 ring-2 ring-white/30")}>{badge}</span>
