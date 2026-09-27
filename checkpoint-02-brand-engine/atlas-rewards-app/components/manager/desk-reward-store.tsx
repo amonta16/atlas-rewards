@@ -25,7 +25,8 @@ import { useDeskLive } from "@/lib/desk-live";
 import { cn } from "@/lib/utils";
 
 type Row = {
-  kind: "reward" | "pending"; id: string; name: string; category: string | null; description: string | null;
+  /** CP-171: 'gift' = welcome / birthday / win-back gift in customer_saved_offers (handed over via fulfill_saved_offer). */
+  kind: "reward" | "pending" | "gift"; id: string; name: string; category: string | null; description: string | null;
   image_url: string | null; point_cost: number; affordable: boolean; expires_at: string | null; code: string | null;
 };
 type TodayRow = { id: string; point_cost: number; fulfilled_at: string | null; status: string; rewards: { name: string; image_url: string | null } | null };
@@ -54,7 +55,7 @@ export function DeskRewardStore({
   const load = useCallback(async () => {
     const supabase = createClient();
     const start = new Date(); start.setHours(0, 0, 0, 0);
-    const [store, done] = await Promise.all([
+    const [store, done, gifts] = await Promise.all([
       supabase.rpc("desk_member_store", { p_membership_id: membershipId }),
       supabase.from("redemptions")
         .select("id,point_cost,fulfilled_at,status,rewards(name,image_url)")
@@ -63,13 +64,25 @@ export function DeskRewardStore({
         .gte("fulfilled_at", start.toISOString())
         .order("fulfilled_at", { ascending: false })
         .limit(12),
+      // CP-171: gifts handed over today too (welcome gift etc.)
+      supabase.from("customer_saved_offers")
+        .select("id,fulfilled_at,offers(title,image_url,rewards(name,image_url))")
+        .eq("membership_id", membershipId)
+        .gte("fulfilled_at", start.toISOString())
+        .order("fulfilled_at", { ascending: false })
+        .limit(12),
     ]);
     setRows(store.error ? [] : ((store.data ?? []) as Row[]));
-    setToday(done.error ? [] : ((done.data ?? []) as unknown as TodayRow[]));
+    const giftRows: TodayRow[] = gifts.error ? [] : ((gifts.data ?? []) as unknown as { id: string; fulfilled_at: string | null; offers: { title: string; image_url: string | null; rewards: { name: string; image_url: string | null } | null } | null }[])
+      .map(g => ({ id: g.id, point_cost: 0, fulfilled_at: g.fulfilled_at, status: "fulfilled",
+        rewards: { name: g.offers?.rewards?.name ?? g.offers?.title ?? "Gift", image_url: g.offers?.rewards?.image_url ?? g.offers?.image_url ?? null } }));
+    const all = [...(done.error ? [] : ((done.data ?? []) as unknown as TodayRow[])), ...giftRows]
+      .sort((a, b) => (b.fulfilled_at ?? "").localeCompare(a.fulfilled_at ?? ""));
+    setToday(all);
   }, [membershipId]);
   useEffect(() => { load(); }, [load, balance, tick]);
 
-  const pending = useMemo(() => (rows ?? []).filter(r => r.kind === "pending"), [rows]);
+  const pending = useMemo(() => (rows ?? []).filter(r => r.kind === "pending" || r.kind === "gift"), [rows]);
   const groups = useMemo(() => {
     const out: { category: string; items: Row[] }[] = [];
     for (const r of (rows ?? []).filter(r => r.kind === "reward")) {
@@ -104,7 +117,11 @@ export function DeskRewardStore({
 
   async function handOver(r: Row) {
     setBusy(r.id); setErr(null);
-    const { error } = await createClient().rpc("fulfill_redemption", { p_redemption_id: r.id });
+    // CP-171: saved gifts (welcome / birthday / win-back) live in a different
+    // table than wheel-prize redemptions — different fulfil RPC.
+    const { error } = r.kind === "gift"
+      ? await createClient().rpc("fulfill_saved_offer", { p_saved_id: r.id })
+      : await createClient().rpc("fulfill_redemption", { p_redemption_id: r.id });
     setBusy(null);
     if (error) { setErr(error.message); return; }
     setStage({ step: "done", row: r, pointsTaken: 0, newBalance: balance, at: new Date() });
@@ -286,7 +303,7 @@ function Card({ r, primary, tone, balance = 0, busy, selected, onAct }: { r: Row
         <span className={cn("absolute top-1.5 left-1.5 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide inline-flex items-center gap-1",
           tone === "pending" ? "bg-amber-400 text-zinc-900" : locked ? "bg-white/90 text-zinc-600" : "text-white")}
           style={tone === "ready" ? { background: primary } : undefined}>
-          {tone === "pending" ? <><Sparkles className="h-2.5 w-2.5" /> Free · won</> : locked ? <><Lock className="h-2.5 w-2.5" /> {toGo.toLocaleString()} to go</> : <><Check className="h-2.5 w-2.5" /> Ready</>}
+          {tone === "pending" ? <><Sparkles className="h-2.5 w-2.5" /> {r.kind === "gift" ? "Gift · free" : "Free · won"}</> : locked ? <><Lock className="h-2.5 w-2.5" /> {toGo.toLocaleString()} to go</> : <><Check className="h-2.5 w-2.5" /> Ready</>}
         </span>
         {exp && (
           <span className={cn("absolute bottom-1.5 right-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold inline-flex items-center gap-1", expSoon ? "bg-red-600 text-white" : "bg-white/90 text-zinc-700")}>
@@ -296,7 +313,7 @@ function Card({ r, primary, tone, balance = 0, busy, selected, onAct }: { r: Row
       </div>
       <div className="p-2.5 flex flex-col flex-1">
         <div className={cn("text-[12px] font-bold leading-tight line-clamp-2 min-h-[2.4em]", locked && "text-zinc-500")}>{r.name}</div>
-        <div className="text-[10px] font-semibold text-zinc-500 mt-0.5">{tone === "pending" ? (r.code ? `Code ${r.code}` : "No points needed") : `${r.point_cost.toLocaleString()} pts`}</div>
+        <div className="text-[10px] font-semibold text-zinc-500 mt-0.5 truncate">{tone === "pending" ? (r.kind === "gift" && r.description ? r.description : r.code ? `Code ${r.code}` : "No points needed") : `${r.point_cost.toLocaleString()} pts`}</div>
         <button type="button" onClick={onAct} disabled={locked || busy}
           className={cn("mt-2 h-9 rounded-xl text-[12px] font-extrabold inline-flex items-center justify-center gap-1.5 transition active:scale-[0.98]",
             locked ? "bg-zinc-200 text-zinc-500 cursor-not-allowed" : "text-white")}

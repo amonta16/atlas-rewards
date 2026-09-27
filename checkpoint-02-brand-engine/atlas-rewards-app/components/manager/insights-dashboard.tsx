@@ -19,57 +19,14 @@
  * watching, not a one-off snapshot).
  */
 import { useEffect, useState } from "react";
-import {
-  Sparkles, TrendingUp, Users, Repeat, Gift, Mail, Send,
-  Trophy, Brain, Star, ArrowRight, ShieldCheck, DollarSign, BarChart3,
-  AlertTriangle, X, MessageSquareHeart, Loader2,
-} from "lucide-react";
+import { Mail, Send, Trophy, X, MessageSquareHeart, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StatCard } from "@/components/ui/stat-card";
 import { useToast } from "@/components/ui/toast";
 import type { Business } from "@/lib/types/database";
-// CP-160: visits / spins / bookings / follows / members / waivers rollup.
-import { EngagementSection } from "@/components/manager/engagement-section";
-
-type Rollup = {
-  total_members: number; new_members_30d: number; active_members_30d: number;
-  repeat_rate_pct: number; avg_value_cents: number;
-  redemptions_30d: number; points_awarded_30d: number; redemption_rate_pct: number;
-  inactive_60d: number; total_revenue_30d_cents: number;
-};
-
-/** atlas_impact_rollup(p_business_id) — CP-32 + CP-42 baseline fields */
-type Impact = {
-  driven_revenue_cents: number;            // total $ attributed to Atlas (loyalty + reviews + winbacks)
-  repeat_visit_lift_pct: number;           // % of repeat visits attributable to loyalty
-  reviews_generated: number;               // verified reviews via Atlas (lifetime)
-  reviews_generated_30d: number;           // verified reviews this 30d window
-  estimated_review_value_cents: number;    // reviews × business value per review (default $35)
-  estimated_winback_cents: number;         // recovered revenue from winback messages
-  retention_lift_pct: number;              // estimated retention pp vs. no-loyalty baseline
-  avg_member_value_cents: number;          // avg LTV per Atlas member
-  member_count: number;
-  // Counterfactual baselines for "without Atlas" view
-  baseline_visits_30d: number;
-  actual_visits_30d: number;
-  baseline_revenue_30d_cents: number;
-  actual_revenue_30d_cents: number;
-  // CP-42: operator-supplied historical baselines from onboarding
-  baseline_google_reviews?: number | null;
-  baseline_google_rating?: number | null;
-  baseline_captured_at?: string | null;
-};
-
-type MonthlyPoint = { month: string; reviews: number; revenue_cents: number; visits: number };
-
-type ReviewFunnel = {
-  asks_30d: number; submitted_30d: number; verified_30d: number;
-  star_avg_before: number | null; star_avg_after: number | null;
-  total_lifetime_reviews: number;
-};
+import { InsightsV3 } from "@/components/manager/insights-v3";
 
 type TopMember = {
   membership_id: string; full_name: string | null; email: string | null;
@@ -93,12 +50,11 @@ const INACTIVE_WINDOWS = [7, 14, 30, 60, 90] as const;
 // Andrew explicitly asked for two months.
 const INACTIVE_DAYS = 60;
 
-export function InsightsDashboard({ business, trends }: { business: Business; trends?: React.ReactNode }) {
+// CP-171: `trends` (embedded BusinessInsights) is no longer rendered — the
+// 12-week momentum chart in InsightsV3 covers it. Prop kept so the call site
+// in manager-dashboard.tsx doesn't need to change.
+export function InsightsDashboard({ business }: { business: Business; trends?: React.ReactNode }) {
   const { toast } = useToast();
-  const [rollup, setRollup]       = useState<Rollup | null>(null);
-  const [impact, setImpact]       = useState<Impact | null>(null);
-  const [monthly, setMonthly]     = useState<MonthlyPoint[]>([]);
-  const [funnel, setFunnel]       = useState<ReviewFunnel | null>(null);
   const [top, setTop]             = useState<TopMember[]>([]);
   const [inactive, setInactive]   = useState<Inactive[]>([]);
   // CP-86: adjustable window (days without a check-in). Default 60.
@@ -121,34 +77,13 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
 
   async function loadAll() {
     const supabase = createClient();
-    const [
-      { data: r },
-      { data: t },
-      inactiveRes,
-      impactRes,
-      monthlyRes,
-      funnelRes,
-    ] = await Promise.all([
-      supabase.rpc("business_analytics_rollup", { p_business_id: business.id }),
-      supabase.rpc("top_loyal_members",         { p_business_id: business.id, p_limit: 5 }),
-      supabase.rpc("inactive_members",          { p_business_id: business.id, p_min_days: inactiveDays, p_limit: 50 }),
-      supabase.rpc("atlas_impact_rollup",       { p_business_id: business.id }),
-      supabase.rpc("atlas_impact_monthly",      { p_business_id: business.id }),
-      supabase.rpc("atlas_review_funnel",       { p_business_id: business.id }),
+    const [{ data: t }, inactiveRes] = await Promise.all([
+      supabase.rpc("top_loyal_members", { p_business_id: business.id, p_limit: 5 }),
+      supabase.rpc("inactive_members",  { p_business_id: business.id, p_min_days: inactiveDays, p_limit: 50 }),
     ]);
-
-    const row = Array.isArray(r) ? r[0] : r;
-    setRollup((row ?? null) as Rollup | null);
     setTop((t ?? []) as TopMember[]);
     setInactive((inactiveRes.data ?? []) as Inactive[]);
     setInactiveErr(inactiveRes.error ? inactiveRes.error.message : null);
-
-    // CP-32 RPCs — silently no-op if the migration hasn't been applied.
-    const im = Array.isArray(impactRes.data) ? impactRes.data[0] : impactRes.data;
-    setImpact((im ?? null) as Impact | null);
-    setMonthly((monthlyRes.data ?? []) as MonthlyPoint[]);
-    const fu = Array.isArray(funnelRes.data) ? funnelRes.data[0] : funnelRes.data;
-    setFunnel((fu ?? null) as ReviewFunnel | null);
   }
 
   // CP-86: re-query when the win-back window changes too.
@@ -198,330 +133,15 @@ export function InsightsDashboard({ business, trends }: { business: Business; tr
     }
   }
 
-  const dollars = (c: number) => `$${(c / 100).toFixed(0)}`;
-  const dollarsBig = (c: number) => {
-    const n = c / 100;
-    if (n >= 10000) return `$${(n / 1000).toFixed(1)}k`;
-    return `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-  };
-
   const brand = business.brand_colors.primary;
-  const brand2 = business.brand_colors.secondary;
 
   return (
     <div className="space-y-6">
-      {/* ============================================================
-          ATLAS IMPACT HERO — the "this is what we did for you" card.
-          ============================================================ */}
-      <div
-        className="relative rounded-3xl overflow-hidden text-white shadow-xl"
-        style={{
-          background: `linear-gradient(135deg, #0a3d62 0%, #1d6fa5 60%, ${brand2 ?? "#2a8cc4"} 100%)`,
-        }}
-      >
-        <div className="pointer-events-none absolute -top-16 -right-12 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -left-12 h-56 w-56 rounded-full bg-cyan-300/15 blur-3xl" />
-
-        <div className="relative p-6 lg:p-8">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] font-extrabold opacity-90">
-            <Sparkles className="h-3.5 w-3.5" /> Atlas Impact · Last 30 days
-          </div>
-
-          <div className="mt-3 flex items-end flex-wrap gap-x-6 gap-y-2">
-            <div>
-              {/* CP-43: graceful fallback. When the CP-32 atlas_impact_rollup
-                  RPC isn't installed, `impact` is null — instead of an ugly
-                  "$—" + "apply the migration" placeholder, fall back to the
-                  real 30-day member revenue from business_analytics_rollup
-                  (which is always installed) with honest framing. The card
-                  never looks broken on any business. */}
-              <div className="text-[12px] uppercase font-bold opacity-80 tracking-wider">
-                {impact ? "Atlas drove" : "Member revenue"}
-              </div>
-              <div className="text-5xl lg:text-6xl font-black leading-none tabular-nums drop-shadow-lg">
-                {impact
-                  ? dollarsBig(impact.driven_revenue_cents)
-                  : rollup
-                    ? dollarsBig(rollup.total_revenue_30d_cents)
-                    : "—"}
-              </div>
-              <div className="text-sm font-semibold opacity-90 mt-1">
-                {impact ? <>for {business.name} this month.</> : <>tracked for {business.name} this month.</>}
-              </div>
-            </div>
-
-            {impact && impact.retention_lift_pct > 0 && (
-              <div className="flex items-center gap-2 rounded-xl bg-white/15 backdrop-blur-sm px-3 py-2 ring-1 ring-white/20">
-                <TrendingUp className="h-5 w-5" />
-                <div>
-                  <div className="text-2xl font-black tabular-nums">+{impact.retention_lift_pct.toFixed(0)}%</div>
-                  <div className="text-[10px] uppercase tracking-wider font-bold opacity-85">retention lift</div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Source breakdown chips */}
-          {impact && (
-            <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-2">
-              <ImpactChip icon={<Repeat className="h-3.5 w-3.5" />} label="Repeat visits"
-                value={dollars(Math.max(0, impact.actual_revenue_30d_cents - impact.baseline_revenue_30d_cents))} />
-              <ImpactChip icon={<Star className="h-3.5 w-3.5" />} label="Review value"
-                value={dollars(impact.estimated_review_value_cents)} />
-              <ImpactChip icon={<Brain className="h-3.5 w-3.5" />} label="Win-back revenue"
-                value={dollars(impact.estimated_winback_cents)} />
-              <ImpactChip icon={<Users className="h-3.5 w-3.5" />} label="Member LTV"
-                value={dollars(impact.avg_member_value_cents)} sub="per Atlas member"/>
-            </div>
-          )}
-
-          {/* CP-43: when the impact RPC isn't installed we surface a couple
-              of real, always-available stats instead of the old "preview
-              mode / apply CP-32" note, so the hero still feels complete. */}
-          {!impact && rollup && (
-            <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-2">
-              <ImpactChip icon={<Users className="h-3.5 w-3.5" />} label="Members"
-                value={`${rollup.total_members}`} sub={`${rollup.new_members_30d} new in 30d`} />
-              <ImpactChip icon={<Repeat className="h-3.5 w-3.5" />} label="Repeat rate"
-                value={`${rollup.repeat_rate_pct}%`} sub={`${rollup.active_members_30d} active`} />
-              <ImpactChip icon={<Gift className="h-3.5 w-3.5" />} label="Redemptions"
-                value={`${rollup.redemptions_30d}`} sub="last 30 days" />
-              <ImpactChip icon={<Star className="h-3.5 w-3.5" />} label="Points awarded"
-                value={`${rollup.points_awarded_30d.toLocaleString()}`} sub="last 30 days" />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ============================================================
-          WITH / WITHOUT ATLAS — the "imagine canceling" comparison.
-          ============================================================ */}
-      {impact && (
-        <div className="rounded-3xl border bg-white p-5 lg:p-7 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                With Atlas <span className="text-zinc-400 mx-1">vs.</span> Without
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                {impact.baseline_captured_at
-                  ? <>Side-by-side using <b>your real pre-Atlas numbers</b> from {new Date(impact.baseline_captured_at).toLocaleDateString(undefined, { month: "short", year: "numeric" })}.</>
-                  : <>Side-by-side: what's happening today vs. an estimated baseline with no loyalty + no review automation.</>}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <CompareRow
-              label="Revenue (30d)"
-              icon={<DollarSign className="h-4 w-4" />}
-              withVal={dollarsBig(impact.actual_revenue_30d_cents)}
-              withoutVal={dollarsBig(impact.baseline_revenue_30d_cents)}
-              brand={brand}
-              note={impact.baseline_captured_at ? "From your onboarding baseline" : undefined}
-            />
-            <CompareRow
-              label="Repeat visits (30d)"
-              icon={<Repeat className="h-4 w-4" />}
-              withVal={`${impact.actual_visits_30d}`}
-              withoutVal={`${impact.baseline_visits_30d}`}
-              brand={brand}
-              note={impact.baseline_captured_at ? "From your onboarding baseline" : undefined}
-            />
-            <CompareRow
-              label="Google reviews (lifetime)"
-              icon={<Star className="h-4 w-4" />}
-              withVal={`${impact.reviews_generated}`}
-              withoutVal={
-                impact.baseline_google_reviews != null
-                  ? `${impact.baseline_google_reviews}`
-                  : `${Math.max(0, Math.round(impact.reviews_generated_30d * 0.18))}`
-              }
-              brand={brand}
-              note={
-                impact.baseline_google_reviews != null
-                  ? "From your onboarding baseline (last year)"
-                  : "Industry baseline: ~18% organic without prompting"
-              }
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================
-          GOOGLE REVIEW PERFORMANCE
-          CP-42: heavy Google branding (blue/red/yellow/green) so the
-          section is instantly recognizable as Google-flavored.
-          ============================================================ */}
-      <div className="rounded-3xl border overflow-hidden bg-white shadow-sm">
-        {/* Google brand-bar — the iconic 4-color stripe at the top */}
-        <div className="h-1.5 w-full flex">
-          <div className="flex-1" style={{ background: "#4285F4" }} />
-          <div className="flex-1" style={{ background: "#EA4335" }} />
-          <div className="flex-1" style={{ background: "#FBBC04" }} />
-          <div className="flex-1" style={{ background: "#34A853" }} />
-        </div>
-
-        <div className="p-5 lg:p-7">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-3">
-              {/* Inline multicolor "G" logomark */}
-              <div className="h-11 w-11 rounded-2xl bg-white border shadow-sm flex items-center justify-center">
-                <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A10.99 10.99 0 0 0 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09a6.6 6.6 0 0 1 0-4.18V7.07H2.18a10.99 10.99 0 0 0 0 9.86l3.66-2.84z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/>
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg leading-tight">Google Review performance</h3>
-                <p className="text-xs text-muted-foreground">
-                  How Atlas is moving the needle on reviews — funnel + monthly volume.
-                </p>
-              </div>
-            </div>
-            {funnel && funnel.total_lifetime_reviews > 0 && (
-              <div className="text-right">
-                <div className="text-3xl font-black tabular-nums" style={{ color: "#34A853" }}>
-                  {funnel.total_lifetime_reviews}
-                </div>
-                <div className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">total verified</div>
-              </div>
-            )}
-          </div>
-
-          {/* Funnel — Google blue → yellow → green follows the
-              "ask → submitted → verified" success path. */}
-          {funnel && (
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              <FunnelCell n={funnel.asks_30d}       label="Asks"      tone="google-blue" />
-              <FunnelCell n={funnel.submitted_30d}  label="Submitted" tone="google-yellow" />
-              <FunnelCell n={funnel.verified_30d}   label="Verified"  tone="google-green" />
-            </div>
-          )}
-
-        {/* Monthly chart — review volume + revenue trend over 6 months */}
-        {monthly.length > 0 && (
-          <div>
-            <div className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 mb-2">
-              Reviews per month
-            </div>
-            <div className="flex items-end gap-1.5 h-36">
-              {monthly.map((m, i) => {
-                const max = Math.max(...monthly.map(x => x.reviews), 1);
-                const h = (m.reviews / max) * 100;
-                return (
-                  <div key={m.month + i} className="flex-1 flex flex-col items-center gap-1.5">
-                    <div className="text-[10px] font-bold tabular-nums text-zinc-700">{m.reviews}</div>
-                    <div
-                      className="w-full rounded-t-lg transition-all"
-                      style={{
-                        height: `${Math.max(6, h)}%`,
-                        background: `linear-gradient(180deg, ${brand2 ?? brand}, ${brand})`,
-                      }}
-                      title={`${m.month}: ${m.reviews} reviews`}
-                    />
-                    <div className="text-[10px] text-zinc-500">{m.month}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* CP-42: prefer operator-supplied baseline rating when set,
-            otherwise fall back to whatever the review funnel computed. */}
-        {(() => {
-          const before = impact?.baseline_google_rating ?? funnel?.star_avg_before ?? null;
-          const after  = funnel?.star_avg_after ?? null;
-          if (before == null || after == null) return null;
-          return (
-            <div
-              className="mt-5 rounded-2xl border p-4 flex items-center gap-4"
-              style={{ background: "linear-gradient(135deg, #FBBC0410, #FBBC0420)", borderColor: "#FBBC04" }}
-            >
-              <div className="text-center">
-                <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#92400E" }}>Before Atlas</div>
-                <div className="text-2xl font-black tabular-nums" style={{ color: "#92400E" }}>
-                  {before.toFixed(1)}★
-                </div>
-              </div>
-              <ArrowRight className="h-5 w-5" style={{ color: "#92400E" }} />
-              <div className="text-center">
-                <div className="text-[10px] uppercase tracking-wider font-bold" style={{ color: "#34A853" }}>Now</div>
-                <div className="text-2xl font-black tabular-nums" style={{ color: "#34A853" }}>
-                  {after.toFixed(1)}★
-                </div>
-              </div>
-              <div className="ml-auto text-right text-xs font-semibold" style={{ color: "#1f2937" }}>
-                {(after - before).toFixed(1)} star lift
-                <br />
-                <span className="text-[10px] opacity-80">
-                  {impact?.baseline_google_rating != null ? "vs. your onboarding baseline" : "since Atlas turned on"}
-                </span>
-              </div>
-            </div>
-          );
-        })()}
-        </div>
-      </div>
-
-      {/* CP-160: what the app has captured beyond points — visits, spins,
-          bookings, follows, members, waivers, birthdays — with a 12-week trend. */}
-      <EngagementSection business={business} />
-
-      {/* ============================================================
-          ATLAS DASHBOARD (legacy rollup — kept beneath)
-          ============================================================ */}
-      <div className="rounded-3xl border bg-white p-5 lg:p-7 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="h-4 w-4 text-zinc-500" />
-          <h3 className="font-semibold">Operations dashboard</h3>
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard
-            icon={<Users className="h-5 w-5" />}
-            label="Members"
-            value={rollup?.total_members ?? "—"}
-            sub={`${rollup?.new_members_30d ?? 0} new in 30d`}
-            tone="indigo"
-          />
-          <StatCard
-            icon={<Repeat className="h-5 w-5" />}
-            label="Repeat rate"
-            value={rollup ? `${rollup.repeat_rate_pct}%` : "—"}
-            sub={`${rollup?.active_members_30d ?? 0} active`}
-            tone="emerald"
-          />
-          <StatCard
-            icon={<Gift className="h-5 w-5" />}
-            label="Redemption rate"
-            value={rollup ? `${rollup.redemption_rate_pct}%` : "—"}
-            sub={`${rollup?.redemptions_30d ?? 0} redemptions`}
-            tone="amber"
-          />
-          {/* CP-47: was rollup.inactive_60d, which also counted members who
-              NEVER visited (last_visit_at IS NULL) — so it showed e.g. "7"
-              while the win-back list below was empty. Use the actual
-              contactable win-back list length so the number always matches
-              the members you can actually act on. */}
-          <StatCard
-            icon={<AlertTriangle className="h-5 w-5" />}
-            label="Win-back ready"
-            value={inactive.length}
-            sub={inactive.length === 0 ? "No lapsed members 🎉" : `Lapsed ${inactiveDays}d+ · contactable`}
-            tone="rose"
-          />
-        </div>
-      </div>
-
-      {/* CP-147: period-scoped trends (embedded BusinessInsights) sit right
-          under the operations row so the page reads top-down: impact →
-          reviews → today's ops → trends → people. */}
-      {trends}
+      {/* CP-171: one page of real numbers — KPIs, three social pillars,
+          momentum, members / game / desk, most redeemed. Replaces the impact
+          hero, with/without, Google card, engagement engine, ops row and
+          embedded trends (all of which overlapped). */}
+      <InsightsV3 business={business} />
 
       {/* ===================== TOP LOYAL MEMBERS ===================== */}
       <div className="rounded-2xl border bg-white overflow-hidden">
@@ -811,95 +431,3 @@ function WeMissYouComposer({
 }
 
 /* ───────────────────────── sub-components ───────────────────────── */
-
-function ImpactChip({
-  icon, label, value, sub,
-}: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-xl bg-white/15 backdrop-blur-sm ring-1 ring-white/20 px-3 py-2.5">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold opacity-90">
-        {icon} {label}
-      </div>
-      <div className="text-xl font-black tabular-nums mt-1">{value}</div>
-      {sub && <div className="text-[10px] opacity-80">{sub}</div>}
-    </div>
-  );
-}
-
-function CompareRow({
-  label, icon, withVal, withoutVal, brand, note,
-}: {
-  label: string; icon: React.ReactNode;
-  withVal: string; withoutVal: string;
-  brand: string;
-  note?: string;
-}) {
-  // CP-42: way bolder green/red contrast. The "With Atlas" cell now
-  // gets a solid green wash so the value pop and the "Without" cell
-  // gets a red wash so the gap is visceral.
-  return (
-    <div className="rounded-2xl border-2 border-zinc-200 bg-white p-4">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-extrabold text-zinc-700 mb-3">
-        {icon} {label}
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div
-          className="rounded-xl p-3 border-2"
-          style={{
-            background: "linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)",
-            borderColor: "#10b981",
-          }}
-        >
-          <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: "#047857" }}>With Atlas</div>
-          <div className="text-2xl font-black tabular-nums mt-0.5" style={{ color: "#064e3b" }}>{withVal}</div>
-        </div>
-        <div
-          className="rounded-xl p-3 border-2"
-          style={{
-            background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
-            borderColor: "#f87171",
-          }}
-        >
-          <div className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: "#b91c1c" }}>Without</div>
-          <div
-            className="text-2xl font-black tabular-nums mt-0.5 line-through decoration-2"
-            style={{ color: "#9ca3af", textDecorationColor: "#f87171" }}
-          >
-            {withoutVal}
-          </div>
-        </div>
-      </div>
-      {note && <p className="text-[10px] text-zinc-500 mt-2 italic">{note}</p>}
-    </div>
-  );
-}
-
-function FunnelCell({
-  n, label, tone,
-}: {
-  n: number;
-  label: string;
-  // CP-42: added Google brand tones for heavy-Google review section.
-  tone: "zinc" | "amber" | "emerald" | "google-blue" | "google-yellow" | "google-green" | "google-red";
-}) {
-  const tones = {
-    zinc:           { bg: "#f4f4f5",        border: "#e4e4e7", text: "#3f3f46",  accent: "#18181b" },
-    amber:          { bg: "#fffbeb",        border: "#fde68a", text: "#b45309",  accent: "#78350f" },
-    emerald:        { bg: "#ecfdf5",        border: "#a7f3d0", text: "#047857",  accent: "#064e3b" },
-    "google-blue":  { bg: "#4285F410",      border: "#4285F4", text: "#1a73e8",  accent: "#1a73e8" },
-    "google-yellow":{ bg: "#FBBC0418",      border: "#FBBC04", text: "#92400E",  accent: "#92400E" },
-    "google-green": { bg: "#34A85318",      border: "#34A853", text: "#15803d",  accent: "#15803d" },
-    "google-red":   { bg: "#EA433518",      border: "#EA4335", text: "#b91c1c",  accent: "#b91c1c" },
-  }[tone];
-  return (
-    <div
-      className="rounded-2xl border-2 p-4"
-      style={{ background: tones.bg, borderColor: tones.border }}
-    >
-      <div className="text-[10px] uppercase tracking-wider font-extrabold" style={{ color: tones.text }}>{label}</div>
-      <div className="text-3xl font-black tabular-nums" style={{ color: tones.accent }}>{n}</div>
-      <div className="text-[10px] opacity-80 mt-0.5" style={{ color: tones.text }}>last 30d</div>
-    </div>
-  );
-}
-

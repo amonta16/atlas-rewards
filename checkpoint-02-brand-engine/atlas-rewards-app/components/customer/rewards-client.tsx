@@ -694,7 +694,67 @@ export function RewardsClient({
             <Zap className="h-2.5 w-2.5" /> Earn
           </span>
         </div>
+        {/* CP-171: socials FIRST — three square tiles (Google / Instagram /
+            Facebook) with the point value huge and the status obvious. They
+            are the biggest one-tap wins in the program, and the desk can
+            verify them on the spot. Everything else lives in a compact
+            "every visit" list underneath. */}
+        {(() => {
+          type Tile = { key: string; label: string; verb: string; color: string; icon: React.ReactNode; points: number; status: "none" | "pending" | "verified" | "rejected"; onClick?: () => void; anchorId?: string };
+          const tiles: Tile[] = [];
+          if (business.widget_config.reviews && !!business.google_review_url) {
+            tiles.push({ key: "google", label: "Google", verb: "Leave a review", color: "#1a73e8", points: earnRules.review, status: reviewStatus as Tile["status"], anchorId: "review-row",
+              icon: <Star className="h-5 w-5" />, onClick: () => setReviewOpen(true) });
+          }
+          for (const p of SOCIAL_PLATFORMS.filter(pl => socialRewardLive(business, pl))) {
+            const cfg = readSocialConfig(business, p);
+            tiles.push({ key: p, label: SOCIAL_META[p].label, verb: "Follow us", color: p === "instagram" ? "#d62976" : "#1877f2", points: cfg.points, status: socialStatus[p] as Tile["status"],
+              icon: p === "instagram" ? <Instagram className="h-5 w-5" /> : <Facebook className="h-5 w-5" />, onClick: () => setSocialOpen(p) });
+          }
+          if (tiles.length === 0) return null;
+          const openTotal = tiles.filter(t => t.status !== "verified").reduce((n, t) => n + t.points, 0);
+          return (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500">Quick wins</div>
+                {openTotal > 0 && <div className="text-[11px] font-extrabold" style={{ color: business.brand_colors.primary }}>+{openTotal.toLocaleString()} pts up for grabs</div>}
+              </div>
+              <div className={`grid gap-2 ${tiles.length === 1 ? "grid-cols-1" : tiles.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                {tiles.map(t => {
+                  const done = t.status === "verified", pend = t.status === "pending";
+                  return (
+                    <button key={t.key} id={t.anchorId} type="button" disabled={done} onClick={t.onClick}
+                      className={`relative rounded-2xl border-2 bg-white text-left overflow-hidden transition active:scale-[0.98] scroll-mt-24 ${done ? "border-emerald-500" : pend ? "border-amber-400" : "border-zinc-200 shadow-md"}`}>
+                      <div className="h-1.5" style={{ background: done ? "#10b981" : t.color }} />
+                      <div className="p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="h-9 w-9 rounded-xl flex items-center justify-center text-white" style={{ background: t.color }}>{t.icon}</span>
+                          {!done && !pend && <span className="h-5 w-5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center animate-pulse">!</span>}
+                          {done && <span className="h-5 w-5 rounded-full bg-emerald-500 text-white text-[11px] font-black flex items-center justify-center">✓</span>}
+                          {pend && <span className="text-[9px] font-black uppercase rounded-full bg-amber-400 text-zinc-900 px-1.5 py-0.5">Pending</span>}
+                        </div>
+                        <div className="mt-2.5 text-2xl font-black tabular-nums leading-none" style={{ color: done ? "#059669" : t.color }}>{done ? "Done" : `+${t.points.toLocaleString()}`}</div>
+                        <div className="text-[11px] font-bold text-zinc-800 mt-1 leading-tight">{t.label}</div>
+                        <div className="text-[10px] text-zinc-500 leading-tight">{done ? "Thanks!" : pend ? "Desk is verifying" : t.verb}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-1.5 px-0.5">Do it, tap “I did it”, and the front desk verifies it on the spot.</p>
+            </div>
+          );
+        })()}
+
+        <div className="text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 mb-2">Every visit</div>
         <div className="space-y-2.5">
+          {business.widget_config.visit_tracker && (
+            <EarnRow icon={<ShoppingBag className="h-4 w-4" />} title="Spend at the counter"
+              subtitle={`${earnRules.purchase_per_dollar} point${earnRules.purchase_per_dollar === 1 ? "" : "s"} per $1 — show your QR or give your phone number`}
+              points={earnRules.purchase_per_dollar}
+              primary={business.brand_colors.primary}
+              secondary={business.brand_colors.secondary} />
+          )}
           {business.widget_config.referrals && (
             <EarnRow icon={<Users className="h-4 w-4" />} title="Refer a friend"
               points={earnRules.referral_referrer}
@@ -702,74 +762,6 @@ export function RewardsClient({
               secondary={business.brand_colors.secondary}
               actionable onClick={() => setReferOpen(true)} />
           )}
-          {business.widget_config.visit_tracker && (
-            <EarnRow icon={<ShoppingBag className="h-4 w-4" />} title="Purchase in-app"
-              subtitle={`${earnRules.purchase_per_dollar} point per $1 spent`}
-              points={earnRules.purchase_per_dollar}
-              primary={business.brand_colors.primary}
-              secondary={business.brand_colors.secondary} />
-          )}
-          {/* CP-103 (QA S-03): the row only appears once the business has
-              actually set a Google review link — otherwise the customer was
-              promised points for a button that opens nothing. */}
-          {business.widget_config.reviews && !!business.google_review_url && (
-            <EarnRow
-              /* CP-35: anchor target for the Rewards-tab "!" badge nudge.
-                 Combined with the useEffect at the top of this file that
-                 detects ?focus=review (or #review-row hash), this scrolls
-                 the row into view + flashes a brief ring. */
-              anchorId="review-row"
-              icon={<Star className="h-4 w-4" />} title="Review on Google"
-              subtitle={
-                reviewStatus === "pending"  ? "Pending verification…" :
-                reviewStatus === "verified" ? "✓ Done — thanks for your review!" :
-                reviewStatus === "rejected" ? "Try again — last submission rejected" :
-                "Open Google, leave a review, submit for verification"
-              }
-              points={earnRules.review}
-              primary={business.brand_colors.primary}
-              secondary={business.brand_colors.secondary}
-              /* CP-35: verified = one-and-done. Row is not actionable
-                 anymore so tapping it doesn't reopen the submit modal. */
-              actionable={reviewStatus !== "verified"}
-              onClick={reviewStatus === "verified" ? undefined : () => setReviewOpen(true)}
-              badge={reviewStatus === "pending" ? "Pending" : reviewStatus === "verified" ? "Verified" : null}
-              alert={
-                /* CP-32: red "!" when no review yet, orange "!" while
-                   pending review verification, hidden once verified. */
-                reviewStatus === "none"    ? "red"
-                : reviewStatus === "pending" ? "orange"
-                : reviewStatus === "rejected" ? "red"
-                : false
-              } />
-          )}
-          {/* CP-134: Instagram / Facebook follow rewards — same row shape,
-              same badge/alert language as the Google review row. */}
-          {SOCIAL_PLATFORMS.filter(p => socialRewardLive(business, p)).map(p => {
-            const cfg = readSocialConfig(business, p);
-            const st = socialStatus[p];
-            const Icon = p === "instagram" ? Instagram : Facebook;
-            return (
-              <EarnRow
-                key={p}
-                icon={<Icon className="h-4 w-4" />}
-                title={cfg.title || SOCIAL_META[p].defaultTitle}
-                subtitle={
-                  st === "pending"  ? "Pending verification…" :
-                  st === "verified" ? `✓ Done — thanks for following on ${SOCIAL_META[p].label}!` :
-                  st === "rejected" ? "Try again — last submission rejected" :
-                  `Open ${SOCIAL_META[p].label}, follow us, submit for verification`
-                }
-                points={cfg.points}
-                primary={business.brand_colors.primary}
-                secondary={business.brand_colors.secondary}
-                actionable={st !== "verified"}
-                onClick={st === "verified" ? undefined : () => setSocialOpen(p)}
-                badge={st === "pending" ? "Pending" : st === "verified" ? "Verified" : null}
-                alert={st === "none" ? "red" : st === "pending" ? "orange" : st === "rejected" ? "red" : false}
-              />
-            );
-          })}
           {business.widget_config.birthdays && (
             <EarnRow icon={<Calendar className="h-4 w-4" />} title="Birthday bonus"
               subtitle="Auto-awarded once a year on your birthday"
