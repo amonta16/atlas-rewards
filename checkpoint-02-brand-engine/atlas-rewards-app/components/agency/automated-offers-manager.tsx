@@ -120,7 +120,12 @@ function triggerSubtitle(row: Row): string {
     case "date":
     default: {
       // CP-123: the business's own date wins over the template's.
-      const cfg = (row.custom_trigger_config ?? row.trigger_config) as { month?: number; day?: number; window_days?: number };
+      const cfg = (row.custom_trigger_config ?? row.trigger_config) as { month?: number; day?: number; window_days?: number; rule?: string };
+      // CP-172: floating holidays (Memorial Day = last Monday of May, Labor Day = first Monday of September).
+      if (cfg?.rule === "last_monday" || cfg?.rule === "first_monday") {
+        const monthName = new Date(2000, (cfg.month ?? 1) - 1, 1).toLocaleString(undefined, { month: "long" });
+        return `This offer will launch around the ${cfg.rule === "last_monday" ? "last" : "first"} Monday of ${monthName} — every year, date computed automatically. Offer lasts ${days} days`;
+      }
       if (!cfg?.month || !cfg?.day) {
         return "Pick your date in the editor — it fires every year around the day you choose.";
       }
