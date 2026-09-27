@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { optimizedUrl } from "@/lib/img";
-import { CalendarClock, Check, Loader2, Plus, Users, Phone, X, UserX, Settings2, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { Check, Loader2, Plus, Users, Phone, X, UserX, Settings2, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { BookingResourceSetup } from "@/components/manager/booking-resource-setup";
 import { BookingTimesheet } from "@/components/manager/booking-timesheet";
 import { createClient } from "@/lib/supabase/client";
@@ -128,86 +128,48 @@ export function BookingsDesk({
 
   return (
     <div className="space-y-4">
-      {/* Header strip — CP-162: anchor for the sidebar's Needs-action jump. */}
+      {/* CP-170: compact header — one line of numbers per section instead
+          of a 200px hero with picture tiles (those duplicated the queue
+          below). Still the anchor for the sidebar's Needs-action jump. */}
       <div
         id="desk-actions"
-        className="rounded-3xl p-5 text-white relative overflow-hidden shadow-xl scroll-mt-4"
-        style={{ background: `linear-gradient(135deg, ${primary} 0%, ${business.brand_colors.secondary} 100%)` }}
+        className="rounded-2xl px-4 py-3 text-white shadow-md scroll-mt-4 flex items-center gap-3 flex-wrap"
+        style={{ background: `linear-gradient(90deg, ${primary} 0%, ${business.brand_colors.secondary} 100%)` }}
       >
-        <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/15 blur-3xl pointer-events-none" />
-        <div className="relative flex items-center gap-3 flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase bg-white/20 px-2.5 py-1 rounded-full">
-              <CalendarClock className="h-3 w-3" /> Bookings
-            </div>
-            <h2 className="text-2xl font-black mt-1.5">
-              {loading ? "—" : `${live.length} ${dayTitle === "Today" || dayTitle === "Tomorrow" ? dayTitle.toLowerCase() : "on " + dayDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}`}
-            </h2>
-            <p className="text-xs text-white/90 mt-0.5">
-              {pendingCount > 0 ? <><b>{pendingCount}</b> waiting for a confirm tap</> : live.length > 0 ? "Everything's confirmed." : "Tap any open cell on the sheet to book it."}
-              {!enabled && " · Customers can't book yet (off in Set up)."}
-            </p>
-          </div>
-          <Button onClick={() => { setWalkIn(walkIn ? null : { day }); setShowSetup(false); }} className="bg-white text-zinc-900 hover:bg-zinc-100 h-11 font-extrabold shadow-lg" disabled={active.length === 0}>
-            <Plus className="h-4 w-4 mr-1.5" /> Walk-in / phone
-          </Button>
-          {isManager && (
-            <Button onClick={() => { setShowSetup(v => !v); setWalkIn(null); }} className="bg-white/15 border border-white/40 text-white hover:bg-white/25 h-11 font-extrabold">
-              <Settings2 className="h-4 w-4 mr-1.5" /> Set up
-            </Button>
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="text-2xl font-black tabular-nums leading-none">{loading ? "—" : live.length}</span>
+          <span className="text-[13px] font-bold leading-none">
+            {live.length === 1 ? "booking" : "bookings"} {dayTitle === "Today" || dayTitle === "Tomorrow" ? dayTitle.toLowerCase() : dayDate.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+          </span>
+          {pendingCount > 0 && (
+            <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-amber-400 text-zinc-900 px-2 py-0.5 text-[11px] font-black">{pendingCount} to confirm</span>
           )}
         </div>
-
-        {/* CP-165: what's actually booked today, as picture tiles (the
-            resource's photo). Pending ones wear an amber ring; tap a tile
-            and the sheet scrolls to that block and opens its card — that's
-            the fastest route to clearing the red badge. */}
-        <div className="relative mt-4 -mx-1 px-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          <div className="flex gap-2 w-max">
-            {live.length === 0 ? (
-              /* CP-168: one crisp empty state instead of four ghost tiles. */
-              <div className="rounded-2xl bg-white/95 text-zinc-900 px-4 py-3 flex items-center gap-3 shadow-lg">
-                <span className="h-10 w-10 rounded-xl flex items-center justify-center text-white shrink-0" style={{ background: primary }}><CalendarDays className="h-5 w-5" /></span>
-                <div>
-                  <div className="text-[13px] font-extrabold leading-tight">Nothing booked {dayTitle === "Today" ? "yet today" : dayTitle.toLowerCase()}</div>
-                  <div className="text-[11px] text-zinc-500">{active.length} spot{active.length === 1 ? "" : "s"} open · tap a cell on the sheet or “Walk-in / phone” to add one.</div>
-                </div>
-              </div>
-            ) : (
-              [...live].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)).map(b => {
-                const res = resources.find(r => r.id === b.resource_id);
-                const pending = b.status === "pending";
-                return (
-                  <button key={b.id} type="button"
-                    onClick={() => {
-                      setSelected(b);
-                      if (section !== "all" && res && !sheetResources.some(r => r.id === res.id)) setSection("all");
-                      setTimeout(() => document.getElementById(`bk-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
-                    }}
-                    className={cn("w-[150px] shrink-0 rounded-2xl bg-white text-zinc-900 text-left overflow-hidden shadow-xl active:scale-[0.98] transition border-2",
-                      pending ? "border-amber-400 ring-[3px] ring-amber-300/60" : "border-emerald-500")}>
-                    <div className="relative h-[72px] bg-zinc-100">
-                      {res?.image_url
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        ? <img src={optimizedUrl(res.image_url, 320)} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                        : <div className="absolute inset-0 flex items-center justify-center text-2xl">{res?.emoji ?? "📅"}</div>}
-                      <span className={cn("absolute top-1.5 left-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
-                        pending ? "bg-amber-400 text-zinc-900" : "bg-emerald-500 text-white")}>
-                        {pending ? "Confirm" : "Booked"}
-                      </span>
-                      <span className="absolute bottom-1 right-1.5 rounded-md bg-black/60 text-white px-1.5 py-0.5 text-[10px] font-extrabold tabular-nums">
-                        {timeLabel(b.scheduled_at)}
-                      </span>
-                    </div>
-                    <div className="px-2 py-1.5">
-                      <div className="text-[11px] font-extrabold truncate">{b.resource_name}</div>
-                      <div className="text-[10px] text-zinc-500 truncate">{b.customer_name ?? "Guest"} · {b.party_size ?? "—"} ppl</div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
+        {/* per-section counts: Cages 3 · Pool 1 · Parties 1 */}
+        {sections.length > 1 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {sections.map(g => {
+              const n = live.filter(b => g.items.some(r => r.id === b.resource_id)).length;
+              return (
+                <button key={g.category} type="button" onClick={() => setSection(section === g.category ? "all" : g.category)}
+                  className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 h-7 text-[12px] font-bold border transition",
+                    section === g.category ? "bg-white text-zinc-900 border-white" : n > 0 ? "bg-white/20 border-white/40 hover:bg-white/30" : "bg-white/10 border-white/25 text-white/70 hover:bg-white/20")}>
+                  {g.category} <span className={cn("rounded-full min-w-5 h-5 px-1 text-[11px] font-black flex items-center justify-center tabular-nums", section === g.category ? "text-white" : "bg-white text-zinc-900")} style={section === g.category ? { background: primary } : undefined}>{n}</span>
+                </button>
+              );
+            })}
           </div>
+        )}
+        {!enabled && <span className="text-[11px] font-semibold text-white/85">Customers can't book yet (off in Set up)</span>}
+        <div className="ml-auto flex items-center gap-2">
+          <Button onClick={() => { setWalkIn(walkIn ? null : { day }); setShowSetup(false); }} className="bg-white text-zinc-900 hover:bg-zinc-100 h-9 font-extrabold shadow" disabled={active.length === 0}>
+            <Plus className="h-4 w-4 mr-1" /> Walk-in / phone
+          </Button>
+          {isManager && (
+            <Button onClick={() => { setShowSetup(v => !v); setWalkIn(null); }} className="bg-white/15 border border-white/40 text-white hover:bg-white/25 h-9 font-extrabold">
+              <Settings2 className="h-4 w-4 mr-1" /> Set up
+            </Button>
+          )}
         </div>
       </div>
 
@@ -256,7 +218,7 @@ export function BookingsDesk({
                 <span className="text-[11px] text-zinc-500">· requests from the app</span>
               </div>
               <ul className="divide-y divide-zinc-100">
-                {upcomingPending.map(b => <QueueRow key={b.id} b={b} day={day} primary={primary} busy={busyId === b.id} selected={selected?.id === b.id}
+                {upcomingPending.map(b => <QueueRow key={b.id} b={b} day={day} primary={primary} busy={busyId === b.id} selected={selected?.id === b.id} image={resources.find(r => r.id === b.resource_id)?.image_url} emoji={resources.find(r => r.id === b.resource_id)?.emoji}
                   onOpen={() => { if (isoDay(new Date(b.scheduled_at)) !== day) setDay(isoDay(new Date(b.scheduled_at))); setSelected(b); setTimeout(() => document.getElementById(`bk-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 250); }}
                   primaryAction={{ label: "Confirm", onClick: () => setStatus(b.id, "confirmed") }}
                   secondaryAction={{ label: "Decline", onClick: () => setStatus(b.id, "cancelled") }} />)}
@@ -270,7 +232,7 @@ export function BookingsDesk({
                 <span className="text-[12px] font-black uppercase tracking-[0.16em] text-emerald-700">Confirmed · {dayTitle.toLowerCase()}</span>
               </div>
               <ul className="divide-y divide-zinc-100">
-                {[...live].filter(b => b.status === "confirmed").sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)).map(b => <QueueRow key={b.id} b={b} day={day} primary={primary} busy={busyId === b.id} selected={selected?.id === b.id}
+                {[...live].filter(b => b.status === "confirmed").sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)).map(b => <QueueRow key={b.id} b={b} day={day} primary={primary} busy={busyId === b.id} selected={selected?.id === b.id} image={resources.find(r => r.id === b.resource_id)?.image_url} emoji={resources.find(r => r.id === b.resource_id)?.emoji}
                   onOpen={() => { setSelected(b); setTimeout(() => document.getElementById(`bk-${b.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}
                   primaryAction={{ label: "Arrived", onClick: () => setStatus(b.id, "completed") }}
                   secondaryAction={{ label: "No-show", onClick: () => setStatus(b.id, "no_show") }} />)}
@@ -309,6 +271,14 @@ export function BookingsDesk({
         const done = selected.status === "completed" || selected.status === "cancelled" || selected.status === "no_show";
         return (
           <div className="rounded-2xl border bg-white p-4 flex items-center gap-3 flex-wrap shadow-sm ring-1" style={{ ["--tw-ring-color" as string]: `${primary}55` }}>
+            {(() => { const res = resources.find(r => r.id === selected.resource_id); return (
+              <div className="h-14 w-20 rounded-xl overflow-hidden bg-zinc-100 shrink-0 border flex items-center justify-center text-2xl">
+                {res?.image_url
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  ? <img src={optimizedUrl(res.image_url, 200)} alt="" className="h-full w-full object-cover" />
+                  : (res?.emoji ?? "📅")}
+              </div>
+            ); })()}
             <div className="flex-1 min-w-[220px]">
               <div className="text-sm font-extrabold flex items-center gap-2">
                 {selected.customer_name ?? "Guest"}
@@ -387,8 +357,10 @@ export function BookingsDesk({
 }
 
 /* ── CP-168: queue row ─────────────────────────────────────────────────── */
-function QueueRow({ b, day, primary, busy, selected, onOpen, primaryAction, secondaryAction }: {
+function QueueRow({ b, day, primary, busy, selected, onOpen, primaryAction, secondaryAction, image, emoji }: {
   b: DeskBooking; day: string; primary: string; busy: boolean; selected: boolean; onOpen: () => void;
+  /** CP-170: the resource's photo (cage / pool table / party room). */
+  image?: string | null; emoji?: string | null;
   primaryAction: { label: string; onClick: () => void }; secondaryAction: { label: string; onClick: () => void };
 }) {
   const pending = b.status === "pending";
@@ -398,9 +370,15 @@ function QueueRow({ b, day, primary, busy, selected, onOpen, primaryAction, seco
   return (
     <li className={cn("px-3 sm:px-4 py-2.5 flex items-center gap-3 flex-wrap", selected && "bg-zinc-50")}>
       <button type="button" onClick={onOpen} className="flex items-center gap-3 flex-1 min-w-[240px] text-left group">
-        <div className={cn("w-[72px] shrink-0 rounded-xl px-2 py-1.5 text-center text-white", pending ? "bg-amber-500" : "bg-emerald-600")}>
-          <div className="text-[15px] font-black leading-none tabular-nums">{timeLabel(b.scheduled_at)}</div>
-          <div className="text-[9px] font-bold uppercase tracking-wide opacity-90 mt-0.5">{otherDay ? dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric" }) : durationLabel(b.duration_minutes)}</div>
+        <div className={cn("relative w-[92px] h-[60px] shrink-0 rounded-xl overflow-hidden border-2 bg-zinc-100", pending ? "border-amber-400" : "border-emerald-500")}>
+          {image
+            /* eslint-disable-next-line @next/next/no-img-element */
+            ? <img src={optimizedUrl(image, 200)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            : <div className="absolute inset-0 flex items-center justify-center text-2xl">{emoji ?? "📅"}</div>}
+          <div className={cn("absolute inset-x-0 bottom-0 px-1.5 py-0.5 text-white text-center", pending ? "bg-amber-500/95" : "bg-emerald-600/95")}>
+            <div className="text-[12px] font-black leading-none tabular-nums">{timeLabel(b.scheduled_at)}</div>
+            <div className="text-[8px] font-bold uppercase tracking-wide opacity-90 mt-px">{otherDay ? dt.toLocaleDateString(undefined, { weekday: "short", day: "numeric" }) : durationLabel(b.duration_minutes)}</div>
+          </div>
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[14px] font-extrabold leading-tight truncate group-hover:underline">
