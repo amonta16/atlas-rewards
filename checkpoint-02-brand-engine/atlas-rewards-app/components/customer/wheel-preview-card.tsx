@@ -9,8 +9,7 @@
  * the Check-in tab uses, so nothing about the game changes; it just stops
  * hiding.
  *
- * Presets that already show the compact spin+streak row (custom / smoke /
- * food) don't render this; entertainment gets it under the points card.
+ * CP-175: every layout preset now uses this card (the compact spin+streak row is retired).
  */
 import { useEffect, useMemo, useState } from "react";
 import { optimizedUrl } from "@/lib/img";

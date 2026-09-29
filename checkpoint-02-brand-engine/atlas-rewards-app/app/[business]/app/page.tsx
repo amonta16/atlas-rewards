@@ -263,6 +263,14 @@ export default async function CustomerHome({ params }: { params: { business: str
       </div>
     ) : null,
 
+    // CP-175: streak card on its own, full width. The Daily Spin now lives in the
+    // `spin` wheel card for every preset, so the old side-by-side row is retired.
+    streak: mem?.id ? (
+      <div className="px-4 mt-4">
+        <StreakMini business={business} membershipId={mem.id} />
+      </div>
+    ) : null,
+
     // Membership — single-tier exclusive card with billing CTA (hides itself
     // when the business hasn't enabled memberships).
     membership: (

@@ -38,7 +38,8 @@ export type HomeModule =
   | "spin"            // CP-152: full-width Daily Spin card with a live mini wheel
   | "featured_offer"
   | "top_rewards"
-  | "spin_streak"
+  | "spin_streak"      // legacy compact spin+streak row (no longer in any preset)
+  | "streak"           // CP-175: streak card on its own (the wheel card carries the spin)
   | "raffle"
   | "winback"
   | "referral"
@@ -66,8 +67,8 @@ export type LayoutPresetSpec = {
 };
 
 const HOME_CUSTOM: HomeModule[] = [
-  "member_card", "winback", "referral", "raffle", "featured_offer",
-  "top_rewards", "spin_streak", "membership", "specials", "events", "booking", "news", "location",
+  "member_card", "winback", "referral", "raffle", "featured_offer", "spin",
+  "top_rewards", "streak", "membership", "specials", "events", "booking", "news", "location",
 ];
 
 export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
@@ -104,7 +105,7 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "streaks", label: "Streak" },
     ],
     home: [
-      "member_card", "featured_offer", "specials", "top_rewards", "spin_streak",
+      "member_card", "featured_offer", "spin", "specials", "top_rewards", "streak",
       "raffle", "winback", "referral", "events", "news", "location",
     ],
     topRewardsHeading: "Ready to claim",
@@ -128,7 +129,7 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "streaks", label: "Streak" },
     ],
     home: [
-      "member_card", "featured_offer", "specials", "top_rewards", "spin_streak",
+      "member_card", "featured_offer", "spin", "specials", "top_rewards", "streak",
       "raffle", "winback", "referral", "events", "news", "membership", "location",
     ],
     topRewardsHeading: "Redeem now",
@@ -152,7 +153,7 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
       { id: "scan", label: "Check in" },
     ],
     home: [
-      "membership", "member_card", "booking", "featured_offer", "events", "referral",
+      "membership", "member_card", "spin", "booking", "featured_offer", "events", "referral",
       "winback", "top_rewards", "news", "location",
     ],
     topRewardsHeading: "Your rewards",
