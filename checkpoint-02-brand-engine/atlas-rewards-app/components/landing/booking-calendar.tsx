@@ -21,7 +21,17 @@ const field =
 
 type Step = "date" | "time" | "details" | "done";
 
-export function BookingCalendar({ source, firstFieldRef, compact = false }: { source: string; firstFieldRef?: RefObject<HTMLInputElement>; compact?: boolean }) {
+export function BookingCalendar({
+  source, firstFieldRef, compact = false, prefill, extraNotes,
+}: {
+  source: string;
+  firstFieldRef?: RefObject<HTMLInputElement>;
+  compact?: boolean;
+  /** CP-176: carried over from the "make it yours" builder. */
+  prefill?: { business?: string; industry?: string };
+  /** CP-176: appended to the lead's notes (app mockup choices). */
+  extraNotes?: string;
+}) {
   const now = useMemo(() => new Date(), []);
   const [step, setStep] = useState<Step>("date");
   const [view, setView] = useState(() => {
@@ -62,6 +72,7 @@ export function BookingCalendar({ source, firstFieldRef, compact = false }: { so
     const fd = new FormData(e.currentTarget);
     const body = Object.fromEntries(fd.entries());
     if (body.website) return;
+    if (extraNotes) body.notes = [String(body.notes ?? "").trim(), extraNotes].filter(Boolean).join("\n");
     setState("sending");
     setError(null);
     try {
@@ -199,11 +210,11 @@ export function BookingCalendar({ source, firstFieldRef, compact = false }: { so
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Change time
             </button>
             <label className="grid gap-1.5 text-sm"><span className="text-slate-700">Your name</span><input ref={firstFieldRef} name="name" required autoComplete="name" className={field} placeholder="Maria Lopez" /></label>
-            <label className="grid gap-1.5 text-sm"><span className="text-slate-700">Business name</span><input name="business" required autoComplete="organization" className={field} placeholder="Casa Verde" /></label>
+            <label className="grid gap-1.5 text-sm"><span className="text-slate-700">Business name</span><input name="business" required autoComplete="organization" className={field} placeholder="Sunset Fun Center" defaultValue={prefill?.business || undefined} /></label>
             <label className="grid gap-1.5 text-sm"><span className="text-slate-700">Email</span><input name="email" type="email" required autoComplete="email" className={field} placeholder="you@business.com" /></label>
             <label className="grid gap-1.5 text-sm"><span className="text-slate-700">Phone</span><input name="phone" type="tel" required autoComplete="tel" className={field} placeholder="(805) 555-0123" /></label>
             <label className="grid gap-1.5 text-sm sm:col-span-2"><span className="text-slate-700">Industry</span>
-              <select name="industry" className={cn(field, "appearance-none")} defaultValue="">
+              <select name="industry" className={cn(field, "appearance-none")} defaultValue={prefill?.industry ?? ""}>
                 <option value="" disabled>Choose one</option>
                 {INDUSTRIES.map((i) => <option key={i} value={i}>{i}</option>)}
               </select>

@@ -141,10 +141,15 @@
 @keyframes lp-drift-2 { 0%,100% { transform: translate3d(0,0,0) scale(1) } 50% { transform: translate3d(-3%,2%,0) scale(1.08) } }
 .lp-drift-2 { animation: lp-drift-2 24s ease-in-out infinite; }
 
+/* CP-176: venue marquee */
+@keyframes lp-marquee { from { transform: translateX(0) } to { transform: translateX(calc(-50% - 0.5rem)) } }
+.lp-marquee-track { animation: lp-marquee 60s linear infinite; }
 html:has(.lp-root) { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
   .lp-reveal { opacity: 1; transform: none; transition: none; }
+  .lp-marquee-track { animation: none !important; }
+  .lp-marquee { overflow-x: auto !important; }
   .lp-float, .lp-float-slow, .lp-float-slower, .lp-pop, .lp-pulse-once, .lp-shimmer, .lp-visit, .lp-drift, .lp-drift-2 { animation: none !important; }
   .lp-root * { transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

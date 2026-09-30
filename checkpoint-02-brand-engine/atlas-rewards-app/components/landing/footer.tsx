@@ -18,7 +18,7 @@ export function Footer() {
         <Col
           title="Product"
           links={[
-            { href: `#${ANCHORS.demo}`, label: "Preview your app" },
+            { href: `#${ANCHORS.demo}`, label: "Try the app" },
             { href: `#${ANCHORS.howItWorks}`, label: "How it works" },
             { href: `#${ANCHORS.pricing}`, label: "Pricing" },
             { href: `#${ANCHORS.faq}`, label: "FAQ" },

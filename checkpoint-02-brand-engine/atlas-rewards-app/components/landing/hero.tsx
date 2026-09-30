@@ -1,26 +1,25 @@
-"use client";
-import { useEffect, useState } from "react";
 import { Bell, CalendarCheck, FileSignature } from "lucide-react";
+import { optimizedUrl } from "@/lib/img";
 import { APP_MOCKUPS } from "@/lib/landing/apps";
 import { ANCHORS } from "@/lib/landing/config";
+import { LIB } from "@/lib/landing/live-app-data";
 import { DemoCta, PreviewCta } from "./cta-button";
 
 /**
- * Hero — CP-145.
- * Centered, type-led: one promise, one sentence, two buttons, one phone.
- * The phone is a slideshow of REAL apps built on Atlas, sitting on a navy
- * stage so the light page still gets one strong visual anchor.
+ * Hero — CP-176.
+ * Type-led headline on white, then a photo stage: real venue photos
+ * (arcade, party, bowling, VR) behind Flippo's actual app. Entertainment
+ * only — the smoke shop / med spa mockups left the hero with the FEC focus.
  */
-export function Hero() {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
-    const t = setInterval(() => setI((v) => (v + 1) % APP_MOCKUPS.length), 4200);
-    return () => clearInterval(t);
-  }, []);
-  const app = APP_MOCKUPS[i];
+const TILES = [
+  { src: LIB.arcadeNeon, cls: "left-[-4%] top-[8%] h-[70%] w-[34%] -rotate-3 sm:w-[30%]", drift: "lp-drift", alt: "Neon arcade machines" },
+  { src: LIB.party, cls: "right-[-3%] top-[4%] h-[46%] w-[34%] rotate-2 sm:w-[30%]", drift: "lp-drift-2", alt: "Kids at a birthday party" },
+  { src: LIB.bowling, cls: "right-[2%] bottom-[-6%] h-[44%] w-[26%] -rotate-2", drift: "lp-drift", alt: "Bowling lanes" },
+  { src: LIB.vr, cls: "left-[6%] bottom-[-10%] h-[36%] w-[22%] rotate-3 hidden md:block", drift: "lp-drift-2", alt: "A guest playing VR" },
+];
 
+export function Hero() {
+  const app = APP_MOCKUPS.find((a) => a.id === "flippos") ?? APP_MOCKUPS[0];
   return (
     <section className="lp-hero-glow relative overflow-hidden pt-28 md:pt-36" aria-labelledby="hero-title" id={ANCHORS.product}>
       <div className="lp-container">
@@ -35,62 +34,48 @@ export function Hero() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <DemoCta source="hero" event="hero_cta_clicked" size="xl" className="w-full sm:w-auto" />
-            <PreviewCta source="hero" size="xl" className="w-full sm:w-auto" />
+            <PreviewCta source="hero" size="xl" className="w-full sm:w-auto">Try the app</PreviewCta>
           </div>
           <p className="mt-5 text-sm text-slate-500">No new computer · Works with any POS · Live in one visit</p>
         </div>
 
-        {/* Phone stage */}
-        <div className="relative mx-auto mt-12 max-w-4xl md:mt-16">
-          <div className="lp-phone-stage relative overflow-hidden rounded-[2rem] px-6 pt-10 sm:rounded-[2.5rem] sm:px-10 sm:pt-14">
-            <div
-              className="pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl transition-colors duration-700"
-              style={{ background: `${app.color}55` }}
-              aria-hidden
-            />
-            <div className="relative mx-auto h-[440px] w-[240px] overflow-hidden sm:h-[520px] sm:w-[280px]">
-              {APP_MOCKUPS.map((a, idx) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={a.id}
-                  src={a.upright}
-                  alt={idx === i ? a.alt : ""}
-                  width={660}
-                  height={1300}
-                  loading={idx === 0 ? "eager" : "lazy"}
-                  className="absolute inset-x-0 top-0 w-full object-contain object-top drop-shadow-[0_30px_60px_rgba(0,0,0,0.45)] transition-opacity duration-700"
-                  style={{ opacity: idx === i ? 1 : 0 }}
-                  aria-hidden={idx !== i}
-                />
-              ))}
+        {/* Photo stage */}
+        <div className="relative mx-auto mt-12 max-w-5xl md:mt-16">
+          <div className="relative h-[480px] overflow-hidden rounded-[2rem] bg-[#0b1a2e] sm:h-[560px] sm:rounded-[2.5rem]">
+            {TILES.map((t) => (
+              <div key={t.src} className={`absolute ${t.cls}`}>
+                <div className={`h-full w-full overflow-hidden rounded-[1.5rem] shadow-[0_30px_60px_-20px_rgba(0,0,0,0.6)] ring-1 ring-white/10 ${t.drift}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={optimizedUrl(t.src, 520)} alt={t.alt} className="h-full w-full object-cover" loading="eager" />
+                </div>
+              </div>
+            ))}
+            <div className="absolute inset-0 bg-[radial-gradient(60%_70%_at_50%_45%,rgba(11,26,46,0.15),rgba(11,26,46,0.75))]" aria-hidden />
+            <div className="pointer-events-none absolute left-1/2 top-1/2 h-[480px] w-[480px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#0284c7]/45 blur-3xl" aria-hidden />
+
+            <div className="absolute inset-x-0 top-8 mx-auto h-[520px] w-[250px] sm:top-12 sm:h-[600px] sm:w-[290px]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={app.upright}
+                alt={app.alt}
+                width={660}
+                height={1300}
+                loading="eager"
+                className="w-full object-contain object-top drop-shadow-[0_30px_60px_rgba(0,0,0,0.55)]"
+              />
             </div>
 
-            <Chip className="left-4 top-8 hidden sm:flex lg:left-12 lg:top-14" icon={<Bell className="h-4 w-4 text-[#1f5f8b]" />}>
+            <Chip className="left-4 top-8 hidden sm:flex lg:left-[26%] lg:top-14" icon={<Bell className="h-4 w-4 text-[#1f5f8b]" />}>
               <b>Slow Tuesday</b> <span className="text-slate-500">happy-hour push sent</span>
             </Chip>
-            <Chip className="right-4 top-[38%] hidden sm:flex lg:right-12" icon={<CalendarCheck className="h-4 w-4 text-emerald-600" />}>
+            <Chip className="right-4 top-[40%] hidden sm:flex lg:right-[24%]" icon={<CalendarCheck className="h-4 w-4 text-emerald-600" />}>
               <b>Party rebooked</b> <span className="text-slate-500">11 months later</span>
             </Chip>
-            <Chip className="bottom-10 left-6 hidden sm:flex lg:left-16" icon={<FileSignature className="h-4 w-4 text-[#1f5f8b]" />}>
+            <Chip className="bottom-10 left-6 hidden sm:flex lg:left-[27%]" icon={<FileSignature className="h-4 w-4 text-[#1f5f8b]" />}>
               <b>Waiver signed</b> <span className="text-slate-500">on their phone</span>
             </Chip>
           </div>
-
-          {/* Brand dots */}
-          <div className="mt-4 flex items-center justify-center gap-2" role="tablist" aria-label="Apps built on Atlas">
-            {APP_MOCKUPS.map((a, idx) => (
-              <button
-                key={a.id}
-                role="tab"
-                aria-selected={idx === i}
-                aria-label={a.name}
-                onClick={() => setI(idx)}
-                className="lp-focus h-2 rounded-full transition-all"
-                style={{ width: idx === i ? 24 : 8, background: idx === i ? a.color : "#d5dde6" }}
-              />
-            ))}
-            <span className="ml-2 text-xs text-slate-500">{app.name}</span>
-          </div>
+          <p className="mt-4 text-center text-xs text-slate-500">{app.name} — a real app running on Atlas.</p>
         </div>
       </div>
     </section>
@@ -105,5 +90,3 @@ function Chip({ children, className, icon }: { children: React.ReactNode; classN
     </div>
   );
 }
-
-// CP-145: centered type-led hero on a white page; phone lives on a navy stage.

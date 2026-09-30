@@ -7,7 +7,7 @@ import { ANCHORS } from "@/lib/landing/config";
 import { DemoCta } from "./cta-button";
 
 const LINKS = [
-  { href: `#${ANCHORS.demo}`, label: "Preview" },
+  { href: `#${ANCHORS.demo}`, label: "Try the app" },
   { href: `#${ANCHORS.howItWorks}`, label: "How it works" },
   { href: `#${ANCHORS.pricing}`, label: "Pricing" },
   { href: `#${ANCHORS.faq}`, label: "FAQ" },

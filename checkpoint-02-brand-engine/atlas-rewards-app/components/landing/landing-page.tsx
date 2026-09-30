@@ -1,8 +1,9 @@
 import { LandingProviders } from "./landing-providers";
 import { Navbar } from "./navbar";
 import { Hero } from "./hero";
-import { NicheStrip } from "./niche-strip";
-import { AppPicker } from "./app-picker";
+import { VenueGallery } from "./venue-gallery";
+import { LiveDemoSection } from "./live-demo-section";
+import { Testimonials } from "./testimonials";
 import { Features } from "./features";
 import { HowItWorks } from "./how-it-works";
 import { VSLSection } from "./vsl-section";
@@ -21,7 +22,12 @@ import { Footer } from "./footer";
  *   live install → pricing → FAQ → final CTA.
  *
  * One primary objective everywhere: "Book a free demo" (DemoCta).
- * Retired from the page (files kept for reference): ProblemSection,
+ * CP-176: "alive" pass — photo hero, venue photo marquee (was icon chips),
+ * a tap-through copy of Flippo's real app (was static AppPicker), photo
+ * feature cards, install-day photo, video testimonials, and the booking
+ * modal lets visitors build their own app while they pick a time.
+ *
+ * Retired from the page (files kept for reference): NicheStrip, AppPicker, ProblemSection,
  * InteractiveDemo, RewardsDemo, FeatureShowcase, AnalyticsDemo,
  * BeforeAfter, SocialProof, TeamSection, AgencyWaitlist, LogoCloud,
  * OceanBackdrop.
@@ -33,12 +39,13 @@ export function LandingPage({ fontClassName = "" }: { fontClassName?: string }) 
         <Navbar />
         <main id="main">
           <Hero />
-          <NicheStrip />
-          <AppPicker />
+          <VenueGallery />
+          <LiveDemoSection />
           <Features />
           <HowItWorks />
           <VSLSection />
           <CaseStudy />
+          <Testimonials />
           <PricingSection />
           <FAQ />
           <FinalCTA />
