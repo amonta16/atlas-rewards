@@ -45,20 +45,15 @@ async function destinationAfterAuth(
     const next = new URLSearchParams(window.location.search).get("next");
     if (next) return safeRedirect(next, `${appBase}/app`);
   }
-  // Any privileged role → front desk. Pure customers → the app.
-  const { data: roles } = await supabase
-    .from("business_users")
-    .select("role")
-    .eq("user_id", userId);
-  // CP-82: agency_va counts as privileged too — a VA who signs in from a
-  // business login URL should land on the front desk like an admin, not be
-  // dumped into the customer app.
-  const privileged = (roles ?? []).some(
-    (r: { role: string }) =>
-      r.role === "agency_admin" || r.role === "agency_va" ||
-      r.role === "business_manager" || r.role === "business_staff",
-  );
-  return `${appBase}${privileged ? "/manage" : "/app"}`;
+  // CP-179: staff who are ALSO guests (an owner with the app on his phone)
+  // were trapped in the front desk — every sign-in from the guest app sent
+  // privileged roles to /manage. Now the desk is reached only on purpose:
+  // the /manage guard's ?next=, or ?staff=1 (desk links / bookmarks).
+  // Everyone else lands in the guest app, where staff get an "Open the
+  // front desk" card on the Profile tab. userId/supabase kept for callers.
+  void supabase; void userId;
+  const staff = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("staff") === "1";
+  return `${appBase}${staff ? "/manage" : "/app"}`;
 }
 
 /* CP-103 (QA S-01): password fields hid what was typed with no way to check

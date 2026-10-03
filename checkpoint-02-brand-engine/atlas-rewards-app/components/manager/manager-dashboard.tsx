@@ -49,6 +49,7 @@ import { MembersDirectory } from "@/components/manager/members-directory";
 // CP-135: signed-waiver log (staff + manager).
 import { WaiverSubmissions } from "@/components/manager/waiver-submissions";
 import { FileSignature, CalendarClock } from "lucide-react";
+import { GuestAppLink } from "@/components/staff/app-switch";
 // CP-147: Booking v2 — schedule + walk-ins + resource set-up.
 import { BookingsDesk } from "@/components/manager/bookings-desk";
 import { CampaignsStudio } from "@/components/manager/campaigns-studio";
@@ -502,6 +503,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
         <div className="border-t border-white/10 px-2.5 py-2 space-y-px">
           {/* CP-167: visible-but-quiet refresh — shows Live + last update. */}
           <DeskRefreshButton tone="dark" className="w-full justify-start" />
+          <GuestAppLink tone="dark" />
           <div className="[&_button]:text-zinc-300 [&_button:hover]:bg-white/[0.07]"><ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} /></div>
           <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-zinc-300 hover:bg-white/[0.07] hover:text-white">
             <Lightbulb className="h-4 w-4" /> Tutorial
@@ -548,6 +550,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             )}
             <DeskRefreshButton compact />
             <ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} />
+            <GuestAppLink compact />
             <Button
               variant="ghost"
               size="sm"

@@ -6,6 +6,7 @@ import { DeleteAccountSection } from "@/components/customer/delete-account-secti
 import { MyShops } from "@/components/customer/my-shops";
 import { NotificationPreferences } from "@/components/customer/notification-preferences";
 import { ProfileHelpLinks } from "@/components/customer/profile-help-links";
+import { FrontDeskCard } from "@/components/staff/app-switch";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,12 @@ export default async function ProfileTab({ params }: { params: { business: strin
   const user = await getCachedUser();
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user!.id).single();
   const mem = await getMyMembership(business.id);
+  // CP-179: staff for THIS business (or agency staff) get a way to the desk.
+  const { data: roles } = await supabase
+    .from("business_users").select("role, business_id").eq("user_id", user!.id);
+  const isStaff = (roles ?? []).some((r: { role: string; business_id: string | null }) =>
+    r.role === "agency_admin" || r.role === "agency_va" ||
+    (r.business_id === business.id && (r.role === "business_manager" || r.role === "business_staff")));
 
   const joined = mem?.joined_at
     ? new Date(mem.joined_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
@@ -36,6 +43,8 @@ export default async function ProfileTab({ params }: { params: { business: strin
           joined,
         }}
       />
+
+      {isStaff && <FrontDeskCard primary={business.brand_colors?.primary ?? "#0891b2"} />}
 
       {/* CP-81 → CP-81.1: every shop this customer belongs to — switch
           between them or add a new one, all under the same account.
