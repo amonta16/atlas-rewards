@@ -62,6 +62,9 @@ type WalletItem = {
 
 const VISIBLE_CAP = 5;
 
+/** Fired by RedeemFlow after a successful redemption — see the listener below. */
+export const WALLET_REFRESH_EVENT = "atlas:wallet-refresh";
+
 /** Live countdown. Returns null when there is no deadline to show. */
 function countdown(expiresAt: string | null, now: number): { label: string; urgent: boolean } | null {
   if (!expiresAt) return null;
@@ -113,7 +116,18 @@ export function WalletRail({
     };
     load();
 
-    if (!membershipId) return () => { cancelled = true; };
+    // CP-180: re-pull both lists on demand. RedeemFlow fires this the moment a
+    // redemption is created so the new reward is in the wallet BEFORE the
+    // customer closes the "Reward unlocked" sheet, instead of depending on the
+    // realtime event arriving (which a flaky connection can drop).
+    const refreshAll = async () => {
+      await load();
+      const { data } = await supabase.rpc("my_redemptions", { p_business_id: business.id });
+      if (!cancelled && data) setRedemptions(data as ActiveRedemption[]);
+    };
+    window.addEventListener(WALLET_REFRESH_EVENT, refreshAll);
+
+    if (!membershipId) return () => { cancelled = true; window.removeEventListener(WALLET_REFRESH_EVENT, refreshAll); };
     const ch = supabase
       .channel(`wallet-${membershipId}`)
       .on("postgres_changes",
@@ -127,7 +141,7 @@ export function WalletRail({
         })
       .subscribe();
 
-    return () => { cancelled = true; supabase.removeChannel(ch); };
+    return () => { cancelled = true; window.removeEventListener(WALLET_REFRESH_EVENT, refreshAll); supabase.removeChannel(ch); };
   }, [business.id, membershipId]);
 
   /**
@@ -140,6 +154,8 @@ export function WalletRail({
 
     for (const r of redemptions) {
       if (r.fulfilled_at) continue;
+      // CP-180: a cancelled / expired redemption is not in your wallet either.
+      if (r.status === "cancelled" || r.status === "expired") continue;
       if (r.expires_at && new Date(r.expires_at).getTime() <= now) continue;
       live.push({
         key: `r-${r.id}`, kind: "redemption", title: r.reward_name,

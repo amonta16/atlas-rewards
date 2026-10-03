@@ -45,6 +45,8 @@ export function RedeemFlow({
     if (!row) { setErr("Could not create redemption."); setStage("confirm"); return; }
     setResult({ code: row.code, newBalance: row.new_balance });
     setStage("success");
+    // CP-180: put it in the wallet right now (WalletRail listens).
+    window.dispatchEvent(new Event("atlas:wallet-refresh"));
   }
 
   function copyCode() {

@@ -21,6 +21,8 @@ import { createClient } from "@/lib/supabase/client";
 import { QrScanner } from "@/components/manager/qr-scanner";
 import { AwardPointsPanel } from "@/components/manager/award-points-panel";
 import { RedemptionFulfillPanel, type RedemptionLookup } from "@/components/manager/redemption-fulfill-panel";
+// CP-180: scanned gift code → full "deliver this" screen (was a bare confirm()).
+import { GiftFulfillPanel, type GiftLookup } from "@/components/manager/gift-fulfill-panel";
 import { ReviewQueue } from "@/components/manager/review-queue";
 import { PendingMembershipsQueue } from "@/components/manager/pending-memberships-queue";
 import { ManagerOffersPreview } from "@/components/manager/manager-offers-preview";
@@ -166,6 +168,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   // reopen them in one tap without asking the customer to scan again.
   const [lastMember, setLastMember] = useState<Member | null>(null);
   const [redemption, setRedemption] = useState<RedemptionLookup | null>(null);
+  const [gift, setGift] = useState<GiftLookup | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [offersSubTab, setOffersSubTab] = useState<"one-time" | "automated">("one-time");
   const [savingBiz, startBizSave] = useTransition();
@@ -281,6 +284,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
 
   async function resolveCodeInner(c: string) {
     setErr(null);
+    setGift(null);
 
     const supabase = createClient();
 
@@ -355,14 +359,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       return;
     }
     if (giftData && giftData.length > 0) {
-      const g = giftData[0] as { saved_id: string; title: string; fulfilled_at: string | null };
-      if (g.fulfilled_at) {
-        setErr(`Gift "${g.title}" was already redeemed.`);
-      } else if (confirm(`Fulfill gift: "${g.title}"?`)) {
-        const { error: fulfillErr } = await supabase.rpc("fulfill_saved_offer", { p_saved_id: g.saved_id });
-        if (fulfillErr) setErr(`Couldn't fulfill — ${fulfillErr.message}`);
-        else { setMode("idle"); router.refresh(); return; }
-      }
+      // CP-180: hand the whole row to GiftFulfillPanel — it shows who / what to
+      // hand over / expiry, handles already-delivered + expired, and confirms.
+      setGift(giftData[0] as GiftLookup);
       setMode("idle");
       return;
     }
@@ -404,6 +403,18 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
           // CP-147: back to the desk with the phone box open + cleared,
           // ready for the next customer.
           onClose={() => { setMember(null); setCode(""); setMode("code-entry"); router.refresh(); }}
+        />
+      </>
+    );
+  }
+  if (gift) {
+    return (
+      <>
+        <ScannerListener onScan={(code) => resolveCode(code)} />
+        <GiftFulfillPanel
+          business={business}
+          gift={gift}
+          onClose={() => { setGift(null); setCode(""); setMode("code-entry"); router.refresh(); }}
         />
       </>
     );
