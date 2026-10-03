@@ -32,7 +32,11 @@ export type LandingEvent =
   | "interactive_demo_used"
   | "waitlist_joined"
   | "nav_cta_clicked"
-  | "section_viewed";
+  | "section_viewed"
+  | "quiz_started"
+  | "quiz_step"
+  | "quiz_completed"
+  | "quiz_book_clicked";
 
 type Props = Record<string, string | number | boolean | undefined>;
 
