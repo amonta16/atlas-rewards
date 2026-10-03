@@ -56,6 +56,8 @@ export function track(event: LandingEvent, props: Props = {}) {
     window.gtag?.("event", event, payload);
     window.plausible?.(event, { props: payload });
     window.fbq?.("trackCustom", event, payload);
+    // CP-177: a booked demo is the Meta optimization event (standard `Lead`).
+    if (event === "demo_requested") window.fbq?.("track", "Lead", { content_name: String(props.source ?? "") });
     if (process.env.NODE_ENV !== "production") {
       // eslint-disable-next-line no-console
       console.debug("[atlas-analytics]", event, payload);

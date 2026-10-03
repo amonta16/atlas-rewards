@@ -1,0 +1,93 @@
+/*
+ * /venues — "deep ocean" luxury theme (CP-177).
+ * Scoped under .lpv so nothing leaks into the main landing page, the
+ * customer apps or the portals. Colors: midnight navy -> deep ocean blue,
+ * a soft sea-glass glow, and a champagne accent used sparingly.
+ */
+.lpv {
+  --v-ink: #eef4fb;
+  --v-mute: #a9bdd3;
+  --v-dim: #7f97b2;
+  --v-line: rgba(186, 214, 240, 0.12);
+  --v-line-strong: rgba(186, 214, 240, 0.22);
+  --v-glass: rgba(255, 255, 255, 0.035);
+  --v-glass-2: rgba(255, 255, 255, 0.06);
+  --v-sea: #5cc6ff;
+  --v-champagne: #e8d5a8;
+  --v-champagne-deep: #c9ad72;
+  position: relative;
+  isolation: isolate;
+  color: var(--v-ink);
+  color-scheme: dark;
+  background: #020a16;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+.lpv ::selection { background: rgba(92, 198, 255, 0.3); }
+
+/* The ocean: one fixed layer behind the whole page */
+.lpv-ocean { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.lpv-ocean::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(80% 60% at 80% -10%, rgba(28, 111, 159, 0.55), transparent 60%),
+    radial-gradient(70% 50% at 0% 30%, rgba(10, 61, 98, 0.6), transparent 65%),
+    linear-gradient(180deg, #020a16 0%, #041427 30%, #062a44 62%, #04182e 85%, #020a16 100%);
+}
+.lpv-ocean::after {
+  content: ""; position: absolute; inset: -20%;
+  background: radial-gradient(40% 30% at 30% 70%, rgba(92, 198, 255, 0.10), transparent 70%),
+              radial-gradient(35% 25% at 75% 45%, rgba(232, 213, 168, 0.05), transparent 70%);
+  animation: lpv-tide 26s ease-in-out infinite;
+}
+@keyframes lpv-tide { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(-3%, 2%, 0) } }
+
+.lpv-container { width: 100%; max-width: 1140px; margin-inline: auto; padding-inline: 1rem; }
+@media (min-width: 640px) { .lpv-container { padding-inline: 2rem; } }
+.lpv-section { padding-block: 4.5rem; position: relative; }
+@media (min-width: 768px) { .lpv-section { padding-block: 7rem; } }
+
+.lpv-eyebrow { display: inline-flex; align-items: center; gap: .6rem; font-size: .72rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--v-champagne); }
+.lpv-eyebrow::before { content: ""; width: 1.75rem; height: 1px; background: linear-gradient(90deg, transparent, var(--v-champagne)); }
+.lpv-h1 { font-size: clamp(2.35rem, 1.2rem + 4.8vw, 4.6rem); line-height: 1.02; letter-spacing: -0.045em; font-weight: 500; color: #fff; text-wrap: balance; }
+.lpv-h2 { font-size: clamp(1.8rem, 1.1rem + 2.6vw, 3rem); line-height: 1.08; letter-spacing: -0.035em; font-weight: 500; color: #fff; text-wrap: balance; }
+.lpv-h3 { font-size: 1.15rem; line-height: 1.3; letter-spacing: -0.015em; font-weight: 600; color: #fff; }
+.lpv-lead { font-size: clamp(1.05rem, .96rem + .45vw, 1.25rem); line-height: 1.6; color: var(--v-mute); text-wrap: pretty; }
+.lpv-body { font-size: .97rem; line-height: 1.6; color: var(--v-mute); }
+.lpv-gold { background: linear-gradient(92deg, #f3e6c4 0%, #e8d5a8 45%, #c9ad72 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lpv-sea { background: linear-gradient(92deg, #bfe8ff 0%, #5cc6ff 55%, #2a8fb5 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+.lpv-card { position: relative; border-radius: 1.25rem; border: 1px solid var(--v-line); background: linear-gradient(180deg, var(--v-glass-2), var(--v-glass)); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.lpv-card-gold { border-color: rgba(232, 213, 168, 0.35); box-shadow: 0 0 0 1px rgba(232, 213, 168, 0.06) inset, 0 30px 80px -40px rgba(201, 173, 114, 0.35); }
+.lpv-rule { height: 1px; background: linear-gradient(90deg, transparent, var(--v-line-strong), transparent); }
+
+.lpv-btn { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; border-radius: 999px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease; }
+.lpv-btn:active { transform: translateY(1px); }
+.lpv-btn-primary { height: 3.4rem; padding-inline: 1.75rem; font-size: 1rem; color: #0a1424; background: linear-gradient(180deg, #f3e6c4 0%, #e8d5a8 55%, #d6bd85 100%); box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 18px 40px -16px rgba(232, 213, 168, .55); }
+.lpv-btn-primary:hover { box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 22px 48px -14px rgba(232, 213, 168, .7); }
+.lpv-btn-ghost { height: 3.4rem; padding-inline: 1.5rem; font-size: 1rem; color: #fff; border: 1px solid var(--v-line-strong); background: rgba(255,255,255,.03); }
+.lpv-btn-ghost:hover { border-color: rgba(255,255,255,.45); background: rgba(255,255,255,.07); }
+.lpv-btn-sm { height: 2.5rem; padding-inline: 1.1rem; font-size: .9rem; }
+.lpv-focus:focus-visible { outline: 2px solid var(--v-sea); outline-offset: 3px; }
+
+.lpv-chip { display: inline-flex; align-items: center; gap: .5rem; border-radius: 999px; border: 1px solid var(--v-line); background: rgba(255,255,255,.04); padding: .4rem .85rem; font-size: .8rem; color: var(--v-mute); }
+.lpv-dot { width: .45rem; height: .45rem; border-radius: 999px; background: #34d399; box-shadow: 0 0 0 4px rgba(52, 211, 153, .15); }
+
+.lpv-num { font-variant-numeric: tabular-nums; font-weight: 500; letter-spacing: -0.04em; }
+.lpv-glow { position: absolute; border-radius: 999px; filter: blur(60px); pointer-events: none; }
+
+/* The ivory booking panel: a light card on the dark page */
+.lpv-ivory { border-radius: 1.5rem; background: #fbf8f1; color: #14213d; color-scheme: light; box-shadow: 0 40px 120px -40px rgba(0,0,0,.7), 0 0 0 1px rgba(232, 213, 168, .4); }
+
+.lpv-placeholder { border: 1px dashed rgba(232, 213, 168, .45); }
+
+.lpv details > summary { list-style: none; cursor: pointer; }
+.lpv details > summary::-webkit-details-marker { display: none; }
+.lpv details[open] .lpv-plus { transform: rotate(45deg); }
+.lpv-plus { transition: transform .25s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lpv-ocean::after { animation: none; }
+  .lpv * { transition-duration: .01ms !important; }
+}
+@media (max-width: 639px) { .lpv-eyebrow::before { display: none; } }
