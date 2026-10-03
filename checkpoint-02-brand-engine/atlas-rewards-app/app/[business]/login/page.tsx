@@ -85,7 +85,7 @@ function PasswordInput({
         minLength={minLength}
         autoComplete={autoComplete}
         placeholder={placeholder}
-        className="pr-11"
+        className="h-12 rounded-xl pr-11"
       />
       <button
         type="button"
@@ -231,17 +231,18 @@ export default function CustomerLogin() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-zinc-50">
-      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
+    // CP-178: the branded split-screen shell lives in ./layout.tsx.
+    <main className="w-full max-w-sm">
+      <div>
         {staffContext && (
           <div className="mb-3 inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">
             <Shield className="h-3 w-3" /> Front desk
           </div>
         )}
-        <h1 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-3xl font-semibold tracking-tight text-zinc-900">
           {staffContext ? "Front desk sign-in" : "Welcome back"}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        </h2>
+        <p className="text-[15px] text-zinc-500 mt-2">
           {staffContext
             ? "Sign in to run the front desk for this business."
             : "Sign in to check your points and rewards."}
@@ -273,12 +274,12 @@ export default function CustomerLogin() {
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Email</Label>
-            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+            <Label className="text-sm font-semibold text-zinc-800">Email</Label>
+            <Input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" placeholder="you@example.com" className="h-12 rounded-xl" />
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground">Password</Label>
+              <Label className="text-sm font-semibold text-zinc-800">Password</Label>
               <Link href={`${base}/forgot-password`} className="text-xs font-semibold text-brand-primary hover:underline">
                 Forgot password?
               </Link>
@@ -286,7 +287,7 @@ export default function CustomerLogin() {
             <PasswordInput value={password} onChange={setPassword} required autoComplete="current-password" />
           </div>
           {err && <p className="text-sm text-red-600">{err}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
+          <Button type="submit" className="h-12 w-full rounded-xl text-[15px] font-semibold shadow-lg shadow-brand-primary/25" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
         </form>
 
         {/* CP-49: front-desk staff don't use email/password — send them to
