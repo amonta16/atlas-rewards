@@ -7,7 +7,7 @@ import { LIB } from "@/lib/landing/live-app-data";
 import { track } from "@/lib/landing/analytics";
 import { VENUES_FAQ, VENUES_OFFER, VENUES_PROOF, VENUES_STACK, VENUES_TESTIMONIALS, type VenueTestimonial } from "@/lib/landing/venues-offer";
 import { LiveApp, type LiveEvent } from "@/components/landing/live-app/live-app";
-import { DemoBooker } from "@/components/landing/demo-booker";
+import { LandingProviders, useLanding } from "@/components/landing/landing-providers";
 import { Reveal } from "@/components/landing/reveal";
 
 /**
@@ -40,20 +40,22 @@ function useAdSource() {
 }
 
 function BuildCta({ where, children = "Build my venue's app free", className }: { where: string; children?: React.ReactNode; className?: string }) {
+  const { openDemo } = useLanding();
   return (
-    <a
-      href={`#${BUILD}`}
+    <button
+      type="button"
       className={cn("lpv-btn lpv-btn-primary lpv-focus", className)}
-      onClick={() => track("hero_cta_clicked", { source: `venues_${where}` })}
+      onClick={() => { track("hero_cta_clicked", { source: `venues_${where}` }); openDemo(`venues_${where}`); }}
     >
       {children} <ArrowRight className="h-4 w-4" aria-hidden />
-    </a>
+    </button>
   );
 }
 
 export function VenuesPage({ fontClassName = "" }: { fontClassName?: string }) {
   const source = useAdSource();
   return (
+    <LandingProviders fontClassName={fontClassName}>
     <div className={`lpv ${fontClassName} antialiased`}>
       <div className="lpv-ocean" aria-hidden />
       <TopBar />
@@ -71,11 +73,13 @@ export function VenuesPage({ fontClassName = "" }: { fontClassName?: string }) {
       </main>
       <Footer />
     </div>
+    </LandingProviders>
   );
 }
 
 /* ───────────────────────── Top bar ───────────────────────── */
 function TopBar() {
+  const { openDemo } = useLanding();
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--v-line)] bg-[#020a16]/70 backdrop-blur-xl">
       <div className="lpv-container flex h-16 items-center justify-between">
@@ -84,9 +88,9 @@ function TopBar() {
           <img src="/landing/atlas-icon-white.png" alt="" width={1100} height={852} className="h-6 w-auto" />
           <span className="text-[15px] font-semibold tracking-[-0.01em] text-white">Atlas Engine</span>
         </span>
-        <a href={`#${BUILD}`} className="lpv-btn lpv-btn-ghost lpv-btn-sm lpv-focus" onClick={() => track("nav_cta_clicked", { source: "venues_topbar" })}>
+        <button type="button" className="lpv-btn lpv-btn-ghost lpv-btn-sm lpv-focus" onClick={() => { track("nav_cta_clicked", { source: "venues_topbar" }); openDemo("venues_topbar"); }}>
           Build my app
-        </a>
+        </button>
       </div>
     </header>
   );
@@ -440,17 +444,22 @@ function HowItWorks() {
 
 /* ───────────────────────── Build + book (the one action) ───────────────────────── */
 function Build({ source }: { source: string }) {
+  const { openDemo } = useLanding();
   return (
     <section id={BUILD} className="lpv-section scroll-mt-16" aria-labelledby="build-title">
       <div className="lpv-glow left-1/2 top-40 h-80 w-[44rem] -translate-x-1/2 bg-[#1c6f9f]/25" aria-hidden />
       <div className="lpv-container relative">
         <Reveal className="mx-auto max-w-2xl text-center">
           <p className="lpv-eyebrow justify-center">Your app, before we talk</p>
-          <h2 id="build-title" className="lpv-h2 mt-5">Build your venue&apos;s app, then pick a time.</h2>
-          <p className="lpv-lead mt-5">Name it, color it, tap around. Then grab 20 minutes and we&apos;ll walk you through the front desk and the dashboard.</p>
-        </Reveal>
-        <Reveal delay={100} className="lpv-ivory mx-auto mt-12 max-w-5xl p-5 sm:p-8">
-          <DemoBooker source={source} layout="page" />
+          <h2 id="build-title" className="lpv-h2 mt-5">Build your venue&apos;s app, see what it could add, then pick a time.</h2>
+          <p className="lpv-lead mt-5">Six quick questions, about a minute. You&apos;ll see your own app take shape and an estimate of the extra revenue it could bring in.</p>
+          <button
+            type="button"
+            className="lpv-btn lpv-btn-primary lpv-focus mt-8"
+            onClick={() => { track("hero_cta_clicked", { source: "venues_build_section" }); openDemo(source); }}
+          >
+            Start the 1-minute quiz <ArrowRight className="h-4 w-4" aria-hidden />
+          </button>
         </Reveal>
       </div>
     </section>

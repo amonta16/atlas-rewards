@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
-import { DemoBooker } from "@/components/landing/demo-booker";
+import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { LandingProviders } from "@/components/landing/landing-providers";
+import { QuizLauncher } from "@/components/landing/quiz-launcher";
 import { interClass } from "@/lib/landing/font";
 
 /**
@@ -21,6 +22,7 @@ export const metadata: Metadata = {
 
 export default function BookDemoPage() {
   return (
+    <LandingProviders fontClassName={interClass}>
     <div className={`lp-root lp-page ${interClass} min-h-screen antialiased`}>
       <main className="lp-container relative py-10 md:py-16">
         <Link href="/" className="lp-focus inline-flex items-center gap-2 rounded-md text-sm text-slate-500 hover:text-[#14213d]">
@@ -33,7 +35,7 @@ export default function BookDemoPage() {
             See your venue&apos;s app <span className="lp-gradient-text">before we talk.</span>
           </h1>
           <p className="lp-lead mt-5">
-            Name it, pick a color or drop in your logo, and tap around — it&apos;s a working app. Then grab 20 minutes for the front desk and the dashboard.
+            Six quick questions, about a minute. Watch your own app take shape, see what it could add to your revenue, then grab 20 minutes for the front desk and the dashboard.
           </p>
           <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[15px] text-slate-700">
             {["We bring your mockup to the call", "Ask anything about setup, staff and pricing", "No contract, no pressure"].map((t) => (
@@ -43,10 +45,15 @@ export default function BookDemoPage() {
             ))}
           </ul>
         </div>
-        <div className="lp-card mt-10 p-5 sm:p-8">
-          <DemoBooker source="book_demo_page" layout="page" />
-        </div>
+        <QuizLauncher
+          source="book_demo_page"
+          autoOpen
+          className="lp-focus mt-10 inline-flex h-14 items-center justify-center gap-2 rounded-full bg-[#14213d] px-8 text-[17px] font-semibold text-white transition hover:bg-[#1f5f8b] active:translate-y-px"
+        >
+          Start the 1-minute quiz <ArrowRight className="h-4 w-4" aria-hidden />
+        </QuizLauncher>
       </main>
     </div>
+    </LandingProviders>
   );
 }
