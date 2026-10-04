@@ -37,6 +37,7 @@ import { CheckCircle2, PenLine, Type, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SignaturePad } from "@/components/customer/signature-pad";
+import { DobField } from "@/components/customer/dob-field";
 import type { Business } from "@/lib/types/database";
 
 type Waiver = {
@@ -62,6 +63,12 @@ function ageFrom(dob: string): number | null {
 }
 
 type StepId = "email" | "details" | "cover" | "sign";
+
+/** A parent's last name is almost always the child's — saves typing it per kid. */
+function lastNameOf(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  return parts.length >= 2 ? parts[parts.length - 1] : "";
+}
 
 export function KioskWaiverClient({ business, waiver }: { business: Business; waiver: Waiver }) {
   const primary = business.brand_colors?.primary ?? "#2563eb";
@@ -278,7 +285,7 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
                 </label>
                 <label className="block">
                   <span className="text-sm font-bold text-zinc-700">Date of birth *</span>
-                  <Input className="h-16 text-xl mt-1.5" type="date" value={dob} onChange={e => setDob(e.target.value)} />
+                  <DobField className="mt-1.5" value={dob} onChange={setDob} ariaLabel="Your date of birth" />
                 </label>
                 <label className="block sm:col-span-2">
                   <span className="text-sm font-bold text-zinc-700">Phone <span className="font-normal text-zinc-400">(optional)</span></span>
@@ -303,7 +310,7 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
                     Just me
                   </button>
                   <button type="button"
-                    onClick={() => { setWho("minors"); if (minors.length === 0) setMinors([{ first: "", last: "", dob: "" }]); }}
+                    onClick={() => { setWho("minors"); if (minors.length === 0) setMinors([{ first: "", last: lastNameOf(name), dob: "" }]); }}
                     className={`h-20 rounded-2xl border-2 text-lg font-black transition ${who === "minors" ? "text-white" : "bg-white text-zinc-600 border-zinc-200"}`}
                     style={who === "minors" ? { background: primary, borderColor: primary } : undefined}>
                     Me and my kids
@@ -330,14 +337,16 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
                           <Input className="h-14 text-lg" placeholder="Last name" value={m.last}
                             onChange={e => setMinors(minors.map((x, j) => j === i ? { ...x, last: e.target.value } : x))} />
                         </div>
-                        <Input className="h-14 text-lg mt-2" type="date" value={m.dob}
-                          aria-label={`Child ${i + 1} date of birth`}
-                          onChange={e => setMinors(minors.map((x, j) => j === i ? { ...x, dob: e.target.value } : x))} />
+                        <div className="mt-3">
+                          <span className="text-xs font-bold text-zinc-500">Birthday <span className="font-normal text-zinc-400">(optional, skip if you like)</span></span>
+                          <DobField className="mt-1" size="md" value={m.dob} ariaLabel={`Child ${i + 1} date of birth`}
+                            onChange={iso => setMinors(minors.map((x, j) => j === i ? { ...x, dob: iso } : x))} />
+                        </div>
                       </div>
                     ))}
                     {minors.length < 12 && (
                       <Button variant="outline" className="w-full h-14 text-base font-bold"
-                        onClick={() => setMinors([...minors, { first: "", last: "", dob: "" }])}>
+                        onClick={() => setMinors([...minors, { first: "", last: minors[minors.length - 1]?.last || lastNameOf(name), dob: "" }])}>
                         <Plus className="h-4 w-4 mr-1.5" /> Add another child
                       </Button>
                     )}
@@ -349,6 +358,11 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
             {/* ── 4. the document, then the signature ──────────────────── */}
             {current === "sign" && (
               <>
+                {cleanMinors.length > 0 && (
+                  <p className="text-[15px] font-semibold text-zinc-700">
+                    One signature covers you and {cleanMinors.length === 1 ? "your child" : `all ${cleanMinors.length} children`}.
+                  </p>
+                )}
                 <div className="rounded-xl border bg-zinc-50 p-4 max-h-72 overflow-y-auto whitespace-pre-wrap text-[15px] leading-relaxed text-zinc-700">
                   {waiver.body_text}
                 </div>

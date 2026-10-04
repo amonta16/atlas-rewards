@@ -21,6 +21,7 @@
  * `gateMode` is the CP-137 hard gate: rendered by the customer app layout in
  * place of the whole app, so there is nothing else on screen to navigate to.
  */
+import { DobField } from "@/components/customer/dob-field";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, FileSignature, Gift, PenLine, Type, MailCheck, Plus, X, RefreshCw, Send, AlertTriangle, ArrowLeft } from "lucide-react";
@@ -574,8 +575,7 @@ export function WaiverSignClient({
               </div>
               <div>
                 <label className="text-[11px] font-black uppercase tracking-widest text-zinc-500">Your date of birth</label>
-                <Input type="date" value={dob} onChange={e => setDob(e.target.value)}
-                  className="mt-1.5 h-12 text-base" autoComplete="bday" />
+                <DobField className="mt-1.5" size="md" value={dob} onChange={setDob} ariaLabel="Your date of birth" />
               </div>
 
               {/* Under 18 is terminal: no self-attest button exists anywhere
@@ -638,8 +638,8 @@ export function WaiverSignClient({
                         <Input placeholder="Last name" value={m.last}
                           onChange={e => setMinors(minors.map((x, j) => j === i ? { ...x, last: e.target.value } : x))} className="h-10" />
                       </div>
-                      <Input type="date" value={m.dob} aria-label={`Child ${i + 1} date of birth`}
-                        onChange={e => setMinors(minors.map((x, j) => j === i ? { ...x, dob: e.target.value } : x))} className="h-10 mt-2" />
+                      <DobField className="mt-2" size="md" value={m.dob} ariaLabel={`Child ${i + 1} date of birth`}
+                        onChange={iso => setMinors(minors.map((x, j) => j === i ? { ...x, dob: iso } : x))} />
                     </div>
                   ))}
                   {minors.length < 12 && (
