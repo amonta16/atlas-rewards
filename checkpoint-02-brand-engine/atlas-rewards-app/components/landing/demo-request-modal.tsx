@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { DemoBooker } from "./demo-booker";
@@ -8,7 +8,10 @@ import { DemoBooker } from "./demo-booker";
  * In-house "book a demo" dialog — CP-100.
  * Radix Dialog (already a dependency) gives focus-trap, ESC, aria wiring.
  */
-export function DemoRequestModal({ open, source, onClose, className = "" }: { open: boolean; source: string; onClose: () => void; className?: string }) {
+/** CP-182: `renderQuiz` swaps in a niche quiz (e.g. /medspa); default is the venue quiz. */
+export type QuizRenderer = (source: string, firstFieldRef: RefObject<HTMLInputElement>) => ReactNode;
+
+export function DemoRequestModal({ open, source, onClose, className = "", renderQuiz }: { open: boolean; source: string; onClose: () => void; className?: string; renderQuiz?: QuizRenderer }) {
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (open) setTimeout(() => first.current?.focus(), 50);
@@ -21,7 +24,7 @@ export function DemoRequestModal({ open, source, onClose, className = "" }: { op
           className={`lp-root lp-light ${className} fixed left-1/2 top-1/2 z-[100] w-[calc(100%-1rem)] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[#e8dfd1] bg-white p-5 pt-12 sm:p-8 sm:pt-12 text-[#14213d] shadow-[0_30px_80px_-20px_rgba(20,33,61,0.35)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 max-h-[calc(100dvh-1.5rem)] min-h-[min(640px,calc(100dvh-1.5rem))] overflow-y-auto`}
           aria-describedby="demo-desc"
         >
-          <Dialog.Title className="sr-only">Build your app and see what it could add to your venue</Dialog.Title>
+          <Dialog.Title className="sr-only">Build your app and see what it could add to your business</Dialog.Title>
           <Dialog.Description id="demo-desc" className="sr-only">
             A short quiz: six quick questions, then your estimated added revenue and a time to walk through it with us.
           </Dialog.Description>
@@ -29,7 +32,7 @@ export function DemoRequestModal({ open, source, onClose, className = "" }: { op
             <X className="h-5 w-5" />
           </Dialog.Close>
           <div className="pt-2">
-            <DemoBooker source={source} firstFieldRef={first} />
+            {renderQuiz ? renderQuiz(source, first) : <DemoBooker source={source} firstFieldRef={first} />}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

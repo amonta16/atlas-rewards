@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
-import { DemoRequestModal } from "./demo-request-modal";
+import { DemoRequestModal, type QuizRenderer } from "./demo-request-modal";
 import { VideoModal } from "./video-modal";
 
 /**
@@ -15,7 +15,7 @@ export function useLanding() {
   return useContext(LandingCtx);
 }
 
-export function LandingProviders({ children, fontClassName = "" }: { children: ReactNode; fontClassName?: string }) {
+export function LandingProviders({ children, fontClassName = "", renderQuiz }: { children: ReactNode; fontClassName?: string; renderQuiz?: QuizRenderer }) {
   const [open, setOpen] = useState(false);
   const [video, setVideo] = useState(false);
   const [source, setSource] = useState("unknown");
@@ -30,7 +30,7 @@ export function LandingProviders({ children, fontClassName = "" }: { children: R
   return (
     <LandingCtx.Provider value={{ openDemo, openVideo }}>
       {children}
-      <DemoRequestModal open={open} source={source} onClose={() => setOpen(false)} className={fontClassName} />
+      <DemoRequestModal open={open} source={source} onClose={() => setOpen(false)} className={fontClassName} renderQuiz={renderQuiz} />
       <VideoModal open={video} onClose={() => setVideo(false)} className={fontClassName} />
     </LandingCtx.Provider>
   );

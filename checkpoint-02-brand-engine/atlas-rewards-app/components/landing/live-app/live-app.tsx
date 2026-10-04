@@ -49,6 +49,8 @@ export function LiveApp({
   categories = FLIPPOS_BOOKING,
   rewards = FLIPPOS_REWARDS,
   hours = FLIPPOS_HOURS,
+  offer = FLIPPOS_OFFER,
+  memberNote = "Monthly passes and party-family perks live here too.",
   guest = "Jordan",
   push = false,
   onEvent,
@@ -58,6 +60,10 @@ export function LiveApp({
   categories?: LiveCategory[];
   rewards?: LiveReward[];
   hours?: Record<number, [number, number]>;
+  /** CP-182: the featured offer (banner, push, Home card). Defaults to Flippo's. */
+  offer?: { title: string; sub: string; daysLeft: number; kicker?: string };
+  /** CP-182: the small note at the bottom of the Member tab. */
+  memberNote?: string;
   guest?: string;
   /** Slide in a push notification once the phone has been on screen a few seconds. */
   push?: boolean;
@@ -170,10 +176,10 @@ export function LiveApp({
           >
             <span className="flex min-w-0 items-center gap-1.5">
               <Tag className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="truncate font-black uppercase tracking-tight">{FLIPPOS_OFFER.title}: {FLIPPOS_OFFER.sub}</span>
+              <span className="truncate font-black uppercase tracking-tight">{offer.title}: {offer.sub}</span>
             </span>
             <span className="ml-2 flex shrink-0 items-center gap-1 rounded-full bg-white py-0.5 pl-1.5 pr-2 text-[10px] font-semibold text-zinc-900">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" /> {FLIPPOS_OFFER.daysLeft}d left
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" /> {offer.daysLeft}d left
             </span>
           </button>
 
@@ -196,7 +202,7 @@ export function LiveApp({
               {tab === "home" && (
                 <HomeTab
                   brand={brand} guest={guest} points={points} next={next} rewards={sorted} tierName={tier.name}
-                  spun={spun} bookings={bookings} categories={categories}
+                  spun={spun} bookings={bookings} categories={categories} offer={offer}
                   onSpin={(n) => { setSpun(true); earn(n, "Daily Spin win"); emit("spin"); }}
                   go={go}
                 />
@@ -206,7 +212,7 @@ export function LiveApp({
               )}
               {tab === "scan" && <ScanTab brand={brand} guest={guest} visits={visits} onCheckin={doCheckin} onEarnInfo={(t) => say(t)} />}
               {tab === "rewards" && <RewardsTab brand={brand} guest={guest} points={points} rewards={sorted} tierName={tier.name} onRedeem={doRedeem} />}
-              {tab === "member" && <MemberTab brand={brand} guest={guest} lifetime={lifetime} visits={visits} />}
+              {tab === "member" && <MemberTab brand={brand} guest={guest} lifetime={lifetime} visits={visits} note={memberNote} />}
             </div>
           </div>
 
@@ -253,8 +259,8 @@ export function LiveApp({
                 <span className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                   <span className="truncate">{short(brand.name)}</span><span>now</span>
                 </span>
-                <span className="mt-0.5 block text-[12.5px] font-bold leading-snug text-zinc-900">{FLIPPOS_OFFER.title} is on</span>
-                <span className="block text-[12px] leading-snug text-zinc-600">{FLIPPOS_OFFER.sub} today. Show the app at the desk.</span>
+                <span className="mt-0.5 block text-[12.5px] font-bold leading-snug text-zinc-900">{offer.title} is on</span>
+                <span className="block text-[12px] leading-snug text-zinc-600">{offer.sub} today. Show the app at the desk.</span>
               </span>
             </button>
           </div>
@@ -288,10 +294,10 @@ export function LiveApp({
 
 /* ══════════════════════════ HOME ══════════════════════════ */
 function HomeTab({
-  brand, guest, points, next, rewards, tierName, spun, bookings, categories, onSpin, go,
+  brand, guest, points, next, rewards, tierName, spun, bookings, categories, offer, onSpin, go,
 }: {
   brand: LiveBrand; guest: string; points: number; next?: LiveReward; rewards: LiveReward[]; tierName: string;
-  spun: boolean; bookings: Booking[]; categories: LiveCategory[]; onSpin: (n: number) => void; go: (t: Tab) => void;
+  spun: boolean; bookings: Booking[]; categories: LiveCategory[]; offer: { title: string; sub: string; kicker?: string }; onSpin: (n: number) => void; go: (t: Tab) => void;
 }) {
   const pc = pointsCardStyle("shiny", brand.primary, brand.secondary, brand.accent);
   const pct = next ? Math.min(100, (points / next.cost) * 100) : 100;
@@ -359,7 +365,7 @@ function HomeTab({
       {/* This week */}
       <SectionTitle>This week</SectionTitle>
       <div className="flex gap-2.5 overflow-x-auto px-3.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <Special brand={brand} kicker="Tuesday" title={FLIPPOS_OFFER.title} sub={FLIPPOS_OFFER.sub} tone="primary" />
+        <Special brand={brand} kicker={offer.kicker ?? "Tuesday"} title={offer.title} sub={offer.sub} tone="primary" />
         <Special brand={brand} kicker="Your month" title="Birthday bonus" sub={`+${POINTS.birthday} pts + a gift`} tone="accent" />
         <Special brand={brand} kicker="Bring a friend" title="Referral" sub={`+${POINTS.referral} pts each`} tone="soft" />
       </div>
@@ -678,7 +684,7 @@ function RedeemSheet({ brand, reward, code, onClose }: { brand: LiveBrand; rewar
 }
 
 /* ══════════════════════════ MEMBER ══════════════════════════ */
-function MemberTab({ brand, guest, lifetime, visits }: { brand: LiveBrand; guest: string; lifetime: number; visits: number }) {
+function MemberTab({ brand, guest, lifetime, visits, note }: { brand: LiveBrand; guest: string; lifetime: number; visits: number; note: string }) {
   const idx = FLIPPOS_TIERS.reduce((a, t, i) => (lifetime >= t.min ? i : a), 0);
   const nextTier = FLIPPOS_TIERS[idx + 1];
   const pct = nextTier ? ((lifetime - FLIPPOS_TIERS[idx].min) / (nextTier.min - FLIPPOS_TIERS[idx].min)) * 100 : 100;
@@ -716,7 +722,7 @@ function MemberTab({ brand, guest, lifetime, visits }: { brand: LiveBrand; guest
         })}
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-2xl bg-white p-3 text-[11.5px] text-zinc-600 shadow-sm ring-1 ring-black/5">
-        <Ticket className="h-4 w-4 shrink-0" style={{ color: brand.primary }} /> Monthly passes and party-family perks live here too.
+        <Ticket className="h-4 w-4 shrink-0" style={{ color: brand.primary }} /> {note}
       </div>
     </div>
   );
