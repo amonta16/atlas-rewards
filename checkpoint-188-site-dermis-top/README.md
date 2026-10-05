@@ -5,7 +5,10 @@ Andrew: "make the top exactly like Dermis, add Patient Financing like Klarna, Ow
 ## Theme (replaces CP-187's pearl/aubergine)
 White base, frosted glass panels, ocean-blue gradient (`#39A0FF → #0B5FD6 → #06318F`) for bands and the primary button, ink `#0B1B2B`. Manrope throughout (the serif is gone from this page). The ocean band uses Andrew's arcs artwork at `public/landing/ocean-arcs.jpg` (desk band, review band, closing).
 
-## Top of the page (Dermis geometry)
+## Top of the page (Dermis geometry, both breakpoints)
+**Desktop (lg+):** centered headline "Sell more treatments & memberships." → "See how" → bouncing arrow → a row of four feature tabs across the page (Recall reminders · Memberships · [phone] · Rewards · Patient financing) with faint column guides, the phone centered in the middle slot and hanging down into a full-bleed ocean band. The band explains the active feature: title + blurb + "Build my app" on the left, two plain facts on the right (no invented stats). Active tab: blue top edge + ice fade, auto-advances every 4.5 s, hover pauses, click selects. Front desk isn't a tab here because it has its own band further down.
+
+**Phones/tablets:**
 - Headline "Sell more treatments and memberships." · lead · "See how ↓" (arrow bounces).
 - **Left rail** of features with icons: Recall reminders · Memberships · Rewards · **Patient financing (In development)** · Front desk. The active item fills its left edge over 4.5 s, then advances; click any item; hover pauses. The active item's one-line blurb expands under it (sm+).
 - **Phone** on the right, screens cross-fade per feature: Home with the due card + a recall push banner; the member card with what it includes; Rewards; a pay-over-time checkout; the front desk list.

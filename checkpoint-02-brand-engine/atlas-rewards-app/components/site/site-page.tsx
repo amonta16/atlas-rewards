@@ -103,22 +103,24 @@ function Nav({ onStart }: { onStart: () => void }) {
 }
 
 /* ───────────── showcase (Dermis-style top): headline, "See how", a rail of features, the phone changes ───────────── */
-type Feature = { id: string; label: string; icon: React.ReactNode; blurb: string; status?: string; screen: React.ReactNode };
+type Feature = { id: string; label: string; icon: React.ReactNode; blurb: string; title: string; facts: [string, string][]; status?: string; screen: React.ReactNode };
 const DWELL = 4500;
 
 function Showcase({ onStart }: { onStart: () => void }) {
   const features: Feature[] = [
-    { id: "recall", label: "Recall reminders", icon: <BellRing className="h-5 w-5" />, blurb: "Every treatment carries how long results last. Her app shows the countdown; she hears from you before she forgets you.", screen: <ScreenRecall /> },
-    { id: "members", label: "Memberships", icon: <Crown className="h-5 w-5" />, blurb: "Sold in the app, billed through your own Stripe, banking a monthly credit toward treatments.", screen: <ScreenMembership /> },
-    { id: "rewards", label: "Rewards", icon: <Gift className="h-5 w-5" />, blurb: "Points for visits, reviews and referrals, redeemed on add-ons and treatments you choose.", screen: <ScreenRewards /> },
-    { id: "financing", label: "Patient financing", icon: <CreditCard className="h-5 w-5" />, status: "In development", blurb: "Pay over time at checkout, through the practice's own Stripe, so a $720 treatment is a yes today.", screen: <ScreenFinancing /> },
-    { id: "desk", label: "Front desk", icon: <MonitorSmartphone className="h-5 w-5" />, blurb: "Who is due, who is overdue, who already booked. Open her, log the treatment, or text the reminder you wrote.", screen: <div className="relative flex h-full items-center justify-center p-3"><DeskListMock className="!w-full scale-[.92]" /></div> },
+    { id: "recall", label: "Recall reminders", icon: <BellRing className="h-5 w-5" />, title: "She comes back on time, not when she remembers.", blurb: "Every treatment carries how long results last. Her app shows the countdown; she hears from you before she forgets you.", facts: [["Per treatment", "Each treatment on your menu carries its own recall window."], ["One tap", "The desk logs today's treatment; her app updates on the spot."]], screen: <ScreenRecall /> },
+    { id: "members", label: "Memberships", icon: <Crown className="h-5 w-5" />, title: "Revenue on the first of the month.", blurb: "Sold in the app, billed through your own Stripe, banking a monthly credit toward treatments.", facts: [["Your Stripe", "Dues settle in the practice's own account, never ours."], ["Banked credit", "A monthly credit toward treatments, shown on her card."]], screen: <ScreenMembership /> },
+    { id: "rewards", label: "Rewards", icon: <Gift className="h-5 w-5" />, title: "Points for the things that grow a practice.", blurb: "Points for visits, reviews and referrals, redeemed on add-ons and treatments you choose.", facts: [["Reviews + referrals", "The two actions worth paying for, rewarded automatically."], ["Your catalog", "Redeemed on add-ons and treatments you pick and price."]], screen: <ScreenRewards /> },
+    { id: "financing", label: "Patient financing", icon: <CreditCard className="h-5 w-5" />, status: "In development", title: "A $720 treatment becomes a yes today.", blurb: "Pay over time at checkout, through the practice's own Stripe, so a $720 treatment is a yes today.", facts: [["In development", "On the roadmap; not live in any practice yet."], ["Through Stripe", "Pay-over-time options on the practice's own Stripe account, no new vendor."]], screen: <ScreenFinancing /> },
+    { id: "desk", label: "Front desk", icon: <MonitorSmartphone className="h-5 w-5" />, title: "A list, not a dashboard.", blurb: "Who is due, who is overdue, who already booked. Open her, log the treatment, or text the reminder you wrote.", facts: [["Who's due", "Overdue, due within two weeks, coming up: one screen."], ["Text or open", "Send the reminder you wrote, or log the treatment, from the list."]], screen: <div className="relative flex h-full items-center justify-center p-3"><DeskListMock className="!w-full scale-[.92]" /></div> },
   ];
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
   useEffect(() => {
     if (paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setTimeout(() => setI((k) => (k + 1) % features.length), DWELL);
+    const desktop = window.matchMedia("(min-width: 1024px)").matches;
+    const n = desktop ? features.length - 1 : features.length; // desktop tab row has no Front desk tab
+    const t = setTimeout(() => setI((k) => (k + 1) % n), DWELL);
     return () => clearTimeout(t);
   }, [i, paused, features.length]);
   return (
@@ -127,9 +129,73 @@ function Showcase({ onStart }: { onStart: () => void }) {
         <div className="s-blob absolute -right-[12%] -top-[25%] h-[820px] w-[820px] rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.22),transparent)]" />
         <div className="absolute -left-[18%] top-[35%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(11,95,214,.10),transparent)]" />
       </div>
+      {/* ── Desktop (lg+): Dermis desktop geometry. Centered headline, "See how", the phone centered over a row of
+          feature tabs, running down into an ocean band that explains the active feature. ── */}
+      <div className="hidden lg:block" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+        <div className="s-wrap relative">
+          <Guides />
+          <div className="relative z-[1] pt-6 text-center">
+            <h1 id="hero-title-lg" className="s-display s-load-1 mx-auto !text-[clamp(3rem,2rem+2.6vw,4.3rem)]">Sell more treatments &amp; memberships.</h1>
+            <div className="s-load-2 mt-6 text-[1.45rem] font-semibold text-[var(--s-ink-2)]">See how</div>
+            <ArrowDown className="s-arrow s-load-3 mx-auto mt-3 h-10 w-10 stroke-[1.25] text-[var(--s-ink-2)]" aria-hidden />
+          </div>
+
+          <div className="relative mt-16">
+            {/* Tab row */}
+            {/* Four tabs around a middle slot the phone occupies (Dermis). Front desk has its own band below. */}
+            <ol className="s-load-3 relative z-[1] grid grid-cols-5 border-t border-[var(--s-line)]" aria-label="What Atlas runs">
+              {features.filter((f) => f.id !== "desk").map((f, idx) => {
+                const k = features.indexOf(f);
+                const on = k === i;
+                return (
+                  <li key={f.id} className={cn("relative", idx === 2 && "col-start-4")}>
+                    {on && <span aria-hidden className="absolute inset-x-0 -top-px h-[3px] bg-[var(--s-ocean)]" />}
+                    {on && <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-[var(--s-ice)] to-transparent" />}
+                    <button type="button" onClick={() => { setI(k); track("demo_clicked", { source: "site_showcase", kind: f.id }); }} aria-current={on ? "true" : undefined}
+                      className={cn("s-focus relative flex h-[136px] w-full flex-col items-center justify-center gap-3 px-3 text-center transition-colors", on ? "text-[var(--s-ink)]" : "text-[var(--s-ink-3)] hover:text-[var(--s-ink-2)]")}>
+                      <span className={cn("grid h-11 w-11 place-items-center rounded-xl transition-colors", on ? "bg-[var(--s-ocean)] text-white shadow-[0_10px_20px_-10px_rgba(11,95,214,.8)]" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}>{f.icon}</span>
+                      <span className={cn("text-[15px] leading-tight", on ? "font-bold" : "font-semibold")}>{f.label}{f.status && <span className="mx-auto mt-1.5 block w-fit rounded-full bg-[var(--s-ice)] px-2 py-0.5 text-[10px] font-bold text-[var(--s-ocean-deep)]">{f.status}</span>}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </div>
+
+        {/* Ocean band: full-bleed, the phone hangs into it */}
+        <div className="s-ocean relative">
+          <div className="s-ocean-img opacity-80" aria-hidden />
+          <div className="s-wrap relative grid min-h-[560px] grid-cols-[1fr_380px_1fr] gap-10 py-20">
+            <Guides light />
+            <div key={`t-${i}`} className="s-load-1 relative z-[1] self-center pr-6">
+              <h2 className="s-h2 !text-[clamp(1.6rem,1.2rem+1.1vw,2.2rem)] text-white">{features[i].title}</h2>
+              <p className="s-lead mt-5 max-w-[26rem] text-[1.05rem] text-white/85">{features[i].blurb}</p>
+              <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus mt-8">Build my app <ArrowRight className="h-4 w-4" /></button>
+            </div>
+            <div aria-hidden />
+            <dl key={`f-${i}`} className="s-load-2 relative z-[1] flex flex-col justify-center gap-9 pl-6">
+              {features[i].facts.map(([big, small]) => (
+                <div key={big} className="border-l-2 border-[#9BD0FF] pl-6">
+                  <dt className="text-[1.6rem] font-extrabold leading-none text-white">{big}</dt>
+                  <dd className="mt-2 max-w-[22rem] text-[15px] leading-snug text-white/85">{small}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          {/* Phone: anchored to the band, lifted up over the tab row */}
+          <div className="absolute left-1/2 top-0 z-[2] -translate-x-1/2 -translate-y-[150px]">
+            <PhoneShell tilt={false}>
+              {features.map((f, k) => <div key={f.id} className={cn("s-screen", k === i && "s-on")} aria-hidden={k !== i}>{f.screen}</div>)}
+            </PhoneShell>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Phones and tablets: Dermis mobile geometry (headline, rail left, phone right). ── */}
       {/* Dermis geometry: headline over everything; below it a narrow rail on the left and the phone on the right,
           on every screen size. On phones the rail is icon-over-label and the phone hangs off the right edge. */}
-      <div className="s-wrap relative grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-6 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-x-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-x-12" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="s-wrap relative grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-6 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-x-8 lg:hidden" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
         <div className="col-span-2 min-w-0 lg:col-span-1">
           <h1 id="hero-title" className="s-display s-load-1 max-w-[12ch]">Sell more treatments and memberships.</h1>
           <p className="s-lead s-load-2 mt-5 max-w-[32rem]">An app with your name on it that brings each patient back on time. We set it up with you in about a week.</p>
@@ -176,6 +242,15 @@ function Showcase({ onStart }: { onStart: () => void }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Faint vertical column guides, like Dermis. Light variant on the ocean band. */
+function Guides({ light = false }: { light?: boolean }) {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-y-0 left-4 right-4 grid grid-cols-5 sm:left-8 sm:right-8">
+      {[0, 1, 2, 3, 4].map((n) => <span key={n} className={cn("border-l", light ? "border-white/15" : "border-[var(--s-line)]/70", n === 4 && "border-r")} />)}
+    </div>
   );
 }
 
