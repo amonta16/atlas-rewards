@@ -35,12 +35,13 @@ export const SHOW_TESTIMONIAL_PLACEHOLDERS = true;
  * CP-191: the three Flippo's clips (Vimeo, embed URLs exactly as Vimeo's
  * share code gives them). Chris replaces the earlier 1231622571 embed that
  * wasn't loading. `aspect` is the clip's real shape so the frame never
- * letterboxes: Larry and Mary are 4:3, Chris is 16:9.
+ * letterboxes. CP-192: measured from the players — all three are 16:9 (the
+ * 75% padding in Vimeo's share code for Larry and Mary was wrong).
  */
 export const FLIPPOS_CLIPS = [
   { id: "chris", name: "Chris", embed: "https://player.vimeo.com/video/1232934665?title=0&byline=0&portrait=0&badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
-  { id: "larry", name: "Larry", embed: "https://player.vimeo.com/video/1232932429?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "4 / 3" },
-  { id: "mary", name: "Mary", embed: "https://player.vimeo.com/video/1232932692?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "4 / 3" },
+  { id: "larry", name: "Larry", embed: "https://player.vimeo.com/video/1232932429?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
+  { id: "mary", name: "Mary", embed: "https://player.vimeo.com/video/1232932692?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
 ] as const;
 
 const FLIPPOS = "Flippo's Arcade & Batting Cage · Morro Bay";

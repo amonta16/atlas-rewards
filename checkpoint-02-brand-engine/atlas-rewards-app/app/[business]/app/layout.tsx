@@ -23,6 +23,8 @@ import type { Business, Membership } from "@/lib/types/database";
 import { buildHousePromos, type HousePromoFacts } from "@/lib/house-promos";
 import { bookingEnabled } from "@/lib/booking";
 import { resolvePreset, presetSpec } from "@/lib/layout-presets";
+// CP-192: Inter for med spa apps.
+import { interClass } from "@/lib/landing/font";
 
 export const dynamic = "force-dynamic";
 
@@ -138,7 +140,9 @@ export default async function CustomerAppLayout({
       // never rotates. The column stays phone-width — an earlier
       // `landscape:max-w-2xl` also matched DESKTOP browsers (they are
       // landscape too) and blew the app out to 672px there.
-      className="atlas-surface max-w-md mx-auto min-h-screen relative"
+      // CP-192: med spa apps set everything in Inter (self-hosted) instead of
+      // the phone's system font, so the app reads the same on every device.
+      className={`atlas-surface max-w-md mx-auto min-h-screen relative ${resolvePreset(business.layout_preset) === "medspa" ? `${interClass} ms-app` : ""}`}
       // CP-92: start content below the iPhone status bar (safe-area inset)
       // while the background color/pattern still paints behind it — the
       // notch area blends with the app instead of eating the top banner.

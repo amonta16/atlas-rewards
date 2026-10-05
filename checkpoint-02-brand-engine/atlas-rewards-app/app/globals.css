@@ -153,3 +153,7 @@ html:has(.lp-root) { scroll-behavior: smooth; }
   .lp-float, .lp-float-slow, .lp-float-slower, .lp-pop, .lp-pulse-once, .lp-shimmer, .lp-visit, .lp-drift, .lp-drift-2 { animation: none !important; }
   .lp-root * { transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* CP-192: med spa apps — Inter everywhere, tuned for small screens. */
+.ms-app { font-feature-settings: "cv11", "ss01", "ss03"; letter-spacing: -0.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.ms-app input, .ms-app textarea, .ms-app select, .ms-app button { font-family: inherit; }

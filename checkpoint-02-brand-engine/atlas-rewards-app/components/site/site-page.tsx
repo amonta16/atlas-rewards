@@ -466,7 +466,7 @@ function ReviewsBand() {
           {/* Videos: real people at Flippo's, our first business. Static so they're easy to play. */}
           {videos.length > 0 && (
             <div className="relative mt-12 px-5 sm:px-10">
-              <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] lg:grid lg:grid-cols-[1.35fr_1fr_1fr] lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+              <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] lg:grid lg:grid-cols-3 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                 {videos.map((v) => (
                   <figure key={v.id} className="w-[82%] shrink-0 snap-start overflow-hidden rounded-3xl bg-white/95 p-2.5 shadow-[0_30px_60px_-40px_rgba(6,24,58,.8)] sm:w-[60%] lg:w-auto">
                     <div className="relative overflow-hidden rounded-2xl bg-[var(--s-ocean-deep)]" style={{ aspectRatio: v.aspect ?? "16 / 9" }}>
