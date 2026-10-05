@@ -15,7 +15,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowRight, BellRing, CreditCard, Crown, Gift, Menu, MonitorSmartphone, Play, Plus, Star, X } from "lucide-react";
+import { ArrowDown, ArrowRight, Check, Menu, Minus, Play, Plus, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { useInView } from "@/components/landing/reveal";
@@ -31,6 +31,7 @@ import { AftercareMock, DeskListMock, DueCardMock, MemberCardMock, PhoneShell, S
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS } from "@/lib/landing/site-reviews";
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
+import { IconDesk, IconFinancing, IconMembership, IconRecall, IconRewards } from "./feature-icons";
 
 const DEMO = { brand: MEDSPA_BRAND, categories: MEDSPA_BOOKING, rewards: MEDSPA_REWARDS, hours: MEDSPA_HOURS, offer: MEDSPA_OFFER, memberNote: MEDSPA_MEMBER_NOTE, guest: "Maya" };
 
@@ -106,16 +107,16 @@ function Nav({ onStart }: { onStart: () => void }) {
 }
 
 /* ───────────── showcase (Dermis-style top): headline, "See how", a rail of features, the phone changes ───────────── */
-type Feature = { id: string; label: string; icon: React.ReactNode; blurb: string; title: string; facts: [string, string][]; status?: string; screen: React.ReactNode };
+type Feature = { id: string; label: string; Icon: (p: { on?: boolean; className?: string }) => React.ReactElement; blurb: string; title: string; facts: [string, string][]; status?: string; screen: React.ReactNode };
 const DWELL = 4500;
 
 function Showcase({ onStart }: { onStart: () => void }) {
   const features: Feature[] = [
-    { id: "recall", label: "Recall reminders", icon: <BellRing className="h-5 w-5" />, title: "She comes back on time, not when she remembers.", blurb: "Every treatment carries how long results last. Her app shows the countdown; she hears from you before she forgets you.", facts: [["Per treatment", "Each treatment on your menu carries its own recall window."], ["One tap", "The desk logs today's treatment; her app updates on the spot."]], screen: <ScreenRecall /> },
-    { id: "members", label: "Memberships", icon: <Crown className="h-5 w-5" />, title: "Revenue on the first of the month.", blurb: "Sold in the app, billed through your own Stripe, banking a monthly credit toward treatments.", facts: [["Your Stripe", "Dues settle in the practice's own account, never ours."], ["Banked credit", "A monthly credit toward treatments, shown on her card."]], screen: <ScreenMembership /> },
-    { id: "rewards", label: "Rewards", icon: <Gift className="h-5 w-5" />, title: "Points for the things that grow a practice.", blurb: "Points for visits, reviews and referrals, redeemed on add-ons and treatments you choose.", facts: [["Reviews + referrals", "The two actions worth paying for, rewarded automatically."], ["Your catalog", "Redeemed on add-ons and treatments you pick and price."]], screen: <ScreenRewards /> },
-    { id: "financing", label: "Patient financing", icon: <CreditCard className="h-5 w-5" />, status: "In development", title: "A $720 treatment becomes a yes today.", blurb: "Pay over time at checkout, through the practice's own Stripe, so a $720 treatment is a yes today.", facts: [["In development", "On the roadmap; not live in any practice yet."], ["Through Stripe", "Pay-over-time options on the practice's own Stripe account, no new vendor."]], screen: <ScreenFinancing /> },
-    { id: "desk", label: "Front desk", icon: <MonitorSmartphone className="h-5 w-5" />, title: "A list, not a dashboard.", blurb: "Who is due, who is overdue, who already booked. Open her, log the treatment, or text the reminder you wrote.", facts: [["Who's due", "Overdue, due within two weeks, coming up: one screen."], ["Text or open", "Send the reminder you wrote, or log the treatment, from the list."]], screen: <div className="relative flex h-full items-center justify-center p-3"><DeskListMock className="!w-full scale-[.92]" /></div> },
+    { id: "recall", label: "Recall reminders", Icon: IconRecall, title: "She comes back on time, not when she remembers.", blurb: "Every treatment carries how long results last. Her app shows the countdown; she hears from you before she forgets you.", facts: [["Per treatment", "Each treatment on your menu carries its own recall window."], ["One tap", "The desk logs today's treatment; her app updates on the spot."]], screen: <ScreenRecall /> },
+    { id: "members", label: "Memberships", Icon: IconMembership, title: "Revenue on the first of the month.", blurb: "Sold in the app, billed through your own Stripe, banking a monthly credit toward treatments.", facts: [["Your Stripe", "Dues settle in the practice's own account, never ours."], ["Banked credit", "A monthly credit toward treatments, shown on her card."]], screen: <ScreenMembership /> },
+    { id: "rewards", label: "Rewards", Icon: IconRewards, title: "Points for the things that grow a practice.", blurb: "Points for visits, reviews and referrals, redeemed on add-ons and treatments you choose.", facts: [["Reviews + referrals", "The two actions worth paying for, rewarded automatically."], ["Your catalog", "Redeemed on add-ons and treatments you pick and price."]], screen: <ScreenRewards /> },
+    { id: "financing", label: "Patient financing", Icon: IconFinancing, status: "In development", title: "A $720 treatment becomes a yes today.", blurb: "Pay over time at checkout, through the practice's own Stripe, so a $720 treatment is a yes today.", facts: [["In development", "On the roadmap; not live in any practice yet."], ["Through Stripe", "Pay-over-time options on the practice's own Stripe account, no new vendor."]], screen: <ScreenFinancing /> },
+    { id: "desk", label: "Front desk", Icon: IconDesk, title: "A list, not a dashboard.", blurb: "Who is due, who is overdue, who already booked. Open her, log the treatment, or text the reminder you wrote.", facts: [["Who's due", "Overdue, due within two weeks, coming up: one screen."], ["Text or open", "Send the reminder you wrote, or log the treatment, from the list."]], screen: <div className="relative flex h-full items-center justify-center p-3"><DeskListMock className="!w-full scale-[.92]" /></div> },
   ];
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -156,7 +157,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
                     {on && <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-[var(--s-ice)] to-transparent" />}
                     <button type="button" onClick={() => { setI(k); track("demo_clicked", { source: "site_showcase", kind: f.id }); }} aria-current={on ? "true" : undefined}
                       className={cn("s-focus relative flex h-[136px] w-full flex-col items-center justify-center gap-3 px-3 text-center transition-colors", on ? "text-[var(--s-ink)]" : "text-[var(--s-ink-3)] hover:text-[var(--s-ink-2)]")}>
-                      <span className={cn("grid h-11 w-11 place-items-center rounded-xl transition-colors", on ? "bg-[var(--s-ocean)] text-white shadow-[0_10px_20px_-10px_rgba(11,95,214,.8)]" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}>{f.icon}</span>
+                      <f.Icon on={on} className={cn("h-12 w-12 transition-transform duration-300", on && "-translate-y-0.5 scale-105")} />
                       <span className={cn("text-[15px] leading-tight", on ? "font-bold" : "font-semibold")}>{f.label}{f.status && <span className="mx-auto mt-1.5 block w-fit rounded-full bg-[var(--s-ice)] px-2 py-0.5 text-[10px] font-bold text-[var(--s-ocean-deep)]">{f.status}</span>}</span>
                     </button>
                   </li>
@@ -213,7 +214,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
                 <span aria-hidden className="absolute -left-px top-0 h-full w-[3px] overflow-hidden rounded-r"><span className={cn("s-rail-fill block h-full w-full bg-[var(--s-ocean)]", on && "s-on")} style={{ ["--s-dwell" as string]: `${DWELL}ms` }} /></span>
                 <button type="button" onClick={() => { setI(k); track("demo_clicked", { source: "site_showcase", kind: f.id }); }} aria-current={on ? "true" : undefined}
                   className={cn("s-focus flex w-full flex-col items-start gap-1.5 rounded-r-2xl py-3 pl-3 pr-1 text-left transition-colors sm:flex-row sm:items-center sm:gap-3 sm:py-3.5 sm:pl-4 sm:pr-2", on ? "text-[var(--s-ink)]" : "text-[var(--s-ink-3)] hover:text-[var(--s-ink-2)]")}>
-                  <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-colors", on ? "bg-[var(--s-ocean)] text-white shadow-[0_10px_20px_-10px_rgba(11,95,214,.8)]" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}>{f.icon}</span>
+                  <f.Icon on={on} className="h-10 w-10 shrink-0" />
                   <span className="min-w-0 flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2">
                     <span className={cn("text-[13px] leading-tight sm:text-[17px]", on ? "font-bold" : "font-semibold")}>{f.label}</span>
                     {f.status && <span className="rounded-full bg-[var(--s-ice)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--s-ocean-deep)] sm:text-[10px]">{f.status}</span>}
@@ -411,32 +412,85 @@ function Pricing({ onStart }: { onStart: () => void }) {
 }
 
 /* ───────────── compare ───────────── */
-const COMPARE: { q: string; a: [string, string, string] }[] = [
-  { q: "Whose name is on the app?", a: ["Theirs; you're a listing", "Your POS vendor's", "Yours"] },
-  { q: "Tells a patient when she's due?", a: ["No", "No", "Yes, per treatment"] },
-  { q: "Memberships billed to your Stripe?", a: ["Rarely", "Sometimes, with fees", "Yes, your account"] },
-  { q: "Front-desk list of who to call?", a: ["No", "Reports, if you dig", "Yes, every morning"] },
-  { q: "Who sets it up?", a: ["You, from a help center", "You, from a help center", "We do, with you"] },
-  { q: "Contract", a: ["Varies", "Often annual", "Month to month"] },
+// CP-194: Atlas first and highlighted; every answer carries a mark (yes / partly / no).
+type Mark = "yes" | "part" | "no";
+const COMPARE: { q: string; atlas: string; others: [[Mark, string], [Mark, string]] }[] = [
+  { q: "Whose name is on the app?", atlas: "Yours", others: [["no", "Theirs; you're a listing"], ["no", "Your POS vendor's"]] },
+  { q: "Tells a patient when she's due?", atlas: "Yes, per treatment", others: [["no", "No"], ["no", "No"]] },
+  { q: "Memberships billed to your Stripe?", atlas: "Yes, your account", others: [["no", "Rarely"], ["part", "Sometimes, with fees"]] },
+  { q: "Front-desk list of who to call?", atlas: "Yes, every morning", others: [["no", "No"], ["part", "Reports, if you dig"]] },
+  { q: "Who sets it up?", atlas: "We do, with you", others: [["no", "You, from a help center"], ["no", "You, from a help center"]] },
+  { q: "Contract", atlas: "Month to month", others: [["part", "Varies"], ["no", "Often annual"]] },
 ];
+function MarkDot({ m }: { m: Mark }) {
+  if (m === "yes") return <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[var(--s-ocean)]"><Check className="h-3.5 w-3.5" strokeWidth={3.2} /></span>;
+  if (m === "part") return <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#FFF3DC] text-[#B7791F]"><Minus className="h-3.5 w-3.5" strokeWidth={3} /></span>;
+  return <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F1F3F6] text-[#9AA7B6]"><X className="h-3.5 w-3.5" strokeWidth={3} /></span>;
+}
 function Compare() {
+  const rows = COMPARE.length;
   return (
     <section className="s-section" aria-labelledby="cmp-title">
       <div className="s-wrap">
         <h2 id="cmp-title" className="s-h2 max-w-[18ch]">Six questions to ask before you sign anything.</h2>
-        <div className="s-panel mt-12 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-[15px]">
-            <thead><tr className="border-b border-[var(--s-line)] text-[13px] text-[var(--s-ink-3)]"><th className="p-5 font-medium"></th><th className="p-5 font-medium">Marketplace apps</th><th className="p-5 font-medium">POS loyalty add-on</th><th className="p-5 font-semibold text-[var(--s-ocean)]">Atlas</th></tr></thead>
-            <tbody>
-              {COMPARE.map((r) => (
-                <tr key={r.q} className="border-b border-[var(--s-line)] last:border-0">
-                  <th scope="row" className="p-5 font-semibold">{r.q}</th>
-                  {r.a.map((c, i) => <td key={i} className={cn("p-5", i === 2 ? "font-semibold text-[var(--s-ink)] bg-[var(--s-ice)]/60" : "text-[var(--s-ink-2)]")}>{c}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Phones: one card per question, Atlas answer first in blue */}
+        <ol className="mt-10 space-y-3 md:hidden">
+          {COMPARE.map((r) => (
+            <li key={r.q} className="overflow-hidden rounded-[22px] border border-[var(--s-line)] bg-white">
+              <div className="px-5 pb-3 pt-4 text-[16px] font-semibold text-[var(--s-ink)]">{r.q}</div>
+              <div className="mx-2 flex items-center gap-3 rounded-2xl px-3 py-3 text-[15px] font-semibold text-white" style={{ background: "linear-gradient(135deg, #2C93FF, #0B5FD6 60%, #06318F)" }}>
+                <MarkDot m="yes" /><span className="flex-1">{r.atlas}</span><span className="text-[12px] font-medium text-white/75">Atlas</span>
+              </div>
+              <dl className="grid grid-cols-2 gap-px bg-[var(--s-line)] pt-px">
+                {r.others.map(([m, t], j) => (
+                  <div key={j} className="bg-white px-4 py-3">
+                    <dt className="text-[12px] text-[var(--s-ink-3)]">{j === 0 ? "Marketplace apps" : "POS loyalty add-on"}</dt>
+                    <dd className="mt-1.5 flex items-start gap-2 text-[14px] leading-snug text-[var(--s-ink-2)]"><MarkDot m={m} />{t}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-12 hidden pb-6 pt-4 md:block">
+          <div role="table" aria-label="Atlas compared with marketplace apps and POS loyalty add-ons"
+            className="relative grid grid-cols-[1.35fr_1.15fr_1fr_1fr] rounded-[28px] border border-[var(--s-line)] bg-white shadow-[0_30px_60px_-45px_rgba(6,49,143,.25)]"
+            style={{ gridTemplateRows: `auto repeat(${rows}, minmax(0,auto))` }}>
+            {/* The Atlas column: one raised blue card behind the second column, header to last row */}
+            <div aria-hidden className="relative z-0 col-start-2 -my-4 overflow-hidden rounded-[24px] shadow-[0_26px_50px_-22px_rgba(11,95,214,.75)]"
+              style={{ gridRow: `1 / span ${rows + 1}`, background: "linear-gradient(170deg, #2C93FF 0%, #0B5FD6 55%, #06318F 100%)" }}>
+              <div className="absolute inset-0 bg-[url('/landing/blue-lines.jpg')] bg-cover bg-center opacity-40 mix-blend-screen" />
+            </div>
+            <div role="row" className="contents">
+              <div role="columnheader" className="row-start-1 col-start-1 p-6" />
+              <div role="columnheader" className="relative z-10 row-start-1 col-start-2 flex items-center gap-2.5 p-6 pt-5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/landing/atlas-icon-white.png" alt="" className="h-6 w-auto" />
+                <span className="text-[17px] font-bold text-white">Atlas</span>
+              </div>
+              <div role="columnheader" className="row-start-1 col-start-3 p-6 text-[14px] font-medium text-[var(--s-ink-3)]">Marketplace apps</div>
+              <div role="columnheader" className="row-start-1 col-start-4 p-6 text-[14px] font-medium text-[var(--s-ink-3)]">POS loyalty add-on</div>
+            </div>
+            {COMPARE.map((r, k) => {
+              const line = k < rows - 1 ? "border-b" : "";
+              const row = { gridRow: k + 2 };
+              return (
+                <div role="row" key={r.q} className="contents">
+                  <div role="rowheader" style={row} className={cn("col-start-1 flex items-center border-[var(--s-line)] px-6 py-5 text-[15.5px] font-semibold text-[var(--s-ink)]", line)}>{r.q}</div>
+                  <div role="cell" style={row} className={cn("relative z-10 col-start-2 mx-3 flex items-center gap-3 border-white/20 px-3 py-5 text-[15.5px] font-semibold text-white", line)}><MarkDot m="yes" />{r.atlas}</div>
+                  {r.others.map(([m, t], j) => (
+                    <div role="cell" key={j} style={row} className={cn("flex items-center gap-3 border-[var(--s-line)] px-6 py-5 text-[15px] text-[var(--s-ink-2)]", j === 0 ? "col-start-3" : "col-start-4", line)}><MarkDot m={m} />{t}</div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
+        <p className="s-small mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <span className="flex items-center gap-2"><span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--s-ocean)] text-white"><Check className="h-3 w-3" strokeWidth={3.2} /></span>Yes</span>
+          <span className="flex items-center gap-2"><MarkDot m="part" />Partly</span>
+          <span className="flex items-center gap-2"><MarkDot m="no" />No</span>
+        </p>
       </div>
     </section>
   );

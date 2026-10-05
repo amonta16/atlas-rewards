@@ -38,7 +38,7 @@ function readLastBrand(): { primary?: string; logo_url?: string | null } | null 
 /** CP-160: the Atlas first-run screen wears Atlas blue instead of white. */
 const ATLAS_BLUE = "#065ea4";
 const ATLAS_SHELL: React.CSSProperties = {
-  background: `radial-gradient(120% 80% at 50% -10%, #2f8fe0 0%, ${ATLAS_BLUE} 45%, #033f70 100%)`,
+  background: "#0B5FD6",
 };
 
 function businessEntryUrl(slug: string): string {
@@ -468,14 +468,13 @@ export default function JoinPage() {
 }
 
 
-/** CP-160: soft geometric backdrop behind the Atlas blue shell. */
+/** CP-160: backdrop behind the Atlas blue shell. CP-194: the brand's blue-lines artwork. */
 function AtlasBackdrop() {
   return (
     <div aria-hidden className="absolute inset-0 pointer-events-none">
-      <div className="absolute -top-24 -left-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute top-1/3 -right-28 h-80 w-80 rounded-full bg-cyan-300/20 blur-3xl" />
-      <div className="absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-      <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: "repeating-linear-gradient(135deg, #fff 0 2px, transparent 2px 22px)" }} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/landing/blue-lines.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#06318F]/25 via-transparent to-[#06318F]/35" />
     </div>
   );
 }
