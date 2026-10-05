@@ -8,11 +8,13 @@
  * still under reduced motion). Data lives in lib/landing/client-results.ts and
  * is PLACEHOLDER until real results are in; the band says so while it is.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Crown, Gift, MonitorSmartphone, ShoppingBag, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hanken } from "@/lib/fonts/hanken";
 import { CLIENT_RESULTS, type ClientResult } from "@/lib/landing/client-results";
+// CP-196: numbers count up and the photo settles in when a story comes in (GSAP).
+import { countUp, gsap } from "./motion";
 
 const DWELL = 6500;
 const PRODUCT_ICON: Record<ClientResult["products"][number], React.ReactNode> = {
@@ -42,9 +44,27 @@ export function ClientResults() {
   }, [i, paused, items.length]);
   const r = items[i];
   const sample = items.some((x) => x.placeholder);
+  const sectionRef = useRef<HTMLElement>(null);
+  const statRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const seen = useRef(false);
+
+  // Count the numbers up the first time the band is on screen, then on every story change.
+  useEffect(() => {
+    const run = () => r.stats.forEach((s, k) => countUp(statRefs.current[k], s.value));
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && imgRef.current) {
+      gsap.fromTo(imgRef.current, { scale: 1.08 }, { scale: 1, duration: 1.6, ease: "power2.out" });
+    }
+    if (seen.current) { run(); return; }
+    const el = sectionRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { seen.current = true; run(); io.disconnect(); } }, { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [i, r.stats]);
 
   return (
-    <section className={cn(hanken.variable, "relative py-16 sm:py-24")} style={{ fontFamily: "var(--font-hanken), system-ui, sans-serif" }} aria-labelledby="results-title"
+    <section ref={sectionRef} className={cn(hanken.variable, "relative py-16 sm:py-24")} style={{ fontFamily: "var(--font-hanken), system-ui, sans-serif" }} aria-labelledby="results-title"
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <h2 id="results-title" className="sr-only">Client results</h2>
       <div className="s-wrap relative">
@@ -56,10 +76,10 @@ export function ClientResults() {
         <div className="relative grid gap-8 lg:grid-cols-4 lg:gap-0">
           {/* Stats */}
           <div key={`s-${r.id}`} className="s-load-1 order-2 grid grid-cols-2 gap-6 lg:order-1 lg:col-span-1 lg:block lg:pr-8 lg:pt-1">
-            {r.stats.map((s) => (
+            {r.stats.map((s, k) => (
               <div key={s.label} className="relative pl-6 lg:mb-14 lg:pl-9">
                 <span aria-hidden className="absolute left-0 top-0 h-[38px] w-[3px] rounded-full bg-[var(--s-ocean)] lg:-left-px" />
-                <div className="text-[26px] font-bold leading-none tracking-[-0.01em] text-[var(--s-ink)]">{s.value}</div>
+                <div ref={(n) => { statRefs.current[k] = n; }} className="text-[26px] font-bold tabular-nums leading-none tracking-[-0.01em] text-[var(--s-ink)]">{s.value}</div>
                 <div className="mt-3 text-[17px] leading-snug text-[var(--s-ink-2)]">{s.label}</div>
               </div>
             ))}
@@ -77,7 +97,7 @@ export function ClientResults() {
           <div className="order-1 lg:order-2 lg:col-span-3">
             <div key={`c-${r.id}`} className="s-load-1 relative aspect-[4/3] overflow-hidden rounded-[18px] bg-[var(--s-ocean-deep)] shadow-[0_30px_60px_-36px_rgba(6,49,143,.55)] sm:aspect-[16/9] lg:aspect-[930/510]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={r.image} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: r.focus ?? "center" }} />
+              <img ref={imgRef} src={r.image} alt="" className="absolute inset-0 h-full w-full object-cover will-change-transform" style={{ objectPosition: r.focus ?? "center" }} />
               {r.placeholder && r.image.includes("blue-lines") && (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src="/landing/apps/spa-upright.webp" alt="" className="absolute right-[8%] top-[10%] h-[120%] w-auto rotate-[6deg] drop-shadow-[0_30px_40px_rgba(6,20,60,.45)]" />

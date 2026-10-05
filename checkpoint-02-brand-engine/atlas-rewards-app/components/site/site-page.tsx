@@ -13,7 +13,7 @@
  * does today. No invented customers, numbers or logos. Entertainment venues
  * are routed to /venues from the nav and footer.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowRight, Check, Menu, Minus, Play, Plus, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,8 @@ import { AftercareMock, DeskListMock, DueCardMock, MemberCardMock, PhoneShell, S
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS } from "@/lib/landing/site-reviews";
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
+// CP-196: GSAP scroll motion, wired from data-gs attributes (components/site/motion.ts).
+import { useSiteMotion } from "./motion";
 import { IconDesk, IconFinancing, IconMembership, IconRecall, IconRewards } from "./feature-icons";
 
 const DEMO = { brand: MEDSPA_BRAND, categories: MEDSPA_BOOKING, rewards: MEDSPA_REWARDS, hours: MEDSPA_HOURS, offer: MEDSPA_OFFER, memberNote: MEDSPA_MEMBER_NOTE, guest: "Maya" };
@@ -46,8 +48,10 @@ export function SitePage() {
 function Page() {
   const { openDemo } = useLanding();
   const start = (where: string) => { track("hero_cta_clicked", { source: `site_${where}` }); openDemo(`site:${where}`); };
+  const rootRef = useRef<HTMLDivElement>(null);
+  useSiteMotion(rootRef);
   return (
-    <div className="site overflow-x-clip">
+    <div ref={rootRef} className="site overflow-x-clip">
       <Nav onStart={() => start("nav")} />
       <main id="main">
         <Showcase onStart={() => start("hero")} />
@@ -289,13 +293,13 @@ function Pillars({ onStart }: { onStart: () => void }) {
       k: "recall", h: "She finds out she's due before she forgets you.",
       p: "Every treatment on your menu carries how long results last. The desk logs today's treatment in one tap, and her app shows the countdown, the aftercare, and a button to book.",
       bullets: ["Due-date card on her Home screen", "Aftercare appears the moment it's logged", "Your recall message, in your words"],
-      art: <div className="relative h-[420px]"><div className="s-reveal absolute left-0 top-4"><DueCardMock /></div><div className="s-reveal s-d2 absolute right-0 top-[210px]"><AftercareMock className="!w-[300px]" /></div></div>,
+      art: <div className="relative h-[420px]"><div className="s-reveal absolute left-0 top-4"><div data-gs="parallax" data-gs-y="18"><DueCardMock /></div></div><div className="s-reveal s-d2 absolute right-0 top-[210px]"><div data-gs="parallax" data-gs-y="-34"><AftercareMock className="!w-[300px]" /></div></div></div>,
     },
     {
       k: "members", h: "A membership that pays you on the first of the month.",
       p: "Sell it in the app, bill it through your own Stripe, and let it bank a monthly credit toward treatments. Members see their balance; your desk applies it at checkout.",
       bullets: ["Monthly dues straight to your Stripe", "Credit banks toward any treatment", "Member pricing shown on the menu"],
-      art: <div className="flex h-[340px] items-center justify-center"><div className="s-reveal"><MemberCardMock /></div></div>,
+      art: <div className="flex h-[340px] items-center justify-center"><div className="s-reveal"><div data-gs="parallax" data-gs-y="26"><MemberCardMock /></div></div></div>,
     },
     {
       k: "app", h: "Your name on the icon. No marketplace, no competitors next to you.",
@@ -354,7 +358,7 @@ function Desk() {
         </div>
         <div className="s-reveal s-d1 relative mx-auto w-full max-w-[520px]">
           <div aria-hidden className="absolute -inset-10 rounded-full bg-[radial-gradient(closest-side,rgba(255,255,255,.25),transparent)]" />
-          <DeskListMock className="relative !w-full" />
+          <div data-gs="parallax" data-gs-y="30"><DeskListMock className="relative !w-full" /></div>
         </div>
       </div>
     </section>
@@ -374,10 +378,13 @@ function Week() {
     <section className="s-section" aria-labelledby="week-title">
       <div className="s-wrap">
         <h2 id="week-title" className="s-h2 max-w-[16ch]">From first look to live in about a week.</h2>
-        <ol ref={v.ref} className={cn("mt-16 grid gap-10 md:grid-cols-4 md:gap-8", v.inView && "s-in")}>
+        <ol ref={v.ref} data-gs="pop" className={cn("relative mt-16 grid gap-10 md:grid-cols-4 md:gap-8", v.inView && "s-in")}>
+          {/* CP-196: the line between the steps draws as the section scrolls by (across on desktop, down on phones) */}
+          <span aria-hidden className="pointer-events-none absolute left-[18px] right-0 top-[17px] hidden h-[2px] bg-[var(--s-ice)] md:block"><span data-gs="draw" data-gs-axis="x" className="block h-full w-full bg-[var(--s-ocean)]" /></span>
+          <span aria-hidden className="pointer-events-none absolute bottom-6 left-[17px] top-[18px] w-[2px] bg-[var(--s-ice)] md:hidden"><span data-gs="draw" data-gs-axis="y" className="block h-full w-full bg-[var(--s-ocean)]" /></span>
           {WEEK.map((s, i) => (
-            <li key={s.t} className="s-reveal" style={{ transitionDelay: `${i * 0.12}s` }}>
-              <div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--s-ocean)] text-[0.95rem] font-bold text-white">{i + 1}</span><span className="text-[13px] font-semibold text-[var(--s-ocean)]">{s.when}</span></div>
+            <li key={s.t} className="s-reveal relative max-md:pl-14" style={{ transitionDelay: `${i * 0.12}s` }}>
+              <div className="flex items-center gap-3"><span data-gs-pop className="relative z-10 grid h-9 w-9 place-items-center rounded-full bg-[var(--s-ocean)] text-[0.95rem] font-bold text-white ring-[6px] ring-white max-md:absolute max-md:left-0 max-md:top-0">{i + 1}</span><span className="relative z-10 text-[13px] font-semibold text-[var(--s-ocean)] max-md:leading-9 md:-ml-1.5 md:bg-white md:px-2">{s.when}</span></div>
               <div className="s-h3 mt-5 text-[1.35rem]">{s.t}</div>
               <p className="s-body mt-2 text-[15px]">{s.d}</p>
             </li>
@@ -402,8 +409,8 @@ function Pricing({ onStart }: { onStart: () => void }) {
         <div className="s-panel p-7 sm:p-10">
           <div className="flex items-baseline justify-between"><span className="s-h3">Everything included</span><span className="s-small">No tiers</span></div>
           <div className="s-rule mt-5" />
-          <dl className="mt-6 grid gap-x-10 gap-y-7 sm:grid-cols-2">
-            {MEDSPA_STACK.map((s) => <div key={s.t}><dt className="font-semibold">{s.t}</dt><dd className="s-small mt-1 leading-relaxed">{s.d}</dd></div>)}
+          <dl data-gs="stagger" className="mt-6 grid gap-x-10 gap-y-7 sm:grid-cols-2">
+            {MEDSPA_STACK.map((s) => <div key={s.t} data-gs-item><dt className="font-semibold">{s.t}</dt><dd className="s-small mt-1 leading-relaxed">{s.d}</dd></div>)}
           </dl>
         </div>
       </div>
@@ -423,9 +430,9 @@ const COMPARE: { q: string; atlas: string; others: [[Mark, string], [Mark, strin
   { q: "Contract", atlas: "Month to month", others: [["part", "Varies"], ["no", "Often annual"]] },
 ];
 function MarkDot({ m }: { m: Mark }) {
-  if (m === "yes") return <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[var(--s-ocean)]"><Check className="h-3.5 w-3.5" strokeWidth={3.2} /></span>;
-  if (m === "part") return <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#FFF3DC] text-[#B7791F]"><Minus className="h-3.5 w-3.5" strokeWidth={3} /></span>;
-  return <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F1F3F6] text-[#9AA7B6]"><X className="h-3.5 w-3.5" strokeWidth={3} /></span>;
+  if (m === "yes") return <span data-gs-pop className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white text-[var(--s-ocean)]"><Check className="h-3.5 w-3.5" strokeWidth={3.2} /></span>;
+  if (m === "part") return <span data-gs-pop className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#FFF3DC] text-[#B7791F]"><Minus className="h-3.5 w-3.5" strokeWidth={3} /></span>;
+  return <span data-gs-pop className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F1F3F6] text-[#9AA7B6]"><X className="h-3.5 w-3.5" strokeWidth={3} /></span>;
 }
 function Compare() {
   const rows = COMPARE.length;
@@ -436,7 +443,7 @@ function Compare() {
         {/* Phones: one card per question, Atlas answer first in blue */}
         <ol className="mt-10 space-y-3 md:hidden">
           {COMPARE.map((r) => (
-            <li key={r.q} className="overflow-hidden rounded-[22px] border border-[var(--s-line)] bg-white">
+            <li key={r.q} data-gs="pop" className="overflow-hidden rounded-[22px] border border-[var(--s-line)] bg-white">
               <div className="px-5 pb-3 pt-4 text-[16px] font-semibold text-[var(--s-ink)]">{r.q}</div>
               <div className="mx-2 flex items-center gap-3 rounded-2xl px-3 py-3 text-[15px] font-semibold text-white" style={{ background: "linear-gradient(135deg, #2C93FF, #0B5FD6 60%, #06318F)" }}>
                 <MarkDot m="yes" /><span className="flex-1">{r.atlas}</span><span className="text-[12px] font-medium text-white/75">Atlas</span>
@@ -453,7 +460,7 @@ function Compare() {
           ))}
         </ol>
         <div className="mt-12 hidden pb-6 pt-4 md:block">
-          <div role="table" aria-label="Atlas compared with marketplace apps and POS loyalty add-ons"
+          <div role="table" data-gs="pop" aria-label="Atlas compared with marketplace apps and POS loyalty add-ons"
             className="relative grid grid-cols-[1.35fr_1.15fr_1fr_1fr] rounded-[28px] border border-[var(--s-line)] bg-white shadow-[0_30px_60px_-45px_rgba(6,49,143,.25)]"
             style={{ gridTemplateRows: `auto repeat(${rows}, minmax(0,auto))` }}>
             {/* The Atlas column: one raised blue card behind the second column, header to last row */}
