@@ -30,10 +30,37 @@ export const MEDSPA_STACK: Array<{ t: string; d: string }> = [
   { t: "Set up with your team", d: "We build the app, configure rewards and recall, print your checkout QR and train your staff in about 15 minutes." },
 ];
 
-export type MedspaTestimonial = { id: string; name: string; role: string; quote: string | null; embed: string | null; poster: string };
+export type MedspaTestimonial = {
+  id: string;
+  /** Person's name as it should appear. */
+  name: string;
+  /** e.g. "Owner, nurse injector". */
+  role: string;
+  practice: string;
+  city: string;
+  /** One line they actually said on camera. Never invent. */
+  quote: string | null;
+  /** Vimeo/YouTube embed URL (vertical, unlisted is fine). null = empty slot. */
+  embed: string | null;
+  /** Poster frame. Until real videos exist, a library photo. */
+  poster: string;
+};
 
-/** No med spa clients yet. Cards without an embed are hidden in production. */
-export const MEDSPA_TESTIMONIALS: MedspaTestimonial[] = [];
+/**
+ * Video testimonial slots (CP-184). Three vertical cards on /medspa.
+ * Fill `embed`, `name`, `role`, `practice`, `city` and one real `quote` per clip.
+ * While SHOW_MEDSPA_TESTIMONIAL_SLOTS is true, empty slots render as a tasteful
+ * "coming soon" card so the layout is ready. Set it to false before ads run:
+ * empty slots then disappear, and the section hides if none have video.
+ */
+export const SHOW_MEDSPA_TESTIMONIAL_SLOTS = true;
+
+const P = "https://gqmjpntzupnmjooszvcd.supabase.co/storage/v1/object/public/image-library/medspa";
+export const MEDSPA_TESTIMONIALS: MedspaTestimonial[] = [
+  { id: "t1", name: "Your first owner", role: "Owner", practice: "Practice name", city: "City, CA", quote: null, embed: null, poster: `${P}/hero/pexels-6628475.jpg` },
+  { id: "t2", name: "Your second owner", role: "Lead injector", practice: "Practice name", city: "City, CA", quote: null, embed: null, poster: `${P}/hero/pexels-3881073.jpg` },
+  { id: "t3", name: "Your third owner", role: "Front desk lead", practice: "Practice name", city: "City, CA", quote: null, embed: null, poster: `${P}/hero/pexels-7222170.jpg` },
+];
 
 export const MEDSPA_FAQ: Array<{ q: string; a: string }> = [
   {

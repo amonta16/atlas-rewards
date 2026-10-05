@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { MedspaPage } from "@/components/medspa/medspa-page";
 import { MetaPixel } from "@/components/venues/meta-pixel";
-import { interClass } from "@/lib/landing/font";
-import "../venues/venues.css";
+import { medspaFontClass } from "@/lib/landing/medspa-fonts";
+import "./medspa.css";
 
 /**
  * CP-182 — /medspa, the med spa Meta ads landing page (noindex).
  * Copy + offer: lib/landing/medspa-offer.ts · Quiz model: lib/landing/medspa-quiz-model.ts
- * Demo data: lib/landing/medspa-data.ts · Theme: app/venues/venues.css (shared .lpv)
+ * Demo data: lib/landing/medspa-data.ts · Theme: ./medspa.css (scoped .ms) · CP-183 redesign
  *
  * Ad URLs: /medspa?utm_source=meta&utm_campaign=ms_recall&utm_content=founder_v1
  */
@@ -30,13 +30,15 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = { themeColor: "#020a16" };
+export const viewport = { themeColor: "#F2F5F3" };
 
 export default function Page() {
   return (
     <>
       <MetaPixel />
-      <MedspaPage fontClassName={interClass} />
+      <div className={medspaFontClass}>
+        <MedspaPage />
+      </div>
     </>
   );
 }
