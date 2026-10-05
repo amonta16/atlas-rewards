@@ -46,12 +46,7 @@ export type HomeModule =
   | "winback"
   | "referral"
   | "news"
-  | "location"
-  // CP-185 (med spa only — read businesses.medspa_config):
-  | "next_treatment"  // "Your next refresh" due-date card + banked credit
-  | "shop"            // CP-190: featured Shop items
-  | "providers"       // "Your team" strip
-  | "gallery";        // before & after strip
+  | "location";
 
 export type LayoutPresetSpec = {
   id: LayoutPreset;
@@ -152,21 +147,18 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
     label: "Medspa & aesthetics",
     blurb: "Due-date card first, booking one tap away, aftercare in the app, no streaks.",
     fits: "Medspas, aesthetics, skin clinics · visits every 6–12 weeks",
+    // CP-193: Dermis tab bar. The med spa app renders its own screens and
+    // tab bar (components/medspa-app); these entries only label the builder
+    // pickers. Membership lives in Shop; My care and orders in Profile.
     tabs: [
-      // CP-191: QR check-in sits in the middle; Shop replaces Events; booking
-      // lives on Home and in My care rather than taking a tab.
       { id: "home", label: "Home" },
       { id: "store", label: "Shop" },
-      { id: "scan", label: "Check in" },
-      { id: "care", label: "My care" },
-      { id: "membership", label: "Member" },
+      { id: "scan", label: "Scan" },
+      { id: "rewards", label: "Rewards" },
+      { id: "profile", label: "Profile" },
     ],
-    // CP-185: the due-date card leads. No spin (not a venue), no events strip;
-    // the rewards catalog is one tap from the "Your rewards" strip.
-    home: [
-      "next_treatment", "membership", "member_card", "booking", "shop", "featured_offer", "providers",
-      "gallery", "referral", "winback", "top_rewards", "news", "location",
-    ],
+    // CP-193: unused. Med spa Home is components/medspa-app/home-screen.tsx.
+    home: [],
     topRewardsHeading: "Your rewards",
     offersTitle: "Offers",
     offersSubtitle: "This month's treatment specials.",

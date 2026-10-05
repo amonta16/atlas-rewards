@@ -11,12 +11,16 @@ import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getMyMembership } from "@/lib/data/customer-app";
 import { MembershipHub } from "@/components/customer/membership-hub";
 import { presetSpec } from "@/lib/layout-presets";
+// CP-193: med spa membership lives in the Shop.
+import { redirect } from "next/navigation";
+import { isMedspaApp } from "@/lib/medspa-app/route";
 
 export const dynamic = "force-dynamic";
 
 export default async function MembershipTab({ params }: { params: { business: string } }) {
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  if (isMedspaApp(business)) redirect(`/${params.business}/app/store?tab=membership`);
   const supabase = createClient();
   const [user, mem, { data: billing }] = await Promise.all([
     getCachedUser(),

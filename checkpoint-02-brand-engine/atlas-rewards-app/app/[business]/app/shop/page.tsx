@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { ShopClient } from "./shop-client";
+// CP-193: med spas redeem on Rewards; /store is their Shop.
+import { redirect } from "next/navigation";
+import { isMedspaApp } from "@/lib/medspa-app/route";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +26,7 @@ export default async function ShopPage({
   // CP-89: request-memoized — dedupes with the app layout's fetches.
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  if (isMedspaApp(business)) redirect(`/${params.business}/app/rewards`);
 
   // Pull all active rewards for this business. The page groups by
   // `category` client-side — "Uncategorized" gets its own bucket.

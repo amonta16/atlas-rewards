@@ -18,6 +18,8 @@ import { getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { getMedspaPatientContext } from "@/lib/data/medspa";
 import { AppLink } from "@/components/customer/app-link";
+import { MsTopBar } from "@/components/medspa-app/chrome";
+import { isMedspaApp } from "@/lib/medspa-app/route";
 import { cents, describeDue, dueDateFor, type MedspaTreatment } from "@/lib/medspa";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +35,7 @@ const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString("en
 
 export default async function CarePage({ params }: { params: { business: string } }) {
   const business = await getBusinessBySlug(params.business);
-  if (!business) notFound();
+  if (!business || !isMedspaApp(business)) notFound();
   const user = await getCachedUser();
   const ctx = await getMedspaPatientContext(business, user?.id ?? null);
   const { primary } = business.brand_colors;
@@ -41,14 +43,13 @@ export default async function CarePage({ params }: { params: { business: string 
   const byId = new Map(ctx.cfg.treatments.map((t) => [t.id, t]));
   const menu = ctx.cfg.treatments.filter((t) => t.is_active);
   const groups = [...new Set(menu.map((t) => t.category))];
-  const ink = "var(--surf-fg, #18181b)";
+  const ink = "var(--ms-ink)";
 
   return (
     <div className="pb-10">
-      <header className="px-5 pt-6">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]" style={{ color: ink }}>My care</h1>
-        <p className="mt-1 text-[15px] leading-snug text-zinc-500">Your treatments, aftercare, and when you&apos;re due next.</p>
-      </header>
+      {/* CP-193: pushed from Profile, so it gets the back bar. */}
+      <MsTopBar slug={slug} title="My care" back="/profile" />
+      <p className="px-5 pt-4 text-[16px] leading-snug" style={{ color: "var(--ms-sub)" }}>Your treatments, aftercare, and when you&apos;re due next.</p>
 
       {/* What's due */}
       {ctx.due.length > 0 ? (

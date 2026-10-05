@@ -155,5 +155,19 @@ html:has(.lp-root) { scroll-behavior: smooth; }
 }
 
 /* CP-192: med spa apps — Inter everywhere, tuned for small screens. */
-.ms-app { font-feature-settings: "cv11", "ss01", "ss03"; letter-spacing: -0.006em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+/* CP-193: med spa app tokens (Dermis-style). --ms-p (brand primary) is set
+   inline by components/medspa-app/frame.tsx. Only .ms-app reads these. */
+.ms-app {
+  --ms-ink: #262b3d; --ms-sub: #6b7181; --ms-icon: #8b909c; --ms-bg: #f4f6f6;
+  --ms-panel: #eef0f1; --ms-foot: #dee1e4; --ms-chip: #d9dcdf; --ms-line: #e5e8ec; --ms-tint: #edf2f7;
+  background: var(--ms-bg); color: var(--ms-ink);
+  letter-spacing: -0.003em; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
 .ms-app input, .ms-app textarea, .ms-app select, .ms-app button { font-family: inherit; }
+.ms-rail { scrollbar-width: none; scroll-snap-type: x mandatory; }
+.ms-rail::-webkit-scrollbar { display: none; }
+.ms-rail > * { scroll-snap-align: start; }
+@keyframes ms-sheen { 0% { transform: translateX(-120%) rotate(12deg); } 100% { transform: translateX(220%) rotate(12deg); } }
+@keyframes ms-pop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes ms-lift { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ms-app * { animation: none !important; } }

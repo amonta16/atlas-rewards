@@ -10,7 +10,10 @@ import { resolvePreset } from "@/lib/layout-presets";
 /**
  * POST /api/[business]/shop/checkout — CP-190 · med spa Shop
  *
- * Body: { itemId, quantity?, giftAmount?, recipientName?, recipientNote?, returnUrl }
+ * Body: { itemId, quantity?, giftAmount?, recipientName?, recipientNote?, returnUrl, method? }
+ * CP-193: method "klarna" opens Checkout with Klarna only (pay over time);
+ * "card" / "wallet" use the account's default methods (cards, Apple Pay,
+ * Google Pay). Klarna must be switched on in the practice's Stripe account.
  * Prices come from businesses.medspa_config on the SERVER (never the client).
  * Members (business_memberships.membership_payment_status = 'paid') get the
  * member price when one is set.
@@ -31,7 +34,7 @@ function giftCode() {
 }
 
 export async function POST(req: NextRequest, { params }: { params: { business: string } }) {
-  let body: { itemId?: string; quantity?: number; giftAmount?: number; recipientName?: string; recipientNote?: string; returnUrl?: string };
+  let body: { itemId?: string; quantity?: number; giftAmount?: number; recipientName?: string; recipientNote?: string; returnUrl?: string; method?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid body." }, { status: 400 }); }
 
   const supabase = createServer();
@@ -82,7 +85,9 @@ export async function POST(req: NextRequest, { params }: { params: { business: s
   if (!connected) return NextResponse.json({ reserved: true, orderId: row.id });
 
   const base = body.returnUrl ? new URL(body.returnUrl).origin : process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const back = `${base}/${biz.slug}/app/shop`;
+  // CP-193: back to the med spa Shop (/store), not the points catalog (/shop).
+  const back = `${base}/${biz.slug}/app/store`;
+  const klarna = body.method === "klarna";
   const fee = platformFeePercent();
   const metadata = { atlas_kind: "shop", atlas_order_id: row.id, atlas_business_id: biz.id, atlas_user_id: user.id };
   try {
@@ -92,15 +97,18 @@ export async function POST(req: NextRequest, { params }: { params: { business: s
       customer_email: user.email ?? undefined,
       line_items: [{ quantity, price_data: { currency: "usd", unit_amount: unit, product_data: { name: order.item_name, description: (item.description || biz.name).slice(0, 300) } } }],
       metadata,
+      ...(klarna ? { payment_method_types: ["klarna"] } : {}),
       payment_intent_data: { metadata, ...(fee ? { application_fee_amount: Math.round(amount * fee / 100) } : {}) },
-      success_url: `${back}?order=${row.id}&paid=1`,
-      cancel_url: `${back}?order=${row.id}&cancelled=1`,
+      success_url: `${back}?tab=mine&order=${row.id}&paid=1`,
+      cancel_url: `${back}?tab=mine&order=${row.id}&cancelled=1`,
     }, { account: connected, idempotencyKey: `shop_${row.id}` });
     await admin.from("medspa_shop_orders").update({ stripe_checkout_id: session.id }).eq("id", row.id);
     return NextResponse.json({ url: session.url });
   } catch (e) {
     await admin.from("medspa_shop_orders").update({ status: "cancelled" }).eq("id", row.id);
-    const msg = e instanceof StripeError ? e.message : "Payment couldn't start.";
+    const msg = klarna
+      ? `Klarna isn't available at ${biz.name} for this order. Choose Card instead.`
+      : e instanceof StripeError ? e.message : "Payment couldn't start.";
     console.error("[shop] checkout error", msg);
     return NextResponse.json({ error: msg }, { status: 502 });
   }

@@ -6,6 +6,9 @@ import { CheckinCountdownChip } from "@/components/customer/checkin-countdown-ch
 // CP-99: the daily spin lives on the Check-in tab too — right where the
 // check-in just happened (it moved out of the header quick actions).
 import { DailySpinButton } from "@/components/customer/daily-spin-button";
+// CP-193: med spa Scan screen.
+import { isMedspaApp } from "@/lib/medspa-app/route";
+import { MedspaScan } from "@/components/medspa-app/scan-screen";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +16,7 @@ export default async function ScanTab({ params }: { params: { business: string }
   // CP-89: request-memoized — dedupes with the app layout's fetches.
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  if (isMedspaApp(business)) return <MedspaScan business={business} membership={await getMyMembership(business.id)} />;
   const supabase = createClient();
   const mem = await getMyMembership(business.id);
 

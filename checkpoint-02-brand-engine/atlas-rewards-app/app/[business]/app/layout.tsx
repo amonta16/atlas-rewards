@@ -22,9 +22,10 @@ import type { Business, Membership } from "@/lib/types/database";
 // CP-153: house promos for the banner when nothing is featured.
 import { buildHousePromos, type HousePromoFacts } from "@/lib/house-promos";
 import { bookingEnabled } from "@/lib/booking";
-import { resolvePreset, presetSpec } from "@/lib/layout-presets";
-// CP-192: Inter for med spa apps.
-import { interClass } from "@/lib/landing/font";
+import { presetSpec } from "@/lib/layout-presets";
+// CP-193: med spas branch to their own frame right after enrollment.
+import { isMedspaApp } from "@/lib/medspa-app/route";
+import { MedspaFrame } from "@/components/medspa-app/frame";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,11 @@ export default async function CustomerAppLayout({
   }
   const membershipId = membership?.id ?? null;
 
+  // CP-193: the med spa app has its own layout (components/medspa-app/frame).
+  // Nothing below this line runs for med spas: no waiver gate, banners,
+  // streak or spin plumbing.
+  if (isMedspaApp(business)) return <MedspaFrame business={business} membership={membership}>{children}</MedspaFrame>;
+
   // CP-52.4: is a paid membership live? Gates the VIP quick-action in the
   // shared header (same as the Home page does).
   // CP-21: the featured offer loads once at the layout level so the sticky
@@ -82,8 +88,7 @@ export default async function CustomerAppLayout({
     guardian_email: string | null;
   } | null;
 
-  // CP-191: med spas don't use the waiver gate (no waivers in the med spa app).
-  const gateWaiver = gate && resolvePreset(business.layout_preset) !== "medspa" && gate.state !== "ok" && gate.waiver_id && gate.version_id
+  const gateWaiver = gate && gate.state !== "ok" && gate.waiver_id && gate.version_id
     ? { ...gate, waiver_id: gate.waiver_id, version_id: gate.version_id } : null;
   const gateActive = gateWaiver !== null;
 
@@ -140,9 +145,7 @@ export default async function CustomerAppLayout({
       // never rotates. The column stays phone-width — an earlier
       // `landscape:max-w-2xl` also matched DESKTOP browsers (they are
       // landscape too) and blew the app out to 672px there.
-      // CP-192: med spa apps set everything in Inter (self-hosted) instead of
-      // the phone's system font, so the app reads the same on every device.
-      className={`atlas-surface max-w-md mx-auto min-h-screen relative ${resolvePreset(business.layout_preset) === "medspa" ? `${interClass} ms-app` : ""}`}
+      className="atlas-surface max-w-md mx-auto min-h-screen relative"
       // CP-92: start content below the iPhone status bar (safe-area inset)
       // while the background color/pattern still paints behind it — the
       // notch area blends with the app instead of eating the top banner.
@@ -151,7 +154,7 @@ export default async function CustomerAppLayout({
     >
       {/* CP-135: sends a customer who came through a promo QR (or who still
           owes a required waiver) to /app/waiver. Renders nothing. */}
-      {resolvePreset(business.layout_preset) !== "medspa" && <CampaignResumer businessSlug={business.slug} businessId={business.id} membershipId={membershipId} />}
+      <CampaignResumer businessSlug={business.slug} businessId={business.id} membershipId={membershipId} />
       <CelebrateWatcher
         businessName={business.name}
         primary={business.brand_colors.primary}

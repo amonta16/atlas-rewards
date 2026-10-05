@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getFeaturedOffer, getMyMembership } from "@/lib/data/customer-app";
 import { RewardsClient } from "@/components/customer/rewards-client";
+// CP-193: med spa Rewards screen.
+import { isMedspaApp } from "@/lib/medspa-app/route";
+import { MedspaRewards } from "@/components/medspa-app/rewards-screen";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +12,7 @@ export default async function RewardsTab({ params }: { params: { business: strin
   // CP-89: request-memoized — dedupes with the app layout's fetches.
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  if (isMedspaApp(business)) return <MedspaRewards business={business} membership={await getMyMembership(business.id)} />;
   const supabase = createClient();
   const mem = await getMyMembership(business.id);
 

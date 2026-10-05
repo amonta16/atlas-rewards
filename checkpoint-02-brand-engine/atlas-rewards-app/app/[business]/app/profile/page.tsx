@@ -7,6 +7,9 @@ import { MyShops } from "@/components/customer/my-shops";
 import { NotificationPreferences } from "@/components/customer/notification-preferences";
 import { ProfileHelpLinks } from "@/components/customer/profile-help-links";
 import { FrontDeskCard } from "@/components/staff/app-switch";
+// CP-193: med spa Profile screen.
+import { isMedspaApp } from "@/lib/medspa-app/route";
+import { MedspaProfile } from "@/components/medspa-app/profile-screen";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,7 @@ export default async function ProfileTab({ params }: { params: { business: strin
   // CP-89: request-memoized — dedupes with the app layout's fetches.
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  if (isMedspaApp(business)) return <MedspaProfile business={business} joinedAt={(await getMyMembership(business.id))?.joined_at ?? null} />;
   const supabase = createClient();
 
   const user = await getCachedUser();

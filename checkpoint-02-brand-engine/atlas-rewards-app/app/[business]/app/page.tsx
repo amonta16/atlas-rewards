@@ -41,12 +41,9 @@ import { BookCard } from "@/components/customer/book-card";
 // CP-152: full-width Daily Spin card (entertainment preset).
 import { WheelPreviewCard } from "@/components/customer/wheel-preview-card";
 import { bookingEnabled, type BookingResource } from "@/lib/booking";
-// CP-185: med spa Home modules (only listed in the medspa preset).
-import { getMedspaPatientContext } from "@/lib/data/medspa";
-import { NextTreatmentCard } from "@/components/customer/medspa/next-treatment-card";
-import { ProvidersStrip } from "@/components/customer/medspa/providers-strip";
-import { GalleryStrip } from "@/components/customer/medspa/gallery-strip";
-import { ShopStrip } from "@/components/customer/medspa/shop-strip";
+// CP-193: med spas get their own Home (components/medspa-app).
+import { isMedspaApp } from "@/lib/medspa-app/route";
+import { MedspaHome } from "@/components/medspa-app/home-screen";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +65,7 @@ export default async function CustomerHome({ params }: { params: { business: str
   // Only top_rewards and latest_news are page-specific network calls.
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  if (isMedspaApp(business)) return <MedspaHome business={business} membership={await getMyMembership(business.id)} />;
 
   const supabase = createClient();
   const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }, { data: resourceRows }] = await Promise.all([
@@ -116,16 +114,7 @@ export default async function CustomerHome({ params }: { params: { business: str
   const layout = presetSpec(business.layout_preset);
   const homeOrder = layout.home;
 
-  // CP-185: only the medspa preset lists these modules, so the lookup runs
-  // for med spas alone; every other layout skips the queries entirely.
-  const medspaCtx = layout.id === "medspa" ? await getMedspaPatientContext(business, user?.id ?? null) : null;
-
   const blocks: Record<HomeModule, React.ReactNode> = {
-    // CP-185 — med spa only.
-    next_treatment: medspaCtx ? <NextTreatmentCard business={business} slug={params.business} ctx={medspaCtx} firstName={firstName} /> : null,
-    providers: medspaCtx ? <ProvidersStrip business={business} providers={medspaCtx.cfg.providers} /> : null,
-    shop: medspaCtx ? <ShopStrip business={business} slug={params.business} shop={medspaCtx.cfg.shop} isMember={medspaCtx.paid} /> : null,
-    gallery: medspaCtx ? <GalleryStrip items={medspaCtx.cfg.gallery} primary={business.brand_colors.primary} secondary={business.brand_colors.secondary} headingStyle={business.heading_style} /> : null,
     member_card: business.widget_config.points_card ? (
       // CP-136.3: plain spacing. Overlapping the hero is decided by the
       // wrapper around the module list, not by this block — see below.

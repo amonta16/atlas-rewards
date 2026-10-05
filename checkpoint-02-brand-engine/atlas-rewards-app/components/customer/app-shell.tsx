@@ -58,7 +58,7 @@ export function tabsForConfig(w: WidgetConfig, layoutPreset?: string | null): Ta
     // CP-147: a preset may put "book" on the bar; until the business turns
     // booking on (widget_config.booking) that slot shows Events instead.
     // CP-190: med spas have no Events — the slot becomes their membership.
-    if (t.id === "book" && !w?.booking) return spec.id === "medspa" ? { ...TAB_BY_ID.membership, label: "Member" } : { ...TAB_BY_ID.offers, label: "Events" };
+    if (t.id === "book" && !w?.booking) return { ...TAB_BY_ID.offers, label: "Events" };
     return { ...TAB_BY_ID[t.id], label: t.label };
   });
 }
