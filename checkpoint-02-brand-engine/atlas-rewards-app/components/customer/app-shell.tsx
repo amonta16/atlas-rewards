@@ -35,9 +35,11 @@ const PROFILE:    TabDef = { href: "/profile",    label: "Profile",    icon: Use
 
 // CP-185: med spa "My care" — treatment history, aftercare, due dates.
 const CARE:       TabDef = { href: "/care",       label: "My care",    icon: HeartPulse };
+// CP-190: med spa Shop (/store; /shop stays the points-rewards catalog).
+const STORE:      TabDef = { href: "/store",      label: "Shop",       icon: ShoppingBag };
 const TAB_BY_ID: Record<TabId, TabDef> = {
   home: HOME, scan: SCAN, rewards: REWARDS, streaks: STREAKS,
-  offers: OFFERS, book: BOOK, membership: MEMBERSHIP, profile: PROFILE, care: CARE,
+  offers: OFFERS, book: BOOK, membership: MEMBERSHIP, profile: PROFILE, care: CARE, store: STORE,
 };
 void SHOP; // Shop tab retired in CP-06; kept so the icon import stays honest.
 
@@ -55,7 +57,8 @@ export function tabsForConfig(w: WidgetConfig, layoutPreset?: string | null): Ta
   return spec.tabs.slice(0, 5).map(t => {
     // CP-147: a preset may put "book" on the bar; until the business turns
     // booking on (widget_config.booking) that slot shows Events instead.
-    if (t.id === "book" && !w?.booking) return { ...TAB_BY_ID.offers, label: "Events" };
+    // CP-190: med spas have no Events — the slot becomes their membership.
+    if (t.id === "book" && !w?.booking) return spec.id === "medspa" ? { ...TAB_BY_ID.membership, label: "Member" } : { ...TAB_BY_ID.offers, label: "Events" };
     return { ...TAB_BY_ID[t.id], label: t.label };
   });
 }

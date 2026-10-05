@@ -25,39 +25,33 @@ export type Testimonial = {
   /** Vimeo/YouTube embed URL (used instead of `video` when set). */
   embed: string | null;
   poster: string;
+  /** CP-191: the clip's real aspect ratio, e.g. "16 / 9" or "4 / 3". */
+  aspect?: string;
 };
 
 export const SHOW_TESTIMONIAL_PLACEHOLDERS = true;
 
-/** Flippo's testimonial (Vimeo). Used on all three cards until the other clips are in. */
-const FLIPPOS_VIDEO = "https://player.vimeo.com/video/1231622571?dnt=1&title=0&byline=0&portrait=0";
+/**
+ * CP-191: the three Flippo's clips (Vimeo, embed URLs exactly as Vimeo's
+ * share code gives them). Chris replaces the earlier 1231622571 embed that
+ * wasn't loading. `aspect` is the clip's real shape so the frame never
+ * letterboxes: Larry and Mary are 4:3, Chris is 16:9.
+ */
+export const FLIPPOS_CLIPS = [
+  { id: "chris", name: "Chris", embed: "https://player.vimeo.com/video/1232934665?title=0&byline=0&portrait=0&badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
+  { id: "larry", name: "Larry", embed: "https://player.vimeo.com/video/1232932429?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "4 / 3" },
+  { id: "mary", name: "Mary", embed: "https://player.vimeo.com/video/1232932692?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "4 / 3" },
+] as const;
 
-export const TESTIMONIALS: Testimonial[] = [
-  {
-    id: "flippos-owner",
-    name: "Owner",
-    role: "Flippo's Arcade & Batting Cage · Morro Bay",
-    quote: null,
-    video: null,
-    embed: FLIPPOS_VIDEO,
-    poster: "/landing/flippos-install-owner.webp",
-  },
-  {
-    id: "flippos-desk",
-    name: "Front desk",
-    role: "Flippo's Arcade & Batting Cage",
-    quote: null,
-    video: null,
-    embed: FLIPPOS_VIDEO,
-    poster: "/landing/flippos-install-team.webp",
-  },
-  {
-    id: "flippos-guest",
-    name: "Guest",
-    role: "Flippo's member",
-    quote: null,
-    video: null,
-    embed: FLIPPOS_VIDEO,
-    poster: "/landing/flippos-install-team.webp",
-  },
-];
+const FLIPPOS = "Flippo's Arcade & Batting Cage · Morro Bay";
+
+export const TESTIMONIALS: Testimonial[] = FLIPPOS_CLIPS.map((c) => ({
+  id: c.id === "chris" ? "flippos-owner" : `flippos-${c.id}`,
+  name: c.name,
+  role: FLIPPOS,
+  quote: null,
+  video: null,
+  embed: c.embed,
+  poster: c.id === "chris" ? "/landing/flippos-install-owner.webp" : "/landing/flippos-install-team.webp",
+  aspect: c.aspect,
+}));

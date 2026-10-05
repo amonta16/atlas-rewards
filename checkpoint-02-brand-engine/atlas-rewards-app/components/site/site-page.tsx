@@ -441,11 +441,11 @@ function Compare() {
 
 /* ───────────── reviews band (Owner-style): ocean panel, badges, cards sliding across ───────────── */
 function ReviewsBand() {
-  const flippos = TESTIMONIALS.find((t) => t.id === "flippos-owner" && t.embed);
+  // CP-191: all three Flippo's clips, playable in place (not inside the moving row).
+  const videos = TESTIMONIALS.filter((t) => t.embed);
   const real = SITE_REVIEWS.filter((r) => r.quote);
   const cards = SHOW_REVIEW_SLOTS ? SITE_REVIEWS : real;
-  const [playing, setPlaying] = useState(false);
-  if (!flippos && cards.length === 0) return null;
+  if (videos.length === 0 && cards.length === 0) return null;
   return (
     <section className="s-section !pt-0" aria-labelledby="reviews-title">
       <div className="s-wrap">
@@ -461,28 +461,33 @@ function ReviewsBand() {
                 </span>
               ))}
             </div>
-            {real.length === 0 && <p className="s-small mt-6 text-white/80">Our first practices are going live now. Their words land here as they come in; nothing on this page is invented.</p>}
           </div>
+
+          {/* Videos: real people at Flippo's, our first business. Static so they're easy to play. */}
+          {videos.length > 0 && (
+            <div className="relative mt-12 px-5 sm:px-10">
+              <div className="flex snap-x gap-4 overflow-x-auto pb-2 [scrollbar-width:none] lg:grid lg:grid-cols-[1.35fr_1fr_1fr] lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+                {videos.map((v) => (
+                  <figure key={v.id} className="w-[82%] shrink-0 snap-start overflow-hidden rounded-3xl bg-white/95 p-2.5 shadow-[0_30px_60px_-40px_rgba(6,24,58,.8)] sm:w-[60%] lg:w-auto">
+                    <div className="relative overflow-hidden rounded-2xl bg-[var(--s-ocean-deep)]" style={{ aspectRatio: v.aspect ?? "16 / 9" }}>
+                      <iframe src={v.embed!} title={`${v.name}, ${v.role}`} loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen className="absolute inset-0 h-full w-full" />
+                    </div>
+                    <figcaption className="px-2 pb-1.5 pt-3">
+                      <div className="text-[15px] font-bold text-[var(--s-ink)]">{v.name}</div>
+                      <div className="text-[12px] text-[var(--s-ink-3)]">{v.role}</div>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+              <p className="s-small mt-4 text-center text-white/80">Flippo&apos;s is an arcade and batting cage, the first business on Atlas. Med spa owners are next{real.length === 0 ? "; their words land below as they come in" : ""}.</p>
+            </div>
+          )}
 
           {/* Cards slide across; pause on hover. The whole set renders twice so the loop has no seam. */}
           <div className="s-marquee-wrap relative mt-12 overflow-hidden">
             <div className="s-marquee flex w-max gap-4 px-4">
               {[0, 1].map((pass) => (
                 <div key={pass} className="flex gap-4" aria-hidden={pass === 1}>
-                  {flippos && (
-                    <figure className="w-[380px] shrink-0 overflow-hidden rounded-3xl bg-[var(--s-ice)] p-3">
-                      <div className="relative aspect-video overflow-hidden rounded-2xl bg-[var(--s-ocean-deep)]">
-                        {playing && pass === 0 ? <iframe src={`${flippos.embed}&autoplay=1`} title="Flippo's Arcade & Batting Cage on Atlas" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen className="absolute inset-0 h-full w-full" /> : (
-                          <button type="button" onClick={() => { setPlaying(true); track("demo_clicked", { source: "site_reviews", kind: "flippos" }); }} className="s-focus group absolute inset-0 text-left" aria-label="Play: Flippo's owner on Atlas" tabIndex={pass === 1 ? -1 : 0}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={flippos.poster} alt="" className="h-full w-full object-cover" />
-                            <span className="absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[var(--s-ink)] shadow-xl"><Play className="ml-0.5 h-5 w-5 fill-current" /></span>
-                          </button>
-                        )}
-                      </div>
-                      <figcaption className="px-2 pb-1 pt-3"><div className="text-[15px] font-bold text-[var(--s-ink)]">Flippo&apos;s Arcade &amp; Batting Cage</div><div className="text-[12px] text-[var(--s-ink-3)]">Morro Bay · the first business running Atlas · video</div></figcaption>
-                    </figure>
-                  )}
                   {cards.map((r) => (
                     <figure key={r.id} className={cn("flex w-[340px] shrink-0 flex-col justify-between rounded-3xl p-6", r.quote ? "bg-[var(--s-ice)]" : "border border-dashed border-white/40 bg-white/10 text-white backdrop-blur")}>
                       <div>

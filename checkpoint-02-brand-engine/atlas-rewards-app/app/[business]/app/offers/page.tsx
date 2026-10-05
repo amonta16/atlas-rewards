@@ -50,8 +50,9 @@ export default async function OffersTab({ params }: { params: { business: string
       </div>
 
       {/* CP-132: the week's standing deals, then dated events, then offers. */}
-      <SpecialsStrip business={business} specials={specials} />
-      <EventsSection business={business} events={events} title="Upcoming events" />
+      {/* CP-190: med spas don't run events or weekly specials; their Shop replaces them. */}
+      {layout.id !== "medspa" && <SpecialsStrip business={business} specials={specials} />}
+      {layout.id !== "medspa" && <EventsSection business={business} events={events} title="Upcoming events" />}
 
       {business.widget_config.offers ? (
         <LimitedOffersSection

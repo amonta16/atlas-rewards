@@ -46,6 +46,7 @@ import { getMedspaPatientContext } from "@/lib/data/medspa";
 import { NextTreatmentCard } from "@/components/customer/medspa/next-treatment-card";
 import { ProvidersStrip } from "@/components/customer/medspa/providers-strip";
 import { GalleryStrip } from "@/components/customer/medspa/gallery-strip";
+import { ShopStrip } from "@/components/customer/medspa/shop-strip";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,7 @@ export default async function CustomerHome({ params }: { params: { business: str
     // CP-185 — med spa only.
     next_treatment: medspaCtx ? <NextTreatmentCard business={business} slug={params.business} ctx={medspaCtx} firstName={firstName} /> : null,
     providers: medspaCtx ? <ProvidersStrip business={business} providers={medspaCtx.cfg.providers} /> : null,
+    shop: medspaCtx ? <ShopStrip business={business} slug={params.business} shop={medspaCtx.cfg.shop} isMember={medspaCtx.paid} /> : null,
     gallery: medspaCtx ? <GalleryStrip items={medspaCtx.cfg.gallery} primary={business.brand_colors.primary} secondary={business.brand_colors.secondary} headingStyle={business.heading_style} /> : null,
     member_card: business.widget_config.points_card ? (
       // CP-136.3: plain spacing. Overlapping the hero is decided by the

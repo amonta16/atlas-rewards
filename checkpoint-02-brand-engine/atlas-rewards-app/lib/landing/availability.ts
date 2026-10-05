@@ -14,14 +14,13 @@
 /** Atlas's own timezone — slots are defined in this zone. */
 export const HOST_TZ = "America/Los_Angeles";
 
-/** Working hours in HOST_TZ and slot length. */
-const START_HOUR = 9;
-const END_HOUR = 17; // exclusive
+/** Slot grid (minutes). */
 const SLOT_MINUTES = 30;
 /** How far out people can book. */
 export const BOOKING_WINDOW_DAYS = 21;
 /** Minimum lead time before a slot can be booked. */
 const LEAD_TIME_HOURS = 4;
+// CP-189: SLOT_MINUTES is the grid; CALL_MINUTES + BUFFER_MINUTES must fit in it.
 
 export type Slot = { startsAt: Date; label: string };
 
@@ -57,33 +56,67 @@ function hash(s: string): number {
 }
 
 /** Is this calendar day (HOST_TZ) bookable at all? */
-export function isDayAvailable(y: number, m: number, d: number, now = new Date()): boolean {
-  const noon = zonedToUtc(y, m, d, 12, 0, HOST_TZ);
-  const wd = new Intl.DateTimeFormat("en-US", { timeZone: HOST_TZ, weekday: "short" }).format(noon);
-  if (wd === "Sat" || wd === "Sun") return false;
-  const diffDays = (noon.getTime() - now.getTime()) / 86400000;
-  if (diffDays < -0.5 || diffDays > BOOKING_WINDOW_DAYS) return false;
-  // Mock: ~1 in 7 weekdays is "fully booked".
-  if (hash(`${y}-${m}-${d}`) < 0.14) return false;
-  return getAvailableSlots(y, m, d, now).length > 0;
-}
+/**
+ * CP-189: weekly hours Andrew takes demo calls, in HOST_TZ. Google Calendar
+ * free/busy is subtracted from these, so classes, practice visits and
+ * anything else on his calendar block slots automatically. Edit here.
+ * Day numbers: 0 Sun … 6 Sat. Each range is [startHour, endHour) — halves ok (9.5 = 9:30).
+ */
+export const WEEKLY_HOURS: Record<number, Array<[number, number]>> = {
+  1: [[9, 18]],
+  2: [[9, 18]],
+  3: [[9, 18]],
+  4: [[9, 18]],
+  5: [[9, 17]],
+};
+/** Call length shown to the prospect, and the gap kept free after it. */
+export const CALL_MINUTES = 20;
+export const BUFFER_MINUTES = 10;
 
-/** Available slots for a HOST_TZ calendar day, as UTC instants. */
-export function getAvailableSlots(y: number, m: number, d: number, now = new Date()): Slot[] {
-  const out: Slot[] = [];
+/** Candidate slot starts for one HOST_TZ day from WEEKLY_HOURS (no busy check). */
+export function candidateSlots(y: number, m: number, d: number, now = new Date()): Slot[] {
+  const noon = zonedToUtc(y, m, d, 12, 0, HOST_TZ);
+  const wdName = new Intl.DateTimeFormat("en-US", { timeZone: HOST_TZ, weekday: "short" }).format(noon);
+  const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wdName);
+  const diffDays = (noon.getTime() - now.getTime()) / 86400000;
+  if (diffDays < -0.5 || diffDays > BOOKING_WINDOW_DAYS) return [];
   const cutoff = now.getTime() + LEAD_TIME_HOURS * 3600000;
-  for (let h = START_HOUR; h < END_HOUR; h++) {
-    for (let mi = 0; mi < 60; mi += SLOT_MINUTES) {
+  const out: Slot[] = [];
+  for (const [a, b] of WEEKLY_HOURS[wd] ?? []) {
+    for (let t = a * 60; t + CALL_MINUTES <= b * 60; t += SLOT_MINUTES) {
+      const h = Math.floor(t / 60), mi = t % 60;
       const start = zonedToUtc(y, m, d, h, mi, HOST_TZ);
       if (start.getTime() < cutoff) continue;
-      // Mock: drop ~35% of slots so days look partially booked; keep lunch free-ish.
-      const r = hash(`${y}-${m}-${d}-${h}-${mi}`);
-      if (r < 0.35) continue;
-      if (h === 12 && mi === 0) continue;
       out.push({ startsAt: start, label: `${h}:${String(mi).padStart(2, "0")}` });
     }
   }
   return out;
+}
+
+/** True if [start, start+call+buffer) overlaps any busy block. */
+export function overlapsBusy(start: Date, busy: Array<{ start: number; end: number }>): boolean {
+  const s = start.getTime() - BUFFER_MINUTES * 60_000;
+  const e = start.getTime() + (CALL_MINUTES + BUFFER_MINUTES) * 60_000;
+  return busy.some((b) => b.start < e && b.end > s);
+}
+
+/** All open slot starts in the booking window, given busy blocks. Server + mock both use this. */
+export function openSlots(busy: Array<{ start: number; end: number }>, now = new Date()): Date[] {
+  const out: Date[] = [];
+  for (let i = 0; i <= BOOKING_WINDOW_DAYS; i++) {
+    const k = dayKey(new Date(now.getTime() + i * 86400000));
+    const [y, m, d] = [+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10)];
+    for (const s of candidateSlots(y, m, d, now)) if (!overlapsBusy(s.startsAt, busy)) out.push(s.startsAt);
+  }
+  return out;
+}
+
+/** Legacy (mock) helpers — used only when the calendar isn't configured. */
+export function isDayAvailable(y: number, m: number, d: number, now = new Date()): boolean {
+  return getAvailableSlots(y, m, d, now).length > 0;
+}
+export function getAvailableSlots(y: number, m: number, d: number, now = new Date()): Slot[] {
+  return candidateSlots(y, m, d, now).filter((s) => hash(`${y}-${m}-${d}-${s.label}`) >= 0.3);
 }
 
 /** Common zones offered in the picker, plus whatever the browser reports. */

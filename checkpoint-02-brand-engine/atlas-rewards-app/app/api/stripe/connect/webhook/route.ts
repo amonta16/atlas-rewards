@@ -68,6 +68,22 @@ export async function POST(req: NextRequest) {
       p_customer_id: typeof obj.customer === "string" ? obj.customer : obj.customer?.id ?? null,
     };
 
+    // CP-190: med spa Shop orders ride the same connected-account webhook.
+    // They must never fall through to the membership handler below.
+    if (md.atlas_kind === "shop") {
+      if (event.type === "checkout.session.completed" && (obj.payment_status === "paid" || obj.status === "complete") && md.atlas_order_id) {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        await createAdminClient().from("medspa_shop_orders")
+          .update({ status: "paid", paid_at: new Date().toISOString(), stripe_payment_intent: typeof obj.payment_intent === "string" ? obj.payment_intent : obj.payment_intent?.id ?? null })
+          .eq("id", md.atlas_order_id).eq("business_id", businessId).in("status", ["pending", "reserved"]);
+      }
+      if (event.type === "checkout.session.expired" && md.atlas_order_id) {
+        const { createAdminClient } = await import("@/lib/supabase/admin");
+        await createAdminClient().from("medspa_shop_orders").update({ status: "cancelled" }).eq("id", md.atlas_order_id).eq("status", "pending");
+      }
+      return NextResponse.json({ ok: true, shop: true });
+    }
+
     let args: Record<string, unknown> | null = null;
 
     switch (event.type) {

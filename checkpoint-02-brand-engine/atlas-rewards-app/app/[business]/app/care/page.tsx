@@ -1,119 +1,129 @@
 /**
- * /<slug>/app/care — CP-185 · "My care" (med spa layout)
+ * /<slug>/app/care — CP-185, refined CP-191 · "My care" (med spa layout)
  *
  * The patient's own record: what's due and when, banked credit, the
- * treatments she's had with aftercare for each, and the menu with recall
- * windows so she can see the rhythm the practice recommends. Reads
- * businesses.medspa_config + medspa_treatment_log via getMedspaPatientContext.
- * Businesses on other layouts never link here; the page still renders a
- * plain "not set up" state rather than 404 if someone types the URL.
+ * treatments she's had with aftercare for each, and how often the practice
+ * recommends each treatment.
+ *
+ * CP-191 (design critique + UX copy pass): fewer weights (semibold tops out),
+ * sentence-case group labels instead of tracked caps, the recommended
+ * interval shown as the row's tile ("3 mo") instead of initials + a repeated
+ * teal line, an empty state that says what this is and what to do, and the
+ * page headings set plainly rather than through the business's decorative
+ * heading style.
  */
 import { notFound } from "next/navigation";
-import { CalendarClock, ChevronRight, Sparkles, Wallet } from "lucide-react";
+import { ChevronRight, Wallet } from "lucide-react";
 import { getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { getMedspaPatientContext } from "@/lib/data/medspa";
 import { AppLink } from "@/components/customer/app-link";
-import { SectionHeading } from "@/components/customer/section-elements";
-import { cents, describeDue, dueDateFor, weeksLabel } from "@/lib/medspa";
+import { cents, describeDue, dueDateFor, type MedspaTreatment } from "@/lib/medspa";
 
 export const dynamic = "force-dynamic";
+
+/** "3 mo" / "4 wk" / "Once" — the tile on each treatment row. */
+function interval(w: number | null): { n: string; unit: string; label: string } {
+  if (!w) return { n: "1×", unit: "", label: "As needed" };
+  if (w >= 8) { const m = Math.round(w / 4.33); return { n: String(m), unit: "mo", label: `Every ${m} month${m === 1 ? "" : "s"}` }; }
+  return { n: String(w), unit: "wk", label: `Every ${w} week${w === 1 ? "" : "s"}` };
+}
+
+const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleDateString("en-US", o);
 
 export default async function CarePage({ params }: { params: { business: string } }) {
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
   const user = await getCachedUser();
   const ctx = await getMedspaPatientContext(business, user?.id ?? null);
-  const { primary, secondary } = business.brand_colors;
+  const { primary } = business.brand_colors;
   const slug = params.business;
   const byId = new Map(ctx.cfg.treatments.map((t) => [t.id, t]));
   const menu = ctx.cfg.treatments.filter((t) => t.is_active);
   const groups = [...new Set(menu.map((t) => t.category))];
+  const ink = "var(--surf-fg, #18181b)";
 
   return (
-    <div className="pb-8">
-      <div className="px-4 pt-5">
-        <h1 className="text-xl font-extrabold tracking-tight" style={{ color: "var(--surf-fg, #18181b)" }}>My care</h1>
-        <p className="mt-0.5 text-sm text-zinc-500">Your treatments, aftercare and what&apos;s next.</p>
-      </div>
+    <div className="pb-10">
+      <header className="px-5 pt-6">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em]" style={{ color: ink }}>My care</h1>
+        <p className="mt-1 text-[15px] leading-snug text-zinc-500">Your treatments, aftercare, and when you&apos;re due next.</p>
+      </header>
 
-      {/* Due now / next up */}
+      {/* What's due */}
       {ctx.due.length > 0 ? (
-        <section className="mt-4 px-4 space-y-2.5">
-          {ctx.due.map(({ row, due, state }) => (
-            <AppLink key={row.id} slug={slug} to="/book" className="flex items-center gap-3 rounded-3xl p-4 text-white shadow-md active:scale-[0.99] transition"
-              style={{ background: state.tone === "overdue" ? "linear-gradient(135deg,#8c4a46,#5e2f2c)" : state.tone === "due" ? `linear-gradient(135deg, ${primary}, ${secondary})` : `linear-gradient(135deg, ${primary}cc, ${secondary}cc)` }}>
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20 ring-1 ring-white/35"><CalendarClock className="h-5 w-5" /></div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-black uppercase tracking-widest opacity-85">{state.label}</div>
-                <div className="truncate text-base font-extrabold leading-tight">{row.treatment_name}</div>
-                <div className="text-xs opacity-90">Around {due.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })} · last done {new Date(row.performed_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>
+        <section className="mt-5 space-y-2.5 px-4" aria-label="Coming up">
+          {ctx.due.map(({ row, due, state }) => {
+            const tone = state.tone === "overdue" ? "#9a4a44" : state.tone === "due" ? primary : "#52525b";
+            return (
+              <div key={row.id} className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,.04),0_12px_28px_-20px_rgba(0,0,0,.25)] ring-1 ring-black/5">
+                <span aria-hidden className="h-11 w-1 shrink-0 rounded-full" style={{ background: tone }} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium" style={{ color: tone }}>{state.label}</div>
+                  <div className="truncate text-[17px] font-semibold text-zinc-900">{row.treatment_name}</div>
+                  <div className="text-[13px] text-zinc-500">Around {fmt(due, { weekday: "short", month: "short", day: "numeric" })} · last visit {fmt(new Date(row.performed_at), { month: "short", day: "numeric" })}</div>
+                </div>
+                <AppLink slug={slug} to="/book" className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold text-white" style={{ background: primary }}>Book</AppLink>
               </div>
-              <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold" style={{ color: primary }}>Book</span>
-            </AppLink>
-          ))}
+            );
+          })}
         </section>
       ) : (
-        <section className="mx-4 mt-4 rounded-3xl border bg-white p-5">
-          <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-white" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}><Sparkles className="h-5 w-5" /></span>
-            <div>
-              <div className="font-bold text-zinc-900">Nothing on the calendar yet</div>
-              <p className="mt-0.5 text-sm text-zinc-500">{ctx.cfg.welcome_note}</p>
-              <AppLink slug={slug} to="/book" className="mt-3 inline-flex items-center gap-1 text-sm font-bold" style={{ color: primary }}>Book a visit <ChevronRight className="h-4 w-4" /></AppLink>
-            </div>
-          </div>
+        <section className="mx-4 mt-5 rounded-2xl bg-white p-5 shadow-[0_1px_0_rgba(0,0,0,.04),0_12px_28px_-20px_rgba(0,0,0,.25)] ring-1 ring-black/5">
+          <h2 className="text-[17px] font-semibold text-zinc-900">Your care plan starts at your first visit</h2>
+          <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-600">After each treatment, your aftercare shows up here, and we&apos;ll let you know when you&apos;re due again.</p>
+          <AppLink slug={slug} to="/book" className="mt-4 inline-flex h-11 items-center gap-1 rounded-full px-5 text-[15px] font-semibold text-white" style={{ background: primary }}>
+            Book your first visit <ChevronRight className="h-4 w-4" />
+          </AppLink>
         </section>
       )}
 
-      {/* Credits */}
+      {/* Banked credit */}
       {ctx.credits && (
-        <section className="mx-4 mt-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl" style={{ background: `${primary}1a`, color: primary }}><Wallet className="h-4 w-4" /></span>
-              <div><div className="text-sm font-bold text-zinc-900">Banked credit</div><div className="text-[11px] text-zinc-500">{ctx.paid ? ctx.cfg.credits.note : "Join the membership to start banking credit each month."}</div></div>
-            </div>
-            <div className="text-right"><div className="text-xl font-extrabold text-zinc-900">{cents(ctx.credits.balance_cents)}</div>{ctx.credits.next_credit_on && <div className="text-[10px] text-zinc-500">+{cents(ctx.cfg.credits.monthly_credit_cents)} on {ctx.credits.next_credit_on.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</div>}</div>
+        <section className="mx-4 mt-3 flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-black/5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full" style={{ background: `${primary}14`, color: primary }}><Wallet className="h-[18px] w-[18px]" /></span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-semibold text-zinc-900">Membership credit</div>
+            <div className="text-[13px] text-zinc-500">{ctx.paid ? ctx.cfg.credits.note : "Join the membership to bank credit each month."}</div>
           </div>
-          {!ctx.paid && <AppLink slug={slug} to="/membership" className="mt-3 block rounded-xl py-2 text-center text-xs font-bold text-white" style={{ background: primary }}>See the membership</AppLink>}
+          {ctx.paid
+            ? <div className="text-right"><div className="text-[20px] font-semibold tabular-nums text-zinc-900">{cents(ctx.credits.balance_cents)}</div>{ctx.credits.next_credit_on && <div className="text-[12px] text-zinc-500">+{cents(ctx.cfg.credits.monthly_credit_cents)} on {fmt(ctx.credits.next_credit_on, { month: "short", day: "numeric" })}</div>}</div>
+            : <AppLink slug={slug} to="/membership" className="text-[14px] font-semibold" style={{ color: primary }}>See it</AppLink>}
         </section>
       )}
 
       {/* History + aftercare */}
       {ctx.cfg.show_history && ctx.log.length > 0 && (
-        <section className="mt-7">
-          <div className="px-4"><SectionHeading business={business}>Your treatments</SectionHeading></div>
+        <section className="mt-9">
+          <h2 className="px-5 text-[20px] font-semibold tracking-[-0.01em]" style={{ color: ink }}>Your treatments</h2>
           <ol className="mt-3 space-y-3 px-4">
             {ctx.log.map((row, i) => {
               const t = byId.get(row.treatment_id);
               const due = dueDateFor(row);
               const care = t?.aftercare.filter(Boolean) ?? [];
               const recent = Date.now() - new Date(row.performed_at).getTime() < 14 * 86_400_000;
+              const latestOfKind = i === ctx.log.findIndex((r) => r.treatment_id === row.treatment_id);
               return (
-                <li key={row.id} className="rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5">
-                  <div className="flex items-center gap-3">
-                    {t?.image_url
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      ? <img src={t.image_url} alt="" className="h-11 w-11 rounded-xl object-cover" />
-                      : <span className="grid h-11 w-11 place-items-center rounded-xl text-sm font-extrabold text-white" style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>{row.treatment_name.slice(0, 2).toUpperCase()}</span>}
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-bold text-zinc-900">{row.treatment_name}</div>
-                      <div className="text-xs text-zinc-500">{new Date(row.performed_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}{row.provider_name ? ` · ${row.provider_name}` : ""}</div>
+                <li key={row.id} className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-[16px] font-semibold text-zinc-900">{row.treatment_name}</div>
+                      <div className="text-[13px] text-zinc-500">{fmt(new Date(row.performed_at), { month: "long", day: "numeric", year: "numeric" })}{row.provider_name ? ` · ${row.provider_name}` : ""}</div>
                     </div>
-                    {due && i === ctx.log.findIndex((r) => r.treatment_id === row.treatment_id) && (
-                      <span className="rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ background: `${primary}14`, color: primary }}>{describeDue(due).label}</span>
-                    )}
+                    {due && latestOfKind && <span className="shrink-0 text-[13px] font-medium" style={{ color: primary }}>{describeDue(due).label}</span>}
                   </div>
                   {care.length > 0 && (recent || i === 0) && (
-                    <details className="mt-3 group" open={recent}>
-                      <summary className="cursor-pointer list-none text-xs font-bold" style={{ color: primary }}>Aftercare for this treatment</summary>
-                      <ul className="mt-2 space-y-1.5">
-                        {care.map((c, k) => <li key={k} className="flex gap-2 text-[13px] leading-snug text-zinc-700"><span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: primary }} />{c}</li>)}
+                    <details className="group mt-3 border-t border-zinc-100 pt-3" open={recent}>
+                      <summary className="flex cursor-pointer list-none items-center justify-between text-[14px] font-semibold text-zinc-800">
+                        Aftercare
+                        <ChevronRight className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-90" />
+                      </summary>
+                      <ul className="mt-2 space-y-2">
+                        {care.map((c, k) => <li key={k} className="flex gap-2.5 text-[14px] leading-snug text-zinc-700"><span className="mt-[8px] h-1 w-1 shrink-0 rounded-full bg-zinc-400" />{c}</li>)}
                       </ul>
                     </details>
                   )}
-                  {row.notes && <p className="mt-2 text-xs text-zinc-500">Note from your provider: {row.notes}</p>}
+                  {row.notes && <p className="mt-2 text-[13px] text-zinc-500">From your provider: {row.notes}</p>}
                 </li>
               );
             })}
@@ -121,32 +131,19 @@ export default async function CarePage({ params }: { params: { business: string 
         </section>
       )}
 
-      {/* The menu + rhythm */}
+      {/* How often to come back */}
       {menu.length > 0 && (
-        <section className="mt-7">
-          <div className="px-4 flex items-baseline justify-between"><SectionHeading business={business}>Treatments &amp; how often</SectionHeading><span className="text-xs text-zinc-500">Recommended rhythm</span></div>
-          <div className="mt-3 space-y-5 px-4">
+        <section className="mt-9">
+          <div className="px-5">
+            <h2 className="text-[20px] font-semibold tracking-[-0.01em]" style={{ color: ink }}>How often to come back</h2>
+            <p className="mt-1 text-[14px] text-zinc-500">What we usually recommend. Your provider will tailor it to you.</p>
+          </div>
+          <div className="mt-4 space-y-6 px-4">
             {groups.map((g) => (
               <div key={g}>
-                <div className="mb-2 text-[11px] font-black uppercase tracking-widest text-zinc-400">{g}</div>
-                <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5 divide-y">
-                  {menu.filter((t) => t.category === g).map((t) => (
-                    <AppLink key={t.id} slug={slug} to="/book" className="flex items-center gap-3 p-3.5 active:bg-zinc-50">
-                      {t.image_url
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        ? <img src={t.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
-                        : <span className="grid h-12 w-12 place-items-center rounded-xl text-xs font-extrabold" style={{ background: `${primary}14`, color: primary }}>{t.name.slice(0, 2).toUpperCase()}</span>}
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-bold text-zinc-900">{t.name}</div>
-                        <div className="truncate text-xs text-zinc-500">{t.description || `${t.duration_minutes} min`}</div>
-                        <div className="mt-1 flex flex-wrap gap-x-2 text-[11px]">
-                          <span className="font-semibold" style={{ color: primary }}>{weeksLabel(t.recall_weeks)}</span>
-                          {t.price_cents != null && t.price_cents > 0 && <span className="text-zinc-500">{cents(t.price_cents)}{t.member_price_cents != null && <> · members {cents(t.member_price_cents)}</>}</span>}
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300" />
-                    </AppLink>
-                  ))}
+                <h3 className="px-1 text-[13px] font-semibold text-zinc-500">{g}</h3>
+                <div className="mt-2 divide-y divide-zinc-100 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+                  {menu.filter((t) => t.category === g).map((t) => <TreatmentRow key={t.id} t={t} slug={slug} primary={primary} />)}
                 </div>
               </div>
             ))}
@@ -155,8 +152,26 @@ export default async function CarePage({ params }: { params: { business: string 
       )}
 
       {menu.length === 0 && ctx.log.length === 0 && (
-        <p className="mt-8 px-6 text-center text-sm text-zinc-500">{business.name} is still setting up treatments. Check back soon.</p>
+        <p className="mt-8 px-6 text-center text-[15px] text-zinc-500">{business.name} is adding its treatments. Check back soon.</p>
       )}
     </div>
+  );
+}
+
+function TreatmentRow({ t, slug, primary }: { t: MedspaTreatment; slug: string; primary: string }) {
+  const iv = interval(t.recall_weeks);
+  return (
+    <AppLink slug={slug} to="/book" className="flex items-center gap-3.5 px-4 py-3.5 active:bg-zinc-50">
+      <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl leading-none" style={{ background: `${primary}10`, color: primary }} aria-label={iv.label} title={iv.label}>
+        <span className="text-[17px] font-semibold tabular-nums">{iv.n}</span>
+        {iv.unit && <span className="mt-0.5 text-[11px] font-medium">{iv.unit}</span>}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[16px] font-medium text-zinc-900">{t.name}</div>
+        <div className="truncate text-[13px] text-zinc-500">{t.description || iv.label}</div>
+      </div>
+      {t.price_cents != null && t.price_cents > 0 && <span className="shrink-0 text-[14px] tabular-nums text-zinc-500">{cents(t.price_cents)}</span>}
+      <ChevronRight className="h-4 w-4 shrink-0 text-zinc-300" />
+    </AppLink>
   );
 }

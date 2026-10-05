@@ -341,28 +341,12 @@ function VideoCard({ t }: { t: VenueTestimonial }) {
   const has = !!t.embed;
   return (
     <figure className={cn("lpv-card overflow-hidden", !has && "lpv-placeholder")}>
-      <div className="relative aspect-[9/14] bg-[#04182e]">
-        {playing && t.embed ? (
-          <iframe src={`${t.embed}${t.embed.includes("?") ? "&" : "?"}autoplay=1`} title={`${t.name}, ${t.role}`} allow="autoplay; fullscreen; picture-in-picture" className="absolute inset-0 h-full w-full" />
+      {/* CP-191: Vimeo's own player shows each person's frame, so no poster/click-to-play layer. */}
+      <div className="relative bg-[#04182e]" style={{ aspectRatio: t.aspect ?? "9 / 14" }}>
+        {has ? (
+          <iframe src={t.embed!} title={`${t.name}, ${t.role}`} loading="lazy" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen className="absolute inset-0 h-full w-full" onFocus={() => { if (!playing) { setPlaying(true); track("vsl_played", { source: "venues_testimonial", id: t.id }); } }} />
         ) : (
-          <button
-            type="button"
-            disabled={!has}
-            onClick={() => {
-              setPlaying(true);
-              track("vsl_played", { source: "venues_testimonial", id: t.id });
-            }}
-            className="lpv-focus group absolute inset-0 block h-full w-full"
-            aria-label={has ? `Play video: ${t.name}` : `Video coming soon: ${t.name}`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={t.poster} alt="" loading="lazy" className={cn("h-full w-full object-cover transition-transform duration-700", has ? "group-hover:scale-105" : "opacity-40 saturate-50")} />
-            <span className="absolute inset-0 bg-gradient-to-t from-[#020a16]/90 via-[#020a16]/15 to-transparent" />
-            <span className={cn("absolute left-1/2 top-1/2 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full", has ? "bg-[var(--v-champagne)] text-[#0a1424] transition-transform group-hover:scale-110" : "border border-dashed border-white/60 text-white")}>
-              <Play className="ml-0.5 h-5 w-5 fill-current" aria-hidden />
-            </span>
-            {!has && <span className="absolute left-3 top-3 rounded-full bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white">Dev only: add video</span>}
-          </button>
+          <span className="absolute inset-0 grid place-items-center text-xs text-white/60">Video coming soon</span>
         )}
       </div>
       <figcaption className="p-5">

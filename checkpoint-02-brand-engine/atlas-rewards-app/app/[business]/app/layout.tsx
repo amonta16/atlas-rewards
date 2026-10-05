@@ -22,7 +22,7 @@ import type { Business, Membership } from "@/lib/types/database";
 // CP-153: house promos for the banner when nothing is featured.
 import { buildHousePromos, type HousePromoFacts } from "@/lib/house-promos";
 import { bookingEnabled } from "@/lib/booking";
-import { presetSpec } from "@/lib/layout-presets";
+import { resolvePreset, presetSpec } from "@/lib/layout-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +80,8 @@ export default async function CustomerAppLayout({
     guardian_email: string | null;
   } | null;
 
-  const gateWaiver = gate && gate.state !== "ok" && gate.waiver_id && gate.version_id
+  // CP-191: med spas don't use the waiver gate (no waivers in the med spa app).
+  const gateWaiver = gate && resolvePreset(business.layout_preset) !== "medspa" && gate.state !== "ok" && gate.waiver_id && gate.version_id
     ? { ...gate, waiver_id: gate.waiver_id, version_id: gate.version_id } : null;
   const gateActive = gateWaiver !== null;
 
@@ -146,7 +147,7 @@ export default async function CustomerAppLayout({
     >
       {/* CP-135: sends a customer who came through a promo QR (or who still
           owes a required waiver) to /app/waiver. Renders nothing. */}
-      <CampaignResumer businessSlug={business.slug} businessId={business.id} membershipId={membershipId} />
+      {resolvePreset(business.layout_preset) !== "medspa" && <CampaignResumer businessSlug={business.slug} businessId={business.id} membershipId={membershipId} />}
       <CelebrateWatcher
         businessName={business.name}
         primary={business.brand_colors.primary}

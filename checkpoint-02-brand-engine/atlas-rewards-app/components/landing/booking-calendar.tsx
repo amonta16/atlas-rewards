@@ -4,7 +4,7 @@ import { ArrowLeft, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { CONTACT_EMAIL } from "@/lib/landing/config";
-import { COMMON_TZS, HOST_TZ, dayKey, getAvailableSlots, isDayAvailable, tzLabel, type Slot } from "@/lib/landing/availability";
+import { CALL_MINUTES, COMMON_TZS, HOST_TZ, dayKey, getAvailableSlots, tzLabel, type Slot } from "@/lib/landing/availability";
 
 /**
  * Interactive booking calendar — CP-101.
@@ -12,8 +12,10 @@ import { COMMON_TZS, HOST_TZ, dayKey, getAvailableSlots, isDayAvailable, tzLabel
  *   2. pick a time (slots shown in the visitor's timezone, switchable)
  *   3. contact details → POST /api/landing/demo-request with slot_start + timezone
  *   4. confirmation
- * Availability comes from lib/landing/availability.ts (mock today; swap for
- * Calendly / Google Calendar there without touching this component).
+ * CP-189: slots come from GET /api/landing/availability (Andrew's working
+ * hours minus his Google Calendar free/busy). If that call fails, it falls
+ * back to the local hours grid so the funnel never dead-ends; the server
+ * still re-checks the slot before booking.
  */
 const INDUSTRIES = ["Arcade / family fun center", "Batting cages / sports", "Go-karts / mini golf", "Trampoline park / bowling", "Smoke shop", "Med spa", "Restaurant / cafe", "Other"];
 const field =
@@ -43,6 +45,36 @@ export function BookingCalendar({
   const [tz, setTz] = useState(HOST_TZ);
   const [state, setState] = useState<"idle" | "sending" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  // CP-189: live availability, grouped by HOST_TZ day.
+  const [byDay, setByDay] = useState<Map<string, Slot[]> | null>(null);
+  const [taken, setTaken] = useState<Set<number>>(new Set());
+  const [booked, setBooked] = useState<{ email: string; meetUrl: string | null; calendar: string } | null>(null);
+  useEffect(() => {
+    let off = false;
+    fetch("/api/landing/availability", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j: { slots: string[] }) => {
+        if (off) return;
+        const m = new Map<string, Slot[]>();
+        for (const iso of j.slots) {
+          const d = new Date(iso);
+          const k = dayKey(d);
+          const label = new Intl.DateTimeFormat("en-US", { timeZone: HOST_TZ, hour: "numeric", minute: "2-digit", hourCycle: "h23" }).format(d);
+          (m.get(k) ?? m.set(k, []).get(k)!).push({ startsAt: d, label });
+        }
+        setByDay(m);
+      })
+      .catch(() => { if (!off) setByDay(new Map([["__fallback__", []]])); });
+    return () => { off = true; };
+  }, []);
+  const fallback = !!byDay?.has("__fallback__");
+  const keyOf = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const slotsFor = (y: number, m: number, d: number): Slot[] => {
+    if (!byDay) return [];
+    const list = fallback ? getAvailableSlots(y, m, d, now) : (byDay.get(keyOf(y, m, d)) ?? []);
+    return list.filter((s) => !taken.has(s.startsAt.getTime()));
+  };
+  const isDayAvailable = (y: number, m: number, d: number) => slotsFor(y, m, d).length > 0;
 
   useEffect(() => {
     try {
@@ -52,7 +84,8 @@ export function BookingCalendar({
   }, []);
 
   const tzOptions = useMemo(() => Array.from(new Set([tz, ...COMMON_TZS])), [tz]);
-  const slots = useMemo(() => (day ? getAvailableSlots(day.y, day.m, day.d, now) : []), [day, now]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const slots = useMemo(() => (day ? slotsFor(day.y, day.m, day.d) : []), [day, byDay, taken]);
 
   const fmtTime = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d);
   const fmtDate = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric" }).format(d);
@@ -82,10 +115,20 @@ export function BookingCalendar({
         body: JSON.stringify({ ...body, source, path: window.location.pathname, slot_start: slot.startsAt.toISOString(), timezone: tz, preferred_time: `${fmtDate(slot.startsAt)} ${fmtTime(slot.startsAt)} (${tz})` }),
       });
       const j = await r.json().catch(() => ({}));
+      if (r.status === 409) {
+        // Taken between page load and confirm: drop it and send them back to the times.
+        setTaken((t) => new Set(t).add(slot.startsAt.getTime()));
+        setSlot(null);
+        setStep("time");
+        setState("error");
+        setError(j.error || "That time was just taken. Please pick another.");
+        return;
+      }
       if (!r.ok) throw new Error(j.error || "Something went wrong.");
+      setBooked({ email: String(body.email ?? ""), meetUrl: j.meet_url ?? null, calendar: j.calendar ?? "not_configured" });
       setStep("done");
       setState("idle");
-      track("demo_requested", { source, industry: String(body.industry ?? ""), slot: slot.startsAt.toISOString() });
+      track("demo_requested", { source, industry: String(body.industry ?? ""), slot: slot.startsAt.toISOString(), calendar: j.calendar ?? "" });
     } catch (err) {
       setState("error");
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -94,19 +137,26 @@ export function BookingCalendar({
 
   /* ── Confirmation ─────────────────────────────────────────────── */
   if (step === "done" && slot) {
+    const end = new Date(slot.startsAt.getTime() + CALL_MINUTES * 60_000);
+    const g = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Atlas app walkthrough")}&dates=${g(slot.startsAt)}/${g(end)}&details=${encodeURIComponent(booked?.meetUrl ? `Video: ${booked.meetUrl}` : "Andrew will send the video link.")}`;
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center" role="status">
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" aria-hidden />
         <h3 className="mt-3 text-xl font-semibold text-[#14213d]">You&apos;re booked</h3>
         <p className="mt-2 text-[15px] text-slate-700">
           <b className="text-[#14213d]">{fmtDate(slot.startsAt)}</b> at <b className="text-[#14213d]">{fmtTime(slot.startsAt)}</b>
-          <span className="text-slate-500"> · {tzLabel(tz, slot.startsAt)}</span>
+          <span className="text-slate-500"> · {CALL_MINUTES} min · {tzLabel(tz, slot.startsAt)}</span>
         </p>
-        <p className="mt-3 text-sm text-slate-600">
-          We&apos;ll send a confirmation and a video link to your email. Need to change it? Reply to that email or write{" "}
-          <a className="text-[#1f5f8b] underline-offset-2 hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
-        </p>
-        <p className="mt-4 lp-placeholder inline-block rounded px-2 py-1 font-mono text-[10px] text-slate-500">[ CONNECT CALENDAR PROVIDER — mock availability ]</p>
+        <ul className="mx-auto mt-4 max-w-sm space-y-1.5 text-left text-sm text-slate-700">
+          {booked?.calendar === "created" && <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />A calendar invite from andrew@atlas-engine.app is on its way to <b className="text-[#14213d]">{booked.email}</b>.</li>}
+          <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{booked?.meetUrl ? <>Video link: <a className="font-medium text-[#1f5f8b] underline-offset-2 hover:underline" href={booked.meetUrl} target="_blank" rel="noopener">{booked.meetUrl.replace("https://", "")}</a></> : <>A confirmation email with the video link is coming to <b className="text-[#14213d]">{booked?.email}</b>.</>}</li>
+          <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />You&apos;re talking with Andrew, who&apos;ll bring the app you just built.</li>
+        </ul>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <a href={gcal} target="_blank" rel="noopener" className="lp-focus inline-flex h-10 items-center rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-[#14213d] hover:bg-emerald-100">Add to Google Calendar</a>
+        </div>
+        <p className="mt-4 text-xs text-slate-500">Need a different time? Reply to the confirmation email or write <a className="text-[#1f5f8b] underline-offset-2 hover:underline" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
       </div>
     );
   }
@@ -116,7 +166,7 @@ export function BookingCalendar({
       {/* Summary rail */}
       <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[#e8dfd1] bg-[#fbf8f2] p-3 md:block md:p-5">
         <StepRow icon={CalendarDays} label="Date" value={day ? fmtDate(slot?.startsAt ?? new Date(day.y, day.m, day.d, 12)) : "Choose a day"} active={step === "date"} onClick={() => setStep("date")} />
-        <StepRow icon={Clock} label="Time" value={slot ? `${fmtTime(slot.startsAt)} · 20 min` : "Choose a time"} active={step === "time"} onClick={() => day && setStep("time")} disabled={!day} />
+        <StepRow icon={Clock} label="Time" value={slot ? `${fmtTime(slot.startsAt)} · ${CALL_MINUTES} min` : "Choose a time"} active={step === "time"} onClick={() => day && setStep("time")} disabled={!day} />
         <div className="col-span-2 mt-1 border-t border-[#e8dfd1] pt-3 md:mt-3">
           <label className="flex items-center gap-2 text-xs text-slate-500">
             <Globe className="h-3.5 w-3.5" aria-hidden />
@@ -150,7 +200,7 @@ export function BookingCalendar({
             <div className="mt-1 grid grid-cols-7 gap-1" role="grid" aria-label="Choose a date">
               {cells.map((d, i) => {
                 if (!d) return <span key={`e${i}`} />;
-                const ok = isDayAvailable(view.y, view.m, d, now);
+                const ok = isDayAvailable(view.y, view.m, d);
                 const selected = day && day.y === view.y && day.m === view.m && day.d === d;
                 const isToday = dayKey(new Date(view.y, view.m, d, 12)) === todayKey;
                 return (
@@ -173,7 +223,7 @@ export function BookingCalendar({
                 );
               })}
             </div>
-            <p className="mt-3 text-xs text-slate-500">Highlighted days have open slots. Weekdays only.</p>
+            <p className="mt-3 text-xs text-slate-500">{byDay === null ? "Checking Andrew's calendar…" : "Highlighted days have open times."}</p>
           </div>
         )}
 
@@ -183,6 +233,7 @@ export function BookingCalendar({
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Change date
             </button>
             <div className="mt-2 text-sm font-semibold text-[#14213d]">{fmtDate(slots[0]?.startsAt ?? new Date(day.y, day.m, day.d, 12))}</div>
+            {error && state === "error" && <p role="alert" className="mt-2 text-sm text-rose-600">{error}</p>}
             <div className="mt-3 grid max-h-[300px] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3" role="listbox" aria-label="Choose a time">
               {slots.map((s) => {
                 const sel = slot?.startsAt.getTime() === s.startsAt.getTime();

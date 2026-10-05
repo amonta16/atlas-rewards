@@ -15,7 +15,7 @@
  *   Gallery        live  — public before/after strip (consent gate)
  */
 import { useMemo, useState } from "react";
-import { Plus, Trash2, GripVertical, Sparkles, Clock, BellRing, Wallet, Users, Images, ShieldCheck, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { Plus, Trash2, GripVertical, Sparkles, Clock, BellRing, Wallet, Users, Images, ShieldCheck, ChevronDown, ChevronUp, Copy, ShoppingBag, Gift, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,8 @@ import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "@/components/agency/image-uploader";
 import type { Business } from "@/lib/types/database";
 import {
-  MEDSPA_CATEGORIES, MEDSPA_STARTER_TREATMENTS, RECALL_TOKENS, cents, fillTemplate, newId, weeksLabel,
-  type MedspaConfig, type MedspaGalleryItem, type MedspaProvider, type MedspaTreatment,
+  MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, RECALL_TOKENS, SHOP_KIND_LABEL, cents, fillTemplate, newId, weeksLabel,
+  type MedspaConfig, type MedspaGalleryItem, type MedspaProvider, type MedspaShopItem, type MedspaTreatment, type ShopKind,
 } from "@/lib/medspa";
 
 type EditorProps = { business: Business; cfg: MedspaConfig; onChange: (next: MedspaConfig) => void };
@@ -415,3 +415,132 @@ export function GalleryEditor({ business, cfg, onChange }: EditorProps) {
 }
 
 void Copy;
+
+/* ───────────────────────── 6. shop (CP-190) ───────────────────────── */
+
+export function ShopEditor({ business, cfg, onChange }: EditorProps) {
+  const shop = cfg.shop;
+  const list = shop.items;
+  const [openId, setOpenId] = useState<string | null>(null);
+  const setShop = (p: Partial<MedspaConfig["shop"]>) => onChange({ ...cfg, shop: { ...shop, ...p } });
+  const setItems = (items: MedspaShopItem[]) => setShop({ items });
+  const upd = (id: string, p: Partial<MedspaShopItem>) => setItems(list.map((x) => (x.id === id ? { ...x, ...p } : x)));
+  const add = (kind: ShopKind) => {
+    const it: MedspaShopItem = { id: newId("sh"), kind, name: "", description: "", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: kind === "package" ? 3 : null, amounts: kind === "gift_card" ? [5000, 10000, 25000] : [], pickup_note: kind === "product" ? "Ready at the front desk on your next visit." : "", featured: false, is_active: true };
+    setItems([...list, it]); setOpenId(it.id);
+  };
+  const loadStarter = () => {
+    const findT = (n: string) => cfg.treatments.find((t) => t.name.toLowerCase().includes(n))?.id ?? null;
+    const items = MEDSPA_STARTER_SHOP.filter((s) => !list.some((x) => x.name.toLowerCase() === s.name.toLowerCase())).map((s) => ({
+      ...s, id: newId("sh"),
+      treatment_id: s.kind === "package" ? findT(s.name.split(",")[0].toLowerCase().split(" ")[0]) : null,
+    }));
+    setItems([...list, ...items]);
+  };
+  const unpriced = list.filter((i) => i.is_active && i.kind !== "gift_card" && !i.price_cents).length;
+  const groups: ShopKind[] = ["package", "product", "gift_card"];
+
+  return (
+    <div className="space-y-6">
+      <Card icon={<ShoppingBag className="h-4 w-4" />} title="Shop"
+        subtitle="Treatment packages, the skincare you sell at the desk, and gift cards. Patients buy in the app; packages track sessions, gift cards get a code."
+        aside={<Status kind="live">Live in the patient app</Status>}>
+        <div className="flex items-center justify-between rounded-xl border p-3">
+          <div><div className="text-sm font-semibold">Show the Shop tab</div><div className="text-xs text-muted-foreground">Replaces Events for med spas. Off = the tab shows &ldquo;opening soon&rdquo; and the membership.</div></div>
+          <Switch checked={shop.enabled} onCheckedChange={(v) => setShop({ enabled: v })} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5"><Label>How patients pay</Label>
+            <div className="flex flex-wrap gap-1.5">
+              <Pill on={shop.pay_mode === "stripe"} onClick={() => setShop({ pay_mode: "stripe" })}>Card in the app (Stripe)</Pill>
+              <Pill on={shop.pay_mode === "in_person"} onClick={() => setShop({ pay_mode: "in_person" })}>Reserve, pay at the desk</Pill>
+            </div>
+            <p className="text-xs text-muted-foreground">{shop.pay_mode === "stripe" ? "Uses the practice's connected Stripe account (same one as memberships). If it isn't connected yet, orders fall back to pay at the desk." : "Orders show up at the front desk as reserved; staff mark them paid."}</p>
+          </div>
+          <div className="space-y-1.5"><Label>Line under the Shop title</Label><Input value={shop.intro} onChange={(e) => setShop({ intro: e.target.value })} /></div>
+        </div>
+        {list.length === 0 ? (
+          <div className="rounded-2xl border border-dashed bg-zinc-50 p-6 text-center">
+            <p className="text-sm font-medium">Nothing in the shop yet.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Load a starter shop (3 packages, 3 skincare basics, a gift card), then set your prices.</p>
+            <Button onClick={loadStarter} className="mt-4 bg-zinc-900 text-white hover:bg-zinc-800"><Sparkles className="mr-1.5 h-4 w-4" />Load starter shop</Button>
+          </div>
+        ) : (
+          <>
+            {unpriced > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">{unpriced} item{unpriced === 1 ? " has" : "s have"} no price yet. Patients see &ldquo;Ask at the desk&rdquo; until you add one.</div>}
+            {groups.map((g) => {
+              const rows = list.filter((i) => i.kind === g);
+              return (
+                <div key={g}>
+                  <div className="mb-2 flex items-center justify-between"><div className="text-sm font-semibold">{SHOP_KIND_LABEL[g]}</div><Button variant="ghost" size="sm" onClick={() => add(g)}><Plus className="mr-1 h-4 w-4" />Add</Button></div>
+                  {rows.length === 0 ? <p className="rounded-xl bg-zinc-50 p-3 text-xs text-muted-foreground">None yet.</p> : (
+                    <ul className="divide-y rounded-2xl border">
+                      {rows.map((it) => {
+                        const open = openId === it.id;
+                        return (
+                          <li key={it.id} className={cn(!it.is_active && "opacity-60")}>
+                            <div className="flex items-center gap-3 px-4 py-3">
+                              {it.image_url
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                ? <img src={it.image_url} alt="" className="h-11 w-11 rounded-xl object-cover" />
+                                : <span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-[#e9efec] to-[#d6e2de] text-[#2C6E7F]">{g === "gift_card" ? <Gift className="h-5 w-5" /> : g === "package" ? <Package className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}</span>}
+                              <button type="button" onClick={() => setOpenId(open ? null : it.id)} className="min-w-0 flex-1 text-left">
+                                <div className="truncate font-semibold">{it.name || <span className="text-zinc-400">Untitled</span>}{it.featured && <span className="ml-2 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">On Home</span>}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {g === "gift_card" ? it.amounts.map((a) => cents(a)).join(" / ") : it.price_cents ? `${cents(it.price_cents)}${it.member_price_cents ? ` · members ${cents(it.member_price_cents)}` : ""}` : "No price yet"}
+                                  {g === "package" && it.sessions ? ` · ${it.sessions} sessions${it.treatment_id ? ` of ${cfg.treatments.find((t) => t.id === it.treatment_id)?.name ?? "?"}` : ""}` : ""}
+                                </div>
+                              </button>
+                              <Switch checked={it.is_active} onCheckedChange={(v) => upd(it.id, { is_active: v })} aria-label="For sale" />
+                              <button type="button" onClick={() => setOpenId(open ? null : it.id)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100" aria-label="Edit">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button>
+                            </div>
+                            {open && (
+                              <div className="grid gap-4 border-t bg-zinc-50/70 px-4 py-5 md:grid-cols-[1fr_200px]">
+                                <div className="space-y-3">
+                                  <div className="space-y-1.5"><Label>Name</Label><Input value={it.name} onChange={(e) => upd(it.id, { name: e.target.value })} /></div>
+                                  <div className="space-y-1.5"><Label>Description</Label><Input value={it.description} onChange={(e) => upd(it.id, { description: e.target.value })} /></div>
+                                  {g !== "gift_card" && (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                      <div className="space-y-1.5"><Label>Price</Label><Money value={it.price_cents} onChange={(v) => upd(it.id, { price_cents: v })} /></div>
+                                      <div className="space-y-1.5"><Label>Member price</Label><Money value={it.member_price_cents} onChange={(v) => upd(it.id, { member_price_cents: v })} placeholder="same" /></div>
+                                    </div>
+                                  )}
+                                  {g === "package" && (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                      <div className="space-y-1.5"><Label>Sessions</Label><Input inputMode="numeric" value={it.sessions ?? ""} onChange={(e) => upd(it.id, { sessions: Math.max(1, parseInt(e.target.value || "1", 10) || 1) })} /></div>
+                                      <div className="space-y-1.5"><Label>For which treatment</Label>
+                                        <select className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={it.treatment_id ?? ""} onChange={(e) => upd(it.id, { treatment_id: e.target.value || null })}>
+                                          <option value="">Choose…</option>
+                                          {cfg.treatments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                        </select>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {g === "gift_card" && (
+                                    <div className="space-y-1.5"><Label>Amounts (dollars, comma separated)</Label>
+                                      <Input defaultValue={it.amounts.map((a) => a / 100).join(", ")} onBlur={(e) => upd(it.id, { amounts: e.target.value.split(",").map((x) => Math.round(parseFloat(x) * 100)).filter((n) => n > 0).slice(0, 6) })} />
+                                    </div>
+                                  )}
+                                  {g === "product" && <div className="space-y-1.5"><Label>Pickup note</Label><Input value={it.pickup_note} onChange={(e) => upd(it.id, { pickup_note: e.target.value })} /></div>}
+                                  <label className="flex items-center gap-2 text-sm"><Switch checked={it.featured} onCheckedChange={(v) => upd(it.id, { featured: v })} />Feature it on Home</label>
+                                </div>
+                                <div className="space-y-3">
+                                  <ImageUploader bucket="business-heroes" pathPrefix={`medspa/${business.id}/shop`} value={it.image_url} onChange={(url) => upd(it.id, { image_url: url })} label="Photo" aspectClass="aspect-square" library={{ category: "offer", industry: "medspa" }} />
+                                  <Button variant="ghost" size="sm" className="w-full text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => { setItems(list.filter((x) => x.id !== it.id)); setOpenId(null); }}><Trash2 className="mr-1.5 h-4 w-4" />Remove</Button>
+                                </div>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}

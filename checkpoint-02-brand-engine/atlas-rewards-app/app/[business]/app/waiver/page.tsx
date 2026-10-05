@@ -22,6 +22,8 @@ export default async function WaiverPage({
 }: { params: { business: string }; searchParams: { c?: string; campaign?: string; w?: string } }) {
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  // CP-191: no waivers in med spa apps.
+  if (business.layout_preset === "medspa") notFound();
   const supabase = createClient();
   const [user, mem] = await Promise.all([getCachedUser(), getMyMembership(business.id)]);
   const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();

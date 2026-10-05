@@ -1,3 +1,4 @@
+import { FLIPPOS_CLIPS } from "./testimonials";
 /**
  * /venues — Meta ads landing page config (CP-177).
  *
@@ -48,6 +49,8 @@ export type VenueTestimonial = {
   /** Vimeo/YouTube embed URL (unlisted is fine). */
   embed: string | null;
   poster: string;
+  /** CP-191: real clip shape ("16 / 9", "4 / 3"). */
+  aspect?: string;
 };
 
 /**
@@ -56,19 +59,15 @@ export type VenueTestimonial = {
  * real `quote`. Cards without an embed are hidden in production and shown as
  * marked placeholders in development.
  */
-export const VENUES_TESTIMONIALS: VenueTestimonial[] = [
-  {
-    id: "flippos",
-    name: "Flippo's Arcade & Batting Cage",
-    role: "Morro Bay, CA",
-    quote: null,
-    embed: "https://player.vimeo.com/video/1231622571?dnt=1&title=0&byline=0&portrait=0",
-    poster: "/landing/flippos-install-owner.webp",
-  },
-  { id: "larry", name: "Larry", role: "[Venue · role]", quote: null, embed: null, poster: "/landing/flippos-install-team.webp" },
-  { id: "chris", name: "Chris", role: "[Venue · role]", quote: null, embed: null, poster: "/landing/flippos-install-team.webp" },
-  { id: "mary", name: "Mary", role: "[Venue · role]", quote: null, embed: null, poster: "/landing/flippos-install-team.webp" },
-];
+export const VENUES_TESTIMONIALS: VenueTestimonial[] = FLIPPOS_CLIPS.map((c) => ({
+  id: c.id,
+  name: c.name,
+  role: "Flippo's Arcade & Batting Cage, Morro Bay",
+  quote: null,
+  embed: c.embed,
+  poster: c.id === "chris" ? "/landing/flippos-install-owner.webp" : "/landing/flippos-install-team.webp",
+  aspect: c.aspect,
+}));
 
 /** Objection-handling FAQ (answers must match the ledger). */
 export const VENUES_FAQ: Array<{ q: string; a: string }> = [

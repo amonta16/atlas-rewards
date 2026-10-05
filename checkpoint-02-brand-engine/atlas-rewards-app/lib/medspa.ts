@@ -85,6 +85,73 @@ export type MedspaRecall = {
   incentive: string;
 };
 
+/* ───────────── CP-190: Shop ───────────── */
+
+export type ShopKind = "package" | "product" | "gift_card";
+
+export type MedspaShopItem = {
+  id: string;
+  kind: ShopKind;
+  name: string;
+  description: string;
+  /** Price per unit. Gift cards: unused (amounts below). null = not for sale yet ("Ask at the desk"). */
+  price_cents: number | null;
+  member_price_cents: number | null;
+  image_url: string | null;
+  /** package: which treatment the sessions are for, and how many. */
+  treatment_id: string | null;
+  sessions: number | null;
+  /** gift_card: the amounts a patient can choose. */
+  amounts: number[];
+  /** product: show "Pick up at your next visit". */
+  pickup_note: string;
+  featured: boolean;
+  is_active: boolean;
+};
+
+export type MedspaShop = {
+  enabled: boolean;
+  /** "stripe" uses the practice's connected Stripe account; "in_person" reserves and they pay at the desk. */
+  pay_mode: "stripe" | "in_person";
+  intro: string;
+  items: MedspaShopItem[];
+};
+
+export const DEFAULT_MEDSPA_SHOP: MedspaShop = {
+  enabled: false,
+  pay_mode: "stripe",
+  intro: "Treatment packages, skincare we use in the room, and gift cards.",
+  items: [],
+};
+
+/** Starter shop an owner can load and price. Names are generic on purpose (no brand names). */
+export const MEDSPA_STARTER_SHOP: Omit<MedspaShopItem, "id">[] = [
+  { kind: "package", name: "HydraFacial, 3 sessions", description: "Three facials to use over the next few months. Save versus booking one at a time.", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: 3, amounts: [], pickup_note: "", featured: true, is_active: true },
+  { kind: "package", name: "Laser hair removal, 6 sessions", description: "A full series for one area, spaced about six weeks apart.", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: 6, amounts: [], pickup_note: "", featured: true, is_active: true },
+  { kind: "package", name: "Microneedling, 3 sessions", description: "The recommended series for texture and scarring.", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: 3, amounts: [], pickup_note: "", featured: false, is_active: true },
+  { kind: "product", name: "Daily mineral sunscreen SPF 50", description: "The SPF we recommend after every treatment.", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: null, amounts: [], pickup_note: "Ready at the front desk on your next visit.", featured: true, is_active: true },
+  { kind: "product", name: "Hydrating serum", description: "Hyaluronic serum for the days after a facial or peel.", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: null, amounts: [], pickup_note: "Ready at the front desk on your next visit.", featured: false, is_active: true },
+  { kind: "product", name: "Gentle cleanser", description: "The cleanser we use in the room.", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: null, amounts: [], pickup_note: "Ready at the front desk on your next visit.", featured: false, is_active: true },
+  { kind: "gift_card", name: "Gift card", description: "Good for any treatment or product. Never expires.", price_cents: null, member_price_cents: null, image_url: null, treatment_id: null, sessions: null, amounts: [5000, 10000, 25000], pickup_note: "", featured: true, is_active: true },
+];
+
+export const SHOP_KIND_LABEL: Record<ShopKind, string> = { package: "Packages", product: "Skincare", gift_card: "Gift cards" };
+
+export type ShopOrderRow = {
+  id: string; business_id: string; user_id: string; item_id: string; item_name: string; kind: ShopKind;
+  quantity: number; amount_cents: number; status: "pending" | "reserved" | "paid" | "fulfilled" | "cancelled" | "refunded";
+  pay_method: "stripe" | "in_person"; treatment_id: string | null; sessions_total: number | null; sessions_used: number;
+  gift_code: string | null; gift_balance_cents: number | null; recipient_name: string | null; recipient_note: string | null;
+  created_at: string; paid_at: string | null; fulfilled_at: string | null;
+};
+
+/** Server-side price for a shop line, members get member_price when set. null = not purchasable. */
+export function shopPrice(item: MedspaShopItem, isMember: boolean, giftAmount?: number | null): number | null {
+  if (item.kind === "gift_card") return giftAmount && item.amounts.includes(giftAmount) ? giftAmount : null;
+  if (item.price_cents == null || item.price_cents <= 0) return null;
+  return isMember && item.member_price_cents != null && item.member_price_cents > 0 ? item.member_price_cents : item.price_cents;
+}
+
 export type MedspaConfig = {
   treatments: MedspaTreatment[];
   providers: MedspaProvider[];
@@ -97,6 +164,8 @@ export type MedspaConfig = {
   pick_provider: boolean;
   /** Shown on the "My care" tab when a patient has no treatments logged yet. */
   welcome_note: string;
+  /** CP-190: the Shop tab (packages, skincare, gift cards). */
+  shop: MedspaShop;
 };
 
 export const MEDSPA_CATEGORIES = ["Injectables", "Skin", "Laser", "Body", "Wellness", "Consult"] as const;
@@ -118,6 +187,7 @@ export const DEFAULT_MEDSPA_CONFIG: MedspaConfig = {
   show_history: true,
   pick_provider: true,
   welcome_note: "Your treatments, aftercare and due dates will show up here after your first visit.",
+  shop: DEFAULT_MEDSPA_SHOP,
 };
 
 /** Starter menu an owner can load with one tap, then edit. Recall windows are typical, not medical advice. */
@@ -146,6 +216,7 @@ export function readMedspaConfig(raw: unknown): MedspaConfig {
     gallery: Array.isArray(r.gallery) ? r.gallery : [],
     credits: { ...DEFAULT_MEDSPA_CONFIG.credits, ...(r.credits ?? {}) },
     recall: { ...DEFAULT_MEDSPA_CONFIG.recall, ...(r.recall ?? {}) },
+    shop: { ...DEFAULT_MEDSPA_SHOP, ...(r.shop ?? {}), items: Array.isArray(r.shop?.items) ? r.shop!.items : [] },
   };
 }
 

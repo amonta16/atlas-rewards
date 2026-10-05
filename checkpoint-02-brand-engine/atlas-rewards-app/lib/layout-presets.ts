@@ -25,7 +25,8 @@ export const LAYOUT_PRESET_IDS: LayoutPreset[] = ["custom", "smoke", "food", "me
 
 /** Bottom-nav tabs. Each maps to an existing route under /app. */
 export type TabId = "home" | "scan" | "rewards" | "streaks" | "offers" | "book" | "membership" | "profile"
-  | "care"; // CP-185: med spa "My care" (treatment history, aftercare, due dates)
+  | "care"   // CP-185: med spa "My care" (treatment history, aftercare, due dates)
+  | "store"; // CP-190: med spa Shop (packages, skincare, gift cards, membership)
 
 export type TabSpec = { id: TabId; label: string };
 
@@ -48,6 +49,7 @@ export type HomeModule =
   | "location"
   // CP-185 (med spa only — read businesses.medspa_config):
   | "next_treatment"  // "Your next refresh" due-date card + banked credit
+  | "shop"            // CP-190: featured Shop items
   | "providers"       // "Your team" strip
   | "gallery";        // before & after strip
 
@@ -151,16 +153,18 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
     blurb: "Due-date card first, booking one tap away, aftercare in the app, no streaks.",
     fits: "Medspas, aesthetics, skin clinics · visits every 6–12 weeks",
     tabs: [
+      // CP-191: QR check-in sits in the middle; Shop replaces Events; booking
+      // lives on Home and in My care rather than taking a tab.
       { id: "home", label: "Home" },
-      { id: "book", label: "Book" },
+      { id: "store", label: "Shop" },
+      { id: "scan", label: "Check in" },
       { id: "care", label: "My care" },
       { id: "membership", label: "Member" },
-      { id: "scan", label: "Check in" },
     ],
     // CP-185: the due-date card leads. No spin (not a venue), no events strip;
     // the rewards catalog is one tap from the "Your rewards" strip.
     home: [
-      "next_treatment", "membership", "member_card", "booking", "featured_offer", "providers",
+      "next_treatment", "membership", "member_card", "booking", "shop", "featured_offer", "providers",
       "gallery", "referral", "winback", "top_rewards", "news", "location",
     ],
     topRewardsHeading: "Your rewards",

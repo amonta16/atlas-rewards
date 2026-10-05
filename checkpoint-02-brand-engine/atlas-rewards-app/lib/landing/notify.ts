@@ -34,6 +34,23 @@ export async function notifyLead(subject: string, lines: Array<[string, string |
   }
 }
 
+/** CP-189: email a prospect directly (booking confirmation). Reply-To goes to Andrew. */
+export async function emailProspect(to: string, subject: string, text: string): Promise<boolean> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) { console.info(`[landing] RESEND_API_KEY not set — would have emailed ${to}: ${subject}`); return false; }
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: FROM, to: [to], reply_to: CONTACT_EMAIL, subject, text }),
+    });
+    return r.ok;
+  } catch (e) {
+    console.error("[landing] prospect email failed", e);
+    return false;
+  }
+}
+
 export function hashIp(req: Request): Promise<string> {
   const xff = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
   const ip = xff.split(",")[0].trim() || "unknown";

@@ -62,6 +62,8 @@ export function track(event: LandingEvent, props: Props = {}) {
     window.fbq?.("trackCustom", event, payload);
     // CP-177: a booked demo is the Meta optimization event (standard `Lead`).
     if (event === "demo_requested") window.fbq?.("track", "Lead", { content_name: String(props.source ?? "") });
+    // CP-189: a demo with a chosen time is a booked meeting → standard `Schedule` (optimize ads on this).
+    if (event === "demo_requested" && props.slot) window.fbq?.("track", "Schedule", { content_name: String(props.source ?? "") });
     if (process.env.NODE_ENV !== "production") {
       // eslint-disable-next-line no-console
       console.debug("[atlas-analytics]", event, payload);

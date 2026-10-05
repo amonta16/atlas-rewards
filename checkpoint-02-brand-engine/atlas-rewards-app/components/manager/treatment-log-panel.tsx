@@ -28,15 +28,21 @@ export function TreatmentLogPanel({ business, userId, memberName, onLogged }: { 
   const [err, setErr] = useState<string | null>(null);
   const [recent, setRecent] = useState<TreatmentLogRow[]>([]);
   const [tick, setTick] = useState(0);
+  // CP-190: paid packages with sessions left (from the Shop).
+  const [pkgs, setPkgs] = useState<{ id: string; item_name: string; treatment_id: string | null; sessions_total: number; sessions_used: number }[]>([]);
+  const [usePkg, setUsePkg] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
     supabase.from("medspa_treatment_log").select("*").eq("business_id", business.id).eq("user_id", userId).order("performed_at", { ascending: false }).limit(5)
       .then(({ data }) => setRecent((data ?? []) as TreatmentLogRow[]));
+    supabase.from("medspa_shop_orders").select("id,item_name,treatment_id,sessions_total,sessions_used").eq("business_id", business.id).eq("user_id", userId).eq("kind", "package").eq("status", "paid")
+      .then(({ data }) => setPkgs(((data ?? []) as typeof pkgs).filter((o) => (o.sessions_total ?? 0) > o.sessions_used)));
   }, [business.id, userId, tick]);
 
   const primary = business.brand_colors.primary;
   const chosen = treatments.find((t) => t.id === treatmentId) ?? null;
+  const pkgFor = chosen ? pkgs.filter((o) => !o.treatment_id || o.treatment_id === chosen.id) : [];
   const eligibleProviders = chosen ? providers.filter((p) => p.treatment_ids.length === 0 || p.treatment_ids.includes(chosen.id)) : providers;
 
   async function log() {
@@ -50,6 +56,14 @@ export function TreatmentLogPanel({ business, userId, memberName, onLogged }: { 
       provider_id: prov?.id ?? null, provider_name: prov?.name ?? null, recall_weeks: chosen.recall_weeks,
       notes: notes.trim() || null, credit_used_cents: creditCents,
     });
+    if (!error && usePkg) {
+      const o = pkgs.find((x) => x.id === usePkg);
+      if (o) {
+        const used = o.sessions_used + 1;
+        await supabase.from("medspa_shop_orders").update({ sessions_used: used, ...(used >= o.sessions_total ? { status: "fulfilled", fulfilled_at: new Date().toISOString() } : {}) }).eq("id", o.id);
+      }
+      setUsePkg(null);
+    }
     setBusy(false);
     if (error) { setErr(error.message); return; }
     setTreatmentId(null); setCredit(""); setNotes(""); setTick((k) => k + 1); onLogged?.();
@@ -97,6 +111,17 @@ export function TreatmentLogPanel({ business, userId, memberName, onLogged }: { 
                     <button key={p.id} type="button" onClick={() => setProviderId(p.id)} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", providerId === p.id ? "border-zinc-900 bg-zinc-900 text-white" : "bg-white text-zinc-700")}>{p.name}</button>
                   ))}
                 </div>
+              </div>
+            )}
+            {pkgFor.length > 0 && (
+              <div className="space-y-1.5">
+                {pkgFor.map((o) => (
+                  <label key={o.id} className={cn("flex cursor-pointer items-center gap-3 rounded-xl border p-3 text-sm", usePkg === o.id && "ring-2")} style={usePkg === o.id ? { borderColor: primary, boxShadow: `0 0 0 2px ${primary}33` } : undefined}>
+                    <input type="checkbox" checked={usePkg === o.id} onChange={(e) => setUsePkg(e.target.checked ? o.id : null)} />
+                    <span className="flex-1"><b>Use a package session</b> · {o.item_name}</span>
+                    <span className="text-xs font-semibold text-zinc-500">{o.sessions_total - o.sessions_used} of {o.sessions_total} left</span>
+                  </label>
+                ))}
               </div>
             )}
             <div className="grid gap-3 sm:grid-cols-2">

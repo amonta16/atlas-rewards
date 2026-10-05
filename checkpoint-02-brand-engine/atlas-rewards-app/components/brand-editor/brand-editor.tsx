@@ -77,9 +77,9 @@ import { CalendarClock, CalendarCheck, FileSignature } from "lucide-react";
 import type { PreviewBookingTag } from "@/components/customer-preview/customer-preview";
 // CP-185: med spa builder — practice tabs that replace the venue-flavored
 // ones when layout_preset === "medspa". All edit businesses.medspa_config.
-import { TreatmentsEditor, CreditsEditor, ProvidersEditor, AftercareEditor, GalleryEditor } from "@/components/medspa-builder/medspa-studio";
+import { TreatmentsEditor, CreditsEditor, ProvidersEditor, AftercareEditor, GalleryEditor, ShopEditor } from "@/components/medspa-builder/medspa-studio";
 import { readMedspaConfig, type MedspaConfig } from "@/lib/medspa";
-import { Syringe, HeartHandshake, Images as ImagesIcon, Stethoscope } from "lucide-react";
+import { Syringe, HeartHandshake, Images as ImagesIcon, Stethoscope, ShoppingBag } from "lucide-react";
 
 const WIDGET_LABELS: Record<string, string> = {
   points_card:   "Main points card",
@@ -122,7 +122,7 @@ const POINT_MAXES: Record<string, number> = {
 
 type Tab = "brand" | "design" | "insights" | "offers" | "events" | "bookings" | "membership" | "rewards" | "news" | "waivers" | "settings"
   // CP-185: med spa practice tabs (only on the medspa layout).
-  | "treatments" | "providers" | "aftercare" | "gallery";
+  | "treatments" | "providers" | "aftercare" | "gallery" | "shop";
 
 export function isMedspaLayout(b: Pick<Business, "layout_preset">) {
   return resolvePreset(b.layout_preset) === "medspa";
@@ -137,13 +137,13 @@ function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }
       { id: "design",     label: "Design",       icon: <Palette className="h-4 w-4" /> },
       { id: "treatments", label: "Treatments",   icon: <Syringe className="h-4 w-4" /> },
       { id: "membership", label: "Membership",   icon: <Crown className="h-4 w-4" /> },
+      { id: "shop",       label: "Shop",         icon: <ShoppingBag className="h-4 w-4" /> },
       { id: "providers",  label: "Providers",    icon: <Stethoscope className="h-4 w-4" /> },
       { id: "aftercare",  label: "Aftercare",    icon: <HeartHandshake className="h-4 w-4" /> },
       { id: "gallery",    label: "Gallery",      icon: <ImagesIcon className="h-4 w-4" /> },
       { id: "bookings",   label: "Bookings",     icon: <CalendarCheck className="h-4 w-4" /> },
       { id: "rewards",    label: "Rewards",      icon: <Gift className="h-4 w-4" /> },
       { id: "offers",     label: "Offers",       icon: <Tag className="h-4 w-4" /> },
-      { id: "waivers",    label: "Consents",     icon: <FileSignature className="h-4 w-4" /> },
       { id: "insights",   label: "Insights",     icon: <BarChart3 className="h-4 w-4" /> },
       { id: "settings",   label: "Settings",     icon: <SettingsIcon className="h-4 w-4" /> },
     ];
@@ -419,7 +419,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
         className={cn(
           "px-8 py-8 grid gap-8",
           activeTab === "insights" || activeTab === "membership" || activeTab === "settings" || activeTab === "events" || activeTab === "waivers" || activeTab === "bookings"
-          || activeTab === "treatments" || activeTab === "providers" || activeTab === "aftercare" || activeTab === "gallery"
+          || activeTab === "treatments" || activeTab === "providers" || activeTab === "aftercare" || activeTab === "gallery" || activeTab === "shop"
             ? "lg:grid-cols-1"
             : "lg:grid-cols-[1fr_400px]",
         )}
@@ -1528,6 +1528,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
           {medspa && activeTab === "providers"  && <ProvidersEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
           {medspa && activeTab === "aftercare"  && <AftercareEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
           {medspa && activeTab === "gallery"    && <GalleryEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
+          {medspa && activeTab === "shop"       && <ShopEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
 
           {activeTab === "bookings" && (
             <div className="space-y-6">
@@ -1692,7 +1693,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
             new automated-offer edit panel ships its own popup preview that
             shows the actual customer experience). */}
         {activeTab !== "insights" && activeTab !== "membership" && activeTab !== "settings" && activeTab !== "offers" && activeTab !== "events" && activeTab !== "waivers"
-          && activeTab !== "treatments" && activeTab !== "providers" && activeTab !== "aftercare" && activeTab !== "gallery" && (
+          && activeTab !== "treatments" && activeTab !== "providers" && activeTab !== "aftercare" && activeTab !== "gallery" && activeTab !== "shop" && (
           <div className="lg:sticky lg:top-8 lg:self-start" style={previewStyle}>
             <div className="text-center mb-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">

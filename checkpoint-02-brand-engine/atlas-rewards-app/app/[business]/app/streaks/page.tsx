@@ -15,6 +15,8 @@ export const dynamic = "force-dynamic";
 export default async function StreaksPage({ params }: { params: { business: string } }) {
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  // CP-191: no streaks in med spa apps.
+  if (business.layout_preset === "medspa") notFound();
   const mem = await getMyMembership(business.id);
 
   return <StreaksClient business={business} membershipId={mem?.id ?? null} />;

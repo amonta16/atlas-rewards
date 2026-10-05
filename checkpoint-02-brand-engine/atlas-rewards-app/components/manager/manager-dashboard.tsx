@@ -12,6 +12,8 @@ import { ManagerPwaInstall } from "@/components/manager/manager-pwa-install";
 // CP-37.19 — discovery QR. Same component the agency settings uses,
 // surfaced on the front-desk so staff can print/show it to walk-ins.
 import { BusinessDiscoveryQR } from "@/components/agency/business-discovery-qr";
+// CP-186: med spa desk — due-patient list + "who's due" card.
+import { DueTodayCard, DuePatientsPanel, ShopOrdersPanel } from "@/components/manager/medspa-desk";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +65,9 @@ import type { Business } from "@/lib/types/database";
 // + per-business notification toggles now live in the agency admin's
 // business settings (NotificationSettings panel) so the entire
 // notification surface is owned by the agency, not the front desk.
-type ManagerTab = "desk" | "users" | "bookings" | "offers" | "news" | "campaigns" | "waivers" | "insights" | "billing" | "membership" | "team";
+type ManagerTab = "desk" | "users" | "bookings" | "offers" | "news" | "campaigns" | "waivers" | "insights" | "billing" | "membership" | "team"
+  | "patients" // CP-186: med spa recall list + directory
+  | "shop";     // CP-190: med spa shop orders
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -93,6 +97,25 @@ function formatPhone(digits: string): string {
 // is_business_manager() too so a direct API call also returns nothing.
 function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; label: string; icon: React.ReactNode }[] {
   const isManager = role === "business_manager" || role === "agency_admin";
+  // CP-186: a med spa desk is a practice desk — Patients (recall list +
+  // directory) instead of Users, Consents instead of Waivers, no News.
+  if (business.layout_preset === "medspa") {
+    const t: { id: ManagerTab; label: string; icon: React.ReactNode }[] = [
+      { id: "desk",     label: "Front desk", icon: <Home className="h-4 w-4" /> },
+      { id: "patients", label: "Patients",   icon: <Users className="h-4 w-4" /> },
+      { id: "bookings", label: "Bookings",   icon: <CalendarClock className="h-4 w-4" /> },
+      { id: "shop",     label: "Shop",       icon: <Tag className="h-4 w-4" /> },
+    ];
+    if (isManager) t.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
+    t.push({ id: "offers",  label: "Offers",   icon: <Tag className="h-4 w-4" /> });
+    if (isManager) t.push({ id: "campaigns", label: "Campaigns", icon: <Megaphone className="h-4 w-4" /> });
+    if (isManager) {
+      t.push({ id: "billing",    label: "Billing",    icon: <CreditCard className="h-4 w-4" /> });
+      t.push({ id: "membership", label: "Membership", icon: <Crown className="h-4 w-4" /> });
+      t.push({ id: "team",       label: "Team",       icon: <Shield className="h-4 w-4" /> });
+    }
+    return t;
+  }
   const tabs: { id: ManagerTab; label: string; icon: React.ReactNode }[] = [
     { id: "desk", label: "Front desk", icon: <Home className="h-4 w-4" /> },
     // CP-48: Users directory — visible to front desk too (support/debug).
@@ -219,6 +242,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   }, [business.id]);
 
   const visibleTabs = managerTabsFor(business, role);
+  const isMedspa = business.layout_preset === "medspa";
   // CP-148: what needs a human right now — drives the badges on the nav.
   const actions = useDeskActions(business.id);
   // CP-162: the "Needs action" card doesn't just switch tabs — it scrolls to
@@ -649,9 +673,11 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
                 <div className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-widest uppercase bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full mb-2">
                   <ScanLine className="h-3 w-3" /> Front desk · live
                 </div>
-                <h1 className="text-2xl font-black drop-shadow-sm">Scan to start</h1>
+                <h1 className="text-2xl font-black drop-shadow-sm">{isMedspa ? "Check a patient in" : "Scan to start"}</h1>
                 <p className="text-sm text-white/90 mt-1.5 leading-snug">
-                  Scan a member's QR to award points, or scan a reward code to deliver a redemption.
+                  {isMedspa
+                    ? "Scan her QR or type her number, then log today's treatment. Her due date, aftercare and points update on the spot."
+                    : "Scan a member's QR to award points, or scan a reward code to deliver a redemption."}
                 </p>
                 <div className="mt-5 grid grid-cols-2 gap-2.5">
                   <Button
@@ -684,6 +710,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
                 re-fetches their live balance on open, so this is always
                 safe even after awards. Kills the "please scan again so I
                 can enter what you spent" dance. */}
+            {/* CP-186: med spa — who's due, right under the scanner. */}
+            {isMedspa && <DueTodayCard business={business} onOpenList={() => setTab("patients")} />}
+
             {lastMember && (
               <button
                 type="button"
@@ -876,6 +905,27 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
                 app. */}
             <BusinessDiscoveryQR business={business} />
           </>
+        )}
+
+        {/* CP-190: med spa Shop orders. */}
+        {tab === "shop" && <ShopOrdersPanel business={business} />}
+
+        {/* CP-186: med spa Patients tab — recall list first, directory under it. */}
+        {tab === "patients" && (
+          <div className="space-y-6">
+            <DuePatientsPanel business={business} onOpen={(r) => setMember({ membership_id: r.membership_id, user_id: r.user_id, full_name: r.full_name, email: r.email, phone: r.phone, points_balance: r.points_balance, tier: r.tier, joined_at: r.joined_at, visit_count: r.visit_count })} />
+            <MembersDirectory
+              businessId={business.id}
+              primary={business.brand_colors.primary}
+              onPick={(m) => setMember(m as Member)}
+            />
+            {(role === "business_manager" || role === "agency_admin") && (
+              <AnnouncementComposer
+                businessId={business.id}
+                primary={business.brand_colors.primary}
+              />
+            )}
+          </div>
         )}
 
         {tab === "users" && (

@@ -285,7 +285,9 @@ export function HeaderActions({
         : `${Math.max(1, Math.ceil(secondsLeft! / 60))} min`)
     : null;
   // Anything in the menu wanting attention → red dot on the hamburger.
-  const anyNudge = spinNudge || streakNudge || streakUrgent;
+  // CP-191: med spas have no daily spin and no streaks — the menu drops both.
+  const isMedspa = business.layout_preset === "medspa";
+  const anyNudge = !isMedspa && (spinNudge || streakNudge || streakUrgent);
 
   const closeThen = (fn: () => void) => () => { setMenuOpen(false); fn(); };
 
@@ -311,7 +313,8 @@ export function HeaderActions({
             {/* click-away layer */}
             <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
             <div className="absolute right-0 top-11 z-50 w-64 rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 overflow-hidden">
-              {/* Daily check-in / spin */}
+              {/* Daily check-in / spin — CP-191: not on med spas */}
+              {!isMedspa && (<>
               <button
                 onClick={closeThen(handleSpinClick)}
                 className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-zinc-50 active:bg-zinc-100 transition"
@@ -339,9 +342,10 @@ export function HeaderActions({
                   <ChevronRight className="h-4 w-4 text-zinc-300 shrink-0" />
                 )}
               </button>
+              </>)}
 
               {/* My streak */}
-              {streakEnabled && (
+              {streakEnabled && !isMedspa && (
                 <button
                   onClick={closeThen(handleStreakClick)}
                   className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-zinc-50 active:bg-zinc-100 transition"
