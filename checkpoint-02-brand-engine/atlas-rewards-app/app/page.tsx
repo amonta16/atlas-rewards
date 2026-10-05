@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export const viewport = { themeColor: "#F4F1F6" };
+export const viewport = { themeColor: "#FFFFFF" };
 
 export default function Page() {
   const jsonLd = [
