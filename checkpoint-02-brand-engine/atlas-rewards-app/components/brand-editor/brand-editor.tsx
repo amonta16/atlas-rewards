@@ -75,6 +75,11 @@ import { NotificationSettingsPanel } from "@/components/agency/notification-sett
 import { CalendarClock, CalendarCheck, FileSignature } from "lucide-react";
 // CP-42: IndustryTemplate import removed alongside TemplateApplyPanel.
 import type { PreviewBookingTag } from "@/components/customer-preview/customer-preview";
+// CP-185: med spa builder — practice tabs that replace the venue-flavored
+// ones when layout_preset === "medspa". All edit businesses.medspa_config.
+import { TreatmentsEditor, CreditsEditor, ProvidersEditor, AftercareEditor, GalleryEditor } from "@/components/medspa-builder/medspa-studio";
+import { readMedspaConfig, type MedspaConfig } from "@/lib/medspa";
+import { Syringe, HeartHandshake, Images as ImagesIcon, Stethoscope } from "lucide-react";
 
 const WIDGET_LABELS: Record<string, string> = {
   points_card:   "Main points card",
@@ -115,9 +120,34 @@ const POINT_MAXES: Record<string, number> = {
   profile_complete:    500,
 };
 
-type Tab = "brand" | "design" | "insights" | "offers" | "events" | "bookings" | "membership" | "rewards" | "news" | "waivers" | "settings";
+type Tab = "brand" | "design" | "insights" | "offers" | "events" | "bookings" | "membership" | "rewards" | "news" | "waivers" | "settings"
+  // CP-185: med spa practice tabs (only on the medspa layout).
+  | "treatments" | "providers" | "aftercare" | "gallery";
+
+export function isMedspaLayout(b: Pick<Business, "layout_preset">) {
+  return resolvePreset(b.layout_preset) === "medspa";
+}
 
 function tabsFor(b: Business): { id: Tab; label: string; icon: React.ReactNode }[] {
+  // CP-185: a med spa gets a practice-shaped builder. Streak/spin/events
+  // editors are venue tools and are left out; waivers become "Consents".
+  if (isMedspaLayout(b)) {
+    return [
+      { id: "brand",      label: "Setup",        icon: <SlidersHorizontal className="h-4 w-4" /> },
+      { id: "design",     label: "Design",       icon: <Palette className="h-4 w-4" /> },
+      { id: "treatments", label: "Treatments",   icon: <Syringe className="h-4 w-4" /> },
+      { id: "membership", label: "Membership",   icon: <Crown className="h-4 w-4" /> },
+      { id: "providers",  label: "Providers",    icon: <Stethoscope className="h-4 w-4" /> },
+      { id: "aftercare",  label: "Aftercare",    icon: <HeartHandshake className="h-4 w-4" /> },
+      { id: "gallery",    label: "Gallery",      icon: <ImagesIcon className="h-4 w-4" /> },
+      { id: "bookings",   label: "Bookings",     icon: <CalendarCheck className="h-4 w-4" /> },
+      { id: "rewards",    label: "Rewards",      icon: <Gift className="h-4 w-4" /> },
+      { id: "offers",     label: "Offers",       icon: <Tag className="h-4 w-4" /> },
+      { id: "waivers",    label: "Consents",     icon: <FileSignature className="h-4 w-4" /> },
+      { id: "insights",   label: "Insights",     icon: <BarChart3 className="h-4 w-4" /> },
+      { id: "settings",   label: "Settings",     icon: <SettingsIcon className="h-4 w-4" /> },
+    ];
+  }
   const all: { id: Tab; label: string; icon: React.ReactNode; gatedBy?: keyof Business["widget_config"] }[] = [
     // CP-132: "Brand & widgets" split in two — Setup (layout, info, features,
     // location, demo) and Design (theme + colors, advanced styling folded).
@@ -178,6 +208,16 @@ export function BrandEditor({ initial }: { initial: Business }) {
   function patch(p: Partial<Business>) {
     setB(prev => ({ ...prev, ...p }));
   }
+
+  // CP-185: med spa config is one jsonb; editors get the parsed object and
+  // hand back the whole thing. Persisted by save() like every other column.
+  const medspa = isMedspaLayout(b);
+  const medspaCfg = readMedspaConfig(b.medspa_config);
+  const setMedspa = (next: MedspaConfig) => update("medspa_config", next as unknown as Record<string, unknown>);
+  // A tab that doesn't exist on the current layout (e.g. after switching
+  // presets) falls back to Setup instead of rendering nothing.
+  const tabList = tabsFor(b);
+  const activeTab: Tab = tabList.some(t => t.id === tab) ? tab : "brand";
 
   // Load live data for the phone preview so the agency sees what the customer sees.
   useEffect(() => {
@@ -283,6 +323,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
           /* CP-134: social follow rewards + business-wide reward fine print. */
           social_config: (b.social_config ?? {}) as Record<string, unknown>,
           reward_fine_print: (b.reward_fine_print ?? "").trim() || null,
+          /* CP-185: med spa practice config (only edited on the medspa layout). */
+          medspa_config: (b.medspa_config ?? {}) as Record<string, unknown>,
         })
         .eq("id", b.id);
       if (!error) {
@@ -348,14 +390,14 @@ export function BrandEditor({ initial }: { initial: Business }) {
 
       {/* Tabs */}
       <div className="px-8 border-b">
-        <nav className="flex gap-1 -mb-px">
-          {tabsFor(b).map(t => (
+        <nav className="flex gap-1 -mb-px overflow-x-auto">
+          {tabList.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors",
-                tab === t.id
+                "flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                activeTab === t.id
                   ? "border-zinc-900 text-zinc-900"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               )}
@@ -376,14 +418,15 @@ export function BrandEditor({ initial }: { initial: Business }) {
       <div
         className={cn(
           "px-8 py-8 grid gap-8",
-          tab === "insights" || tab === "membership" || tab === "settings" || tab === "events" || tab === "waivers" || tab === "bookings"
+          activeTab === "insights" || activeTab === "membership" || activeTab === "settings" || activeTab === "events" || activeTab === "waivers" || activeTab === "bookings"
+          || activeTab === "treatments" || activeTab === "providers" || activeTab === "aftercare" || activeTab === "gallery"
             ? "lg:grid-cols-1"
             : "lg:grid-cols-[1fr_400px]",
         )}
       >
         {/* LEFT — editor */}
         <div className="space-y-6 min-w-0">
-          {tab === "brand" && (
+          {activeTab === "brand" && (
             <>
               {/* CP-131: the layout preset — which tabs are on the bar and what
                   Home leads with. Picked first because it frames everything
@@ -629,7 +672,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
             </>
           )}
 
-          {tab === "design" && (
+          {activeTab === "design" && (
             <>
               {/* CP-132: Design tab. Theme presets + the four levers people
                   actually touch live up top. Every other knob (card / button /
@@ -1469,7 +1512,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
             </>
           )}
 
-          {tab === "events" && (
+          {activeTab === "events" && (
             <div className="space-y-6">
               {/* CP-132: what fills the Events tab + the "This week" and
                   "Coming up" modules on Home. */}
@@ -1478,9 +1521,15 @@ export function BrandEditor({ initial }: { initial: Business }) {
             </div>
           )}
 
-          {tab === "waivers" && <WaiversManager business={b} />}
+          {activeTab === "waivers" && <WaiversManager business={b} />}
 
-          {tab === "bookings" && (
+          {/* CP-185: med spa practice tabs. */}
+          {medspa && activeTab === "treatments" && <TreatmentsEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
+          {medspa && activeTab === "providers"  && <ProvidersEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
+          {medspa && activeTab === "aftercare"  && <AftercareEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
+          {medspa && activeTab === "gallery"    && <GalleryEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
+
+          {activeTab === "bookings" && (
             <div className="space-y-6">
               {/* CP-147: same component the venue's front desk uses under
                   Bookings → Set up, so both sides edit one list. Resources
@@ -1500,7 +1549,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
             </div>
           )}
 
-          {tab === "rewards" && (
+          {activeTab === "rewards" && (
             <>
               <Section title="Points configurations" subtitle="How many points each action earns. Drag the slider or type a value.">
                 <div className="space-y-5">
@@ -1569,13 +1618,14 @@ export function BrandEditor({ initial }: { initial: Business }) {
               {/* CP-72: Prize Wheel prizes + odds live HERE on the Rewards
                   tab (Andrew's call — not Brand/Widgets). The wheel wedges
                   customers see mirror this pool. */}
-              <MysteryPoolManager business={b} />
-              <StreakConfigEditor business={b} />
+              {/* CP-185: wheel + streaks are venue tools; the med spa layout has neither. */}
+              {!medspa && <MysteryPoolManager business={b} />}
+              {!medspa && <StreakConfigEditor business={b} />}
             </>
           )}
 
-          {tab === "insights"   && <BusinessInsights business={b} />}
-          {tab === "offers"     && (
+          {activeTab === "insights"   && <BusinessInsights business={b} />}
+          {activeTab === "offers"     && (
             <div className="space-y-4">
               {/* Dermis-style segmented control — matches manager-dashboard.tsx exactly */}
               <div className="flex rounded-xl bg-zinc-100 p-1 gap-1">
@@ -1612,13 +1662,17 @@ export function BrandEditor({ initial }: { initial: Business }) {
               {offersSubTab === "automated" && <AutomatedOffersManager business={b} />}
             </div>
           )}
-          {tab === "membership" && (
+          {activeTab === "membership" && (
             // CP-151: ONE studio (same component as the manager portal) with
             // a live preview of the exact card customers see.
-            <MembershipStudio business={b} onSaved={() => setLiveReloadKey(k => k + 1)} />
+            // CP-185: med spas get the banked-credit rules above it.
+            <div className="space-y-6">
+              {medspa && <CreditsEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
+              <MembershipStudio business={b} onSaved={() => setLiveReloadKey(k => k + 1)} />
+            </div>
           )}
-          {tab === "news"       && <NewsManager business={b} />}
-          {tab === "settings"   && (
+          {activeTab === "news"       && <NewsManager business={b} />}
+          {activeTab === "settings"   && (
             <div className="space-y-6">
               <BusinessSettingsPanel business={b} onUpdate={patch} />
               {/* CP-87: same announcements surface the manager desk has —
@@ -1637,7 +1691,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
             customer-app visuals; CP-29.1: also hidden on Offers since the
             new automated-offer edit panel ships its own popup preview that
             shows the actual customer experience). */}
-        {tab !== "insights" && tab !== "membership" && tab !== "settings" && tab !== "offers" && tab !== "events" && tab !== "waivers" && (
+        {activeTab !== "insights" && activeTab !== "membership" && activeTab !== "settings" && activeTab !== "offers" && activeTab !== "events" && activeTab !== "waivers"
+          && activeTab !== "treatments" && activeTab !== "providers" && activeTab !== "aftercare" && activeTab !== "gallery" && (
           <div className="lg:sticky lg:top-8 lg:self-start" style={previewStyle}>
             <div className="text-center mb-3">
               <div className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">

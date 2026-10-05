@@ -1,5 +1,5 @@
 "use client";
-import { Home, ShoppingBag, ScanLine, Gift, CalendarClock, Flame, Tag, Crown, UserRound } from "lucide-react";
+import { Home, ShoppingBag, ScanLine, Gift, CalendarClock, Flame, Tag, Crown, UserRound, HeartPulse } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -33,9 +33,11 @@ const OFFERS:     TabDef = { href: "/offers",     label: "Offers",     icon: Tag
 const MEMBERSHIP: TabDef = { href: "/membership", label: "Membership", icon: Crown };
 const PROFILE:    TabDef = { href: "/profile",    label: "Profile",    icon: UserRound };
 
+// CP-185: med spa "My care" — treatment history, aftercare, due dates.
+const CARE:       TabDef = { href: "/care",       label: "My care",    icon: HeartPulse };
 const TAB_BY_ID: Record<TabId, TabDef> = {
   home: HOME, scan: SCAN, rewards: REWARDS, streaks: STREAKS,
-  offers: OFFERS, book: BOOK, membership: MEMBERSHIP, profile: PROFILE,
+  offers: OFFERS, book: BOOK, membership: MEMBERSHIP, profile: PROFILE, care: CARE,
 };
 void SHOP; // Shop tab retired in CP-06; kept so the icon import stays honest.
 

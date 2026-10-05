@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { MemberHistoryPanel } from "@/components/manager/member-history-panel";
+// CP-185: med spa desks log the treatment here (feeds recall + aftercare).
+import { TreatmentLogPanel } from "@/components/manager/treatment-log-panel";
 import { MemberPasswordReset } from "@/components/manager/member-password-reset";
 // CP-120: manager-only demo flag + account reset for test members.
 import { MemberDemoTools } from "@/components/manager/member-demo-tools";
@@ -792,6 +794,12 @@ export function AwardPointsPanel({
             </div>
 
             {err && <p className="text-sm text-red-600 mt-3">{err}</p>}
+
+            {/* CP-185: med spa only — log today's treatment. Sits above
+                history because on a med spa desk it IS the visit. */}
+            {business.layout_preset === "medspa" && (
+              <TreatmentLogPanel business={business} userId={member.user_id} memberName={member.full_name ?? "this patient"} onLogged={() => setReloadKey(k => k + 1)} />
+            )}
 
             {/* CP-37.2 — member history. Lives BELOW the action buttons
                 so the staff's primary path (check in → award points) is

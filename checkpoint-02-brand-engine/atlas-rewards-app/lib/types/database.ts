@@ -182,6 +182,10 @@ export type Business = {
   social_config?: Record<string, unknown> | null;
   /** CP-134: business-wide default fine print for rewards without their own terms. */
   reward_fine_print?: string | null;
+  /** CP-185: med spa practice config (treatments, providers, aftercare, gallery,
+   *  credit + recall rules). Read through lib/medspa.ts readMedspaConfig().
+   *  Only meaningful when layout_preset === "medspa". */
+  medspa_config?: Record<string, unknown> | null;
   /** CP-59: admin-portal folder name for grouping in the agency dashboard.
    *  NULL = Unfiled. Manual grouping only; by-industry view needs no column.
    *  CP-60 superseded by folder_id (kept for backfill only). */

@@ -24,7 +24,8 @@ export type LayoutPreset = "custom" | "smoke" | "food" | "medspa" | "entertainme
 export const LAYOUT_PRESET_IDS: LayoutPreset[] = ["custom", "smoke", "food", "medspa", "entertainment"];
 
 /** Bottom-nav tabs. Each maps to an existing route under /app. */
-export type TabId = "home" | "scan" | "rewards" | "streaks" | "offers" | "book" | "membership" | "profile";
+export type TabId = "home" | "scan" | "rewards" | "streaks" | "offers" | "book" | "membership" | "profile"
+  | "care"; // CP-185: med spa "My care" (treatment history, aftercare, due dates)
 
 export type TabSpec = { id: TabId; label: string };
 
@@ -44,7 +45,11 @@ export type HomeModule =
   | "winback"
   | "referral"
   | "news"
-  | "location";
+  | "location"
+  // CP-185 (med spa only — read businesses.medspa_config):
+  | "next_treatment"  // "Your next refresh" due-date card + banked credit
+  | "providers"       // "Your team" strip
+  | "gallery";        // before & after strip
 
 export type LayoutPresetSpec = {
   id: LayoutPreset;
@@ -143,18 +148,20 @@ export const LAYOUT_PRESETS: Record<LayoutPreset, LayoutPresetSpec> = {
   medspa: {
     id: "medspa",
     label: "Medspa & aesthetics",
-    blurb: "Membership card first, booking one tap away, no streaks.",
+    blurb: "Due-date card first, booking one tap away, aftercare in the app, no streaks.",
     fits: "Medspas, aesthetics, skin clinics · visits every 6–12 weeks",
     tabs: [
       { id: "home", label: "Home" },
       { id: "book", label: "Book" },
+      { id: "care", label: "My care" },
       { id: "membership", label: "Member" },
-      { id: "rewards", label: "Rewards" },
       { id: "scan", label: "Check in" },
     ],
+    // CP-185: the due-date card leads. No spin (not a venue), no events strip;
+    // the rewards catalog is one tap from the "Your rewards" strip.
     home: [
-      "membership", "member_card", "spin", "booking", "featured_offer", "events", "referral",
-      "winback", "top_rewards", "news", "location",
+      "next_treatment", "membership", "member_card", "booking", "featured_offer", "providers",
+      "gallery", "referral", "winback", "top_rewards", "news", "location",
     ],
     topRewardsHeading: "Your rewards",
     offersTitle: "Offers",
