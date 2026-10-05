@@ -29,6 +29,8 @@ import { TESTIMONIALS } from "@/lib/landing/testimonials";
 import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
 import { AftercareMock, DeskListMock, DueCardMock, MemberCardMock, PhoneShell, ScreenFinancing, ScreenMembership, ScreenRecall, ScreenRewards } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS } from "@/lib/landing/site-reviews";
+// CP-194: Dermis-style client results band under the hero.
+import { ClientResults } from "./client-results";
 
 const DEMO = { brand: MEDSPA_BRAND, categories: MEDSPA_BOOKING, rewards: MEDSPA_REWARDS, hours: MEDSPA_HOURS, offer: MEDSPA_OFFER, memberNote: MEDSPA_MEMBER_NOTE, guest: "Maya" };
 
@@ -48,6 +50,7 @@ function Page() {
       <Nav onStart={() => start("nav")} />
       <main id="main">
         <Showcase onStart={() => start("hero")} />
+        <ClientResults />
         <Facts />
         <Pillars onStart={() => start("pillars")} />
         <Desk />

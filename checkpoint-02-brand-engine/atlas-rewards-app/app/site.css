@@ -48,8 +48,9 @@
 .s-ocean { position: relative; color: #EAF3FF; background: radial-gradient(90% 70% at 15% 10%, #3BA3FF 0%, transparent 55%), radial-gradient(70% 60% at 90% 90%, #06318F 0%, transparent 60%), linear-gradient(160deg, #1E8BFF 0%, #0B5FD6 50%, #0A3FA8 100%); }
 .s-ocean .s-h2, .s-ocean .s-h3, .s-ocean .s-display { color: #fff; }
 .s-ocean .s-lead, .s-ocean .s-body { color: #D3E6FF; }
-.s-ocean .s-small { color: #A9CBF6; }
-.s-ocean-img { position: absolute; inset: 0; background: url("/landing/ocean-arcs.jpg") center / cover no-repeat; }
+.s-ocean .s-small { color: #DCEBFF; }
+/* CP-194: blue-lines artwork on every ocean band (desktop showcase, desk, reviews, closing) */
+.s-ocean-img { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6,49,143,.28), rgba(6,49,143,.12) 45%, rgba(6,49,143,.3)), url("/landing/blue-lines.jpg") center / cover no-repeat; }
 .s-rule { height: 1px; background: linear-gradient(90deg, var(--s-ocean), transparent); }
 
 /* Motion */
@@ -78,6 +79,11 @@
 .s-rail-fill { transform-origin: top; transform: scaleY(0); }
 .s-rail-fill.s-on { animation: s-fill var(--s-dwell, 4.5s) linear forwards; }
 @keyframes s-fill { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+/* CP-194: client-results logo row progress line */
+.s-prog { transform-origin: left; transform: scaleX(0); }
+.s-prog.s-on { animation: s-prog var(--s-dwell, 6s) linear forwards; }
+@keyframes s-prog { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+@media (prefers-reduced-motion: reduce) { .s-prog.s-on { animation: none; transform: scaleX(1); } }
 /* Reviews marquee (Owner-style) */
 @keyframes s-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
 .s-marquee { animation: s-marquee 55s linear infinite; }

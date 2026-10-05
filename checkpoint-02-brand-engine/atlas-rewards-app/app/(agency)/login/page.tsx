@@ -26,7 +26,6 @@ import { Eye, EyeOff, Lock, Mail, MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirect } from "@/lib/utils";
 import { interClass } from "@/lib/landing/font";
-import { AuthGrain } from "@/components/auth/auth-grain";
 
 function LoginForm() {
   const router = useRouter();
@@ -120,22 +119,20 @@ function LoginForm() {
     setLinkSent(email);
   }
 
-  // CP-178: Atlas-branded dark sign-in (deep ocean + champagne).
+  // CP-194: two-tone sign-in, ocean blue panel + white form (no gold).
   const field =
-    "h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-11 pr-4 text-[15px] text-white placeholder:text-slate-500 outline-none transition focus:border-sky-400/70 focus:bg-white/[0.06] focus:ring-4 focus:ring-sky-400/15";
+    "h-12 w-full rounded-xl border border-[#d9e3ef] bg-white pl-11 pr-4 text-[15px] text-[#0B1B2B] placeholder:text-[#8a98aa] outline-none transition focus:border-[#0B5FD6] focus:ring-4 focus:ring-[#0B5FD6]/15";
   return (
     <div className="w-full max-w-[400px]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/landing/atlas-icon-white.png" alt="" width={1100} height={852} className="mx-auto h-10 w-auto lg:hidden" />
-      <h1 className="mt-6 text-center text-[2.1rem] font-medium tracking-[-0.03em] text-white lg:mt-0">Welcome back</h1>
-      <p className="mt-2 text-center text-[15px] text-slate-400">Sign in to Atlas Command</p>
+      <h1 className="text-center text-[2.1rem] font-semibold tracking-[-0.03em] text-[#0B1B2B]">Welcome back</h1>
+      <p className="mt-2 text-center text-[15px] text-[#5b6b7e]">Sign in to Atlas Command</p>
 
       {linkSent && (
-        <div className="mt-8 flex items-start gap-3 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3.5">
-          <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-sky-300" />
+        <div className="mt-8 flex items-start gap-3 rounded-xl border border-[#b9d6fb] bg-[#E6F1FF] p-3.5">
+          <MailCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#0B5FD6]" />
           <div className="text-sm">
-            <div className="font-semibold text-sky-100">Sign-in link sent</div>
-            <p className="mt-0.5 text-xs leading-snug text-sky-200/80">
+            <div className="font-semibold text-[#06318F]">Sign-in link sent</div>
+            <p className="mt-0.5 text-xs leading-snug text-[#24466f]">
               Check <strong>{linkSent}</strong> and tap the link in the email to sign in. You can close this tab.
             </p>
           </div>
@@ -144,44 +141,44 @@ function LoginForm() {
 
       <form onSubmit={onSubmit} className="mt-9 space-y-5">
         <div>
-          <label htmlFor="email" className="text-sm font-semibold text-slate-200">Email</label>
+          <label htmlFor="email" className="text-sm font-semibold text-[#0B1B2B]">Email</label>
           <div className="relative mt-2">
-            <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+            <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a98aa]" aria-hidden />
             <input id="email" type="email" autoComplete="email" placeholder="you@atlas-engine.app" value={email} onChange={e => setEmail(e.target.value)} required className={field} />
           </div>
         </div>
         <div>
-          <label htmlFor="password" className="text-sm font-semibold text-slate-200">Password</label>
+          <label htmlFor="password" className="text-sm font-semibold text-[#0B1B2B]">Password</label>
           <div className="relative mt-2">
-            <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden />
+            <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a98aa]" aria-hidden />
             <input id="password" type={showPw ? "text" : "password"} autoComplete="current-password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required className={`${field} pr-12`} />
-            <button type="button" tabIndex={-1} onClick={() => setShowPw(v => !v)} aria-label={showPw ? "Hide password" : "Show password"} aria-pressed={showPw} className="absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 transition-colors hover:text-slate-200">
+            <button type="button" tabIndex={-1} onClick={() => setShowPw(v => !v)} aria-label={showPw ? "Hide password" : "Show password"} aria-pressed={showPw} className="absolute inset-y-0 right-0 flex items-center px-4 text-[#8a98aa] transition-colors hover:text-[#0B1B2B]">
               {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
         </div>
-        {err && <p className="rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">{err}</p>}
-        <button type="submit" disabled={loading} className="h-12 w-full rounded-xl bg-gradient-to-b from-[#f3e6c4] via-[#e8d5a8] to-[#d6bd85] text-[15px] font-semibold text-[#0a1424] shadow-[0_1px_0_rgba(255,255,255,.6)_inset,0_18px_40px_-16px_rgba(232,213,168,.55)] transition hover:brightness-105 active:translate-y-px disabled:opacity-60">
+        {err && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{err}</p>}
+        <button type="submit" disabled={loading} className="h-12 w-full rounded-xl bg-gradient-to-br from-[#39A0FF] via-[#0B5FD6] to-[#06318F] text-[15px] font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,.25)_inset,0_16px_34px_-16px_rgba(11,95,214,.75)] transition hover:brightness-110 active:translate-y-px disabled:opacity-60">
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
 
       {/* CP-37.2 — one-tap rescue for invited managers / forgot password. */}
       <div className="mt-8 flex items-center gap-4" aria-hidden>
-        <span className="h-px flex-1 bg-white/10" />
-        <span className="grid h-9 w-9 place-items-center rounded-full border border-white/10 text-xs text-slate-500">or</span>
-        <span className="h-px flex-1 bg-white/10" />
+        <span className="h-px flex-1 bg-[#e3eaf2]" />
+        <span className="grid h-9 w-9 place-items-center rounded-full border border-[#e3eaf2] text-xs text-[#8a98aa]">or</span>
+        <span className="h-px flex-1 bg-[#e3eaf2]" />
       </div>
       <button
         type="button"
         onClick={sendMagicLink}
         disabled={linkSending || !email}
-        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] text-sm font-semibold text-slate-200 transition hover:border-white/25 hover:bg-white/[0.06] disabled:opacity-50"
+        className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#d9e3ef] bg-white text-sm font-semibold text-[#0B5FD6] transition hover:border-[#0B5FD6]/40 hover:bg-[#F6F9FD] disabled:opacity-50"
       >
         <Mail className="h-4 w-4" />
         {linkSending ? "Sending…" : "Email me a sign-in link"}
       </button>
-      <p className="mt-3 text-center text-xs leading-snug text-slate-500">
+      <p className="mt-3 text-center text-xs leading-snug text-[#6B7A8C]">
         Forgot your password, or joined from an invite? Enter your email and we&apos;ll send a one-time link.
       </p>
     </div>
@@ -189,37 +186,33 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  // CP-194: blue + white two-tone. The left panel (top strip on phones) is the
+  // brand's blue-lines artwork; the form sits on plain white.
   return (
-    <main className={`${interClass} min-h-[100dvh] bg-[#0b111c] antialiased lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]`}>
-      <aside
-        className="relative isolate hidden overflow-hidden lg:flex"
-        style={{
-          background: [
-            "radial-gradient(60% 45% at 15% 90%, rgba(14,116,233,0.75), transparent 65%)",
-            "radial-gradient(50% 40% at 85% 15%, rgba(28,111,159,0.6), transparent 60%)",
-            "radial-gradient(40% 30% at 70% 70%, rgba(232,213,168,0.16), transparent 70%)",
-            "linear-gradient(170deg, #020a16 0%, #041427 40%, #062a44 75%, #0a3d62 100%)",
-          ].join(", "),
-        }}
-      >
-        <svg aria-hidden className="absolute inset-0 h-full w-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-          <line x1="-10" y1="62" x2="85" y2="20" stroke="white" strokeOpacity="0.14" strokeWidth="0.12" />
-          <line x1="-10" y1="80" x2="95" y2="34" stroke="white" strokeOpacity="0.1" strokeWidth="0.12" />
-        </svg>
-        <AuthGrain opacity={0.12} />
-        <div className="relative z-10 flex w-full flex-col justify-center px-16">
+    <main className={`${interClass} min-h-[100dvh] bg-white antialiased lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]`}>
+      <aside className="relative isolate overflow-hidden bg-[#0B5FD6] lg:flex">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/landing/blue-lines.jpg" alt="" className="absolute inset-0 -z-10 h-full w-full object-cover" />
+        <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-[#06318F]/45 via-transparent to-transparent" />
+        {/* Phones: a short blue strip with the mark */}
+        <div className="flex h-36 items-center justify-center gap-3 lg:hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/landing/atlas-icon-white.png" alt="" width={1100} height={852} className="h-9 w-auto" />
+          <span className="text-[1.6rem] font-semibold tracking-[-0.03em] text-white">Atlas Engine</span>
+        </div>
+        {/* Desktop panel */}
+        <div className="relative hidden w-full flex-col justify-center px-16 lg:flex">
           <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/landing/atlas-icon-white.png" alt="" width={1100} height={852} className="h-11 w-auto" />
-            <span className="text-[2.4rem] font-medium tracking-[-0.03em] text-white">Atlas Engine</span>
+            <span className="text-[2.4rem] font-semibold tracking-[-0.03em] text-white">Atlas Engine</span>
           </div>
-          <div className="mt-7 h-0.5 w-11 rounded-full bg-[#e8d5a8]" />
-          <p className="mt-7 max-w-sm text-lg leading-relaxed text-slate-300">The repeat-visit engine for entertainment venues.</p>
-          <p className="absolute bottom-8 left-16 text-xs tracking-wide text-slate-500">Agency, VA and manager access</p>
+          <div className="mt-7 h-0.5 w-11 rounded-full bg-white/80" />
+          <p className="mt-7 max-w-sm text-lg leading-relaxed text-white/90">The repeat-visit engine for med spas and local venues.</p>
+          <p className="absolute bottom-8 left-16 text-xs tracking-wide text-white/70">Agency, VA and manager access</p>
         </div>
       </aside>
-      <section className="relative flex min-h-[100dvh] items-center justify-center px-5 py-12 sm:px-8">
-        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(50%_40%_at_50%_0%,rgba(28,111,159,0.25),transparent_70%)] lg:hidden" />
+      <section className="relative flex items-start justify-center px-5 pb-12 pt-10 sm:px-8 lg:min-h-[100dvh] lg:items-center lg:py-12">
         <div className="relative w-full flex justify-center">
           <Suspense fallback={null}>
             <LoginForm />
