@@ -22,7 +22,7 @@ import { useInView } from "@/components/landing/reveal";
 import { LandingProviders, useLanding } from "@/components/landing/landing-providers";
 import { interClass } from "@/lib/landing/font";
 import { CONTACT_EMAIL, IOS_APP_URL } from "@/lib/landing/config";
-import { MEDSPA_FAQ, MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
+import { MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
 import { TESTIMONIALS } from "@/lib/landing/testimonials";
 import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
 import { DeskListMock, PhoneShell, ScreenFinancing, ScreenMembership, ScreenRecall, ScreenRewards } from "./site-mocks";
@@ -59,7 +59,6 @@ function Page() {
         <Compare />
         <ReviewsBand />
         <Team />
-        <Faq />
         <Closing onStart={() => start("closing")} />
       </main>
       <Footer />
@@ -69,7 +68,7 @@ function Page() {
 }
 
 /* ───────────── nav ───────────── */
-const LINKS = [{ href: "#product", t: "Product" }, { href: "#desk", t: "Front desk" }, { href: "#pricing", t: "Pricing" }, { href: "#faq", t: "FAQ" }];
+const LINKS = [{ href: "#product", t: "Product" }, { href: "#desk", t: "Front desk" }, { href: "#pricing", t: "Pricing" }];
 
 function Nav({ onStart }: { onStart: () => void }) {
   const [open, setOpen] = useState(false);
@@ -532,24 +531,6 @@ function Team() {
   );
 }
 
-/* ───────────── faq ───────────── */
-function Faq() {
-  return (
-    <section id="faq" className="s-section scroll-mt-16 bg-white" aria-labelledby="faq-title">
-      <div className="s-wrap grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
-        <h2 id="faq-title" className="s-h2 max-w-[12ch]">What owners ask us first.</h2>
-        <div className="divide-y divide-[var(--s-line)] border-y border-[var(--s-line)]">
-          {MEDSPA_FAQ.map((f) => (
-            <details key={f.q} className="group py-6" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && track("faq_opened", { source: "site", q: f.q.slice(0, 60) })}>
-              <summary className="s-focus flex cursor-pointer list-none items-center justify-between gap-6 rounded-md text-left text-[1.1rem] font-semibold">{f.q}<Plus className="s-plus h-5 w-5 shrink-0 text-[var(--s-ocean)]" aria-hidden /></summary>
-              <p className="s-body mt-3 max-w-[40rem]">{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 /* ───────────── closing + footer ───────────── */
 function Closing({ onStart }: { onStart: () => void }) {
@@ -568,19 +549,19 @@ function Closing({ onStart }: { onStart: () => void }) {
 
 function Footer() {
   return (
-    <footer className="bg-[#061B3A] py-14 pb-28 text-[14px] text-[#A9C3E6] lg:pb-14">
+    <footer className="border-t border-[var(--s-line)] bg-white py-14 pb-28 text-[14px] text-[var(--s-ink-3)] lg:pb-14">
       <div className="s-wrap grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/landing/atlas-icon-white.png" alt="" width={64} height={64} className="h-9 w-9 opacity-90" />
+          <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" className="h-8 w-auto" />
           <p className="mt-4 max-w-[28ch] leading-relaxed">The patient app for independent med spas. Built in California.</p>
-          <a href={`mailto:${CONTACT_EMAIL}`} className="s-focus mt-3 inline-block rounded text-white/90 hover:text-white">{CONTACT_EMAIL}</a>
+          <a href={`mailto:${CONTACT_EMAIL}`} className="s-focus mt-3 inline-block rounded font-medium text-[var(--s-ocean)] hover:underline">{CONTACT_EMAIL}</a>
         </div>
-        <FooterCol title="Product" links={[["#product", "What it does"], ["#desk", "Front desk"], ["#pricing", "Pricing"], ["#faq", "FAQ"]]} />
+        <FooterCol title="Product" links={[["#product", "What it does"], ["#desk", "Front desk"], ["#pricing", "Pricing"]]} />
         <FooterCol title="Also from Atlas" links={[["/venues", "For entertainment venues"], ["/medspa", "Med spa recall estimate"], [IOS_APP_URL, "AE Rewards on the App Store"]]} />
         <FooterCol title="Company" links={[["/login", "Log in"], ["/support", "Support"], ["/legal/privacy", "Privacy"], ["/legal/terms", "Terms"]]} />
       </div>
-      <div className="s-wrap mt-12 flex flex-col justify-between gap-3 border-t border-white/10 pt-6 text-[13px] sm:flex-row"><span>© {new Date().getFullYear()} Atlas Engine. All rights reserved.</span><span>Bakersfield · Morro Bay, California</span></div>
+      <div className="s-wrap mt-12 flex flex-col justify-between gap-3 border-t border-[var(--s-line)] pt-6 text-[13px] sm:flex-row"><span>© {new Date().getFullYear()} Atlas Engine. All rights reserved.</span><span>Bakersfield · Morro Bay, California</span></div>
     </footer>
   );
 }
@@ -588,9 +569,9 @@ function Footer() {
 function FooterCol({ title, links }: { title: string; links: [string, string][] }) {
   return (
     <div>
-      <div className="text-[12px] font-semibold tracking-wide text-white/70">{title}</div>
+      <div className="text-[12px] font-semibold tracking-wide text-[var(--s-ink)]">{title}</div>
       <ul className="mt-3 space-y-2">
-        {links.map(([href, t]) => <li key={href}>{href.startsWith("http") ? <a href={href} target="_blank" rel="noopener" className="s-focus rounded hover:text-white">{t}</a> : href.startsWith("#") ? <a href={href} className="s-focus rounded hover:text-white">{t}</a> : <Link href={href} className="s-focus rounded hover:text-white">{t}</Link>}</li>)}
+        {links.map(([href, t]) => <li key={href}>{href.startsWith("http") ? <a href={href} target="_blank" rel="noopener" className="s-focus rounded hover:text-[var(--s-ink)]">{t}</a> : href.startsWith("#") ? <a href={href} className="s-focus rounded hover:text-[var(--s-ink)]">{t}</a> : <Link href={href} className="s-focus rounded hover:text-[var(--s-ink)]">{t}</Link>}</li>)}
       </ul>
     </div>
   );
