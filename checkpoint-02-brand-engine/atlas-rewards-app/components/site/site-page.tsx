@@ -25,7 +25,7 @@ import { CONTACT_EMAIL, IOS_APP_URL } from "@/lib/landing/config";
 import { MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
 import { TESTIMONIALS } from "@/lib/landing/testimonials";
 import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
-import { DeskListMock, PhoneShell, ScreenRecall } from "./site-mocks";
+import { DeskListMock, PhoneShell } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS } from "@/lib/landing/site-reviews";
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
@@ -110,7 +110,7 @@ const DWELL = 4500;
 
 function Showcase({ onStart }: { onStart: () => void }) {
   const features: Feature[] = [
-    { id: "recall", label: "Recall reminders", Icon: IconRecall, title: "She comes back on time, not when she remembers.", blurb: "Every treatment carries how long results last. Her app shows the countdown; she hears from you before she forgets you.", facts: [["Per treatment", "Each treatment on your menu carries its own recall window."], ["One tap", "The desk logs today's treatment; her app updates on the spot."]], screen: <ScreenRecall /> },
+    { id: "recall", label: "Recall reminders", Icon: IconRecall, title: "She comes back on time, not when she remembers.", blurb: "Every treatment carries how long results last. Her app shows the countdown; she hears from you before she forgets you.", facts: [["Per treatment", "Each treatment on your menu carries its own recall window."], ["One tap", "The desk logs today's treatment; her app updates on the spot."]], screen: <AppShot src="/landing/app-screens/shop.jpg" alt="A practice's app with a treatment package to rebook" /> },
     { id: "members", label: "Memberships", Icon: IconMembership, title: "Revenue on the first of the month.", blurb: "Sold in the app, billed through your own Stripe, banking a monthly credit toward treatments.", facts: [["Your Stripe", "Dues settle in the practice's own account, never ours."], ["Banked credit", "A monthly credit toward treatments, shown on her card."]], screen: <AppShot src="/landing/app-screens/membership.jpg" alt="The membership tab in a practice's app" /> },
     { id: "rewards", label: "Rewards", Icon: IconRewards, title: "Points for the things that grow a practice.", blurb: "Points for visits, reviews and referrals, redeemed on add-ons and treatments you choose.", facts: [["Reviews + referrals", "The two actions worth paying for, rewarded automatically."], ["Your catalog", "Redeemed on add-ons and treatments you pick and price."]], screen: <AppShot src="/landing/app-screens/rewards.jpg" alt="The rewards tab in a practice's app" /> },
     { id: "financing", label: "Patient financing", Icon: IconFinancing, status: "In development", title: "A $720 treatment becomes a yes today.", blurb: "Pay over time at checkout, through the practice's own Stripe, so a $720 treatment is a yes today.", facts: [["In development", "On the roadmap; not live in any practice yet."], ["Through Stripe", "Pay-over-time options on the practice's own Stripe account, no new vendor."]], screen: <AppShot src="/landing/app-screens/shop.jpg" alt="The shop tab with packages and member pricing" /> },
