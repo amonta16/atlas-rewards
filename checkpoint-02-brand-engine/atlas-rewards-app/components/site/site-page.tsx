@@ -20,14 +20,12 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { useInView } from "@/components/landing/reveal";
 import { LandingProviders, useLanding } from "@/components/landing/landing-providers";
-import { LiveApp } from "@/components/landing/live-app/live-app";
 import { interClass } from "@/lib/landing/font";
 import { CONTACT_EMAIL, IOS_APP_URL } from "@/lib/landing/config";
 import { MEDSPA_FAQ, MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
-import { MEDSPA_BOOKING, MEDSPA_BRAND, MEDSPA_HOURS, MEDSPA_MEMBER_NOTE, MEDSPA_OFFER, MEDSPA_REWARDS } from "@/lib/landing/medspa-data";
 import { TESTIMONIALS } from "@/lib/landing/testimonials";
 import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
-import { AftercareMock, DeskListMock, DueCardMock, MemberCardMock, PhoneShell, ScreenFinancing, ScreenMembership, ScreenRecall, ScreenRewards } from "./site-mocks";
+import { DeskListMock, PhoneShell, ScreenFinancing, ScreenMembership, ScreenRecall, ScreenRewards } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS } from "@/lib/landing/site-reviews";
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
@@ -35,7 +33,6 @@ import { ClientResults } from "./client-results";
 import { useSiteMotion } from "./motion";
 import { IconDesk, IconFinancing, IconMembership, IconRecall, IconRewards } from "./feature-icons";
 
-const DEMO = { brand: MEDSPA_BRAND, categories: MEDSPA_BOOKING, rewards: MEDSPA_REWARDS, hours: MEDSPA_HOURS, offer: MEDSPA_OFFER, memberNote: MEDSPA_MEMBER_NOTE, guest: "Maya" };
 
 export function SitePage() {
   return (
@@ -56,8 +53,6 @@ function Page() {
       <main id="main">
         <Showcase onStart={() => start("hero")} />
         <ClientResults />
-        <Facts />
-        <Pillars onStart={() => start("pillars")} />
         <Desk />
         <Week />
         <Pricing onStart={() => start("pricing")} />
@@ -132,7 +127,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
     return () => clearTimeout(t);
   }, [i, paused, features.length]);
   return (
-    <section className="relative -mt-[68px] overflow-hidden pt-[100px] sm:pt-[124px]" aria-labelledby="hero-title">
+    <section id="product" className="relative -mt-[68px] overflow-hidden pt-[100px] sm:pt-[124px]" aria-labelledby="hero-title">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="s-blob absolute -right-[12%] -top-[25%] h-[820px] w-[820px] rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.22),transparent)]" />
         <div className="absolute -left-[18%] top-[35%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(11,95,214,.10),transparent)]" />
@@ -270,72 +265,6 @@ function MobileBar({ onStart }: { onStart: () => void }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/landing/atlas-icon-white.png" alt="" className="h-7 w-7 rounded-lg bg-[var(--s-ocean)] p-1" />Build my app in 60 seconds <ArrowRight className="h-5 w-5" />
       </button>
-    </div>
-  );
-}
-
-/* ───────────── facts strip (no invented logos) ───────────── */
-function Facts() {
-  const items = ["Built and run from California", "Live at your checkout in about a week", "Month to month, no long contract", "Your own Stripe account, every dollar", "Free AE Rewards app on iPhone"];
-  return (
-    <div className="mt-10 border-y border-[var(--s-line)] bg-[var(--s-paper)]">
-      <div className="s-wrap flex flex-wrap items-center justify-center gap-x-10 gap-y-3 py-5 text-[14px] font-medium text-[var(--s-ink-2)]">
-        {items.map((t, i) => <span key={t} className="flex items-center gap-3">{i > 0 && <span className="hidden h-1.5 w-1.5 rounded-full bg-[var(--s-ocean)] sm:block" aria-hidden />}{t}</span>)}
-      </div>
-    </div>
-  );
-}
-
-/* ───────────── three pillars, each with the real screen ───────────── */
-function Pillars({ onStart }: { onStart: () => void }) {
-  const rows: { k: string; h: string; p: string; bullets: string[]; art: React.ReactNode }[] = [
-    {
-      k: "recall", h: "She finds out she's due before she forgets you.",
-      p: "Every treatment on your menu carries how long results last. The desk logs today's treatment in one tap, and her app shows the countdown, the aftercare, and a button to book.",
-      bullets: ["Due-date card on her Home screen", "Aftercare appears the moment it's logged", "Your recall message, in your words"],
-      art: <div className="relative h-[420px]"><div className="s-reveal absolute left-0 top-4"><div data-gs="parallax" data-gs-y="18"><DueCardMock /></div></div><div className="s-reveal s-d2 absolute right-0 top-[210px]"><div data-gs="parallax" data-gs-y="-34"><AftercareMock className="!w-[300px]" /></div></div></div>,
-    },
-    {
-      k: "members", h: "A membership that pays you on the first of the month.",
-      p: "Sell it in the app, bill it through your own Stripe, and let it bank a monthly credit toward treatments. Members see their balance; your desk applies it at checkout.",
-      bullets: ["Monthly dues straight to your Stripe", "Credit banks toward any treatment", "Member pricing shown on the menu"],
-      art: <div className="flex h-[340px] items-center justify-center"><div className="s-reveal"><div data-gs="parallax" data-gs-y="26"><MemberCardMock /></div></div></div>,
-    },
-    {
-      k: "app", h: "Your name on the icon. No marketplace, no competitors next to you.",
-      p: "Patients open it from a QR at checkout. Points, rewards, booking, your providers and before-and-afters, all in your colors. Try it; it's the real app with a demo practice loaded.",
-      bullets: ["Branded in your colors, your logo", "Providers and real results on Home", "Booking one tap away"],
-      art: <div className="relative mx-auto w-[300px]"><div className="rounded-[42px] bg-gradient-to-b from-[#F6F9FD] to-[#DCEBFF] p-4 ring-1 ring-white/80 shadow-[0_50px_100px_-50px_rgba(6,49,143,.45)]"><LiveApp {...DEMO} onEvent={(e) => { if (e !== "tab") track("interactive_demo_used", { demo: "site_pillar_app", step: e }); }} /></div></div>,
-    },
-  ];
-  return (
-    <section id="product" className="s-section scroll-mt-16" aria-labelledby="pillars-title">
-      <div className="s-wrap">
-        <div className="max-w-2xl">
-          <h2 id="pillars-title" className="s-h2">Three things that change the week after you switch it on.</h2>
-          <p className="s-lead mt-5">Not a points program bolted onto your POS. The repeat-visit system for an aesthetics practice.</p>
-        </div>
-        <div className="mt-20 space-y-28">
-          {rows.map((r, i) => <PillarRow key={r.k} r={r} flip={i % 2 === 1} />)}
-        </div>
-        <div className="mt-20 flex justify-center"><button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus">See it with your name on it <ArrowRight className="h-4 w-4" /></button></div>
-      </div>
-    </section>
-  );
-}
-
-function PillarRow({ r, flip }: { r: { h: string; p: string; bullets: string[]; art: React.ReactNode }; flip: boolean }) {
-  const v = useInView<HTMLDivElement>({ threshold: 0.25 });
-  return (
-    <div ref={v.ref} className={cn("grid items-center gap-12 lg:grid-cols-2 lg:gap-20", v.inView && "s-in")}>
-      <div className={cn(flip && "lg:order-2")}>
-        <h3 className="s-h3 s-reveal max-w-[20ch] text-[clamp(1.7rem,1.2rem+1.6vw,2.5rem)]">{r.h}</h3>
-        <p className="s-body s-reveal s-d1 mt-5 max-w-[34rem] text-[1.06rem]">{r.p}</p>
-        <ul className="s-reveal s-d2 mt-7 space-y-2.5">
-          {r.bullets.map((b) => <li key={b} className="flex items-center gap-3 text-[15px]"><span className="h-px w-6 bg-[var(--s-ocean)]" aria-hidden />{b}</li>)}
-        </ul>
-      </div>
-      <div className={cn("s-panel relative overflow-hidden p-6 sm:p-10", flip && "lg:order-1")} style={{ background: "linear-gradient(160deg,#ffffff 0%,#EEF5FF 100%)" }}>{r.art}</div>
     </div>
   );
 }
