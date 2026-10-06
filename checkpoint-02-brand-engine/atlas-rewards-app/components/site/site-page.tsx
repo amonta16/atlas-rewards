@@ -262,8 +262,9 @@ function MobileBar({ onStart }: { onStart: () => void }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--s-line)] bg-white/85 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl lg:hidden">
       <button type="button" onClick={onStart} className="s-focus flex w-full items-center justify-center gap-3 text-[1.1rem] font-bold text-[var(--s-ink)]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/landing/atlas-icon-white.png" alt="" className="h-7 w-7 rounded-lg bg-[var(--s-ocean)] p-1" />Build my app in 60 seconds <ArrowRight className="h-5 w-5" />
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--s-ocean)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/landing/atlas-icon-white.png" alt="" width={1100} height={852} className="h-[15px] w-auto object-contain" /></span>Build my app in 60 seconds <ArrowRight className="h-5 w-5" />
       </button>
     </div>
   );
@@ -534,7 +535,7 @@ function Team() {
 /* ───────────── faq ───────────── */
 function Faq() {
   return (
-    <section id="faq" className="s-section scroll-mt-16 bg-[var(--s-paper)]" aria-labelledby="faq-title">
+    <section id="faq" className="s-section scroll-mt-16 bg-white" aria-labelledby="faq-title">
       <div className="s-wrap grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
         <h2 id="faq-title" className="s-h2 max-w-[12ch]">What owners ask us first.</h2>
         <div className="divide-y divide-[var(--s-line)] border-y border-[var(--s-line)]">
