@@ -25,7 +25,7 @@ import { CONTACT_EMAIL, IOS_APP_URL } from "@/lib/landing/config";
 import { MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
 import { TESTIMONIALS } from "@/lib/landing/testimonials";
 import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
-import { DeskListMock, PhoneShell, ScreenFinancing, ScreenMembership, ScreenRecall, ScreenRewards } from "./site-mocks";
+import { DeskListMock, PhoneShell, ScreenRecall } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS } from "@/lib/landing/site-reviews";
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
@@ -111,9 +111,9 @@ const DWELL = 4500;
 function Showcase({ onStart }: { onStart: () => void }) {
   const features: Feature[] = [
     { id: "recall", label: "Recall reminders", Icon: IconRecall, title: "She comes back on time, not when she remembers.", blurb: "Every treatment carries how long results last. Her app shows the countdown; she hears from you before she forgets you.", facts: [["Per treatment", "Each treatment on your menu carries its own recall window."], ["One tap", "The desk logs today's treatment; her app updates on the spot."]], screen: <ScreenRecall /> },
-    { id: "members", label: "Memberships", Icon: IconMembership, title: "Revenue on the first of the month.", blurb: "Sold in the app, billed through your own Stripe, banking a monthly credit toward treatments.", facts: [["Your Stripe", "Dues settle in the practice's own account, never ours."], ["Banked credit", "A monthly credit toward treatments, shown on her card."]], screen: <ScreenMembership /> },
-    { id: "rewards", label: "Rewards", Icon: IconRewards, title: "Points for the things that grow a practice.", blurb: "Points for visits, reviews and referrals, redeemed on add-ons and treatments you choose.", facts: [["Reviews + referrals", "The two actions worth paying for, rewarded automatically."], ["Your catalog", "Redeemed on add-ons and treatments you pick and price."]], screen: <ScreenRewards /> },
-    { id: "financing", label: "Patient financing", Icon: IconFinancing, status: "In development", title: "A $720 treatment becomes a yes today.", blurb: "Pay over time at checkout, through the practice's own Stripe, so a $720 treatment is a yes today.", facts: [["In development", "On the roadmap; not live in any practice yet."], ["Through Stripe", "Pay-over-time options on the practice's own Stripe account, no new vendor."]], screen: <ScreenFinancing /> },
+    { id: "members", label: "Memberships", Icon: IconMembership, title: "Revenue on the first of the month.", blurb: "Sold in the app, billed through your own Stripe, banking a monthly credit toward treatments.", facts: [["Your Stripe", "Dues settle in the practice's own account, never ours."], ["Banked credit", "A monthly credit toward treatments, shown on her card."]], screen: <AppShot src="/landing/app-screens/membership.jpg" alt="The membership tab in a practice's app" /> },
+    { id: "rewards", label: "Rewards", Icon: IconRewards, title: "Points for the things that grow a practice.", blurb: "Points for visits, reviews and referrals, redeemed on add-ons and treatments you choose.", facts: [["Reviews + referrals", "The two actions worth paying for, rewarded automatically."], ["Your catalog", "Redeemed on add-ons and treatments you pick and price."]], screen: <AppShot src="/landing/app-screens/rewards.jpg" alt="The rewards tab in a practice's app" /> },
+    { id: "financing", label: "Patient financing", Icon: IconFinancing, status: "In development", title: "A $720 treatment becomes a yes today.", blurb: "Pay over time at checkout, through the practice's own Stripe, so a $720 treatment is a yes today.", facts: [["In development", "On the roadmap; not live in any practice yet."], ["Through Stripe", "Pay-over-time options on the practice's own Stripe account, no new vendor."]], screen: <AppShot src="/landing/app-screens/shop.jpg" alt="The shop tab with packages and member pricing" /> },
     { id: "desk", label: "Front desk", Icon: IconDesk, title: "A list, not a dashboard.", blurb: "Who is due, who is overdue, who already booked. Open her, log the treatment, or text the reminder you wrote.", facts: [["Who's due", "Overdue, due within two weeks, coming up: one screen."], ["Text or open", "Send the reminder you wrote, or log the treatment, from the list."]], screen: <div className="relative flex h-full items-center justify-center p-3"><DeskListMock className="!w-full scale-[.92]" /></div> },
   ];
   const [i, setI] = useState(0);
@@ -245,6 +245,12 @@ function Showcase({ onStart }: { onStart: () => void }) {
       </div>
     </section>
   );
+}
+
+/** CP-200: a real screenshot of a live practice app inside the phone frame (status bar cropped; the frame draws its own). */
+function AppShot({ src, alt }: { src: string; alt: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt={alt} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full bg-white object-cover object-bottom" />;
 }
 
 /** Faint vertical column guides, like Dermis. Light variant on the ocean band. */
