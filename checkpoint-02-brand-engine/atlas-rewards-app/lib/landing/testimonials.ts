@@ -39,7 +39,7 @@ export const SHOW_TESTIMONIAL_PLACEHOLDERS = true;
  * 75% padding in Vimeo's share code for Larry and Mary was wrong).
  */
 export const FLIPPOS_CLIPS = [
-  { id: "chris", name: "Chris", embed: "https://player.vimeo.com/video/1232934665?title=0&byline=0&portrait=0&badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
+  { id: "chris", name: "Chris", embed: "https://player.vimeo.com/video/1232934665?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
   { id: "larry", name: "Larry", embed: "https://player.vimeo.com/video/1232932429?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
   { id: "mary", name: "Mary", embed: "https://player.vimeo.com/video/1232932692?badge=0&autopause=0&player_id=0&app_id=58479", aspect: "16 / 9" },
 ] as const;

@@ -4,6 +4,10 @@ import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { notifyLead, emailProspect, hashIp, EMAIL_RE, clean } from "@/lib/landing/notify";
 import { calendarConfigured, createDemoEvent, getBusy } from "@/lib/google-calendar";
 import { CALL_MINUTES, HOST_TZ, candidateSlots, dayKey, overlapsBusy } from "@/lib/landing/availability";
+// CP-201: the /medspa funnel gate, pre-call page token and Meta Schedule (server side).
+import { newEventId, newToken } from "@/lib/landing/funnel-sign";
+import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
+import { PRECALL_PREP, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 
 /**
  * POST /api/landing/demo-request — CP-100, CP-189
@@ -29,6 +33,12 @@ export async function POST(req: Request) {
   }
   if (body.website) return NextResponse.json({ ok: true }); // honeypot → pretend success
 
+  // CP-201: a funnel booking only sends lead_id + the slot; contact details come from the qualify step.
+  if (typeof body.lead_id === "string" && /^[0-9a-f-]{36}$/i.test(body.lead_id)) {
+    const { data: l } = await createAdminClient().from("landing_leads").select("name, business, email, phone, fbp, fbc").eq("id", body.lead_id).maybeSingle();
+    if (l) body = { industry: "Med spa", ...body, name: body.name || l.name, business: body.business || l.business, email: body.email || l.email, phone: body.phone || l.phone, fbp: body.fbp || l.fbp, fbc: body.fbc || l.fbc };
+  }
+
   const name = clean(body.name, 120);
   const business = clean(body.business, 160);
   const email = clean(body.email, 200).toLowerCase();
@@ -51,7 +61,27 @@ export async function POST(req: Request) {
     timezone: clean(body.timezone, 64) || null,
     user_agent: (req.headers.get("user-agent") ?? "").slice(0, 300),
     ip_hash: await hashIp(req),
+    // CP-201
+    lead_id: null as string | null,
+    confirm_token: null as string | null,
+    schedule_event_id: null as string | null,
+    fbp: clean(body.fbp, 120) || null,
+    fbc: clean(body.fbc, 200) || null,
   };
+
+  // CP-201 GATE: a /medspa booking must come from a qualified lead that hasn't booked yet.
+  // The browser only shows the calendar to qualified leads; this is the server-side lock.
+  const leadId = clean(body.lead_id, 40) || null;
+  const fromFunnel = !!leadId || (row.path ?? "").startsWith("/medspa");
+  if (fromFunnel) {
+    if (!leadId || !/^[0-9a-f-]{36}$/i.test(leadId)) return NextResponse.json({ error: "Please answer the few questions about your practice first." }, { status: 403 });
+    const { data: lead } = await createAdminClient().from("landing_leads").select("id, qualified, demo_request_id").eq("id", leadId).maybeSingle();
+    if (!lead || !lead.qualified) return NextResponse.json({ error: "Please answer the few questions about your practice first." }, { status: 403 });
+    if (lead.demo_request_id) return NextResponse.json({ error: "You already have a call booked. Check your email for the details, or reply to it to change the time." }, { status: 409 });
+    row.lead_id = leadId;
+    row.confirm_token = newToken();
+    row.schedule_event_id = newEventId("sched");
+  }
 
   // CP-189: a chosen slot must be one we actually offer, and still free.
   let slotStart: Date | null = row.slot_start ? new Date(row.slot_start) : null;
@@ -89,6 +119,20 @@ export async function POST(req: Request) {
   ]);
   if (sent) await supabase.from("landing_demo_requests").update({ notified_at: new Date().toISOString() }).eq("id", data.id);
 
+  // CP-201: link the lead to its booking, and tell Meta a qualified call was scheduled.
+  const confirmUrl = row.confirm_token ? `${SITE_ORIGIN}/medspa/confirm/${row.confirm_token}` : null;
+  if (row.lead_id) {
+    await supabase.from("landing_leads").update({ status: "booked", demo_request_id: data.id }).eq("id", row.lead_id);
+    if (row.schedule_event_id) {
+      const n = splitName(name);
+      await sendCapiEvent({
+        name: "Schedule", eventId: row.schedule_event_id, sourceUrl: `${SITE_ORIGIN}${row.path ?? "/medspa"}`,
+        user: { email, phone, firstName: n.first, lastName: n.last, fbp: row.fbp, fbc: row.fbc, ip: requestIp(req), userAgent: row.user_agent, externalId: row.lead_id },
+        customData: { content_name: "medspa_walkthrough" },
+      });
+    }
+  }
+
   // CP-189: put it on the calendar and confirm to the prospect.
   let meetUrl: string | null = null;
   let calendarStatus: "created" | "not_configured" | "failed" | "no_slot" = slotStart ? "not_configured" : "no_slot";
@@ -125,6 +169,8 @@ export async function POST(req: Request) {
       `You're booked for a ${CALL_MINUTES}-minute walkthrough of ${business}'s app on ${when}.`,
       meetUrl ? `Video link: ${meetUrl}` : "Andrew will send the video link before the call.",
       calendarStatus === "created" ? "A calendar invite is on its way from andrew@atlas-engine.app." : "",
+      // CP-201: the pre-call page (short video + "confirm I'll be there").
+      ...(confirmUrl ? ["", "One step left: your call isn't confirmed until you watch a short video and tap confirm:", confirmUrl, "", "To get the most out of 20 minutes, have these handy:", ...PRECALL_PREP.map((p) => `- ${p}`)] : []),
       "",
       "Need a different time? Just reply to this email.",
       "",
@@ -133,5 +179,5 @@ export async function POST(req: Request) {
     ].filter((l, i, a) => l !== "" || a[i - 1] !== "").join("\n"));
   }
 
-  return NextResponse.json({ ok: true, calendar: calendarStatus, meet_url: meetUrl });
+  return NextResponse.json({ ok: true, calendar: calendarStatus, meet_url: meetUrl, confirm_url: confirmUrl, confirm_token: row.confirm_token, event_id: row.schedule_event_id });
 }

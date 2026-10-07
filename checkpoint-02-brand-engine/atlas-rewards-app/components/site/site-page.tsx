@@ -248,7 +248,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
 }
 
 /** CP-200: a real screenshot of a live practice app inside the phone frame (status bar cropped; the frame draws its own). */
-function AppShot({ src, alt }: { src: string; alt: string }) {
+export function AppShot({ src, alt }: { src: string; alt: string }) {
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt={alt} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full bg-white object-cover object-bottom" />;
 }
@@ -369,7 +369,8 @@ function MarkDot({ m }: { m: Mark }) {
   if (m === "part") return <span data-gs-pop className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#FFF3DC] text-[#B7791F]"><Minus className="h-3.5 w-3.5" strokeWidth={3} /></span>;
   return <span data-gs-pop className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#F1F3F6] text-[#9AA7B6]"><X className="h-3.5 w-3.5" strokeWidth={3} /></span>;
 }
-function Compare() {
+/** CP-201: also used on /medspa. */
+export function Compare() {
   const rows = COMPARE.length;
   return (
     <section className="s-section" aria-labelledby="cmp-title">
@@ -439,7 +440,8 @@ function Compare() {
 }
 
 /* ───────────── reviews band (Owner-style): ocean panel, badges, cards sliding across ───────────── */
-function ReviewsBand() {
+/** CP-201: also used on /medspa. */
+export function ReviewsBand() {
   // CP-191: all three Flippo's clips, playable in place (not inside the moving row).
   const videos = TESTIMONIALS.filter((t) => t.embed);
   const real = SITE_REVIEWS.filter((r) => r.quote);

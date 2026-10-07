@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
-import { MedspaPage } from "@/components/medspa/medspa-page";
+import { MedspaFunnelPage } from "@/components/medspa/medspa-funnel-page";
 import { MetaPixel } from "@/components/venues/meta-pixel";
-import { medspaFontClass } from "@/lib/landing/medspa-fonts";
-import "./medspa.css";
+import { siteFontClass } from "@/lib/landing/site-fonts";
+import "../site.css";
 
 /**
- * CP-182 — /medspa, the med spa Meta ads landing page (noindex).
- * Copy + offer: lib/landing/medspa-offer.ts · Quiz model: lib/landing/medspa-quiz-model.ts
- * Demo data: lib/landing/medspa-data.ts · Theme: ./medspa.css (scoped .ms) · CP-183 redesign
+ * /medspa — the med spa Meta ads landing page (noindex).
+ * CP-182 → CP-184: first versions ("porcelain & deep water", components/medspa/medspa-page.tsx, kept, unused).
+ * CP-201: rebuilt in the brand-site look (app/site.css, Manrope) with the full funnel:
+ *   build your app → numbers → estimate → qualify gate → calendar → pre-call page
+ *   (/medspa/confirm/<token>) → reminders → outcome links → Meta Purchase.
+ * Funnel knobs: lib/landing/medspa-funnel.ts · Copy: lib/landing/medspa-offer.ts
  *
  * Ad URLs: /medspa?utm_source=meta&utm_campaign=ms_recall&utm_content=founder_v1
  */
 const TITLE = "Atlas Engine for med spas: bring patients back before their treatment wears off";
 const DESCRIPTION =
-  "Your practice's own patient app, recall reminders and win-backs run for you, and memberships that bill monthly. Month to month. See your app and your numbers in about a minute.";
+  "Your practice's own patient app, reminders before each treatment wears off, and memberships that bill monthly. Month to month. See your app and your numbers in about a minute.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -30,14 +33,14 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = { themeColor: "#F2F5F3" };
+export const viewport = { themeColor: "#FFFFFF" };
 
 export default function Page() {
   return (
     <>
       <MetaPixel />
-      <div className={medspaFontClass}>
-        <MedspaPage />
+      <div className={siteFontClass}>
+        <MedspaFunnelPage />
       </div>
     </>
   );

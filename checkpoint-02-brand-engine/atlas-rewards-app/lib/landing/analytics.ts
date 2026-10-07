@@ -36,7 +36,14 @@ export type LandingEvent =
   | "quiz_started"
   | "quiz_step"
   | "quiz_completed"
-  | "quiz_book_clicked";
+  | "quiz_book_clicked"
+  // CP-201: /medspa funnel gate + pre-call page
+  | "lead_submitted"
+  | "lead_qualified"
+  | "lead_unqualified"
+  | "precall_viewed"
+  | "precall_video"
+  | "call_confirmed";
 
 type Props = Record<string, string | number | boolean | undefined>;
 
@@ -59,11 +66,17 @@ export function track(event: LandingEvent, props: Props = {}) {
     window.posthog?.capture(event, payload);
     window.gtag?.("event", event, payload);
     window.plausible?.(event, { props: payload });
+    // CP-201: someone the gate turned away sends Meta NOTHING, so ads never learn to find more of them.
+    if (event === "lead_unqualified") return;
     window.fbq?.("trackCustom", event, payload);
+    // CP-201: a qualified /medspa lead is the standard `Lead`. eventID matches the server
+    // Conversions API call (/api/landing/lead), so Meta counts it once.
+    if (event === "lead_qualified") window.fbq?.("track", "Lead", { content_name: "medspa_qualified" }, props.event_id ? { eventID: String(props.event_id) } : undefined);
     // CP-177: a booked demo is the Meta optimization event (standard `Lead`).
-    if (event === "demo_requested") window.fbq?.("track", "Lead", { content_name: String(props.source ?? "") });
+    // CP-201: funnel bookings already sent Lead at the gate, so skip it here.
+    if (event === "demo_requested" && !props.qualified_lead) window.fbq?.("track", "Lead", { content_name: String(props.source ?? "") });
     // CP-189: a demo with a chosen time is a booked meeting → standard `Schedule` (optimize ads on this).
-    if (event === "demo_requested" && props.slot) window.fbq?.("track", "Schedule", { content_name: String(props.source ?? "") });
+    if (event === "demo_requested" && props.slot) window.fbq?.("track", "Schedule", { content_name: String(props.source ?? "") }, props.event_id ? { eventID: String(props.event_id) } : undefined);
     if (process.env.NODE_ENV !== "production") {
       // eslint-disable-next-line no-console
       console.debug("[atlas-analytics]", event, payload);
