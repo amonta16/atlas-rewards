@@ -1,51 +1,64 @@
 "use client";
 /**
- * components/medspa/medspa-funnel.tsx — CP-201 · the /medspa funnel, in the brand-site look.
+ * components/medspa/medspa-funnel.tsx — the /medspa funnel, in the brand-site look.
  *
- *   Your app (3 taps, the phone re-skins live) → Your numbers (4 taps) → the estimate
- *   → About you: the qualify form (STEP 1) → POST /api/landing/lead (the server decides)
- *       qualified  → Meta Lead (Pixel + CAPI, one event_id) → Pick a time → booked
- *                    → straight to the pre-call page /medspa/confirm/<token>
+ *   Your app (type, name, color: a live app icon, no phone) → Your numbers (4 taps)
+ *   → the estimate → About you: one compact form (STEP 1) → POST /api/landing/lead
+ *       qualified  → Meta Lead (Pixel + CAPI, one event_id) → Pick a time (Calendly layout)
+ *                    → booked → the pre-call page /medspa/confirm/<token>
  *       not a fit  → a kind "here's your estimate by email" screen. No calendar, no Meta signal.
  *
- * A qualified visitor who leaves before booking can come back to /medspa?lead=<id>
+ * CP-201 built it; CP-202 Calendly booking + A/B arm; CP-203 cleaner questions
+ * (lettered answer tiles, keyboard A–E), an estimate that shows its math, a
+ * condensed About form, and no phone preview.
+ *
+ * A qualified visitor who leaves before booking can come back to /medspa/start?lead=<id>
  * (the follow-up email link) or on the same browser and lands on the calendar.
  */
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { ArrowLeft, ArrowRight, Ban, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Globe, ImagePlus, Loader2, Lock, Mail, MessageSquare, Pipette, ShieldCheck, Smartphone, Sparkles, Ticket, Users, Video, Wallet, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Globe, ImagePlus, Loader2, Lock, Mail, Pencil, Pipette, ShieldCheck, Sparkles, Video, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { optimizedUrl } from "@/lib/img";
 import { dominantColorsFromFile, paletteFromColor } from "@/lib/logo-colors";
-import { type LiveBrand } from "@/lib/landing/live-app-data";
-import { fmtMoney, fmtPct } from "@/lib/landing/quiz-model";
+import { fmtMoney } from "@/lib/landing/quiz-model";
 import { CYCLE_SOURCE, RECALL, REBOOK, SCENARIOS, VALUE_BANDS, VISIT_BANDS, estimateMedspa } from "@/lib/landing/medspa-quiz-model";
-import { MEDSPA_BOOKING, MEDSPA_HOURS, MEDSPA_MEMBER_NOTE, MEDSPA_OFFER, MEDSPA_REWARDS, PRACTICE_TYPES, type PracticeTypeId } from "@/lib/landing/medspa-data";
+import { PRACTICE_TYPES, type PracticeTypeId } from "@/lib/landing/medspa-data";
 import { BOOKING_SYSTEMS, ROLES, STAGES, TREATMENT_OPTIONS } from "@/lib/landing/medspa-funnel";
 import { CALL_MINUTES, COMMON_TZS, HOST_TZ, tzLabel } from "@/lib/landing/availability";
 import { track } from "@/lib/landing/analytics";
-import { LiveApp } from "@/components/landing/live-app/live-app";
 
 const SWATCHES = ["#9f6b53", "#b08968", "#7c5c8e", "#2f6f73", "#c27c88", "#1f2937", "#8a9a5b", "#3b5b8c"];
 const QUIZ = ["type", "name", "color", "visits", "value", "rebook", "recall"] as const;
 type QuizId = (typeof QUIZ)[number];
 type Phase = "quiz" | "results" | "about" | "nurture" | "time";
 const LEAD_KEY = "atlas_medspa_lead";
+const LETTERS = "ABCDEFGH";
+
+/** Which section each question belongs to, and its number inside that section. */
+const SECTION: Record<QuizId, { name: "Your app" | "Your numbers"; n: number; of: number }> = {
+  type: { name: "Your app", n: 1, of: 3 }, name: { name: "Your app", n: 2, of: 3 }, color: { name: "Your app", n: 3, of: 3 },
+  visits: { name: "Your numbers", n: 1, of: 4 }, value: { name: "Your numbers", n: 2, of: 4 }, rebook: { name: "Your numbers", n: 3, of: 4 }, recall: { name: "Your numbers", n: 4, of: 4 },
+};
 
 const TITLES: Record<QuizId, { q: string; hint: string }> = {
   type: { q: "What kind of practice do you run?", hint: "We'll start your app with the right treatments and rewards." },
-  name: { q: "What's your practice called?", hint: "This goes on your app's home screen." },
+  name: { q: "What's your practice called?", hint: "It goes on your app's icon and home screen." },
   color: { q: "Pick your brand color", hint: "Or drop in your logo and we'll pull the colors from it." },
-  visits: { q: "How many patient visits in a typical month?", hint: "A rough guess is perfect." },
+  visits: { q: "Patient visits in a typical month?", hint: "A rough guess is perfect." },
   value: { q: "What's a typical visit worth?", hint: "Roughly, across your treatments." },
-  rebook: { q: "Of patients due for their next treatment, how many book on time?", hint: "Think about your neurotoxin patients at 3–4 months." },
-  recall: { q: "How do you reach patients who are overdue today?", hint: "No wrong answers. This tells us how much room there is to grow." },
+  rebook: { q: "How many due patients book on time?", hint: "Think of your neurotoxin patients at 3–4 months." },
+  recall: { q: "How do you reach overdue patients today?", hint: "No wrong answers. It tells us how much room there is to grow." },
 };
+
+/** Short labels for the "your answers" recap on the results screen. */
+const RECAP = { rebook: { most: "80%+ rebook on time", half: "About half rebook", few: "Under half rebook", unknown: "Rebook rate unknown" } as Record<string, string> };
 
 function mix(a: string, b: string, t: number) {
   const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
   const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
   return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join("");
 }
+const initials = (n: string) => (n.trim() ? n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") : "YM");
 
 function useCountUp(target: number, run: boolean, ms = 1400) {
   const [v, setV] = useState(0);
@@ -110,10 +123,8 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
 
   const id: QuizId | null = phase === "quiz" ? QUIZ[step] : null;
   const venue = PRACTICE_TYPES.find((v) => v.id === type) ?? PRACTICE_TYPES[0];
-  const brand: LiveBrand = useMemo(() => {
-    const p = paletteFromColor(color);
-    return { name: name.trim() || "Your Med Spa", logoUrl: logo, primary: p.primary, secondary: mix(p.primary, "#ffffff", 0.45), accent: p.secondary, heroUrl: venue.hero };
-  }, [name, color, logo, venue.hero]);
+  const primary = useMemo(() => paletteFromColor(color).primary, [color]);
+  const practice = name.trim() || "Your Med Spa";
 
   const visits = VISIT_BANDS.find((b) => b.id === visitId);
   const value = VALUE_BANDS.find((b) => b.id === valueId);
@@ -148,68 +159,87 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
     if (cols[0]) setColor(cols[0]);
   }
 
-  // Funnel stage chips across the top
+  const choices = id === "visits" ? VISIT_BANDS : id === "value" ? VALUE_BANDS : id === "rebook" ? REBOOK : id === "recall" ? RECALL : null;
+  const chosen = id === "visits" ? visitId : id === "value" ? valueId : id === "rebook" ? rebookId : id === "recall" ? recallId : null;
+  const choose = (c: { id: string; label: string }) => {
+    if (!id) return;
+    const set = id === "visits" ? setVisitId : id === "value" ? setValueId : id === "rebook" ? setRebookId : setRecallId;
+    pick(() => set(c.id), id, c.label, step + 1);
+  };
+  // Keyboard: A–E picks an answer on the choice questions (Typeform style).
+  useEffect(() => {
+    if (!choices) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || (e.target as HTMLElement)?.closest("input,textarea,select")) return;
+      const i = LETTERS.indexOf(e.key.toUpperCase());
+      if (i >= 0 && i < choices.length) { e.preventDefault(); choose(choices[i]); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [choices, step]);
+
   const stage = phase === "quiz" ? (step < 3 ? 0 : 1) : phase === "results" ? 1 : phase === "about" || phase === "nurture" ? 2 : 3;
-  const quizPct = phase === "quiz" ? Math.round((step / QUIZ.length) * 100) : 100;
-  const showPhone = phase === "quiz" || phase === "results";
+  const sec = id ? SECTION[id] : null;
 
   return (
-    <div className={cn("grid gap-8 lg:items-start", showPhone && "lg:grid-cols-[minmax(0,1fr)_250px]")}>
-      <div className="min-w-0">
-        <ol className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-2 text-[12.5px] font-semibold" aria-label="Your progress">
-          {["Your app", "Your numbers", "About you", "Pick a time"].map((t, i) => (
-            <li key={t} className="flex items-center gap-2">
-              <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1", i < stage ? "bg-[var(--s-ice)] text-[var(--s-ocean-deep)]" : i === stage ? "bg-[var(--s-ocean)] text-white" : "bg-[#F1F4F8] text-[var(--s-ink-3)]")} aria-current={i === stage ? "step" : undefined}>
-                {i < stage ? <Check className="h-3.5 w-3.5" aria-hidden /> : <span className="tabular-nums">{i + 1}</span>}{t}
+    <div className={cn("mx-auto", phase === "time" ? "max-w-none" : "max-w-[720px]")}>
+      {/* Where you are in the funnel */}
+      <ol className="mb-7 flex flex-wrap items-center justify-center gap-x-2 gap-y-2 text-[12.5px] font-semibold" aria-label="Your progress">
+        {["Your app", "Your numbers", "About you", "Pick a time"].map((t, i) => (
+          <li key={t} className="flex items-center gap-2">
+            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1", i < stage ? "bg-[var(--s-ice)] text-[var(--s-ocean-deep)]" : i === stage ? "bg-[var(--s-ocean)] text-white" : "bg-[#F1F4F8] text-[var(--s-ink-3)]")} aria-current={i === stage ? "step" : undefined}>
+              {i < stage ? <Check className="h-3.5 w-3.5" aria-hidden /> : <span className="tabular-nums">{i + 1}</span>}{t}
+            </span>
+            {i < 3 && <span aria-hidden className="h-px w-3 bg-[var(--s-line)]" />}
+          </li>
+        ))}
+      </ol>
+
+      <div key={`${phase}-${step}`} className="animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none">
+        {id && sec && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]">{sec.name} · {sec.n} of {sec.of}</span>
+              <span className="flex flex-1 gap-1" aria-hidden>
+                {Array.from({ length: sec.of }).map((_, i) => <span key={i} className={cn("h-1 flex-1 rounded-full transition-colors", i < sec.n ? "bg-[var(--s-ocean)]" : "bg-[var(--s-ice)]")} />)}
               </span>
-              {i < 3 && <span aria-hidden className="h-px w-3 bg-[var(--s-line)]" />}
-            </li>
-          ))}
-        </ol>
-        {phase === "quiz" && (
-          <div className="mb-6 h-1.5 overflow-hidden rounded-full bg-[var(--s-ice)]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={quizPct} aria-label="Questions answered">
-            <div className="h-full rounded-full bg-gradient-to-r from-[var(--s-sky)] to-[var(--s-ocean)] transition-[width] duration-500" style={{ width: `${Math.max(4, quizPct)}%` }} />
+            </div>
+            <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.9rem]">{TITLES[id].q}</h3>
+            <p className="mt-1.5 text-[15px] text-[var(--s-ink-3)]">{TITLES[id].hint}</p>
           </div>
         )}
 
-        <div key={`${phase}-${step}`} className="animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none">
-          {id && (
-            <>
-              <p className="text-[12px] font-semibold text-[var(--s-ocean)]">Question {step + 1} of {QUIZ.length}</p>
-              <h3 ref={headRef} tabIndex={-1} className="mt-1 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">{TITLES[id].q}</h3>
-              <p className="mt-2 text-[15px] text-[var(--s-ink-3)]">{TITLES[id].hint}</p>
-            </>
-          )}
+        {id === "type" && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Practice type">
+            {PRACTICE_TYPES.map((v) => {
+              const sel = typeChosen && v.id === type;
+              return (
+                <button key={v.id} type="button" role="radio" aria-checked={sel} onClick={() => pick(() => { setType(v.id); setTypeChosen(true); }, "type", v.label, 1)}
+                  className={cn("s-focus group relative aspect-[4/3] overflow-hidden rounded-2xl border-2 bg-[var(--s-ice)] text-left transition", sel ? "border-[var(--s-ocean)] ring-4 ring-[var(--s-ocean)]/15" : "border-transparent hover:border-[var(--s-ocean)]/40")}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={optimizedUrl(v.hero, 480)} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <span className="absolute inset-0 bg-gradient-to-t from-[#06318F]/85 via-[#06318F]/15 to-transparent" />
+                  <span className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[15px] font-bold text-white">{v.label}{sel && <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[var(--s-ocean)]"><Check className="h-3 w-3" aria-hidden /></span>}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-          {id === "type" && (
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Practice type">
-              {PRACTICE_TYPES.map((v) => {
-                const sel = typeChosen && v.id === type;
-                return (
-                  <button key={v.id} type="button" role="radio" aria-checked={sel} onClick={() => pick(() => { setType(v.id); setTypeChosen(true); }, "type", v.label, 1)}
-                    className={cn("s-focus group relative aspect-[4/3] overflow-hidden rounded-2xl border-2 text-left transition", sel ? "border-[var(--s-ocean)] ring-4 ring-[var(--s-ocean)]/15" : "border-transparent hover:border-[var(--s-ocean)]/40")}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={optimizedUrl(v.hero, 480)} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    <span className="absolute inset-0 bg-gradient-to-t from-[#06318F]/85 via-[#06318F]/15 to-transparent" />
-                    <span className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[15px] font-bold text-white">{v.label}{sel && <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[var(--s-ocean)]"><Check className="h-3 w-3" aria-hidden /></span>}</span>
-                  </button>
-                );
-              })}
+        {id === "name" && (
+          <form onSubmit={(e) => { e.preventDefault(); touch(); track("quiz_step", { source, step: "name", answer: name.trim() ? "named" : "skipped" }); go(2); }}>
+            <input ref={nameRef} value={name} onChange={(e) => { touch(); setName(e.target.value.slice(0, 40)); }} placeholder="e.g. Luma Aesthetics" autoComplete="organization" className={cn(FIELD, "h-14 text-lg")} />
+            <div className="mt-5 flex items-center gap-4">
+              <button type="submit" className="s-btn s-btn-primary s-focus !h-12">Continue <ArrowRight className="h-4 w-4" aria-hidden /></button>
+              {!name.trim() && <button type="button" onClick={() => go(2)} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Skip for now</button>}
             </div>
-          )}
+          </form>
+        )}
 
-          {id === "name" && (
-            <form className="mt-6" onSubmit={(e) => { e.preventDefault(); touch(); track("quiz_step", { source, step: "name", answer: name.trim() ? "named" : "skipped" }); go(2); }}>
-              <input ref={nameRef} value={name} onChange={(e) => { touch(); setName(e.target.value.slice(0, 40)); }} placeholder="e.g. Luma Aesthetics" autoComplete="organization" className={cn(FIELD, "h-14 text-lg")} />
-              <div className="mt-5 flex items-center gap-4">
-                <button type="submit" className="s-btn s-btn-primary s-focus !h-12">Continue <ArrowRight className="h-4 w-4" aria-hidden /></button>
-                {!name.trim() && <button type="button" onClick={() => go(2)} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Skip for now</button>}
-              </div>
-            </form>
-          )}
-
-          {id === "color" && (
-            <div className="mt-6">
+        {id === "color" && (
+          <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div>
               <div className="flex flex-wrap items-center gap-3">
                 {SWATCHES.map((c) => <button key={c} type="button" aria-label={`Color ${c}`} aria-pressed={c === color} onClick={() => { touch(); setColor(c); }} className={cn("s-focus h-11 w-11 rounded-full ring-offset-2 transition-transform hover:scale-110", c === color && "ring-2 ring-[var(--s-ink)]")} style={{ background: c }} />)}
                 <label className="s-focus relative grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-dashed border-[var(--s-ink-3)]/50 text-[var(--s-ink-3)]" title="Custom color">
@@ -225,121 +255,150 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
               <p className="mt-2 text-xs text-[var(--s-ink-3)]">Your logo stays in your browser. We only pull the colors.</p>
               <button type="button" onClick={() => { track("quiz_step", { source, step: "color", answer: logoName ? "logo" : color }); go(3); }} className="s-btn s-btn-primary s-focus mt-6 !h-12">Looks good <ArrowRight className="h-4 w-4" aria-hidden /></button>
             </div>
-          )}
-
-          {id === "visits" && <Options icon={Users} items={VISIT_BANDS} value={visitId} onPick={(b) => pick(() => setVisitId(b.id), "visits", b.label, 4)} />}
-          {id === "value" && <Options icon={Wallet} items={VALUE_BANDS} value={valueId} onPick={(b) => pick(() => setValueId(b.id), "value", b.label, 5)} />}
-          {id === "rebook" && <Options icon={CalendarDays} items={REBOOK} value={rebookId} onPick={(r) => pick(() => setRebookId(r.id), "rebook", r.label, 6)} />}
-          {id === "recall" && (
-            <Options items={RECALL.map((r) => ({ id: r.id, label: r.label, sub: r.sub, icon: r.id === "nothing" ? Ban : r.id === "manual" ? MessageSquare : r.id === "auto" ? Ticket : Smartphone }))}
-              value={recallId} onPick={(r) => pick(() => setRecallId(r.id), "recall", r.label, 7)} />
-          )}
-
-          {phase === "results" && est && (
-            <div>
-              <p className="inline-flex items-center gap-1.5 rounded-full bg-[var(--s-ice)] px-3 py-1 text-xs font-bold text-[var(--s-ocean-deep)]"><Sparkles className="h-3.5 w-3.5" aria-hidden /> Your app is ready</p>
-              <h3 ref={headRef} tabIndex={-1} className="mt-3 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">
-                Here&apos;s what {brand.name === "Your Med Spa" ? "patient recall" : `${brand.name}${/s$/i.test(brand.name) ? "'" : "'s"} app`} could win back.
-              </h3>
-              <div className="s-ocean relative mt-5 overflow-hidden rounded-[24px] p-6 shadow-[0_26px_50px_-22px_rgba(11,95,214,.6)]">
-                <div className="s-ocean-img opacity-60" aria-hidden />
-                <div className="relative">
-                  <div className="text-[13px] font-semibold text-white/80">Estimated recovered revenue, year one</div>
-                  <div className="mt-1 text-5xl font-extrabold tabular-nums tracking-tight text-white sm:text-6xl" aria-label={`${fmtMoney(est.likely)} per year`}>{fmtMoney(likely)}</div>
-                  <div className="mt-1.5 text-sm text-white/80">about {fmtMoney(est.perMonth)} a month · range {fmtMoney(est.low)} to {fmtMoney(est.high)} · roughly <b className="text-white">+{fmtPct(est.likelyPct)}</b></div>
-                  <div className="mt-5 grid grid-cols-3 gap-2 text-center">
-                    {[[est.lapsedVisits.toLocaleString(), "due visits missed a year"], [est.recovered.toLocaleString(), "visits won back"], [`+${fmtPct(est.likelyPct)}`, "more revenue"]].map(([n, l]) => (
-                      <div key={l} className="rounded-2xl bg-white/12 px-2 py-3 ring-1 ring-white/20 backdrop-blur"><div className="text-xl font-extrabold tabular-nums text-white sm:text-2xl">{n}</div><div className="mt-0.5 text-[11px] leading-tight text-white/75">{l}</div></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <button type="button" onClick={() => setShowMath((v) => !v)} aria-expanded={showMath} className="s-focus mt-4 inline-flex items-center gap-1.5 rounded text-sm font-semibold text-[var(--s-ocean)] hover:underline">How we worked this out <ChevronDown className={cn("h-4 w-4 transition-transform", showMath && "rotate-180")} aria-hidden /></button>
-              {showMath && (
-                <div className="mt-2 rounded-2xl bg-[var(--s-paper)] p-4 text-[13px] leading-relaxed text-[var(--s-ink-2)] ring-1 ring-[var(--s-line)]">
-                  <p>Neurotoxin lasts about 3–4 months ({CYCLE_SOURCE.replace(/ \(.*\)$/, "")}). You told us about <b>{Math.round((rebook?.lapse ?? 0) * 100)}%</b> of due visits don&apos;t happen on time, so roughly <b>{est.lapsedVisits.toLocaleString()}</b> visits a year slip.</p>
-                  <p className="mt-2">Likely case: reminders, win-backs and membership offers recover <b>{Math.round(SCENARIOS.likely * 100)}%</b> of those{recall && recall.factor < 1 ? `, trimmed because you already use: ${recall.label.toLowerCase()}` : ""}. Low {Math.round(SCENARIOS.low * 100)}%, high {Math.round(SCENARIOS.high * 100)}%. These are planning assumptions, not measured results, and they leave out membership dues.</p>
-                </div>
-              )}
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <button type="button" onClick={() => { track("quiz_book_clicked", { source, est_likely: est.likely }); setPhase("about"); }} className="s-btn s-btn-primary s-focus">Walk me through it <ArrowRight className="h-4 w-4" aria-hidden /></button>
-                <button type="button" onClick={() => go(0)} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Start over</button>
-              </div>
-              <p className="mt-3 text-[13px] text-[var(--s-ink-3)]">A 20-minute video call with Andrew, who&apos;ll bring this app and these numbers. Month to month, no pressure.</p>
-            </div>
-          )}
-
-          {phase === "about" && (
-            <AboutYou headRef={headRef} firstFieldRef={firstFieldRef} source={source} practice={name.trim()}
-              answers={{ variant: variant ?? null, practice_type: venue.label, visit_band: visitId, value_band: valueId, rebook: rebookId, recall: recallId, estimate_likely: est?.likely ?? null, app_color: brand.primary }}
-              onBack={() => setPhase("results")}
-              onResult={(r) => {
-                setFirstName(r.first);
-                if (r.qualified && r.leadId) {
-                  setLeadId(r.leadId);
-                  try { localStorage.setItem(LEAD_KEY, JSON.stringify({ id: r.leadId, at: Date.now(), first: r.first })); } catch { /* ignore */ }
-                  setPhase("time");
-                } else setPhase("nurture");
-              }} />
-          )}
-
-          {phase === "nurture" && (
-            <div className="py-2">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--s-ice)] text-[var(--s-ocean)]"><Mail className="h-6 w-6" aria-hidden /></span>
-              <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none">Thanks{firstName ? `, ${firstName}` : ""}. Your estimate is on its way.</h3>
-              <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">From what you told us, a live walkthrough isn&apos;t the right next step yet. Walkthroughs are for owners and managers of practices that are open today. We&apos;ve emailed you your recall estimate and the demo app, so you can share it with whoever makes the call.</p>
-              <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">If that changes, reply to the email and Andrew will set up a time.</p>
-              <a href="/medspa#demo" className="s-btn s-btn-quiet s-focus mt-6">Tap around the demo app</a>
-            </div>
-          )}
-
-          {phase === "time" && leadId && <TimePicker leadId={leadId} firstName={firstName} practice={name.trim()} source={source} headRef={headRef} extraNotes={est ? `Estimate: ${fmtMoney(est.likely)}/yr likely (${fmtMoney(est.low)}–${fmtMoney(est.high)}) · ${visits?.label} visits/mo · ${value?.label} per visit · rebook: ${rebook?.label} · recall today: ${recall?.label}${logoName ? ` · has a logo (${logoName}), ask them to email it` : ""}` : undefined} />}
-        </div>
-
-        {phase === "quiz" && step > 0 && (
-          <button type="button" onClick={() => go(step - 1)} className="s-focus mt-8 inline-flex items-center gap-1.5 rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]"><ArrowLeft className="h-4 w-4" aria-hidden /> Back</button>
+            <AppIcon name={practice} color={primary} logo={logo} />
+          </div>
         )}
+
+        {choices && id && <Choices items={choices} value={chosen} onPick={choose} />}
+
+        {phase === "results" && est && visits && value && rebook && recall && (
+          <div>
+            <div className="flex items-center gap-3">
+              <AppIcon name={practice} color={primary} logo={logo} size="sm" />
+              <div>
+                <p className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]"><Sparkles className="h-3.5 w-3.5" aria-hidden /> {practice}&apos;s app is ready</p>
+                <h3 ref={headRef} tabIndex={-1} className="mt-0.5 text-[1.45rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.7rem]">Here&apos;s what patient recall could win back.</h3>
+              </div>
+            </div>
+
+            <div className="s-ocean relative mt-6 overflow-hidden rounded-[24px] p-6 shadow-[0_26px_50px_-22px_rgba(11,95,214,.6)] sm:p-7">
+              <div className="s-ocean-img opacity-60" aria-hidden />
+              <div className="relative">
+                <div className="text-[13px] font-semibold text-white/80">Estimated recovered revenue, year one</div>
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
+                  <span className="text-5xl font-extrabold tabular-nums tracking-tight text-white sm:text-6xl" aria-label={`${fmtMoney(est.likely)} per year`}>{fmtMoney(likely)}</span>
+                  <span className="text-[15px] font-semibold text-white/85">about {fmtMoney(est.perMonth)} a month</span>
+                </div>
+                {/* The math, as a row: missed → won back → value */}
+                <ol className="mt-6 grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
+                  <MathTile big={est.lapsedVisits.toLocaleString()} small="due visits slip a year" />
+                  <Op>→</Op>
+                  <MathTile big={est.recovered.toLocaleString()} small={`won back (${Math.round(SCENARIOS.likely * 100 * recall.factor)}%)`} />
+                  <Op>×</Op>
+                  <MathTile big={fmtMoney(value.mid)} small="per visit" />
+                </ol>
+                <p className="mt-4 text-[12.5px] text-white/70">Range {fmtMoney(est.low)} to {fmtMoney(est.high)}. A planning estimate, not a promise.</p>
+              </div>
+            </div>
+
+            {/* What they told us, with a way back */}
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-[13px]">
+              {[`${visits.label} visits/mo`, `${value.label} a visit`, RECAP.rebook[rebook.id] ?? rebook.label, recall.label].map((t) => <span key={t} className="rounded-full bg-[var(--s-paper)] px-3 py-1 font-medium text-[var(--s-ink-2)] ring-1 ring-[var(--s-line)]">{t}</span>)}
+              <button type="button" onClick={() => go(3)} className="s-focus inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold text-[var(--s-ocean)] hover:underline"><Pencil className="h-3.5 w-3.5" aria-hidden />Edit</button>
+            </div>
+
+            <button type="button" onClick={() => setShowMath((v) => !v)} aria-expanded={showMath} className="s-focus mt-3 inline-flex items-center gap-1.5 rounded text-sm font-semibold text-[var(--s-ocean)] hover:underline">Where these numbers come from <ChevronDown className={cn("h-4 w-4 transition-transform", showMath && "rotate-180")} aria-hidden /></button>
+            {showMath && (
+              <div className="mt-2 rounded-2xl bg-[var(--s-paper)] p-4 text-[13px] leading-relaxed text-[var(--s-ink-2)] ring-1 ring-[var(--s-line)]">
+                <p>About {visits.mid.toLocaleString()} visits a month is {(visits.mid * 12).toLocaleString()} a year. You said about <b>{Math.round(rebook.lapse * 100)}%</b> of due visits don&apos;t happen on time, so roughly <b>{est.lapsedVisits.toLocaleString()}</b> slip. Neurotoxin lasts about 3–4 months ({CYCLE_SOURCE.replace(/ \(.*\)$/, "")}).</p>
+                <p className="mt-2">Likely case: reminders, win-backs and membership offers bring back <b>{Math.round(SCENARIOS.likely * 100)}%</b> of those{recall.factor < 1 ? `, trimmed because you already use: ${recall.label.toLowerCase()}` : ""}. Low {Math.round(SCENARIOS.low * 100)}%, high {Math.round(SCENARIOS.high * 100)}%. These are planning assumptions, not measured results, and they leave out membership dues.</p>
+              </div>
+            )}
+
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => { track("quiz_book_clicked", { source, est_likely: est.likely }); setPhase("about"); }} className="s-btn s-btn-primary s-focus">Walk me through it <ArrowRight className="h-4 w-4" aria-hidden /></button>
+              <button type="button" onClick={() => go(0)} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Start over</button>
+            </div>
+            <p className="mt-3 text-[13px] text-[var(--s-ink-3)]">A 20-minute video call with Andrew, who&apos;ll bring your app and these numbers. Month to month, no pressure.</p>
+          </div>
+        )}
+
+        {phase === "about" && (
+          <AboutYou headRef={headRef} firstFieldRef={firstFieldRef} source={source} practice={name.trim()}
+            answers={{ variant: variant ?? null, practice_type: venue.label, visit_band: visitId, value_band: valueId, rebook: rebookId, recall: recallId, estimate_likely: est?.likely ?? null, app_color: primary }}
+            onBack={() => setPhase("results")}
+            onResult={(r) => {
+              setFirstName(r.first);
+              if (r.qualified && r.leadId) {
+                setLeadId(r.leadId);
+                try { localStorage.setItem(LEAD_KEY, JSON.stringify({ id: r.leadId, at: Date.now(), first: r.first })); } catch { /* ignore */ }
+                setPhase("time");
+              } else setPhase("nurture");
+            }} />
+        )}
+
+        {phase === "nurture" && (
+          <div className="py-2 text-center">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--s-ice)] text-[var(--s-ocean)]"><Mail className="h-6 w-6" aria-hidden /></span>
+            <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none">Thanks{firstName ? `, ${firstName}` : ""}. Your estimate is on its way.</h3>
+            <p className="mx-auto mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">From what you told us, a live walkthrough isn&apos;t the right next step yet. Walkthroughs are for owners and managers of practices that are open today. We&apos;ve emailed you your recall estimate and the demo app, so you can share it with whoever makes the call.</p>
+            <p className="mx-auto mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">If that changes, reply to the email and Andrew will set up a time.</p>
+            <a href="/medspa#demo" className="s-btn s-btn-quiet s-focus mt-6">Tap around the demo app</a>
+          </div>
+        )}
+
+        {phase === "time" && leadId && <TimePicker leadId={leadId} firstName={firstName} practice={name.trim()} source={source} headRef={headRef} extraNotes={est ? `Estimate: ${fmtMoney(est.likely)}/yr likely (${fmtMoney(est.low)}–${fmtMoney(est.high)}) · ${visits?.label} visits/mo · ${value?.label} per visit · rebook: ${rebook?.label} · recall today: ${recall?.label}${logoName ? ` · has a logo (${logoName}), ask them to email it` : ""}` : undefined} />}
       </div>
 
-      {showPhone && (
-        <div className={cn("lg:sticky lg:top-6", phase === "results" ? "block" : "hidden lg:block")}>
-          <div className="relative mx-auto h-[522px] w-[246px]">
-            <div className="absolute left-0 top-0 origin-top-left scale-[0.82]">
-              <LiveApp brand={brand} categories={MEDSPA_BOOKING} rewards={MEDSPA_REWARDS} hours={MEDSPA_HOURS} offer={MEDSPA_OFFER} memberNote={MEDSPA_MEMBER_NOTE} guest="Alex" />
-            </div>
-          </div>
-          <p className="mt-2 text-center text-xs text-[var(--s-ink-3)]">{phase === "results" ? "Your app on day one. Tap it, it works." : "Your app updates as you answer."}</p>
-        </div>
+      {phase === "quiz" && step > 0 && (
+        <button type="button" onClick={() => go(step - 1)} className="s-focus mt-8 inline-flex items-center gap-1.5 rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]"><ArrowLeft className="h-4 w-4" aria-hidden /> Back</button>
       )}
     </div>
   );
 }
 
-const FIELD = "s-focus h-12 w-full rounded-xl border border-[var(--s-line)] bg-white px-3.5 text-[15px] text-[var(--s-ink)] placeholder:text-[var(--s-ink-3)]/70 focus:border-[var(--s-ocean)]/60";
+/** The practice's app icon, as it'll sit on a patient's home screen. Replaces the full phone preview. */
+function AppIcon({ name, color, logo, size = "lg" }: { name: string; color: string; logo: string | null; size?: "lg" | "sm" }) {
+  const lg = size === "lg";
+  return (
+    <figure className={cn("flex shrink-0 flex-col items-center", lg && "mx-auto rounded-[28px] bg-[var(--s-paper)] px-8 py-6 ring-1 ring-[var(--s-line)]")}>
+      <span className={cn("grid place-items-center overflow-hidden text-white shadow-[0_14px_30px_-12px_rgba(0,0,0,.45)]", lg ? "h-24 w-24 rounded-[26px] text-[2rem]" : "h-14 w-14 rounded-[16px] text-[1.1rem]")}
+        style={{ background: `linear-gradient(145deg, ${mix(color, "#ffffff", 0.18)}, ${color} 55%, ${mix(color, "#000000", 0.25)})` }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {logo ? <img src={logo} alt="" className="h-full w-full bg-white object-contain p-2" /> : <span className="font-extrabold tracking-tight">{initials(name)}</span>}
+      </span>
+      {lg && <figcaption className="mt-3 max-w-[9rem] truncate text-center text-[13px] font-semibold text-[var(--s-ink)]">{name}</figcaption>}
+      {lg && <span className="mt-0.5 text-[11px] text-[var(--s-ink-3)]">on her home screen</span>}
+    </figure>
+  );
+}
 
-/* ───────────── STEP 1: the qualify form ───────────── */
+function MathTile({ big, small }: { big: string; small: string }) {
+  return <li className="rounded-2xl bg-white/12 px-4 py-3 ring-1 ring-white/20 backdrop-blur"><div className="text-[1.5rem] font-extrabold tabular-nums leading-none text-white">{big}</div><div className="mt-1.5 text-[12px] leading-tight text-white/75">{small}</div></li>;
+}
+function Op({ children }: { children: React.ReactNode }) {
+  return <li aria-hidden className="hidden place-items-center px-1 text-[1.3rem] font-bold text-white/70 sm:grid">{children}</li>;
+}
+
+const FIELD = "s-focus h-12 w-full rounded-xl border border-[var(--s-line)] bg-white px-3.5 text-[15px] text-[var(--s-ink)] placeholder:text-[var(--s-ink-3)]/70 focus:border-[var(--s-ocean)]/60";
+const FIELD_SM = "s-focus h-11 w-full rounded-xl border border-[var(--s-line)] bg-white px-3 text-[15px] text-[var(--s-ink)] placeholder:text-[var(--s-ink-3)]/70 focus:border-[var(--s-ocean)]/60";
+
+/* ───────────── STEP 1: the qualify form, condensed (CP-203) ─────────────
+ * Six required fields in three rows, two optional ones, and the extras
+ * (treatments, "what would make it worth it") folded behind one link. */
 function AboutYou({ headRef, firstFieldRef, source, practice, answers, onBack, onResult }: {
   headRef: RefObject<HTMLHeadingElement>; firstFieldRef?: RefObject<HTMLInputElement>; source: string; practice: string;
   answers: Record<string, string | number | null>;
   onBack: () => void; onResult: (r: { qualified: boolean; leadId: string | null; first: string }) => void;
 }) {
-  const [role, setRole] = useState<string>("");
-  const [stage, setStage] = useState<string>("");
   const [treatments, setTreatments] = useState<string[]>([]);
+  const [more, setMore] = useState(false);
   const [state, setState] = useState<"idle" | "sending">("idle");
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>;
-    if (!role || !stage) { setError("Pick your role and where your practice is today."); return; }
+    if (!fd.name?.trim() || !fd.business?.trim()) { setError("Please add your name and your practice's name."); return; }
+    if (!fd.role || !fd.stage) { setError("Pick your role and where your practice is today."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(fd.email ?? "")) { setError("Please enter a valid email."); return; }
     if ((fd.phone ?? "").replace(/\D/g, "").length < 10) { setError("Please enter a mobile number with area code."); return; }
     setState("sending"); setError(null);
     track("lead_submitted", { source });
     try {
       const r = await fetch("/api/landing/lead", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...fd, role, stage, treatments, ...answers, source, path: window.location.pathname, ...utms(), ...metaIds() }),
+        body: JSON.stringify({ ...fd, treatments, ...answers, source, path: window.location.pathname, ...utms(), ...metaIds() }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");
@@ -356,47 +415,47 @@ function AboutYou({ headRef, firstFieldRef, source, practice, answers, onBack, o
   return (
     <form onSubmit={submit} noValidate>
       <button type="button" onClick={onBack} className="s-focus inline-flex items-center gap-1 rounded text-xs text-[var(--s-ink-3)] hover:text-[var(--s-ink)]"><ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Back to my results</button>
-      <h3 ref={headRef} tabIndex={-1} className="mt-2 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">A few quick things before we pick a time.</h3>
-      <p className="mt-2 text-[15px] text-[var(--s-ink-3)]">So Andrew comes to the call with your app built around your menu. About 30 seconds.</p>
+      <h3 ref={headRef} tabIndex={-1} className="mt-2 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">Where should Andrew send the invite?</h3>
+      <p className="mt-1.5 text-[15px] text-[var(--s-ink-3)]">30 seconds. Then pick a time.</p>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Field label="Your name"><input ref={firstFieldRef} name="name" required autoComplete="name" className={FIELD} placeholder="Maria Lopez" /></Field>
-        <Field label="Practice name"><input name="business" required autoComplete="organization" defaultValue={practice || undefined} className={FIELD} placeholder="Luma Aesthetics" /></Field>
-      </div>
-
-      <Chips label="Your role" options={ROLES.map((r) => ({ id: r.id, label: r.label }))} value={role} onChange={setRole} />
-      <Chips label="Where's your practice today?" options={STAGES.map((s) => ({ id: s.id, label: s.label }))} value={stage} onChange={setStage} />
-
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <Field label="Email"><input name="email" type="email" required autoComplete="email" className={FIELD} placeholder="you@practice.com" /></Field>
-        <Field label="Mobile"><input name="phone" type="tel" required autoComplete="tel" className={FIELD} placeholder="(805) 555-0123" /></Field>
-        <Field label="Website or Instagram"><input name="website" autoComplete="url" className={FIELD} placeholder="lumaaesthetics.com or @luma" /></Field>
-        <Field label="Booking software">
-          <select name="booking_system" defaultValue="" className={cn(FIELD, "appearance-none")}>
-            <option value="" disabled>Choose one</option>
-            {BOOKING_SYSTEMS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+      <div className="mt-6 grid gap-x-3 gap-y-4 sm:grid-cols-2">
+        <Field label="Your name"><input ref={firstFieldRef} name="name" required autoComplete="name" className={FIELD_SM} placeholder="Maria Lopez" /></Field>
+        <Field label="Practice name"><input name="business" required autoComplete="organization" defaultValue={practice || undefined} className={FIELD_SM} placeholder="Luma Aesthetics" /></Field>
+        <Field label="Your role">
+          <Select name="role" placeholder="Choose your role" options={ROLES.map((r) => [r.id, r.label])} />
+        </Field>
+        <Field label="Your practice today">
+          <Select name="stage" placeholder="Choose one" options={STAGES.map((s) => [s.id, s.label])} />
+        </Field>
+        <Field label="Email"><input name="email" type="email" required autoComplete="email" className={FIELD_SM} placeholder="you@practice.com" /></Field>
+        <Field label="Mobile"><input name="phone" type="tel" required autoComplete="tel" className={FIELD_SM} placeholder="(805) 555-0123" /></Field>
+        <Field label="Website or Instagram" optional><input name="website" autoComplete="url" className={FIELD_SM} placeholder="lumaaesthetics.com or @luma" /></Field>
+        <Field label="Booking software" optional>
+          <Select name="booking_system" placeholder="Choose one" options={BOOKING_SYSTEMS.map((s) => [s, s])} />
         </Field>
       </div>
 
-      <fieldset className="mt-5">
-        <legend className="text-[14px] font-semibold text-[var(--s-ink)]">Treatments you offer <span className="font-normal text-[var(--s-ink-3)]">(tap all that apply)</span></legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {TREATMENT_OPTIONS.map((t) => {
-            const on = treatments.includes(t);
-            return <button key={t} type="button" aria-pressed={on} onClick={() => setTreatments((v) => (on ? v.filter((x) => x !== t) : [...v, t]))} className={cn("s-focus inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold transition-colors", on ? "border-[var(--s-ocean)] bg-[var(--s-ocean)] text-white" : "border-[var(--s-line)] bg-white text-[var(--s-ink-2)] hover:border-[var(--s-ocean)]/40")}>{on && <Check className="h-3.5 w-3.5" aria-hidden />}{t}</button>;
-          })}
+      {!more ? (
+        <button type="button" onClick={() => setMore(true)} className="s-focus mt-4 inline-flex items-center gap-1.5 rounded text-[13.5px] font-semibold text-[var(--s-ocean)] hover:underline">+ Tell Andrew more (optional)</button>
+      ) : (
+        <div className="mt-5 grid gap-4 rounded-2xl bg-[var(--s-paper)] p-4 ring-1 ring-[var(--s-line)]">
+          <fieldset>
+            <legend className="text-[13.5px] font-semibold text-[var(--s-ink)]">Treatments you offer</legend>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {TREATMENT_OPTIONS.map((t) => {
+                const on = treatments.includes(t);
+                return <button key={t} type="button" aria-pressed={on} onClick={() => setTreatments((v) => (on ? v.filter((x) => x !== t) : [...v, t]))} className={cn("s-focus inline-flex h-8 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold transition-colors", on ? "border-[var(--s-ocean)] bg-[var(--s-ocean)] text-white" : "border-[var(--s-line)] bg-white text-[var(--s-ink-2)] hover:border-[var(--s-ocean)]/40")}>{on && <Check className="h-3 w-3" aria-hidden />}{t}</button>;
+              })}
+            </div>
+          </fieldset>
+          <Field label="What would make this worth it for you?"><textarea name="worth_it" rows={2} className={cn(FIELD_SM, "h-auto py-2.5")} placeholder="e.g. Get toxin patients back at 12 weeks, sell 30 memberships" /></Field>
         </div>
-      </fieldset>
-
-      <Field label="What would make this worth it for you?" optional className="mt-5">
-        <textarea name="worth_it" rows={2} className={cn(FIELD, "h-auto py-3")} placeholder="e.g. Get toxin patients back at 12 weeks, sell 30 memberships" />
-      </Field>
+      )}
       <input name="website_url_hp" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
 
       {error && <p role="alert" className="mt-4 text-sm font-medium text-rose-600">{error}</p>}
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="flex items-center gap-1.5 text-xs text-[var(--s-ink-3)]"><Lock className="h-3.5 w-3.5" aria-hidden /> Used only to set up your call. No spam, no list selling.</p>
+      <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[var(--s-line)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="flex items-center gap-1.5 text-xs text-[var(--s-ink-3)]"><Lock className="h-3.5 w-3.5" aria-hidden /> Only used to set up your call. No spam.</p>
         <button type="submit" disabled={state === "sending"} className="s-btn s-btn-primary s-focus disabled:opacity-60">{state === "sending" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}See open times <ArrowRight className="h-4 w-4" aria-hidden /></button>
       </div>
     </form>
@@ -404,35 +463,36 @@ function AboutYou({ headRef, firstFieldRef, source, practice, answers, onBack, o
 }
 
 function Field({ label, optional, className, children }: { label: string; optional?: boolean; className?: string; children: React.ReactNode }) {
-  return <label className={cn("grid gap-1.5", className)}><span className="text-[14px] font-semibold text-[var(--s-ink)]">{label}{optional && <span className="font-normal text-[var(--s-ink-3)]"> (optional)</span>}</span>{children}</label>;
+  return <label className={cn("grid gap-1.5", className)}><span className="text-[13.5px] font-semibold text-[var(--s-ink)]">{label}{optional && <span className="font-normal text-[var(--s-ink-3)]"> (optional)</span>}</span>{children}</label>;
 }
 
-function Chips({ label, options, value, onChange }: { label: string; options: { id: string; label: string }[]; value: string; onChange: (v: string) => void }) {
+function Select({ name, placeholder, options }: { name: string; placeholder: string; options: [string, string][] }) {
   return (
-    <fieldset className="mt-5">
-      <legend className="text-[14px] font-semibold text-[var(--s-ink)]">{label}</legend>
-      <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
-        {options.map((o) => {
-          const on = o.id === value;
-          return <button key={o.id} type="button" role="radio" aria-checked={on} onClick={() => onChange(o.id)} className={cn("s-focus inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-[14px] font-semibold transition-colors", on ? "border-[var(--s-ocean)] bg-[var(--s-ice)] text-[var(--s-ocean-deep)] ring-2 ring-[var(--s-ocean)]/20" : "border-[var(--s-line)] bg-white text-[var(--s-ink-2)] hover:border-[var(--s-ocean)]/40")}>{on && <Check className="h-3.5 w-3.5" aria-hidden />}{o.label}</button>;
-        })}
-      </div>
-    </fieldset>
+    <span className="relative block">
+      <select name={name} defaultValue="" className={cn(FIELD_SM, "appearance-none pr-9 invalid:text-[var(--s-ink-3)]")} required>
+        <option value="" disabled>{placeholder}</option>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+      <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--s-ink-3)]" />
+    </span>
   );
 }
 
-function Options<T extends { id: string; label: string; sub?: string; icon?: React.ComponentType<{ className?: string }> }>({ items, value, onPick, icon: Default }: { items: T[]; value: string | null; onPick: (item: T) => void; icon?: React.ComponentType<{ className?: string }> }) {
+/** Answer tiles with a letter key (press A–E), two columns on wider screens. */
+function Choices<T extends { id: string; label: string; sub?: string }>({ items, value, onPick }: { items: T[]; value: string | null; onPick: (item: T) => void }) {
   return (
-    <div className="mt-6 grid gap-2.5" role="radiogroup">
-      {items.map((it) => {
-        const Icon = it.icon ?? Default;
+    <div className={cn("grid gap-2.5", items.length > 3 && "sm:grid-cols-2")} role="radiogroup">
+      {items.map((it, i) => {
         const sel = it.id === value;
         return (
           <button key={it.id} type="button" role="radio" aria-checked={sel} onClick={() => onPick(it)}
-            className={cn("s-focus flex items-center gap-4 rounded-2xl border-2 bg-white px-4 py-3.5 text-left transition", sel ? "border-[var(--s-ocean)] bg-[var(--s-ice)]/60 ring-4 ring-[var(--s-ocean)]/10" : "border-[var(--s-line)] hover:border-[var(--s-ocean)]/40 hover:bg-[var(--s-paper)]")}>
-            {Icon && <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", sel ? "bg-[var(--s-ocean)] text-white" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}><Icon className="h-5 w-5" aria-hidden /></span>}
-            <span className="min-w-0 flex-1"><span className="block text-[16px] font-bold text-[var(--s-ink)]">{it.label}</span>{it.sub && <span className="block text-[13px] text-[var(--s-ink-3)]">{it.sub}</span>}</span>
-            <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-full border-2", sel ? "border-[var(--s-ocean)] bg-[var(--s-ocean)] text-white" : "border-[var(--s-ink-3)]/40")}>{sel && <Check className="h-3.5 w-3.5" aria-hidden />}</span>
+            className={cn("s-focus group flex items-center gap-3.5 rounded-2xl border bg-white px-4 py-3.5 text-left transition", sel ? "border-[var(--s-ocean)] bg-[var(--s-ice)]/70 ring-2 ring-[var(--s-ocean)]/25" : "border-[var(--s-line)] hover:border-[var(--s-ocean)]/50 hover:bg-[var(--s-paper)]",
+              items.length % 2 === 1 && i === items.length - 1 && items.length > 3 && "sm:col-span-2")}>
+            <kbd className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg border font-sans text-[12px] font-bold transition-colors", sel ? "border-[var(--s-ocean)] bg-[var(--s-ocean)] text-white" : "border-[var(--s-line)] bg-[var(--s-paper)] text-[var(--s-ink-3)] group-hover:border-[var(--s-ocean)]/40 group-hover:text-[var(--s-ocean)]")}>{sel ? <Check className="h-3.5 w-3.5" aria-hidden /> : LETTERS[i]}</kbd>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[16px] font-bold leading-tight text-[var(--s-ink)]">{it.label}</span>
+              {it.sub && <span className="mt-0.5 block text-[13px] leading-snug text-[var(--s-ink-3)]">{it.sub}</span>}
+            </span>
           </button>
         );
       })}
