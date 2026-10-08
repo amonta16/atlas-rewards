@@ -11,6 +11,8 @@ import { checkArea } from "@/lib/landing/territory";
 /**
  * POST /api/landing/lead — CP-201 · step 1 of the /medspa funnel (the gate).
  *
+ * CP-205: usually updates the row the 48-hour hold created (lead_id), adding role,
+ * stage and the numbers; a not-a-fit answer releases the hold.
  * Saves every submission to landing_leads, then decides on the SERVER whether
  * the calendar unlocks (lib/landing/medspa-funnel.ts `qualify`):
  *   qualified     → { qualified: true, lead_id, event_id }. Sends Meta "Lead"
@@ -24,6 +26,7 @@ import { checkArea } from "@/lib/landing/territory";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const UUID = /^[0-9a-f-]{36}$/i;
 const arr = (v: unknown, max = 12) => (Array.isArray(v) ? v.filter((x) => typeof x === "string").slice(0, max).map((x) => (x as string).slice(0, 60)) : []);
 
 export async function POST(req: Request) {
@@ -34,10 +37,22 @@ export async function POST(req: Request) {
   try { b = await req.json(); } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
   if (b.website_url_hp) return NextResponse.json({ qualified: false }); // honeypot
 
-  const name = clean(b.name, 120);
-  const business = clean(b.business, 160);
-  const email = clean(b.email, 200).toLowerCase();
-  const phone = clean(b.phone, 40);
+  // CP-205: most leads already exist (the 48-hour hold captured name, practice, email and
+  // mobile). Then this call only adds role, stage and the numbers, and updates that row.
+  const supabase = createAdminClient();
+  const holdId = typeof b.lead_id === "string" && UUID.test(b.lead_id) ? b.lead_id : null;
+  type Held = { id: string; name: string; business: string; email: string; phone: string; zip: string | null; demo_request_id: string | null };
+  let held: Held | null = null;
+  if (holdId) {
+    const { data: h } = await supabase.from("landing_leads").select("id, name, business, email, phone, zip, demo_request_id").eq("id", holdId).maybeSingle();
+    held = (h as Held | null) ?? null;
+    if (!held) return NextResponse.json({ error: "We couldn't find your hold. Please check your area again." }, { status: 404 });
+  }
+
+  const name = clean(b.name, 120) || held?.name || "";
+  const business = clean(b.business, 160) || held?.business || "";
+  const email = (clean(b.email, 200) || held?.email || "").toLowerCase();
+  const phone = clean(b.phone, 40) || held?.phone || "";
   const role = clean(b.role, 20);
   const stage = clean(b.stage, 20);
   const phoneDigits = phone.replace(/\D/g, "");
@@ -51,13 +66,15 @@ export async function POST(req: Request) {
   const visitBand = clean(b.visit_band, 8) || null;
   const verdict = qualify({ role, stage, visitBand });
   // CP-204: a taken area can't book (but still gets a kind email and a spot on the waitlist).
-  const zipIn = clean(b.zip, 10);
+  // CP-205: the visitor's own hold doesn't count against them.
+  const zipIn = clean(b.zip, 10) || held?.zip || "";
   let area: Awaited<ReturnType<typeof checkArea>> | null = null;
-  if (zipIn) { try { area = await checkArea(zipIn); } catch (e) { console.error("[lead] area check failed", e); } }
+  if (zipIn) { try { area = await checkArea(zipIn, { leadId: held?.id }); } catch (e) { console.error("[lead] area check failed", e); } }
   if (area?.ok && !area.open) { verdict.qualified = false; verdict.reasons.push("area_taken"); }
   const areaTaken = !!(area?.ok && !area.open);
   const eventId = verdict.qualified ? newEventId("lead") : null;
   const source = clean(b.source, 120) || null;
+  const nowIso = new Date().toISOString();
 
   const row = {
     niche: "medspa",
@@ -72,9 +89,10 @@ export async function POST(req: Request) {
     value_band: clean(b.value_band, 8) || null,
     rebook: clean(b.rebook, 12) || null,
     recall: clean(b.recall, 12) || null,
-    estimate_likely: Number.isFinite(Number(b.estimate_likely)) ? Math.round(Number(b.estimate_likely)) : null,
+    estimate_likely: Number.isFinite(Number(b.estimate_likely)) && b.estimate_likely !== null ? Math.round(Number(b.estimate_likely)) : null,
     app_color: clean(b.app_color, 9) || null,
     qualified: verdict.qualified,
+    qualified_at: verdict.qualified ? nowIso : null,
     disqualify_reasons: verdict.reasons,
     status: verdict.qualified ? "new" : "nurture",
     source,
@@ -94,16 +112,29 @@ export async function POST(req: Request) {
     ip_hash: await hashIp(req),
   };
 
-  const supabase = createAdminClient();
-  const { data, error } = await supabase.from("landing_leads").insert(row).select("id").single();
-  if (error || !data) {
-    console.error("[lead] insert failed", error);
-    return NextResponse.json({ error: "Couldn't save that. Please try again, or email andrew@atlas-engine.app." }, { status: 500 });
+  let data: { id: string } | null = null;
+  if (held) {
+    if (held.demo_request_id) return NextResponse.json({ error: "You already have a call booked. Check your email for the details." }, { status: 409 });
+    // Keep what the hold step stored when this step didn't send it (UTMs, click ids, source, variant).
+    const patch: Record<string, unknown> = Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null && v !== ""));
+    patch.qualified = verdict.qualified; patch.disqualify_reasons = verdict.reasons; patch.status = row.status; patch.lead_event_id = eventId;
+    // Not a fit: release the hold so the area opens for the next practice.
+    if (!verdict.qualified) patch.hold_expires_at = nowIso;
+    const { data: u, error } = await supabase.from("landing_leads").update(patch).eq("id", held.id).select("id").single();
+    if (error || !u) { console.error("[lead] update failed", error); return NextResponse.json({ error: "Couldn't save that. Please try again, or email andrew@atlas-engine.app." }, { status: 500 }); }
+    data = u;
+  } else {
+    const { data: ins, error } = await supabase.from("landing_leads").insert(row).select("id").single();
+    if (error || !ins) {
+      console.error("[lead] insert failed", error);
+      return NextResponse.json({ error: "Couldn't save that. Please try again, or email andrew@atlas-engine.app." }, { status: 500 });
+    }
+    data = ins;
   }
 
   const roleLabel = ROLES.find((r) => r.id === role)?.label ?? role;
   const stageLabel = STAGES.find((s) => s.id === stage)?.label ?? stage;
-  const sent = await notifyLead(`${verdict.qualified ? "Qualified lead" : "Not a fit (nurture)"}: ${business}`, [
+  const sent = await notifyLead(`${verdict.qualified ? "QUALIFIED, call now" : "Not a fit (nurture)"}: ${business}`, [
     ["Name", `${name} (${roleLabel})`],
     ["Practice", `${business} · ${stageLabel}`],
     ["Area", area?.ok ? `${area.city}, ${area.state} ${area.zip} · ${area.open ? "open" : "TAKEN (waitlist)"} · ${area.founding.spotsLeft} founding spots left` : zipIn || null],
@@ -117,7 +148,8 @@ export async function POST(req: Request) {
     ["Why not a fit", verdict.qualified ? null : verdict.reasons.join(", ")],
     ["Source", source],
     ["A/B arm", row.variant],
-    ["Next", verdict.qualified ? "Calendar unlocked. If they don't book, they get one follow-up in a few hours." : "No calendar. They got the nurture email."],
+    ["Next", verdict.qualified ? `Calendar unlocked.${held ? " Their 48-hour area hold stays on." : ""} If they don't book: follow-up emails at 3 h, 24 h and before the hold ends.` : `No calendar. They got the nurture email.${held ? " Their hold was released." : ""}`],
+    ["Call", verdict.qualified ? `tel:+1${phoneDigits.slice(-10)}` : null],
   ]);
   if (sent) await supabase.from("landing_leads").update({ notified_at: new Date().toISOString() }).eq("id", data.id);
 

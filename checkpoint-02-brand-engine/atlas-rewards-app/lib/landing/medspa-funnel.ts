@@ -179,3 +179,52 @@ export const GUARANTEES: Guarantee[] = [
   },
 ];
 
+/* ───────────── CP-205: the 48-hour hold, the offer stack, booking window ─────────────
+ * From the funnel review (Oct 8 2026): capture contact details the moment an area
+ * is open ("hold it for 48 hours"), name and stack the offer, put the monthly price
+ * next to the estimate once it's set, keep calls close, and build the app before the call.
+ */
+
+/**
+ * The hold is real: while it lasts, other practices within the radius see the area
+ * as held (they can join the waitlist). It ends after `hours`, when the lead turns out
+ * not to qualify, or on a lost / no-show outcome. Booking extends it to the call + `afterCallHours`.
+ */
+export const HOLD = { hours: 48, afterCallHours: 48 };
+
+/** The offer's name. Shown on the results screen, the landing page and the pre-call page. */
+export const OFFER_NAME = "Founding Partner Program";
+
+/**
+ * What the setup fee covers, in the order it's stacked on the page. These are the
+ * real deliverables (Andrew, Oct 8 2026: banners, table tents, the design for each,
+ * QR scanners, software setup). The stack's total value is FOUNDING.setupFull.
+ * Optional `value` (dollars) shows next to an item; leave it off unless it's a real price.
+ */
+export const SETUP_STACK: Array<{ title: string; detail: string; value?: number }> = [
+  { title: "Your practice's own patient app", detail: "Your name, logo and colors, your treatment menu and providers. Built before your walkthrough." },
+  { title: "Checkout banner, designed and printed", detail: "Large format, made for your front desk, with your QR code." },
+  { title: "Table tents for every room", detail: "Designed to match, so patients join while they wait." },
+  { title: "QR scanners at checkout", detail: "Your desk logs visits and treatments in one tap." },
+  { title: "Software setup and staff training", detail: "Menu, memberships and reminder timing loaded with you. Your desk trained in 20 minutes." },
+  { title: "Your area, locked", detail: "No other med spa within the radius can join Atlas while you're a client." },
+];
+
+/**
+ * The monthly plan, in dollars. While null, pages say "quoted on your walkthrough"
+ * and the results screen shows no return multiple. Set it (e.g. 299) and the estimate
+ * shows "Atlas: $299/mo · about N× back".
+ */
+export const MONTHLY_PRICE: number | null = null;
+
+/** The calendar only offers the first N days that have open times (closer calls, fewer no-shows). */
+export const BOOKING_WINDOW_DAYS = 4;
+
+/**
+ * The quiz no longer asks how practices recall patients today (3 questions instead of 6).
+ * The estimate assumes some manual recall already happens ("Front desk calls or texts").
+ */
+export const DEFAULT_RECALL_ID = "manual";
+
+/** Unbooked follow-ups (email): hours after the hold starts, then `beforeEndHours` before it ends. Max 3. */
+export const FOLLOWUPS = { firstHours: 3, secondHours: 24, beforeEndHours: 4 };

@@ -47,7 +47,9 @@ export type LandingEvent =
   // CP-202: A/B arms
   | "variant_assigned"
   // CP-204
-  | "area_checked";
+  | "area_checked"
+  | "area_held" // CP-205: 48-hour hold placed (contact captured), no Meta signal
+  | "intro_video";
 
 type Props = Record<string, string | number | boolean | undefined>;
 

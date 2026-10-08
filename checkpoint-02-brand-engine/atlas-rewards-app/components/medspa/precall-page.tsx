@@ -11,6 +11,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { CalendarPlus, Check, CheckCircle2, Clock, Loader2, Play, ShieldCheck, Video } from "lucide-react";
+import { IntroVideo } from "@/components/medspa/intro-video"; // CP-205
 import { GUARANTEES } from "@/lib/landing/medspa-funnel";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
@@ -66,7 +67,7 @@ export function PrecallPage(p: Props) {
             <h1 className="s-display s-load-2 mx-auto mt-5 max-w-[16ch] !text-[clamp(2.1rem,1.4rem+3vw,3.6rem)] text-white">
               {confirmed ? `You're all set${p.firstName ? `, ${p.firstName}` : ""}.` : <>Your call isn&apos;t confirmed yet{p.firstName ? `, ${p.firstName}` : ""}.</>}
             </h1>
-            <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{confirmed ? "Andrew will bring your numbers and the offer for your area. Here's everything in one place." : `Watch the short video, then tap confirm so Andrew holds ${day} for ${p.business}.`}</p>
+            <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{confirmed ? "Andrew will bring your numbers and the offer for your area. Here's everything in one place." : `${p.video.embed ? "Watch the short video" : "Read the 30-second version"}, then tap confirm so Andrew holds ${day} for ${p.business}.`}</p>
           </div>
         )}
       </div>
@@ -89,7 +90,7 @@ export function PrecallPage(p: Props) {
               </div>
 
               <ol className="mt-10 space-y-5">
-                <Step n={1} done={false} title="Watch this first" sub={`${p.video.minutes} minutes: what Atlas does, how the call works${p.priceLine ? ", what it costs" : ""}.`}>
+                <Step n={1} done={false} title={p.video.embed ? "Watch this first" : "Read this first"} sub={p.video.embed ? `${p.video.minutes} minutes: what Atlas does, how the call works${p.priceLine ? ", what it costs" : ""}.` : "30 seconds: what Atlas is, what the call covers, what happens after."}>
                   <PrecallVideo token={p.token} embed={p.video.embed} />
                   {!p.video.embed && (
                     <ul className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -116,6 +117,41 @@ export function PrecallPage(p: Props) {
                   </div>
                 </Step>
               </ol>
+
+              {/* CP-205: do the work before the call, and show it */}
+              <section className="s-panel mt-10 overflow-hidden" aria-labelledby="build-title">
+                <div className="grid sm:grid-cols-[1fr_auto]">
+                  <div className="p-6 sm:p-8">
+                    <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-[var(--s-ocean)]">Before your call</p>
+                    <h2 id="build-title" className="s-h3 mt-1.5">Andrew is building {p.business}&apos;s app.</h2>
+                    <p className="s-body mt-2 text-[15px]">You&apos;ll see a preview of your own patient app on the call, with your name, logo and colors, not a generic demo.</p>
+                    <ol className="mt-5 grid gap-2.5">
+                      {[["Your area", "Held for you through the call", true], ["Your numbers", "Saved from your answers", true], ["Your app preview", "Built before the call", false], ["The call", `${day} at ${time}`, false]].map(([t, d, ok], i) => (
+                        <li key={String(t)} className="flex items-center gap-3">
+                          <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12px] font-bold", ok ? "bg-emerald-500 text-white" : i === 2 ? "bg-[var(--s-ocean)] text-white" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}>
+                            {ok ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : i === 2 ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> : i + 1}
+                          </span>
+                          <span className="text-[14.5px]"><b>{t}</b> <span className="text-[var(--s-ink-3)]">· {d}</span></span>
+                        </li>
+                      ))}
+                    </ol>
+                    <p className="s-small mt-5">Want it to look exactly like you? Reply to your confirmation email with your logo and treatment menu. Optional.</p>
+                  </div>
+                  <div aria-hidden className="relative hidden w-[220px] items-center justify-center bg-gradient-to-b from-[var(--s-ice)] to-white sm:flex">
+                    <div className="relative h-[300px] w-[150px] rounded-[30px] border-[6px] border-[var(--s-ink)] bg-white shadow-[0_30px_50px_-25px_rgba(2,20,70,.5)]">
+                      <div className="absolute left-1/2 top-2 h-1.5 w-12 -translate-x-1/2 rounded-full bg-[var(--s-ink)]" />
+                      <div className="mx-3 mt-7 grid gap-2.5">
+                        <div className="h-16 rounded-xl s-ocean" />
+                        <div className="h-3 w-3/4 animate-pulse rounded-full bg-[var(--s-ice)] motion-reduce:animate-none" />
+                        <div className="h-3 w-1/2 animate-pulse rounded-full bg-[var(--s-ice)] motion-reduce:animate-none" />
+                        <div className="mt-1 grid grid-cols-2 gap-2"><div className="h-12 animate-pulse rounded-lg bg-[var(--s-paper)] ring-1 ring-[var(--s-line)] motion-reduce:animate-none" /><div className="h-12 animate-pulse rounded-lg bg-[var(--s-paper)] ring-1 ring-[var(--s-line)] motion-reduce:animate-none" /></div>
+                        <div className="h-9 rounded-full bg-[var(--s-ocean)]/90" />
+                      </div>
+                      <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--s-ink)] px-2.5 py-1 text-[10.5px] font-bold text-white">In progress</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
               {/* CP-204: the three promises, so they arrive at the call already knowing the risk is on us */}
               <section className="s-ocean relative mt-10 overflow-hidden rounded-[28px] p-6 sm:p-8" aria-labelledby="promise-title">
@@ -182,15 +218,8 @@ function PrecallVideo({ token, embed }: { token: string; embed: string | null })
   }, [playing, embed, token]);
 
   if (!embed) {
-    // CP-202: placeholder until PRECALL_VIDEO.embed is set (the written version shows underneath).
-    return (
-      <div className="relative aspect-video overflow-hidden rounded-2xl bg-[#06318F] ring-1 ring-[var(--s-line)]">
-        <div aria-hidden className="absolute inset-0 bg-[url('/landing/blue-lines.jpg')] bg-cover bg-center" />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#041F5C]/70 to-transparent" />
-        <span className="absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[var(--s-ocean)] shadow-xl"><Play className="ml-1 h-7 w-7 fill-current" aria-hidden /></span>
-        <div className="absolute inset-x-0 bottom-0 p-5 text-white"><div className="text-[15px] font-bold">Before your call, from Andrew</div><div className="text-[13px] text-white/75">Video coming soon. The short version is below.</div></div>
-      </div>
-    );
+    // CP-205: the Atlas logo animation + an end card until PRECALL_VIDEO.embed is set (the written version shows underneath).
+    return <IntroVideo where="medspa_precall" tall={false} rounded="rounded-2xl" title="Andrew's pre-call video is on its way." body="Until then, the 30-second version is right below." />;
   }
   const src = `${embed}${embed.includes("?") ? "&" : "?"}autoplay=1&playsinline=1&api=1`;
   return (

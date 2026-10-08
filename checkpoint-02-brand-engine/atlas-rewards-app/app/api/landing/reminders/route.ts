@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emailProspect, notifyLead } from "@/lib/landing/notify";
 import { CALL_MINUTES } from "@/lib/landing/availability";
-import { PRECALL_PREP, REMINDERS, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { FOLLOWUPS, PRECALL_PREP, REMINDERS, SITE_ORIGIN, TERRITORY } from "@/lib/landing/medspa-funnel";
 import { sign } from "@/lib/landing/funnel-sign";
 
 /**
@@ -14,7 +14,8 @@ import { sign } from "@/lib/landing/funnel-sign";
  *   2. Late reminder   ~2 h before: short, with the video link.
  *   3. After the call  (end + 30 min): emails ANDREW three one-tap links,
  *      Showed / No-show / Paid. Paid sends Meta "Purchase" (see /api/landing/outcome).
- * For qualified leads who never picked a time: one "your times are still open" email.
+ * CP-205: leads who held their area (or qualified) but never picked a time get up to
+ * three emails tied to the 48-hour hold (see step 4).
  * Every step stamps a column first, so a retry can never double-send.
  */
 export const runtime = "nodejs";
@@ -96,22 +97,59 @@ export async function GET(req: Request) {
     }
   }
 
-  // 4) qualified, never picked a time → one nudge
+  // 4) CP-205: held or qualified, never picked a time → up to 3 emails, built around the hold:
+  //    #1 at FOLLOWUPS.firstHours ("your area is held"), #2 at FOLLOWUPS.secondHours ("24 hours left"),
+  //    #3 FOLLOWUPS.beforeEndHours before the hold ends ("ends tonight"). A lead stops getting them
+  //    once they book, turn out not to be a fit (status nurture/waitlist), or the hold has ended.
   const { data: unbooked } = await db.from("landing_leads")
-    .select("id, name, business, email, created_at")
-    .eq("qualified", true).is("demo_request_id", null).is("followup_sent_at", null)
-    .lte("created_at", new Date(now - REMINDERS.unbookedFollowUpHours * H).toISOString())
-    .gte("created_at", new Date(now - 4 * 24 * H).toISOString())
-    .limit(100);
+    .select("id, name, business, email, city, state, created_at, hold_expires_at, followups, followup_sent_at, status")
+    .in("status", ["held", "new"]).is("demo_request_id", null).lt("followups", 3)
+    .lte("created_at", new Date(now - FOLLOWUPS.firstHours * H).toISOString())
+    .gte("created_at", new Date(now - 5 * 24 * H).toISOString())
+    .limit(200);
   for (const l of unbooked ?? []) {
-    await db.from("landing_leads").update({ followup_sent_at: new Date().toISOString() }).eq("id", l.id);
-    await emailProspect(l.email, `${l.business}: your walkthrough times are still open`, join([
-      `Hi ${String(l.name).split(" ")[0]},`, "",
-      "You built your app and qualified for a walkthrough but didn't pick a time. Your app and numbers are saved; it's 20 minutes on video.",
-      `Pick a time here: ${SITE_ORIGIN}/medspa/start?lead=${l.id}`, "",
-      "Or just reply with two times that work and I'll send the invite.", "",
-      "Andrew Montano", "Atlas Engine · atlas-engine.app",
-    ]));
+    const n = Math.max(Number(l.followups ?? 0), l.followup_sent_at && !l.followups ? 1 : 0);
+    const created = Date.parse(l.created_at as string);
+    const end = l.hold_expires_at ? Date.parse(l.hold_expires_at as string) : null;
+    const live = end !== null && end > now;
+    const first = String(l.name).split(" ")[0];
+    const where = l.city ? `${l.city}, ${l.state}` : "your area";
+    const link = `${SITE_ORIGIN}/medspa/start?lead=${l.id}`;
+    const until = end ? when(new Date(end).toISOString(), null) : "";
+    let mail: { subject: string; body: string[] } | null = null;
+
+    if (n === 0 && now >= created + FOLLOWUPS.firstHours * H) {
+      mail = live
+        ? { subject: `${where} is held for ${l.business} until ${until.split(",").slice(0, 2).join(",")}`, body: [
+            `Hi ${first},`, "",
+            `You checked your area and it's open, so I'm holding ${where} for ${l.business} until ${until}. While it's held, no other med spa within ${TERRITORY.radiusMiles} miles can claim it.`, "",
+            "The last step is a 20-minute video call. Pick a time and your area stays held through the call:", link, "",
+            `Before we talk I'll build a preview of ${l.business}'s own patient app, so you see your app on the call, not a generic demo.`, "",
+            "Or reply with two times that work and I'll send the invite.", "", "Andrew Montano", "Atlas Engine · atlas-engine.app"] }
+        : { subject: `${l.business}: your walkthrough times are still open`, body: [
+            `Hi ${first},`, "",
+            "You qualified for a walkthrough but didn't pick a time. Your numbers are saved; it's 20 minutes on video.",
+            `Pick a time here: ${link}`, "", "Or just reply with two times that work and I'll send the invite.", "",
+            "Andrew Montano", "Atlas Engine · atlas-engine.app"] };
+    } else if (n === 1 && live && now >= created + FOLLOWUPS.secondHours * H && end! - now > (FOLLOWUPS.beforeEndHours + 2) * H) {
+      mail = { subject: `About 24 hours left on your ${l.city ?? "area"} hold`, body: [
+        `Hi ${first},`, "",
+        `Quick heads-up: your hold on ${where} ends ${until}. After that, the next med spa that checks ${l.city ?? "your area"} can claim it.`, "",
+        `Grab a 20-minute time and it stays held for ${l.business} through the call:`, link, "",
+        "Andrew"] };
+    } else if (n <= 2 && live && now >= end! - FOLLOWUPS.beforeEndHours * H) {
+      mail = { subject: `Your hold on ${l.city ?? "your area"} ends tonight`, body: [
+        `Hi ${first},`, "",
+        `This is the last note from me on this: ${l.business}'s hold on ${where} ends ${until}.`,
+        "If you want it, pick any time and it stays yours through the call:", link, "",
+        "If now isn't the time, no problem. Reply \"later\" and I'll check in next quarter.", "",
+        "Andrew"] };
+    }
+    if (!mail) continue;
+    // Stamp first so a retry can never double-send. #3 can skip #2 when the hold is short.
+    const next = mail.subject.startsWith("Your hold on") ? 3 : n + 1;
+    await db.from("landing_leads").update({ followups: next, followup_last_at: new Date().toISOString(), ...(n === 0 ? { followup_sent_at: new Date().toISOString() } : {}) }).eq("id", l.id);
+    await emailProspect(l.email, mail.subject, join(mail.body));
     out.followup++;
   }
 

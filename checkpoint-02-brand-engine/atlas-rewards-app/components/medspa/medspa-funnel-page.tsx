@@ -10,6 +10,9 @@
  *   build your app → your numbers → estimate → qualify (the gate) → pick a time
  *   → pre-call page → reminders → walkthrough → Andrew marks Paid → Meta Purchase
  *
+ * CP-205: logo-animation placeholder video with an end card (components/medspa/intro-video.tsx),
+ * the named Founding Partner stack in the offer section, the 48-hour hold in the steps.
+ *
  * Claims (Atlas Messaging Library): no invented results or reviews; the
  * Flippo's clips are labeled as an arcade; the estimate is labeled a planning
  * estimate; price is quoted on the call unless PRICE_BEFORE_CALL is set.
@@ -27,8 +30,9 @@ import { DeskListMock } from "@/components/site/site-mocks";
 import { useSiteMotion } from "@/components/site/motion";
 // CP-202: buttons go to the funnel page; hero A/B; video placeholder; offer block
 // CP-204: no app preview anywhere; the hook is "is your area still open?"; the offer = area lock + founding spots + guarantees
-import { FOUNDING, GUARANTEES, LANDING_VSL, TERRITORY } from "@/lib/landing/medspa-funnel";
+import { FOUNDING, GUARANTEES, HOLD, LANDING_VSL, MONTHLY_PRICE, OFFER_NAME, SETUP_STACK, TERRITORY } from "@/lib/landing/medspa-funnel";
 import { withQuery } from "@/lib/landing/ab";
+import { IntroVideo, INTRO_VIDEO } from "@/components/medspa/intro-video"; // CP-205
 
 
 export function MedspaFunnelPage() {
@@ -105,40 +109,36 @@ function HeroVideo({ onStart }: { onStart: () => void }) {
   );
 }
 
-/** The video, or a branded placeholder until LANDING_VSL.embed is set. The player loads only after a tap. */
+/** The video, or (CP-205) the Atlas logo animation with an end card until LANDING_VSL.embed is set. The real player loads only after a tap. */
 function VideoFrame({ onStart }: { onStart: () => void }) {
-  const [state, setState] = useState<"idle" | "playing" | "soon">("idle");
+  const [playing, setPlaying] = useState(false);
   const src = LANDING_VSL.embed ? `${LANDING_VSL.embed}${LANDING_VSL.embed.includes("?") ? "&" : "?"}autoplay=1&playsinline=1` : null;
+  if (!src) {
+    return (
+      <IntroVideo where="medspa_hero" title={`${LANDING_VSL.label}: coming soon.`} body="Until then, the 10-second version: we work with one med spa per area. See if yours is still open.">
+        <span className="hidden sm:inline-flex">{/* phones: the hero button sits right below */}
+          <button type="button" onClick={() => { track("vsl_played", { source: "medspa_hero", placeholder: true }); onStart(); }} className="s-btn s-btn-light s-focus !h-11 text-[14.5px]"><MapPin className="h-4 w-4" aria-hidden />Check my area</button>
+        </span>
+      </IntroVideo>
+    );
+  }
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-[26px] bg-[#06318F] shadow-[0_40px_90px_-30px_rgba(2,20,70,.8)] ring-1 ring-white/25">
-      {state === "playing" && src ? (
+      {playing ? (
         <iframe src={src} title={LANDING_VSL.label} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen className="absolute inset-0 h-full w-full" />
       ) : (
         <>
-          <div aria-hidden className="absolute inset-0 bg-[url('/landing/blue-lines.jpg')] bg-cover bg-center" />
-          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#041F5C]/70 via-transparent to-transparent" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/atlas-engine-logo.png" alt="" aria-hidden width={1315} height={494} className="absolute left-6 top-6 h-6 w-auto opacity-90" />
-          {state === "soon" ? (
-            <div className="absolute inset-0 grid place-items-center p-6" role="status">
-              <div className="max-w-[26rem] rounded-3xl bg-white/95 p-6 text-center text-[var(--s-ink)] shadow-2xl">
-                <div className="text-[1.15rem] font-bold">The video is on its way.</div>
-                <p className="mt-2 text-[15px] text-[var(--s-ink-2)]">In the meantime, check whether your area is still open. We work with one med spa per area.</p>
-                <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus mt-5 !h-12">Check if your area is open <ArrowRight className="h-4 w-4" aria-hidden /></button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" onClick={() => { setState(src ? "playing" : "soon"); track("vsl_played", { source: "medspa_hero", placeholder: !src }); }}
-              className="s-focus absolute inset-0 grid place-items-center" aria-label={src ? `Play: ${LANDING_VSL.label}` : "Video coming soon"}>
-              <span className="relative grid h-20 w-20 place-items-center rounded-full bg-white text-[var(--s-ocean)] shadow-[0_20px_50px_-10px_rgba(0,0,0,.5)] transition-transform hover:scale-105 sm:h-24 sm:w-24">
-                <span aria-hidden className="absolute inset-0 rounded-full bg-white/40 s-ping" />
-                <Play className="relative ml-1 h-8 w-8 fill-current sm:h-10 sm:w-10" aria-hidden />
-              </span>
-            </button>
-          )}
+          <img src={INTRO_VIDEO.posterEnd} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+          <button type="button" onClick={() => { setPlaying(true); track("vsl_played", { source: "medspa_hero", placeholder: false }); }}
+            className="s-focus absolute inset-0 grid place-items-center" aria-label={`Play: ${LANDING_VSL.label}`}>
+            <span className="relative grid h-20 w-20 place-items-center rounded-full bg-white text-[var(--s-ocean)] shadow-[0_20px_50px_-10px_rgba(0,0,0,.5)] transition-transform hover:scale-105 sm:h-24 sm:w-24">
+              <span aria-hidden className="absolute inset-0 rounded-full bg-white/40 s-ping" />
+              <Play className="relative ml-1 h-8 w-8 fill-current sm:h-10 sm:w-10" aria-hidden />
+            </span>
+          </button>
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-left text-white sm:p-6">
-            <div><div className="text-[15px] font-bold sm:text-[17px]">{LANDING_VSL.label}</div><div className="text-[13px] text-white/75">{src ? `${LANDING_VSL.minutes} min · sound on` : "Video coming soon"}</div></div>
-            <span className="hidden rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold ring-1 ring-white/25 backdrop-blur sm:inline">{LANDING_VSL.minutes}:00</span>
+            <div><div className="text-[15px] font-bold sm:text-[17px]">{LANDING_VSL.label}</div><div className="text-[13px] text-white/75">{LANDING_VSL.minutes} min · sound on</div></div>
           </div>
         </>
       )}
@@ -353,10 +353,10 @@ function DeskBand() {
 
 /* ───────────── how it works: the funnel, honestly ───────────── */
 const STEPS = [
-  { icon: MapPin, when: "Today, 10 seconds", t: "Check your area", d: "We work with one med spa per area. Enter your zip and see if yours is still open." },
-  { icon: Sparkles, when: "Today, 60 seconds", t: "See your numbers", d: "Five taps about your practice, then what patient recall could win back each year." },
-  { icon: Clock, when: "Today", t: "Pick a time", d: "If you qualify, a 20-minute slot on Andrew's calendar." },
-  { icon: ShieldCheck, when: "The call", t: "20 minutes, no pressure", d: "Your numbers, how Atlas runs at your desk, and the offer for your area. You decide." },
+  { icon: MapPin, when: "Today, 30 seconds", t: "Check and hold your area", d: `We work with one med spa per area. If yours is open, hold it free for ${HOLD.hours} hours while you decide.` },
+  { icon: Sparkles, when: "Today, 30 seconds", t: "See your numbers", d: "Three taps about your practice, then what patient recall could win back each year." },
+  { icon: Clock, when: "Within a few days", t: "Pick a time", d: "If you qualify, a 20-minute slot on Andrew's calendar. Your area stays held through the call." },
+  { icon: ShieldCheck, when: "The call", t: "See your own app", d: "Andrew builds a preview of your practice's app before the call. Your numbers, the offer for your area. You decide." },
   { icon: Check, when: "Within 7 days", t: "Live at your checkout", d: "We load your menu, set up your first membership, print your QR and train your staff." },
 ];
 function HowItWorks({ onStart }: { onStart: () => void }) {
@@ -411,15 +411,41 @@ function Offer({ onStart }: { onStart: () => void }) {
           ))}
         </ul>
 
-        {FOUNDING.active && (
-          <div className="mx-auto mt-8 flex max-w-[60rem] flex-col items-start justify-between gap-5 rounded-[26px] bg-white/10 p-6 ring-1 ring-white/25 backdrop-blur sm:flex-row sm:items-center sm:p-7">
-            <div>
-              <div className="flex items-center gap-2 text-[1.15rem] font-bold text-white"><Sparkles className="h-5 w-5" aria-hidden />Founding practices: setup {fmtMoney(FOUNDING.setupFounding)} instead of {fmtMoney(FOUNDING.setupFull)}</div>
-              <p className="mt-1.5 max-w-[38rem] text-[14.5px] text-white/85">For the first {FOUNDING.spots} med spas, in exchange for {FOUNDING.trade}. Setup covers your app, large banner, table tents, their design and QR scanners. Check your area to see how many spots are left.</p>
-            </div>
-            <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus shrink-0"><MapPin className="h-4 w-4" aria-hidden />Check my area</button>
+        {/* CP-205: the named, stacked offer */}
+        <div className="mx-auto mt-10 grid max-w-[64rem] overflow-hidden rounded-[30px] bg-white text-[var(--s-ink)] shadow-[0_40px_80px_-40px_rgba(2,20,70,.8)] lg:grid-cols-[1.35fr_1fr]">
+          <div className="p-6 sm:p-9">
+            <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--s-ocean)]">{FOUNDING.active ? `First ${FOUNDING.spots} med spas only` : "Your setup"}</p>
+            <h3 className="mt-2 text-[1.6rem] font-bold leading-tight tracking-[-0.02em]">{FOUNDING.active ? `The ${OFFER_NAME}` : "Everything in your setup"}</h3>
+            <ul className="mt-6 grid gap-4">
+              {SETUP_STACK.map((it, i) => (
+                <li key={it.title} className="flex gap-3.5">
+                  <span className={cn("mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full", i === 0 ? "bg-[var(--s-ocean)] text-white" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}><Check className="h-4 w-4" strokeWidth={3} aria-hidden /></span>
+                  <div><div className="text-[15.5px] font-bold">{it.title}{it.value ? <span className="ml-2 text-[13px] font-semibold text-[var(--s-ink-3)]">{fmtMoney(it.value)} value</span> : null}</div><p className="mt-0.5 text-[14px] leading-snug text-[var(--s-ink-3)]">{it.detail}</p></div>
+                </li>
+              ))}
+            </ul>
           </div>
-        )}
+          <div className="relative flex flex-col justify-between gap-8 overflow-hidden bg-[var(--s-paper)] p-6 sm:p-9 lg:border-l lg:border-[var(--s-line)]">
+            <div>
+              <div className="text-[13px] font-semibold text-[var(--s-ink-3)]">Setup, one time</div>
+              {FOUNDING.active ? (
+                <>
+                  <div className="mt-2 text-[15px] font-semibold text-[var(--s-ink-3)] line-through decoration-rose-400/80">{fmtMoney(FOUNDING.setupFull)}</div>
+                  <div className="text-[3.2rem] font-extrabold leading-none tracking-tight">{fmtMoney(FOUNDING.setupFounding)}</div>
+                  <p className="mt-3 text-[14px] leading-relaxed text-[var(--s-ink-2)]">Founding price, in exchange for {FOUNDING.trade}.</p>
+                </>
+              ) : <div className="mt-2 text-[3.2rem] font-extrabold leading-none tracking-tight">{fmtMoney(FOUNDING.setupFull)}</div>}
+              <div className="s-rule my-5" />
+              <div className="text-[13px] font-semibold text-[var(--s-ink-3)]">Then monthly</div>
+              <div className="mt-1 text-[1.15rem] font-bold">{MONTHLY_PRICE ? `${fmtMoney(MONTHLY_PRICE)}/month, flat` : "One flat plan, quoted on your call"}</div>
+              <p className="mt-1 text-[13.5px] text-[var(--s-ink-3)]">Month to month. No percentage of your revenue.</p>
+            </div>
+            <div>
+              <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus w-full"><MapPin className="h-4 w-4" aria-hidden />Check and hold my area</button>
+              <p className="mt-2.5 text-center text-[12.5px] text-[var(--s-ink-3)]">Open areas can be held free for {HOLD.hours} hours.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -453,9 +479,10 @@ function Included({ onStart }: { onStart: () => void }) {
  * cost answer reflects the setup pricing in FOUNDING. The main site keeps MEDSPA_FAQ. */
 const FUNNEL_FAQ: { q: string; a: string }[] = [
   { q: "What does \"one med spa per area\" mean?", a: `Once you're a client, we won't work with another med spa within ${TERRITORY.radiusMiles} miles of your practice for as long as you stay with us. If you cancel, the area opens back up.` },
+  { q: "What does holding my area do?", a: `If your area is open, you can hold it free for ${HOLD.hours} hours. While it's held, no other med spa within ${TERRITORY.radiusMiles} miles can claim it. Book your call before the hold ends and it stays held through the call. No card, no commitment.` },
   { q: "How does the pays-for-itself guarantee work?", a: `${GUARANTEES[0].body} ${GUARANTEES[0].fine}` },
   ...MEDSPA_FAQ.map((f) => f.q === "What does it cost?"
-    ? { q: f.q, a: `Setup is ${fmtMoney(FOUNDING.setupFull)}${FOUNDING.active ? ` (${fmtMoney(FOUNDING.setupFounding)} for our first ${FOUNDING.spots} founding practices)` : ""} and covers your app, banner, table tents, their design and QR scanners. Then one flat monthly plan, month to month, quoted on your walkthrough. No percentage of your treatment revenue, ever.` }
+    ? { q: f.q, a: `Setup is ${fmtMoney(FOUNDING.setupFull)}${FOUNDING.active ? ` (${fmtMoney(FOUNDING.setupFounding)} for our first ${FOUNDING.spots} founding practices)` : ""} and covers your app, banner, table tents, their design and QR scanners. Then one flat monthly plan, month to month, ${MONTHLY_PRICE ? `${fmtMoney(MONTHLY_PRICE)} a month` : "quoted on your walkthrough"}. No percentage of your treatment revenue, ever.` }
     : f),
 ];
 function Faq() {

@@ -53,7 +53,8 @@ export async function GET(req: Request) {
     outcome: o, outcome_at: new Date().toISOString(), ...(o === "paid" ? { paid_value: value } : {}),
     status: o === "paid" ? "closed" : "contacted",
   }).eq("id", id);
-  if (r.lead_id) await db.from("landing_leads").update({ status: o }).eq("id", r.lead_id);
+  // CP-205: lost or no-show releases the 48-hour area hold; paid locks the area below (hold no longer needed).
+  if (r.lead_id) await db.from("landing_leads").update({ status: o, ...(o === "lost" || o === "no_show" || o === "paid" ? { hold_expires_at: new Date().toISOString() } : {}) }).eq("id", r.lead_id);
 
   // CP-204: a paying practice claims its area (one med spa per area). Founding while spots remain.
   let areaNote = "";

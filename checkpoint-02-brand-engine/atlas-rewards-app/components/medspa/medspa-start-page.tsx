@@ -44,7 +44,7 @@ export function MedspaStartPage() {
           <div className="mx-auto max-w-[1060px]">
             <div className="mb-6 text-center sm:mb-8">
               <h1 className="s-load-1 mx-auto max-w-[20ch] text-[clamp(1.9rem,1.3rem+2.4vw,3rem)] font-bold leading-[1.05] tracking-[-0.035em] text-white">One med spa per area.</h1>
-              <p className="s-load-2 mx-auto mt-3 max-w-[34rem] text-[1.02rem] text-white/85">We never help the practice down the street compete with you. Check if yours is still open, then see what patient recall could win back.</p>
+              <p className="s-load-2 mx-auto mt-3 max-w-[34rem] text-[1.02rem] text-white/85">We never help the practice down the street compete with you. Check if yours is still open and hold it free for 48 hours, then see what patient recall could win back.</p>
             </div>
             <div className="s-load-2 rounded-[30px] bg-white p-5 text-[var(--s-ink)] shadow-[0_40px_90px_-40px_rgba(2,20,70,.7)] ring-1 ring-white/60 sm:p-9">
               {ctx ? <MedspaFunnel source={ctx.source} variant={ctx.variant} /> : <div className="h-[460px]" aria-hidden />}

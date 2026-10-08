@@ -31,19 +31,41 @@ export function milesBetween(a: { lat: number; lng: number }, b: { lat: number; 
 
 export type AreaCheck =
   | { ok: false; error: string }
-  | { ok: true; zip: string; city: string; state: string; open: boolean; radiusMiles: number; founding: { active: boolean; spotsLeft: number; spots: number; setupFull: number; setupFounding: number } };
+  | { ok: true; zip: string; city: string; state: string; open: boolean; held: boolean; heldUntil: string | null; radiusMiles: number; founding: { active: boolean; spotsLeft: number; spots: number; setupFull: number; setupFounding: number } };
 
-export async function checkArea(zipInput: string): Promise<AreaCheck> {
+/**
+ * CP-205: `open` is false when a client holds the area (claimed) OR another lead has an
+ * active 48-hour hold within the radius (`held`, with `heldUntil`). Pass the visitor's own
+ * lead id so their own hold doesn't block them.
+ */
+export async function checkArea(zipInput: string, opts: { leadId?: string | null } = {}): Promise<AreaCheck> {
   const at = lookupZip(zipInput);
   if (!at) return { ok: false, error: "We couldn't find that zip code. Please check it and try again." };
   const db = createAdminClient();
   const { data, error } = await db.from("medspa_territories").select("lat, lng, radius_miles, founding").eq("active", true).limit(5000);
   if (error) throw error;
   const rows = data ?? [];
-  const open = !rows.some((t) => milesBetween(at, { lat: Number(t.lat), lng: Number(t.lng) }) <= Number(t.radius_miles ?? TERRITORY.radiusMiles));
+  const claimed = rows.some((t) => milesBetween(at, { lat: Number(t.lat), lng: Number(t.lng) }) <= Number(t.radius_miles ?? TERRITORY.radiusMiles));
   const used = rows.filter((t) => t.founding).length;
+
+  // Active holds by other leads (CP-205)
+  let heldUntil: string | null = null;
+  if (!claimed) {
+    let q = db.from("landing_leads").select("id, zip, hold_expires_at").gt("hold_expires_at", new Date().toISOString()).not("zip", "is", null).limit(2000);
+    if (opts.leadId && /^[0-9a-f-]{36}$/i.test(opts.leadId)) q = q.neq("id", opts.leadId);
+    const { data: holds, error: hErr } = await q;
+    if (hErr) console.error("[territory] holds query failed", hErr);
+    for (const h of holds ?? []) {
+      const hz = lookupZip(String(h.zip));
+      if (hz && milesBetween(at, hz) <= TERRITORY.radiusMiles) {
+        const until = String(h.hold_expires_at);
+        if (!heldUntil || until > heldUntil) heldUntil = until;
+      }
+    }
+  }
+  const held = !!heldUntil;
   return {
-    ok: true, zip: at.zip, city: at.city, state: at.state, open, radiusMiles: TERRITORY.radiusMiles,
+    ok: true, zip: at.zip, city: at.city, state: at.state, open: !claimed && !held, held, heldUntil, radiusMiles: TERRITORY.radiusMiles,
     founding: { active: FOUNDING.active && used < FOUNDING.spots, spotsLeft: Math.max(0, FOUNDING.spots - used), spots: FOUNDING.spots, setupFull: FOUNDING.setupFull, setupFounding: FOUNDING.setupFounding },
   };
 }

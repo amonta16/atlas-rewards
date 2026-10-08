@@ -7,7 +7,7 @@ import { CALL_MINUTES, HOST_TZ, candidateSlots, dayKey, overlapsBusy } from "@/l
 // CP-201: the /medspa funnel gate, pre-call page token and Meta Schedule (server side).
 import { newEventId, newToken } from "@/lib/landing/funnel-sign";
 import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
-import { PRECALL_PREP, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { HOLD, PRECALL_PREP, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 
 /**
  * POST /api/landing/demo-request — CP-100, CP-189
@@ -122,7 +122,9 @@ export async function POST(req: Request) {
   // CP-201: link the lead to its booking, and tell Meta a qualified call was scheduled.
   const confirmUrl = row.confirm_token ? `${SITE_ORIGIN}/medspa/confirm/${row.confirm_token}` : null;
   if (row.lead_id) {
-    await supabase.from("landing_leads").update({ status: "booked", demo_request_id: data.id }).eq("id", row.lead_id);
+    // CP-205: booking keeps the area held through the call plus HOLD.afterCallHours.
+    const holdUntil = slotStart ? new Date(slotStart.getTime() + HOLD.afterCallHours * 3600_000).toISOString() : null;
+    await supabase.from("landing_leads").update({ status: "booked", demo_request_id: data.id, ...(holdUntil ? { hold_expires_at: holdUntil } : {}) }).eq("id", row.lead_id);
     if (row.schedule_event_id) {
       const n = splitName(name);
       await sendCapiEvent({
@@ -170,7 +172,7 @@ export async function POST(req: Request) {
       meetUrl ? `Video link: ${meetUrl}` : "Andrew will send the video link before the call.",
       calendarStatus === "created" ? "A calendar invite is on its way from andrew@atlas-engine.app." : "",
       // CP-201: the pre-call page (short video + "confirm I'll be there").
-      ...(confirmUrl ? ["", "One step left: your call isn't confirmed until you watch a short video and tap confirm:", confirmUrl, "", "To get the most out of 20 minutes, have these handy:", ...PRECALL_PREP.map((p) => `- ${p}`)] : []),
+      ...(confirmUrl ? ["", `Before we talk, I'll build a preview of ${business}'s own patient app (your name, logo and colors) so you see it on the call, not a generic demo. Your area stays held for you through the call.`, "", "One step left: your call isn't confirmed until you tap confirm here:", confirmUrl, "", "To get the most out of 20 minutes, have these handy:", ...PRECALL_PREP.map((p) => `- ${p}`)] : []),
       "",
       "Need a different time? Just reply to this email.",
       "",
