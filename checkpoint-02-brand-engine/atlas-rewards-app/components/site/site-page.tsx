@@ -511,29 +511,30 @@ export function ReviewsBand() {
   );
 }
 
-/* ───────────── team ───────────── */
+/* ───────────── team: meet the founders (Oct 2026) ─────────────
+ * Photo: public/landing/founders.jpg (all four, uncropped; team-sunset.jpg is no longer used). Names: add them to FOUNDER_NAMES (left to right in
+ * the main photo) and a caption appears under it; while empty, no caption shows. */
+const FOUNDER_NAMES: string[] = [];
 function Team() {
   const v = useInView<HTMLDivElement>({ threshold: 0.3 });
   return (
-    <section className="s-section" aria-labelledby="team-title">
-      <div ref={v.ref} className={cn("s-wrap grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20", v.inView && "s-in")}>
+    <section id="founders" className="s-section scroll-mt-16" aria-labelledby="team-title">
+      <div ref={v.ref} className={cn("s-wrap grid items-center gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16", v.inView && "s-in")}>
         <div>
-          <h2 id="team-title" className="s-h2 s-reveal max-w-[14ch]">Built by people who come to your front desk.</h2>
-          <p className="s-lead s-reveal s-d1 mt-6 max-w-[30rem]">Atlas started on California&apos;s Central Coast, with local businesses that were tired of watching chains have apps while they had punch cards. We still set every practice up in person or on a call with the same people who built it.</p>
+          <p className="s-reveal text-[13px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]">The team behind Atlas</p>
+          <h2 id="team-title" className="s-h2 s-reveal mt-3 max-w-[14ch]">Meet the founders.</h2>
+          <p className="s-lead s-reveal s-d1 mt-6 max-w-[31rem]">We&apos;re a small team of engineers who grew up together on California&apos;s Central Coast. We build Atlas ourselves, and when you sign up you work with us directly: the people who wrote the software set up your practice and pick up when you call.</p>
           <ul className="s-reveal s-d2 mt-8 grid gap-6 sm:grid-cols-3">
-            {[["Local first", "We work with practices we can actually talk to."], ["Hands-on setup", "Your menu, your providers, your membership: loaded with you."], ["Here after launch", "Same people on the call every time."]].map(([t, d]) => <li key={t}><div className="font-semibold">{t}</div><div className="s-small mt-1">{d}</div></li>)}
+            {[["Founders on every call", "No account managers or call centers. You talk to the people who built it."], ["Hands-on setup", "Your menu, providers and membership, loaded with you in person or on video."], ["Built in California", "Designed, built and supported from the Central Coast."]].map(([t, d]) => <li key={t}><div className="font-semibold">{t}</div><div className="s-small mt-1">{d}</div></li>)}
           </ul>
         </div>
-        <div className="s-reveal s-d1 grid grid-cols-[1.3fr_1fr] gap-4">
-          <div className="overflow-hidden rounded-[32px] shadow-xl">
+        <figure className="s-reveal s-d1">
+          <div className="overflow-hidden rounded-[32px] shadow-[0_40px_80px_-40px_rgba(6,49,143,.45)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/landing/team-sunset.jpg" alt="The Atlas Engine team at sunset" width={1600} height={1067} loading="lazy" className="aspect-[4/5] h-full w-full object-cover" />
+            <img src="/landing/founders.jpg" alt="The four founders of Atlas Engine on a ballfield at sunset" width={1600} height={1066} loading="lazy" className="aspect-[3/2] h-full w-full object-cover" />
           </div>
-          <div className="mt-16 overflow-hidden rounded-[32px] shadow-xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/landing/team-field.jpg" alt="The Atlas Engine team at a local ballfield" width={1600} height={1067} loading="lazy" className="aspect-[3/4] h-full w-full object-cover object-[60%_center]" />
-          </div>
-        </div>
+          {FOUNDER_NAMES.length > 0 && <figcaption className="s-small mt-3">Left to right: {FOUNDER_NAMES.join(", ")}</figcaption>}
+        </figure>
       </div>
     </section>
   );
