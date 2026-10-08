@@ -129,29 +129,53 @@ export const LANDING_VSL: { embed: string | null; minutes: number; label: string
   label: "Andrew, founder of Atlas, in 2 minutes",
 };
 
-/**
- * The offer block on /medspa. Both are null until Andrew approves the wording
- * (a guarantee is a promise to customers, so it never ships by default).
- * Recommended (CP-202 notes): a guarantee Atlas controls, e.g.
- *   guarantee: { title: "Live in 7 days, or your first month is free.",
- *                body: "If your app isn't live at your checkout within 7 days of your setup call, you don't pay for month one. After that it's month to month: cancel any time." }
- *   founding:  "Founding-practice pricing for our first 10 med spas. We onboard a few practices a week."
+/* ───────────── CP-204: the offer (area lock, founding spots, guarantees) ─────────────
+ * Andrew approved the structure on Oct 8 2026. Change numbers here; every page,
+ * the area check and the emails read from this block.
+ * Rules: honor every guarantee exactly as written, and keep the conditions in the
+ * client agreement too. Only promise what Atlas can measure.
  */
-export const OFFER: { guarantee: { title: string; body: string } | null; founding: string | null } = {
-  guarantee: null,
-  founding: null,
-};
+
+/** One med spa per area. A practice's area is this many miles around its zip (per-row override in medspa_territories). */
+export const TERRITORY = { radiusMiles: 10 };
 
 /**
- * A/B tests. Each visitor gets one arm, kept on their browser so they always
- * see the same page; the arm is saved on their lead (landing_leads.variant)
- * and sent with every analytics event, so you can compare leads, bookings
- * and paid by arm (SQL view landing_funnel_by_variant).
- *
- *   hero: on /medspa, "phone" (app screens in a phone frame) vs "video" (the
- *         founder video up top). Force one with /medspa?hero=video.
- *   entry: Meta ad set A → /medspa (landing page first), ad set B →
- *         /medspa/start (straight into the quiz). Run them as a Meta A/B test.
+ * Founding practices. The setup fee is real: non-founding practices pay setupFull.
+ * Founding practices pay setupFounding in exchange for a filmed testimonial and a
+ * case study after 90 days. Spots left = spots minus active founding territories.
+ * Set active=false when the founding round closes; the page then shows setupFull.
  */
-export const HERO_ARMS = ["phone", "video"] as const;
-export type HeroArm = (typeof HERO_ARMS)[number];
+export const FOUNDING = {
+  active: true,
+  spots: 10,
+  setupFull: 1000,
+  setupFounding: 500,
+  trade: "a short filmed testimonial and a case study after 90 days",
+};
+
+export type Guarantee = { id: string; title: string; short: string; body: string; fine: string };
+/** Strongest first. The first one leads the ad and the page. */
+export const GUARANTEES: Guarantee[] = [
+  {
+    id: "pays",
+    title: "It pays for itself, or you stop paying.",
+    short: "Pays for itself in 90 days, or you don't pay until it does",
+    body: "If Atlas hasn't brought in more than you've paid us by day 90, you don't pay another dollar until it has. We keep working, free.",
+    fine: "Counted from your Atlas dashboard: membership dues collected through your app, plus the price of repeat treatments your desk logs for patients enrolled in your app, compared with the setup and monthly fees you've paid us. Requires your checkout QR code to be out, staff logging treatments at the desk, and at least one membership offered in your app.",
+  },
+  {
+    id: "live7",
+    title: "Live in 7 days, or it's on us.",
+    short: "Live in 7 days, or setup and month one are free",
+    body: "If your app isn't live at your checkout within 7 days of your setup call, your setup is free and your first month is free.",
+    fine: "The 7 days start once we have your logo, treatment menu and membership details from the setup call.",
+  },
+  {
+    id: "leave",
+    title: "Leave any month. Keep everything.",
+    short: "Cancel any month and keep your banners, table tents and patient list",
+    body: "No contract. Cancel any month and you keep the banners and table tents we made you, and your patient list is yours to export.",
+    fine: "Cancel before your next billing date; you're billed through the end of the current month.",
+  },
+];
+

@@ -1,7 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verify } from "@/lib/landing/funnel-sign";
 import { sendCapiEvent, splitName } from "@/lib/landing/meta-capi";
-import { DEFAULT_PURCHASE_VALUE, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { DEFAULT_PURCHASE_VALUE, FOUNDING, SITE_ORIGIN, TERRITORY } from "@/lib/landing/medspa-funnel";
+import { lookupZip } from "@/lib/landing/territory";
 
 /**
  * GET /api/landing/outcome?id=<request id>&o=showed|no_show|paid|lost&s=<sig>[&v=<value>] — CP-201
@@ -54,6 +55,24 @@ export async function GET(req: Request) {
   }).eq("id", id);
   if (r.lead_id) await db.from("landing_leads").update({ status: o }).eq("id", r.lead_id);
 
+  // CP-204: a paying practice claims its area (one med spa per area). Founding while spots remain.
+  let areaNote = "";
+  if (o === "paid" && r.lead_id) {
+    const { data: lead } = await db.from("landing_leads").select("zip, business").eq("id", r.lead_id).maybeSingle();
+    const z = lead?.zip ? lookupZip(lead.zip) : null;
+    if (z) {
+      const { data: have } = await db.from("medspa_territories").select("id").eq("lead_id", r.lead_id).eq("active", true).limit(1);
+      if (!have?.length) {
+        const { count } = await db.from("medspa_territories").select("id", { count: "exact", head: true }).eq("active", true).eq("founding", true);
+        const founding = FOUNDING.active && (count ?? 0) < FOUNDING.spots;
+        await db.from("medspa_territories").insert({ business: lead?.business ?? r.business ?? "Practice", zip: z.zip, lat: z.lat, lng: z.lng, city: z.city, state: z.state, radius_miles: TERRITORY.radiusMiles, founding, lead_id: r.lead_id });
+        areaNote = `<p>${esc(z.city)}, ${esc(z.state)} is now locked to them (${TERRITORY.radiusMiles} miles)${founding ? ", as a founding practice" : ""}.</p>`;
+      }
+    } else {
+      areaNote = "<p>No zip on file, so no area was locked. Add a row to medspa_territories in Supabase.</p>";
+    }
+  }
+
   let capi = "";
   if (firstPaid) {
     const n = splitName(r.name ?? "");
@@ -69,5 +88,5 @@ export async function GET(req: Request) {
   const valueForm = o === "paid"
     ? `<p>Value sent to Meta: <b>$${(value ?? 0).toLocaleString()}</b>. Different amount?</p><form method="get"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="o" value="paid"><input type="hidden" name="s" value="${esc(sig)}"><input name="v" inputmode="numeric" placeholder="e.g. 1500"><button>Save</button></form>`
     : "";
-  return page(`${esc(r.business ?? "Lead")}: ${LABEL[o]}`, `<p>Saved for ${esc(r.name ?? "")}.</p>${capi}${valueForm}`);
+  return page(`${esc(r.business ?? "Lead")}: ${LABEL[o]}`, `<p>Saved for ${esc(r.name ?? "")}.</p>${capi}${areaNote}${valueForm}`);
 }

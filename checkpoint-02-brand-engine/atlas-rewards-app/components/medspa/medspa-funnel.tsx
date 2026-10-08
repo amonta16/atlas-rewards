@@ -2,63 +2,54 @@
 /**
  * components/medspa/medspa-funnel.tsx — the /medspa funnel, in the brand-site look.
  *
- *   Your app (type, name, color: a live app icon, no phone) → Your numbers (4 taps)
- *   → the estimate → About you: one compact form (STEP 1) → POST /api/landing/lead
+ *   Your area (zip → "open" or "taken", founding spots left; GET /api/landing/area)
+ *   → Your practice (type + 4 number taps) → the estimate, the offer and the guarantees
+ *   → About you: one compact form → POST /api/landing/lead (the server decides,
+ *     and re-checks the area)
  *       qualified  → Meta Lead (Pixel + CAPI, one event_id) → Pick a time (Calendly layout)
  *                    → booked → the pre-call page /medspa/confirm/<token>
- *       not a fit  → a kind "here's your estimate by email" screen. No calendar, no Meta signal.
+ *       not a fit / area taken → a kind screen + one email. No calendar, no Meta signal.
  *
- * CP-201 built it; CP-202 Calendly booking + A/B arm; CP-203 cleaner questions
- * (lettered answer tiles, keyboard A–E), an estimate that shows its math, a
- * condensed About form, and no phone preview.
- *
- * A qualified visitor who leaves before booking can come back to /medspa/start?lead=<id>
- * (the follow-up email link) or on the same browser and lands on the calendar.
+ * CP-201 built it; CP-202 Calendly booking + A/B arm; CP-203 lettered answers,
+ * estimate math, condensed About; CP-204 area check first, no app preview,
+ * founding offer + guarantees on the results screen.
  */
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Globe, ImagePlus, Loader2, Lock, Mail, Pencil, Pipette, ShieldCheck, Sparkles, Video, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Globe, Loader2, Lock, Mail, MapPin, Pencil, ShieldCheck, Sparkles, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { optimizedUrl } from "@/lib/img";
-import { dominantColorsFromFile, paletteFromColor } from "@/lib/logo-colors";
 import { fmtMoney } from "@/lib/landing/quiz-model";
 import { CYCLE_SOURCE, RECALL, REBOOK, SCENARIOS, VALUE_BANDS, VISIT_BANDS, estimateMedspa } from "@/lib/landing/medspa-quiz-model";
 import { PRACTICE_TYPES, type PracticeTypeId } from "@/lib/landing/medspa-data";
-import { BOOKING_SYSTEMS, ROLES, STAGES, TREATMENT_OPTIONS } from "@/lib/landing/medspa-funnel";
+import { BOOKING_SYSTEMS, GUARANTEES, ROLES, STAGES, TREATMENT_OPTIONS } from "@/lib/landing/medspa-funnel";
 import { CALL_MINUTES, COMMON_TZS, HOST_TZ, tzLabel } from "@/lib/landing/availability";
 import { track } from "@/lib/landing/analytics";
 
-const SWATCHES = ["#9f6b53", "#b08968", "#7c5c8e", "#2f6f73", "#c27c88", "#1f2937", "#8a9a5b", "#3b5b8c"];
-const QUIZ = ["type", "name", "color", "visits", "value", "rebook", "recall"] as const;
+const QUIZ = ["zip", "type", "visits", "value", "rebook", "recall"] as const;
 type QuizId = (typeof QUIZ)[number];
 type Phase = "quiz" | "results" | "about" | "nurture" | "time";
 const LEAD_KEY = "atlas_medspa_lead";
 const LETTERS = "ABCDEFGH";
 
 /** Which section each question belongs to, and its number inside that section. */
-const SECTION: Record<QuizId, { name: "Your app" | "Your numbers"; n: number; of: number }> = {
-  type: { name: "Your app", n: 1, of: 3 }, name: { name: "Your app", n: 2, of: 3 }, color: { name: "Your app", n: 3, of: 3 },
-  visits: { name: "Your numbers", n: 1, of: 4 }, value: { name: "Your numbers", n: 2, of: 4 }, rebook: { name: "Your numbers", n: 3, of: 4 }, recall: { name: "Your numbers", n: 4, of: 4 },
+const SECTION: Record<QuizId, { name: "Your area" | "Your practice"; n: number; of: number }> = {
+  zip: { name: "Your area", n: 1, of: 1 },
+  type: { name: "Your practice", n: 1, of: 5 }, visits: { name: "Your practice", n: 2, of: 5 }, value: { name: "Your practice", n: 3, of: 5 }, rebook: { name: "Your practice", n: 4, of: 5 }, recall: { name: "Your practice", n: 5, of: 5 },
 };
 
 const TITLES: Record<QuizId, { q: string; hint: string }> = {
-  type: { q: "What kind of practice do you run?", hint: "We'll start your app with the right treatments and rewards." },
-  name: { q: "What's your practice called?", hint: "It goes on your app's icon and home screen." },
-  color: { q: "Pick your brand color", hint: "Or drop in your logo and we'll pull the colors from it." },
+  zip: { q: "Is your area still open?", hint: "We work with one med spa per area, so we never help the practice down the street compete with you. Enter your practice's zip code." },
+  type: { q: "What kind of practice do you run?", hint: "So we size your estimate to your treatments." },
   visits: { q: "Patient visits in a typical month?", hint: "A rough guess is perfect." },
   value: { q: "What's a typical visit worth?", hint: "Roughly, across your treatments." },
   rebook: { q: "How many due patients book on time?", hint: "Think of your neurotoxin patients at 3–4 months." },
   recall: { q: "How do you reach overdue patients today?", hint: "No wrong answers. It tells us how much room there is to grow." },
 };
 
+type Area = { zip: string; city: string; state: string; open: boolean; radiusMiles: number; founding: { active: boolean; spotsLeft: number; spots: number; setupFull: number; setupFounding: number } };
+
 /** Short labels for the "your answers" recap on the results screen. */
 const RECAP = { rebook: { most: "80%+ rebook on time", half: "About half rebook", few: "Under half rebook", unknown: "Rebook rate unknown" } as Record<string, string> };
-
-function mix(a: string, b: string, t: number) {
-  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
-  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
-  return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join("");
-}
-const initials = (n: string) => (n.trim() ? n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") : "YM");
 
 function useCountUp(target: number, run: boolean, ms = 1400) {
   const [v, setV] = useState(0);
@@ -91,10 +82,10 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
   const [step, setStep] = useState(0);
   const [type, setType] = useState<PracticeTypeId>("medspa");
   const [typeChosen, setTypeChosen] = useState(false);
-  const [name, setName] = useState("");
-  const [color, setColor] = useState(SWATCHES[0]);
-  const [logo, setLogo] = useState<string | null>(null);
-  const [logoName, setLogoName] = useState<string | null>(null);
+  const [zip, setZip] = useState("");
+  const [area, setArea] = useState<Area | null>(null);
+  const [areaState, setAreaState] = useState<"idle" | "checking">("idle");
+  const [areaError, setAreaError] = useState<string | null>(null);
   const [visitId, setVisitId] = useState<string | null>(null);
   const [valueId, setValueId] = useState<string | null>(null);
   const [rebookId, setRebookId] = useState<string | null>(null);
@@ -102,10 +93,11 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
   const [showMath, setShowMath] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
+  const [practiceName, setPracticeName] = useState("");
+  const [notFit, setNotFit] = useState<"area_taken" | "not_a_fit">("not_a_fit");
   const started = useRef(false);
   const headRef = useRef<HTMLHeadingElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const zipRef = useRef<HTMLInputElement>(null);
   const advance = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A qualified lead coming back (follow-up email link, or same browser) goes straight to the calendar.
@@ -117,15 +109,10 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
       if (id) { setLeadId(id); setFirstName(stored?.id === id ? stored.first ?? "" : ""); setPhase("time"); }
     } catch { /* private mode: start fresh */ }
   }, []);
-
-  useEffect(() => () => { if (logo) URL.revokeObjectURL(logo); }, [logo]);
   useEffect(() => () => { if (advance.current) clearTimeout(advance.current); }, []);
 
   const id: QuizId | null = phase === "quiz" ? QUIZ[step] : null;
   const venue = PRACTICE_TYPES.find((v) => v.id === type) ?? PRACTICE_TYPES[0];
-  const primary = useMemo(() => paletteFromColor(color).primary, [color]);
-  const practice = name.trim() || "Your Med Spa";
-
   const visits = VISIT_BANDS.find((b) => b.id === visitId);
   const value = VALUE_BANDS.find((b) => b.id === valueId);
   const rebook = REBOOK.find((r) => r.id === rebookId);
@@ -134,10 +121,10 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
   const likely = useCountUp(est?.likely ?? 0, phase === "results");
 
   useEffect(() => {
-    if (id === "name") nameRef.current?.focus({ preventScroll: true });
+    if (id === "zip" && !area) zipRef.current?.focus({ preventScroll: true });
     else headRef.current?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, phase]);
-
   useEffect(() => {
     if (phase === "results" && est) track("quiz_completed", { source, niche: "medspa", type, est_likely: est.likely, est_low: est.low, est_high: est.high });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,13 +137,22 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
     if (advance.current) clearTimeout(advance.current);
     advance.current = setTimeout(() => go(next), 260);
   }
-  async function onLogo(f: File | undefined) {
-    if (!f) return;
+
+  async function checkZip(e: React.FormEvent) {
+    e.preventDefault();
     touch();
-    if (logo) URL.revokeObjectURL(logo);
-    setLogo(URL.createObjectURL(f)); setLogoName(f.name);
-    const cols = await dominantColorsFromFile(f, 3);
-    if (cols[0]) setColor(cols[0]);
+    const z = zip.trim();
+    if (!/^\d{5}$/.test(z)) { setAreaError("Enter your practice's 5-digit zip code."); return; }
+    setAreaState("checking"); setAreaError(null); setArea(null);
+    try {
+      const r = await fetch(`/api/landing/area?zip=${z}`, { cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) throw new Error(j.error || "We couldn't check that right now. Please try again.");
+      setArea(j as Area);
+      track("area_checked", { source, open: !!j.open, state: j.state, spots_left: j.founding?.spotsLeft });
+    } catch (err) {
+      setAreaError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally { setAreaState("idle"); }
   }
 
   const choices = id === "visits" ? VISIT_BANDS : id === "value" ? VALUE_BANDS : id === "rebook" ? REBOOK : id === "recall" ? RECALL : null;
@@ -179,14 +175,14 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choices, step]);
 
-  const stage = phase === "quiz" ? (step < 3 ? 0 : 1) : phase === "results" ? 1 : phase === "about" || phase === "nurture" ? 2 : 3;
+  const stage = phase === "quiz" ? (step < 1 ? 0 : 1) : phase === "results" ? 1 : phase === "about" || phase === "nurture" ? 2 : 3;
   const sec = id ? SECTION[id] : null;
+  const where = area ? `${area.city}, ${area.state}` : "";
 
   return (
     <div className={cn("mx-auto", phase === "time" ? "max-w-none" : "max-w-[720px]")}>
-      {/* Where you are in the funnel */}
       <ol className="mb-7 flex flex-wrap items-center justify-center gap-x-2 gap-y-2 text-[12.5px] font-semibold" aria-label="Your progress">
-        {["Your app", "Your numbers", "About you", "Pick a time"].map((t, i) => (
+        {["Your area", "Your practice", "About you", "Pick a time"].map((t, i) => (
           <li key={t} className="flex items-center gap-2">
             <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1", i < stage ? "bg-[var(--s-ice)] text-[var(--s-ocean-deep)]" : i === stage ? "bg-[var(--s-ocean)] text-white" : "bg-[#F1F4F8] text-[var(--s-ink-3)]")} aria-current={i === stage ? "step" : undefined}>
               {i < stage ? <Check className="h-3.5 w-3.5" aria-hidden /> : <span className="tabular-nums">{i + 1}</span>}{t}
@@ -199,14 +195,62 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
       <div key={`${phase}-${step}`} className="animate-in fade-in slide-in-from-right-4 duration-300 motion-reduce:animate-none">
         {id && sec && (
           <div className="mb-6">
-            <div className="flex items-center gap-3">
-              <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]">{sec.name} · {sec.n} of {sec.of}</span>
-              <span className="flex flex-1 gap-1" aria-hidden>
-                {Array.from({ length: sec.of }).map((_, i) => <span key={i} className={cn("h-1 flex-1 rounded-full transition-colors", i < sec.n ? "bg-[var(--s-ocean)]" : "bg-[var(--s-ice)]")} />)}
-              </span>
-            </div>
-            <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.9rem]">{TITLES[id].q}</h3>
-            <p className="mt-1.5 text-[15px] text-[var(--s-ink-3)]">{TITLES[id].hint}</p>
+            {sec.of > 1 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]">{sec.name} · {sec.n} of {sec.of}</span>
+                <span className="flex flex-1 gap-1" aria-hidden>{Array.from({ length: sec.of }).map((_, i) => <span key={i} className={cn("h-1 flex-1 rounded-full transition-colors", i < sec.n ? "bg-[var(--s-ocean)]" : "bg-[var(--s-ice)]")} />)}</span>
+              </div>
+            )}
+            <h3 ref={headRef} tabIndex={-1} className={cn("text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.9rem]", sec.of > 1 && "mt-4")}>{TITLES[id].q}</h3>
+            <p className="mt-1.5 max-w-[36rem] text-[15px] text-[var(--s-ink-3)]">{TITLES[id].hint}</p>
+          </div>
+        )}
+
+        {id === "zip" && (
+          <div>
+            <form onSubmit={checkZip} className="flex flex-col gap-3 sm:flex-row">
+              <label className="relative flex-1">
+                <span className="sr-only">Practice zip code</span>
+                <MapPin aria-hidden className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--s-ocean)]" />
+                <input ref={zipRef} value={zip} onChange={(e) => { setZip(e.target.value.replace(/\D/g, "").slice(0, 5)); setArea(null); setAreaError(null); }}
+                  inputMode="numeric" autoComplete="postal-code" placeholder="Practice zip code" aria-invalid={!!areaError}
+                  className={cn(FIELD, "h-14 pl-12 text-lg tracking-[0.06em] tabular-nums")} />
+              </label>
+              <button type="submit" disabled={areaState === "checking"} className="s-btn s-btn-primary s-focus !h-14 disabled:opacity-60">{areaState === "checking" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}Check my area</button>
+            </form>
+            {areaError && <p role="alert" className="mt-3 text-sm font-medium text-rose-600">{areaError}</p>}
+
+            {area && area.open && (
+              <div role="status" className="mt-5 overflow-hidden rounded-[22px] border border-emerald-200 bg-emerald-50/70">
+                <div className="flex items-start gap-3.5 p-5">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-500 text-white"><Check className="h-5 w-5" strokeWidth={3} aria-hidden /></span>
+                  <div className="min-w-0">
+                    <div className="text-[1.15rem] font-bold text-[var(--s-ink)]">{where} is open.</div>
+                    <p className="mt-0.5 text-[14.5px] text-[var(--s-ink-2)]">No med spa within {area.radiusMiles} miles of {area.zip} works with Atlas yet. The first one to sign holds it.</p>
+                  </div>
+                </div>
+                {area.founding.active && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-emerald-200 bg-white/70 px-5 py-3.5">
+                    <span className="text-[14px] font-semibold text-[var(--s-ink)]"><Sparkles className="mr-1.5 inline h-4 w-4 text-[var(--s-ocean)]" aria-hidden />{area.founding.spotsLeft} of {area.founding.spots} founding spots left</span>
+                    <SpotsBar left={area.founding.spotsLeft} of={area.founding.spots} />
+                  </div>
+                )}
+              </div>
+            )}
+            {area && !area.open && (
+              <div role="status" className="mt-5 rounded-[22px] border border-[#F5D9A6] bg-[#FFF8EA] p-5">
+                <div className="text-[1.15rem] font-bold text-[var(--s-ink)]">A practice near {where} already holds this area.</div>
+                <p className="mt-1 text-[14.5px] text-[var(--s-ink-2)]">We only work with one med spa within {area.radiusMiles} miles. Join the waitlist and you&apos;ll hear first if it opens, or check another location.</p>
+              </div>
+            )}
+            {area && (
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                {area.open
+                  ? <button type="button" onClick={() => go(1)} className="s-btn s-btn-primary s-focus !h-12">See if you qualify <ArrowRight className="h-4 w-4" aria-hidden /></button>
+                  : <button type="button" onClick={() => setPhase("about")} className="s-btn s-btn-primary s-focus !h-12">Join the waitlist <ArrowRight className="h-4 w-4" aria-hidden /></button>}
+                <button type="button" onClick={() => { setArea(null); setZip(""); setTimeout(() => zipRef.current?.focus(), 0); }} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Check a different zip</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -215,7 +259,7 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
             {PRACTICE_TYPES.map((v) => {
               const sel = typeChosen && v.id === type;
               return (
-                <button key={v.id} type="button" role="radio" aria-checked={sel} onClick={() => pick(() => { setType(v.id); setTypeChosen(true); }, "type", v.label, 1)}
+                <button key={v.id} type="button" role="radio" aria-checked={sel} onClick={() => pick(() => { setType(v.id); setTypeChosen(true); }, "type", v.label, step + 1)}
                   className={cn("s-focus group relative aspect-[4/3] overflow-hidden rounded-2xl border-2 bg-[var(--s-ice)] text-left transition", sel ? "border-[var(--s-ocean)] ring-4 ring-[var(--s-ocean)]/15" : "border-transparent hover:border-[var(--s-ocean)]/40")}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={optimizedUrl(v.hero, 480)} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -227,51 +271,14 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
           </div>
         )}
 
-        {id === "name" && (
-          <form onSubmit={(e) => { e.preventDefault(); touch(); track("quiz_step", { source, step: "name", answer: name.trim() ? "named" : "skipped" }); go(2); }}>
-            <input ref={nameRef} value={name} onChange={(e) => { touch(); setName(e.target.value.slice(0, 40)); }} placeholder="e.g. Luma Aesthetics" autoComplete="organization" className={cn(FIELD, "h-14 text-lg")} />
-            <div className="mt-5 flex items-center gap-4">
-              <button type="submit" className="s-btn s-btn-primary s-focus !h-12">Continue <ArrowRight className="h-4 w-4" aria-hidden /></button>
-              {!name.trim() && <button type="button" onClick={() => go(2)} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Skip for now</button>}
-            </div>
-          </form>
-        )}
-
-        {id === "color" && (
-          <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                {SWATCHES.map((c) => <button key={c} type="button" aria-label={`Color ${c}`} aria-pressed={c === color} onClick={() => { touch(); setColor(c); }} className={cn("s-focus h-11 w-11 rounded-full ring-offset-2 transition-transform hover:scale-110", c === color && "ring-2 ring-[var(--s-ink)]")} style={{ background: c }} />)}
-                <label className="s-focus relative grid h-11 w-11 cursor-pointer place-items-center rounded-full border border-dashed border-[var(--s-ink-3)]/50 text-[var(--s-ink-3)]" title="Custom color">
-                  <Pipette className="h-4 w-4" aria-hidden /><span className="sr-only">Custom color</span>
-                  <input type="color" value={color} onChange={(e) => { touch(); setColor(e.target.value); }} className="absolute inset-0 cursor-pointer opacity-0" />
-                </label>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <button type="button" onClick={() => fileRef.current?.click()} className="s-focus inline-flex h-11 items-center gap-2 rounded-full border border-[var(--s-line)] bg-white px-4 text-sm font-semibold text-[var(--s-ink)] hover:border-[var(--s-ocean)]/40"><ImagePlus className="h-4 w-4 text-[var(--s-ocean)]" aria-hidden />{logoName ? "Change logo" : "Drop in your logo"}</button>
-                {logoName && <button type="button" onClick={() => { if (logo) URL.revokeObjectURL(logo); setLogo(null); setLogoName(null); }} className="s-focus inline-flex h-11 items-center gap-1 rounded-lg px-2 text-xs text-[var(--s-ink-3)] hover:text-[var(--s-ink)]"><X className="h-3.5 w-3.5" aria-hidden /> Remove</button>}
-                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" onChange={(e) => onLogo(e.target.files?.[0])} />
-              </div>
-              <p className="mt-2 text-xs text-[var(--s-ink-3)]">Your logo stays in your browser. We only pull the colors.</p>
-              <button type="button" onClick={() => { track("quiz_step", { source, step: "color", answer: logoName ? "logo" : color }); go(3); }} className="s-btn s-btn-primary s-focus mt-6 !h-12">Looks good <ArrowRight className="h-4 w-4" aria-hidden /></button>
-            </div>
-            <AppIcon name={practice} color={primary} logo={logo} />
-          </div>
-        )}
-
         {choices && id && <Choices items={choices} value={chosen} onPick={choose} />}
 
         {phase === "results" && est && visits && value && rebook && recall && (
           <div>
-            <div className="flex items-center gap-3">
-              <AppIcon name={practice} color={primary} logo={logo} size="sm" />
-              <div>
-                <p className="inline-flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]"><Sparkles className="h-3.5 w-3.5" aria-hidden /> {practice}&apos;s app is ready</p>
-                <h3 ref={headRef} tabIndex={-1} className="mt-0.5 text-[1.45rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.7rem]">Here&apos;s what patient recall could win back.</h3>
-              </div>
-            </div>
+            {area && <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[12.5px] font-bold text-emerald-700 ring-1 ring-emerald-200"><MapPin className="h-3.5 w-3.5" aria-hidden />{where} is open{area.founding.active ? ` · ${area.founding.spotsLeft} founding spots left` : ""}</p>}
+            <h3 ref={headRef} tabIndex={-1} className="mt-3 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">Here&apos;s what patient recall could win back for your practice.</h3>
 
-            <div className="s-ocean relative mt-6 overflow-hidden rounded-[24px] p-6 shadow-[0_26px_50px_-22px_rgba(11,95,214,.6)] sm:p-7">
+            <div className="s-ocean relative mt-5 overflow-hidden rounded-[24px] p-6 shadow-[0_26px_50px_-22px_rgba(11,95,214,.6)] sm:p-7">
               <div className="s-ocean-img opacity-60" aria-hidden />
               <div className="relative">
                 <div className="text-[13px] font-semibold text-white/80">Estimated recovered revenue, year one</div>
@@ -279,7 +286,6 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
                   <span className="text-5xl font-extrabold tabular-nums tracking-tight text-white sm:text-6xl" aria-label={`${fmtMoney(est.likely)} per year`}>{fmtMoney(likely)}</span>
                   <span className="text-[15px] font-semibold text-white/85">about {fmtMoney(est.perMonth)} a month</span>
                 </div>
-                {/* The math, as a row: missed → won back → value */}
                 <ol className="mt-6 grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr] sm:items-stretch">
                   <MathTile big={est.lapsedVisits.toLocaleString()} small="due visits slip a year" />
                   <Op>→</Op>
@@ -291,12 +297,10 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
               </div>
             </div>
 
-            {/* What they told us, with a way back */}
             <div className="mt-4 flex flex-wrap items-center gap-2 text-[13px]">
               {[`${visits.label} visits/mo`, `${value.label} a visit`, RECAP.rebook[rebook.id] ?? rebook.label, recall.label].map((t) => <span key={t} className="rounded-full bg-[var(--s-paper)] px-3 py-1 font-medium text-[var(--s-ink-2)] ring-1 ring-[var(--s-line)]">{t}</span>)}
-              <button type="button" onClick={() => go(3)} className="s-focus inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold text-[var(--s-ocean)] hover:underline"><Pencil className="h-3.5 w-3.5" aria-hidden />Edit</button>
+              <button type="button" onClick={() => go(2)} className="s-focus inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold text-[var(--s-ocean)] hover:underline"><Pencil className="h-3.5 w-3.5" aria-hidden />Edit</button>
             </div>
-
             <button type="button" onClick={() => setShowMath((v) => !v)} aria-expanded={showMath} className="s-focus mt-3 inline-flex items-center gap-1.5 rounded text-sm font-semibold text-[var(--s-ocean)] hover:underline">Where these numbers come from <ChevronDown className={cn("h-4 w-4 transition-transform", showMath && "rotate-180")} aria-hidden /></button>
             {showMath && (
               <div className="mt-2 rounded-2xl bg-[var(--s-paper)] p-4 text-[13px] leading-relaxed text-[var(--s-ink-2)] ring-1 ring-[var(--s-line)]">
@@ -305,39 +309,56 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
               </div>
             )}
 
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={() => { track("quiz_book_clicked", { source, est_likely: est.likely }); setPhase("about"); }} className="s-btn s-btn-primary s-focus">Walk me through it <ArrowRight className="h-4 w-4" aria-hidden /></button>
-              <button type="button" onClick={() => go(0)} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Start over</button>
+            {/* The offer, right where the number lands */}
+            <div className="mt-6 rounded-[22px] border border-[var(--s-line)] bg-[var(--s-paper)] p-5">
+              <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]"><ShieldCheck className="h-4 w-4" aria-hidden />Backed by three promises</div>
+              <ul className="mt-3 grid gap-2.5">
+                {GUARANTEES.map((g) => <li key={g.id} className="flex gap-2.5 text-[14.5px] font-semibold text-[var(--s-ink)]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--s-ocean)]" strokeWidth={3} aria-hidden />{g.short}</li>)}
+              </ul>
+              {area?.founding.active && <p className="mt-4 border-t border-[var(--s-line)] pt-3 text-[13.5px] text-[var(--s-ink-2)]"><b className="text-[var(--s-ink)]">Founding practices:</b> setup {fmtMoney(area.founding.setupFounding)} instead of {fmtMoney(area.founding.setupFull)}, in exchange for a short testimonial and a case study after 90 days. {area.founding.spotsLeft} spots left.</p>}
             </div>
-            <p className="mt-3 text-[13px] text-[var(--s-ink-3)]">A 20-minute video call with Andrew, who&apos;ll bring your app and these numbers. Month to month, no pressure.</p>
+
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => { track("quiz_book_clicked", { source, est_likely: est.likely }); setPhase("about"); }} className="s-btn s-btn-primary s-focus">Claim my area <ArrowRight className="h-4 w-4" aria-hidden /></button>
+              <button type="button" onClick={() => { setArea(null); setZip(""); go(0); }} className="s-focus rounded text-sm text-[var(--s-ink-3)] hover:text-[var(--s-ink)]">Start over</button>
+            </div>
+            <p className="mt-3 text-[13px] text-[var(--s-ink-3)]">Next: a 20-minute video call with Andrew to walk through these numbers and lock your area. Month to month, no pressure.</p>
           </div>
         )}
 
         {phase === "about" && (
-          <AboutYou headRef={headRef} firstFieldRef={firstFieldRef} source={source} practice={name.trim()}
-            answers={{ variant: variant ?? null, practice_type: venue.label, visit_band: visitId, value_band: valueId, rebook: rebookId, recall: recallId, estimate_likely: est?.likely ?? null, app_color: primary }}
-            onBack={() => setPhase("results")}
+          <AboutYou headRef={headRef} firstFieldRef={firstFieldRef} source={source} waitlist={!!area && !area.open}
+            answers={{ variant: variant ?? null, zip: area?.zip ?? (zip || null), practice_type: venue.label, visit_band: visitId, value_band: valueId, rebook: rebookId, recall: recallId, estimate_likely: est?.likely ?? null }}
+            onBack={() => (area && !area.open ? go(0) : setPhase("results"))}
             onResult={(r) => {
-              setFirstName(r.first);
+              setFirstName(r.first); setPracticeName(r.business);
               if (r.qualified && r.leadId) {
                 setLeadId(r.leadId);
                 try { localStorage.setItem(LEAD_KEY, JSON.stringify({ id: r.leadId, at: Date.now(), first: r.first })); } catch { /* ignore */ }
                 setPhase("time");
-              } else setPhase("nurture");
+              } else { setNotFit(r.reason === "area_taken" ? "area_taken" : "not_a_fit"); setPhase("nurture"); }
             }} />
         )}
 
         {phase === "nurture" && (
           <div className="py-2 text-center">
             <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[var(--s-ice)] text-[var(--s-ocean)]"><Mail className="h-6 w-6" aria-hidden /></span>
-            <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none">Thanks{firstName ? `, ${firstName}` : ""}. Your estimate is on its way.</h3>
-            <p className="mx-auto mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">From what you told us, a live walkthrough isn&apos;t the right next step yet. Walkthroughs are for owners and managers of practices that are open today. We&apos;ve emailed you your recall estimate and the demo app, so you can share it with whoever makes the call.</p>
-            <p className="mx-auto mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">If that changes, reply to the email and Andrew will set up a time.</p>
-            <a href="/medspa#demo" className="s-btn s-btn-quiet s-focus mt-6">Tap around the demo app</a>
+            {notFit === "area_taken" ? (
+              <>
+                <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none">You&apos;re on the waitlist{firstName ? `, ${firstName}` : ""}.</h3>
+                <p className="mx-auto mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">A practice near {where || "you"} holds this area right now. If it opens up, you&apos;ll hear from Andrew first. We&apos;ve emailed you your estimate in the meantime.</p>
+              </>
+            ) : (
+              <>
+                <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none">Thanks{firstName ? `, ${firstName}` : ""}. Your estimate is on its way.</h3>
+                <p className="mx-auto mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">From what you told us, a live walkthrough isn&apos;t the right next step yet. Walkthroughs are for owners and managers of practices that are open today. We&apos;ve emailed you your recall estimate to share with whoever makes the call.</p>
+                <p className="mx-auto mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">If that changes, reply to the email and Andrew will set up a time.</p>
+              </>
+            )}
           </div>
         )}
 
-        {phase === "time" && leadId && <TimePicker leadId={leadId} firstName={firstName} practice={name.trim()} source={source} headRef={headRef} extraNotes={est ? `Estimate: ${fmtMoney(est.likely)}/yr likely (${fmtMoney(est.low)}–${fmtMoney(est.high)}) · ${visits?.label} visits/mo · ${value?.label} per visit · rebook: ${rebook?.label} · recall today: ${recall?.label}${logoName ? ` · has a logo (${logoName}), ask them to email it` : ""}` : undefined} />}
+        {phase === "time" && leadId && <TimePicker leadId={leadId} firstName={firstName} practice={practiceName} source={source} headRef={headRef} extraNotes={est ? `Area: ${where} ${area?.zip ?? ""}${area?.founding.active ? " (founding spot available)" : ""} · Estimate: ${fmtMoney(est.likely)}/yr likely (${fmtMoney(est.low)}–${fmtMoney(est.high)}) · ${visits?.label} visits/mo · ${value?.label} per visit · rebook: ${rebook?.label} · recall today: ${recall?.label}` : undefined} />}
       </div>
 
       {phase === "quiz" && step > 0 && (
@@ -347,19 +368,11 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
   );
 }
 
-/** The practice's app icon, as it'll sit on a patient's home screen. Replaces the full phone preview. */
-function AppIcon({ name, color, logo, size = "lg" }: { name: string; color: string; logo: string | null; size?: "lg" | "sm" }) {
-  const lg = size === "lg";
+function SpotsBar({ left, of }: { left: number; of: number }) {
   return (
-    <figure className={cn("flex shrink-0 flex-col items-center", lg && "mx-auto rounded-[28px] bg-[var(--s-paper)] px-8 py-6 ring-1 ring-[var(--s-line)]")}>
-      <span className={cn("grid place-items-center overflow-hidden text-white shadow-[0_14px_30px_-12px_rgba(0,0,0,.45)]", lg ? "h-24 w-24 rounded-[26px] text-[2rem]" : "h-14 w-14 rounded-[16px] text-[1.1rem]")}
-        style={{ background: `linear-gradient(145deg, ${mix(color, "#ffffff", 0.18)}, ${color} 55%, ${mix(color, "#000000", 0.25)})` }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {logo ? <img src={logo} alt="" className="h-full w-full bg-white object-contain p-2" /> : <span className="font-extrabold tracking-tight">{initials(name)}</span>}
-      </span>
-      {lg && <figcaption className="mt-3 max-w-[9rem] truncate text-center text-[13px] font-semibold text-[var(--s-ink)]">{name}</figcaption>}
-      {lg && <span className="mt-0.5 text-[11px] text-[var(--s-ink-3)]">on her home screen</span>}
-    </figure>
+    <span className="flex gap-1" aria-hidden>
+      {Array.from({ length: of }).map((_, i) => <span key={i} className={cn("h-2 w-4 rounded-full", i < of - left ? "bg-[var(--s-ink-3)]/30" : "bg-[var(--s-ocean)]")} />)}
+    </span>
   );
 }
 
@@ -376,10 +389,10 @@ const FIELD_SM = "s-focus h-11 w-full rounded-xl border border-[var(--s-line)] b
 /* ───────────── STEP 1: the qualify form, condensed (CP-203) ─────────────
  * Six required fields in three rows, two optional ones, and the extras
  * (treatments, "what would make it worth it") folded behind one link. */
-function AboutYou({ headRef, firstFieldRef, source, practice, answers, onBack, onResult }: {
-  headRef: RefObject<HTMLHeadingElement>; firstFieldRef?: RefObject<HTMLInputElement>; source: string; practice: string;
+function AboutYou({ headRef, firstFieldRef, source, waitlist, answers, onBack, onResult }: {
+  headRef: RefObject<HTMLHeadingElement>; firstFieldRef?: RefObject<HTMLInputElement>; source: string; waitlist: boolean;
   answers: Record<string, string | number | null>;
-  onBack: () => void; onResult: (r: { qualified: boolean; leadId: string | null; first: string }) => void;
+  onBack: () => void; onResult: (r: { qualified: boolean; leadId: string | null; first: string; business: string; reason?: string }) => void;
 }) {
   const [treatments, setTreatments] = useState<string[]>([]);
   const [more, setMore] = useState(false);
@@ -405,7 +418,7 @@ function AboutYou({ headRef, firstFieldRef, source, practice, answers, onBack, o
       const first = String(fd.name ?? "").trim().split(/\s+/)[0] ?? "";
       if (j.qualified) track("lead_qualified", { source, event_id: j.event_id });
       else track("lead_unqualified", { source });
-      onResult({ qualified: !!j.qualified, leadId: j.lead_id ?? null, first });
+      onResult({ qualified: !!j.qualified, leadId: j.lead_id ?? null, first, business: String(fd.business ?? "").trim(), reason: j.reason });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setState("idle");
@@ -414,13 +427,13 @@ function AboutYou({ headRef, firstFieldRef, source, practice, answers, onBack, o
 
   return (
     <form onSubmit={submit} noValidate>
-      <button type="button" onClick={onBack} className="s-focus inline-flex items-center gap-1 rounded text-xs text-[var(--s-ink-3)] hover:text-[var(--s-ink)]"><ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Back to my results</button>
-      <h3 ref={headRef} tabIndex={-1} className="mt-2 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">Where should Andrew send the invite?</h3>
-      <p className="mt-1.5 text-[15px] text-[var(--s-ink-3)]">30 seconds. Then pick a time.</p>
+      <button type="button" onClick={onBack} className="s-focus inline-flex items-center gap-1 rounded text-xs text-[var(--s-ink-3)] hover:text-[var(--s-ink)]"><ArrowLeft className="h-3.5 w-3.5" aria-hidden /> {waitlist ? "Back" : "Back to my results"}</button>
+      <h3 ref={headRef} tabIndex={-1} className="mt-2 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">{waitlist ? "Join the waitlist for your area" : "Last step: where should Andrew send the invite?"}</h3>
+      <p className="mt-1.5 text-[15px] text-[var(--s-ink-3)]">{waitlist ? "We'll email you first if your area opens." : "30 seconds. If you qualify, you pick a time next."}</p>
 
       <div className="mt-6 grid gap-x-3 gap-y-4 sm:grid-cols-2">
         <Field label="Your name"><input ref={firstFieldRef} name="name" required autoComplete="name" className={FIELD_SM} placeholder="Maria Lopez" /></Field>
-        <Field label="Practice name"><input name="business" required autoComplete="organization" defaultValue={practice || undefined} className={FIELD_SM} placeholder="Luma Aesthetics" /></Field>
+        <Field label="Practice name"><input name="business" required autoComplete="organization" className={FIELD_SM} placeholder="Luma Aesthetics" /></Field>
         <Field label="Your role">
           <Select name="role" placeholder="Choose your role" options={ROLES.map((r) => [r.id, r.label])} />
         </Field>
@@ -456,7 +469,7 @@ function AboutYou({ headRef, firstFieldRef, source, practice, answers, onBack, o
       {error && <p role="alert" className="mt-4 text-sm font-medium text-rose-600">{error}</p>}
       <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[var(--s-line)] pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="flex items-center gap-1.5 text-xs text-[var(--s-ink-3)]"><Lock className="h-3.5 w-3.5" aria-hidden /> Only used to set up your call. No spam.</p>
-        <button type="submit" disabled={state === "sending"} className="s-btn s-btn-primary s-focus disabled:opacity-60">{state === "sending" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}See open times <ArrowRight className="h-4 w-4" aria-hidden /></button>
+        <button type="submit" disabled={state === "sending"} className="s-btn s-btn-primary s-focus disabled:opacity-60">{state === "sending" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}{waitlist ? "Join the waitlist" : "See if I qualify"} <ArrowRight className="h-4 w-4" aria-hidden /></button>
       </div>
     </form>
   );
@@ -601,7 +614,7 @@ function TimePicker({ leadId, firstName, practice, source, headRef, extraNotes }
             {slot && <li className="flex items-start gap-3 text-[#1A7F4B]"><CalendarDays className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />{fTime(slot)} – {fTime(new Date(slot.getTime() + CALL_MINUTES * 60_000))}, {fLong(slot)}</li>}
             {slot && <li className="flex items-center gap-3"><Globe className="h-5 w-5" aria-hidden />{tzLabel(tz, slot)}</li>}
           </ul>
-          <p className="mt-5 text-[14px] leading-relaxed text-[#4D4D4D]">{firstName ? `${firstName}, ` : ""}Andrew will walk through the app he built for {practice || "your practice"}, your recall numbers, and what setup looks like. You decide if it&apos;s a fit.</p>
+          <p className="mt-5 text-[14px] leading-relaxed text-[#4D4D4D]">{firstName ? `${firstName}, ` : ""}Andrew will walk through your recall numbers, how Atlas would run at {practice || "your practice"}&apos;s front desk, and the offer for your area. You decide if it&apos;s a fit.</p>
           <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--s-ice)] px-2.5 py-1 text-[12px] font-bold text-[var(--s-ocean-deep)]"><ShieldCheck className="h-3.5 w-3.5" aria-hidden /> You qualify for a walkthrough</p>
         </aside>
 

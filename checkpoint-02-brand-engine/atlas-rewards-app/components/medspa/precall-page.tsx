@@ -10,7 +10,8 @@
  *   3. add it to the calendar
  */
 import { useEffect, useRef, useState } from "react";
-import { CalendarPlus, Check, CheckCircle2, Clock, Loader2, Play, Video } from "lucide-react";
+import { CalendarPlus, Check, CheckCircle2, Clock, Loader2, Play, ShieldCheck, Video } from "lucide-react";
+import { GUARANTEES } from "@/lib/landing/medspa-funnel";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { CALL_MINUTES } from "@/lib/landing/availability";
@@ -65,7 +66,7 @@ export function PrecallPage(p: Props) {
             <h1 className="s-display s-load-2 mx-auto mt-5 max-w-[16ch] !text-[clamp(2.1rem,1.4rem+3vw,3.6rem)] text-white">
               {confirmed ? `You're all set${p.firstName ? `, ${p.firstName}` : ""}.` : <>Your call isn&apos;t confirmed yet{p.firstName ? `, ${p.firstName}` : ""}.</>}
             </h1>
-            <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{confirmed ? "Andrew will bring your app and your numbers. Here's everything in one place." : `Watch the short video, then tap confirm so Andrew holds ${day} for ${p.business}.`}</p>
+            <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{confirmed ? "Andrew will bring your numbers and the offer for your area. Here's everything in one place." : `Watch the short video, then tap confirm so Andrew holds ${day} for ${p.business}.`}</p>
           </div>
         )}
       </div>
@@ -92,7 +93,7 @@ export function PrecallPage(p: Props) {
                   <PrecallVideo token={p.token} embed={p.video.embed} />
                   {!p.video.embed && (
                     <ul className="mt-4 grid gap-3 sm:grid-cols-3">
-                      {[["What Atlas is", "Your practice's own patient app: due-date reminders, memberships billed to your Stripe, rewards, and a front-desk list of who to call."], ["What the call is", "Not a pitch. Andrew shows the app he built for you, checks your numbers, and you decide if it's a fit."], ["What happens after", "If it's a yes, you're live at checkout in about a week. Month to month, cancel anytime."]].map(([t, d]) => (
+                      {[["What Atlas is", "Your practice's own patient app: due-date reminders, memberships billed to your Stripe, rewards, and a front-desk list of who to call."], ["What the call is", "Not a pitch. Andrew walks through your numbers, how Atlas would run at your front desk, and the offer for your area. You decide."], ["What happens after", "If it's a yes, your area is locked to you and you're live at checkout within 7 days. Month to month."]].map(([t, d]) => (
                         <li key={t} className="rounded-2xl bg-[var(--s-paper)] p-4 ring-1 ring-[var(--s-line)]"><div className="text-[14px] font-bold">{t}</div><p className="mt-1 text-[13.5px] leading-relaxed text-[var(--s-ink-2)]">{d}</p></li>
                       ))}
                     </ul>
@@ -116,7 +117,19 @@ export function PrecallPage(p: Props) {
                 </Step>
               </ol>
 
-              <section className="s-panel mt-10 p-6 sm:p-8" aria-labelledby="prep-title">
+              {/* CP-204: the three promises, so they arrive at the call already knowing the risk is on us */}
+              <section className="s-ocean relative mt-10 overflow-hidden rounded-[28px] p-6 sm:p-8" aria-labelledby="promise-title">
+                <div className="s-ocean-img opacity-80" aria-hidden />
+                <div className="relative">
+                  <h2 id="promise-title" className="s-h3 text-white">Three promises that come with Atlas</h2>
+                  <ul className="mt-4 grid gap-3">
+                    {GUARANTEES.map((g) => <li key={g.id} className="flex gap-3 text-[15px] text-white"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden /><span><b>{g.title}</b> <span className="text-white/80">{g.body}</span></span></li>)}
+                  </ul>
+                  <p className="mt-4 text-[12.5px] text-white/70">Andrew walks through the fine print on the call; it&apos;s also written into your agreement.</p>
+                </div>
+              </section>
+
+              <section className="s-panel mt-6 p-6 sm:p-8" aria-labelledby="prep-title">
                 <h2 id="prep-title" className="s-h3">To get the most out of 20 minutes</h2>
                 <ul className="mt-4 space-y-3">
                   {p.prep.map((t) => <li key={t} className="flex gap-3 text-[15px] text-[var(--s-ink-2)]"><span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[var(--s-ice)] text-[var(--s-ocean)]"><Check className="h-3 w-3" strokeWidth={3} aria-hidden /></span>{t}</li>)}

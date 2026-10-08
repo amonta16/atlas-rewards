@@ -10,11 +10,11 @@ import "../../site.css";
  *   buttons land here too (?from=landing&hero=<arm>), so both arms share one funnel.
  *   /medspa/start?lead=<id> (the "times still open" email) opens on the calendar.
  */
-const TITLE = "See your practice's app in 60 seconds · Atlas Engine";
+const TITLE = "Is your area still open? · Atlas Engine for med spas";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
-  description: "Build your med spa's patient app, see your recall estimate, and pick a time to walk through it.",
+  description: "Atlas works with one med spa per area. Check if yours is open, see what patient recall could win back, and pick a time.",
   alternates: { canonical: "https://www.atlas-engine.app/medspa/start" },
   robots: { index: false, follow: false },
   openGraph: { title: TITLE, url: "https://www.atlas-engine.app/medspa/start", siteName: "Atlas Engine", type: "website", images: [{ url: "/atlas-icon-512.png", width: 512, height: 512, alt: "Atlas Engine" }] },

@@ -15,30 +15,27 @@
  * estimate; price is quoted on the call unless PRICE_BEFORE_CALL is set.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Clock, Play, Plus, ShieldCheck, Sparkles, Video } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, Clock, MapPin, Play, Plus, ShieldCheck, Sparkles, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { useInView } from "@/components/landing/reveal";
-import { LiveApp } from "@/components/landing/live-app/live-app";
 import { fmtMoney } from "@/lib/landing/quiz-model";
 import { REBOOK, SCENARIOS, estimateMedspa } from "@/lib/landing/medspa-quiz-model";
 import { MEDSPA_FAQ, MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
-import { MEDSPA_BOOKING, MEDSPA_BRAND, MEDSPA_HOURS, MEDSPA_MEMBER_NOTE, MEDSPA_OFFER, MEDSPA_REWARDS } from "@/lib/landing/medspa-data";
-import { AppShot, Compare, ReviewsBand } from "@/components/site/site-page";
-import { BookedPillMock, DeskListMock, PhoneShell, ReminderMock } from "@/components/site/site-mocks";
+import { Compare, ReviewsBand } from "@/components/site/site-page";
+import { DeskListMock } from "@/components/site/site-mocks";
 import { useSiteMotion } from "@/components/site/motion";
 // CP-202: buttons go to the funnel page; hero A/B; video placeholder; offer block
-import { HERO_ARMS, LANDING_VSL, OFFER, type HeroArm } from "@/lib/landing/medspa-funnel";
-import { useArm, withQuery } from "@/lib/landing/ab";
+// CP-204: no app preview anywhere; the hook is "is your area still open?"; the offer = area lock + founding spots + guarantees
+import { FOUNDING, GUARANTEES, LANDING_VSL, TERRITORY } from "@/lib/landing/medspa-funnel";
+import { withQuery } from "@/lib/landing/ab";
 
-const DEMO = { brand: MEDSPA_BRAND, categories: MEDSPA_BOOKING, rewards: MEDSPA_REWARDS, hours: MEDSPA_HOURS, offer: MEDSPA_OFFER, memberNote: MEDSPA_MEMBER_NOTE, guest: "Maya" };
 
 export function MedspaFunnelPage() {
-  const hero = useArm<HeroArm>("hero", HERO_ARMS);
-  // Every button goes to the funnel page, carrying UTMs/fbclid and which hero this visitor saw.
+  // Every button goes to the funnel page (area check first), carrying UTMs/fbclid.
   const start = (where: string) => {
-    track("hero_cta_clicked", { source: `medspa_${where}`, variant: hero ? `lp-${hero}` : undefined });
-    window.location.assign(withQuery("/medspa/start", { from: "landing", hero: hero ?? "phone", at: where }));
+    track("hero_cta_clicked", { source: `medspa_${where}`, variant: "landing" });
+    window.location.assign(withQuery("/medspa/start", { from: "landing", at: where }));
   };
   const rootRef = useRef<HTMLDivElement>(null);
   useSiteMotion(rootRef);
@@ -47,18 +44,18 @@ export function MedspaFunnelPage() {
     const lead = new URLSearchParams(window.location.search).get("lead");
     if (lead) window.location.replace(`/medspa/start?lead=${encodeURIComponent(lead)}`);
   }, []);
-  useEffect(() => { if (hero) track("variant_assigned", { test: "hero", variant: `lp-${hero}` }); }, [hero]);
   return (
     <div ref={rootRef} className="site overflow-x-clip">
-      <Header onStart={() => start("header")} onDark={hero === "video"} />
+      <Header onStart={() => start("header")} onDark />
       <main id="main">
-        {hero === "video" ? <HeroVideo onStart={() => start("hero")} /> : hero === "phone" ? <Hero onStart={() => start("hero")} /> : <div className="min-h-[720px]" aria-hidden />}
+        <HeroVideo onStart={() => start("hero")} />
         <Assurances />
         <Leak />
         <WhatAtlasRuns />
         <Calculator onStart={() => start("calculator")} />
         <DeskBand />
         <HowItWorks onStart={() => start("steps")} />
+        <Offer onStart={() => start("offer")} />
         <Included onStart={() => start("included")} />
         <Compare />
         <ReviewsBand />
@@ -80,61 +77,13 @@ function Header({ onStart, onDark = false }: { onStart: () => void; onDark?: boo
       <div className="s-wrap flex h-[68px] items-center justify-between gap-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={onDark && !scrolled ? "/atlas-engine-logo.png" : "/landing/atlas-engine-logo-navy.png"} alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
-        <button type="button" onClick={onStart} className={cn("s-btn s-focus !h-11 !px-5 text-[15px]", scrolled ? "s-btn-primary" : onDark ? "s-btn-light" : "s-btn-quiet")}>See your app</button>
+        <button type="button" onClick={onStart} className={cn("s-btn s-focus !h-11 !px-5 text-[15px]", scrolled ? "s-btn-primary" : onDark ? "s-btn-light" : "s-btn-quiet")}>Check your area</button>
       </div>
     </header>
   );
 }
 
-/* ───────────── hero ───────────── */
-const SCREENS = [
-  { src: "/landing/app-screens/shop.jpg", alt: "A practice's app with a treatment to rebook" },
-  { src: "/landing/app-screens/membership.jpg", alt: "The membership tab in a practice's app" },
-  { src: "/landing/app-screens/rewards.jpg", alt: "The rewards tab in a practice's app" },
-];
-function Hero({ onStart }: { onStart: () => void }) {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setI((k) => (k + 1) % SCREENS.length), 3800);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <section className="relative -mt-[68px] overflow-hidden pb-20 pt-[104px] sm:pt-[128px] lg:pb-28" aria-labelledby="hero-title">
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="s-blob absolute -right-[12%] -top-[25%] h-[820px] w-[820px] rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.22),transparent)]" />
-        <div className="absolute -left-[18%] top-[35%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(11,95,214,.10),transparent)]" />
-      </div>
-      <div className="s-wrap relative grid items-center gap-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
-        <div className="relative z-10">
-          <p className="s-load-1 inline-flex items-center gap-2.5 rounded-full bg-white/70 py-1.5 pl-2 pr-4 text-[14px] font-semibold text-[var(--s-ocean-deep)] ring-1 ring-[var(--s-line)] backdrop-blur">
-            <span className="relative h-2 w-2 rounded-full bg-[var(--s-sky)] s-ping" aria-hidden />For med spas and aesthetic practices
-          </p>
-          <h1 id="hero-title" className="s-display s-load-1 mt-6 max-w-[11ch]">Every patient has a due date.</h1>
-          <p className="s-lead s-load-2 mt-6 max-w-[33rem]">Atlas gives your practice its own patient app that reminds each patient before her treatment wears off, and sells memberships that bill every month. We set it up and run it with you.</p>
-          <div className="s-load-3 mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-            <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
-            <a href="#demo" onClick={() => track("demo_clicked", { source: "medspa_hero", kind: "try" })} className="s-btn s-btn-quiet s-focus">Try the demo app</a>
-          </div>
-          <p className="s-small s-load-3 mt-5">{MEDSPA_OFFER_COPY.ctaNote} Month to month, cancel anytime.</p>
-        </div>
-
-        <div className="s-load-4 relative mx-auto h-[600px] w-full max-w-[460px] sm:h-[680px]">
-          <div className="absolute left-1/2 top-0 origin-top -translate-x-1/2 scale-[.86] sm:scale-100">
-            <div aria-hidden className="absolute -inset-16 -z-10 rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.28),transparent)]" />
-            <PhoneShell tilt={false}>
-              {SCREENS.map((s, k) => <div key={s.src} className={cn("s-screen", k === i && "s-on")} aria-hidden={k !== i}><AppShot src={s.src} alt={s.alt} /></div>)}
-            </PhoneShell>
-          </div>
-          <div className="s-float-in absolute -left-2 top-16 z-10 w-[270px] sm:-left-16 sm:w-[300px]"><div className="s-drift"><ReminderMock className="!w-full" /></div></div>
-          <div className="s-float-in-2 absolute bottom-24 right-0 z-10 sm:-right-8"><div className="s-drift-2"><BookedPillMock /></div></div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ───────────── CP-202 hero, arm B: the founder video on the brand ocean ───────────── */
+/* ───────────── hero: the founder video on the brand ocean (CP-202; the phone hero was removed in CP-204) ───────────── */
 function HeroVideo({ onStart }: { onStart: () => void }) {
   return (
     <section className="s-ocean relative -mt-[68px] overflow-hidden pb-20 pt-[104px] sm:pt-[124px] lg:pb-24" aria-labelledby="hero-title">
@@ -148,8 +97,8 @@ function HeroVideo({ onStart }: { onStart: () => void }) {
         <p className="s-lead s-load-2 mx-auto mt-5 max-w-[36rem]">Your own patient app that brings each patient back before her treatment wears off, and memberships that bill every month. Watch how it works.</p>
         <div className="s-load-3 mx-auto mt-10 max-w-[900px]"><VideoFrame onStart={onStart} /></div>
         <div className="s-load-4 mt-9 flex flex-col items-center gap-3">
-          <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
-          <p className="text-[14px] text-white/80">{MEDSPA_OFFER_COPY.ctaNote} Month to month, cancel anytime.</p>
+          <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus"><MapPin className="h-4 w-4" aria-hidden />Check if your area is open</button>
+          <p className="text-[14px] text-white/80">We work with one med spa per area. Takes 10 seconds.</p>
         </div>
       </div>
     </section>
@@ -174,8 +123,8 @@ function VideoFrame({ onStart }: { onStart: () => void }) {
             <div className="absolute inset-0 grid place-items-center p-6" role="status">
               <div className="max-w-[26rem] rounded-3xl bg-white/95 p-6 text-center text-[var(--s-ink)] shadow-2xl">
                 <div className="text-[1.15rem] font-bold">The video is on its way.</div>
-                <p className="mt-2 text-[15px] text-[var(--s-ink-2)]">In the meantime, the fastest way to see Atlas is your own app. It takes about 60 seconds.</p>
-                <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus mt-5 !h-12">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
+                <p className="mt-2 text-[15px] text-[var(--s-ink-2)]">In the meantime, check whether your area is still open. We work with one med spa per area.</p>
+                <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus mt-5 !h-12">Check if your area is open <ArrowRight className="h-4 w-4" aria-hidden /></button>
               </div>
             </div>
           ) : (
@@ -198,7 +147,7 @@ function VideoFrame({ onStart }: { onStart: () => void }) {
 }
 
 function Assurances() {
-  const items = [["Your name on the app", "Not a listing in someone else's"], ["Live in about a week", "We load your menu and train staff"], ["Month to month", "No contract, no 90-day notice"], ["Built in California", "Same people on every call"]];
+  const items = [["One med spa per area", "We never help your competitor"], ["Pays for itself", "Or you stop paying until it does"], ["Live in 7 days", "Or setup and month one are free"], ["Month to month", "Leave any month, keep everything"]];
   return (
     <div className="border-y border-[var(--s-line)] bg-white/70">
       <ul data-gs="stagger" className="s-wrap grid grid-cols-2 gap-x-6 gap-y-5 py-7 md:grid-cols-4">
@@ -268,7 +217,7 @@ function Track({ label, note, items, pings = [], delay, on }: { label: string; n
   );
 }
 
-/* ───────────── what atlas runs + the tap-through demo app ───────────── */
+/* ───────────── what atlas runs (CP-204: the demo phone is gone; four plain cards) ───────────── */
 const PARTS = [
   { id: "app", t: "Your own patient app", d: "Your name, logo and colors on every patient's phone. They open it from a QR code at checkout: points, rewards, offers and their membership in one place. No marketplace, no other practices next to yours." },
   { id: "recall", t: "Reminders before it wears off", d: "Each treatment carries its own cycle. Her app shows when she's due, and the front desk gets the list of who to reach this week. You approve the wording once; we set up the timing with you." },
@@ -277,7 +226,7 @@ const PARTS = [
 function WhatAtlasRuns() {
   const [open, setOpen] = useState("recall");
   return (
-    <section id="demo" className="s-section scroll-mt-16 bg-[var(--s-paper)]" aria-labelledby="runs-title">
+    <section id="product" className="s-section scroll-mt-16 bg-[var(--s-paper)]" aria-labelledby="runs-title">
       <div className="s-wrap grid items-center gap-14 lg:grid-cols-[1fr_auto] lg:gap-24">
         <div>
           <h2 id="runs-title" className="s-h2 max-w-[15ch]">Three things Atlas runs, so your front desk doesn&apos;t have to.</h2>
@@ -299,14 +248,16 @@ function WhatAtlasRuns() {
             })}
           </div>
         </div>
-        <div className="relative mx-auto w-full max-w-[380px]">
-          <div aria-hidden className="absolute -inset-10 rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.25),transparent)]" />
-          <div data-gs="parallax" data-gs-y="24" className="relative">
-            <div className="rounded-[48px] bg-gradient-to-b from-[#EAF3FF] via-[#DCEBFF] to-[#C9DFFF] px-6 py-10 shadow-[0_50px_100px_-50px_rgba(6,49,143,.5)] ring-1 ring-white/80 sm:px-9">
-              <LiveApp {...DEMO} onEvent={(e) => { if (e !== "tab") track("interactive_demo_used", { demo: "medspa_live_app", step: e }); }} />
-            </div>
-          </div>
-          <p className="s-small relative mt-6 text-center">A demo practice app. Tap around like a patient would.</p>
+        <div className="relative mx-auto w-full max-w-[420px]">
+          <div aria-hidden className="absolute -inset-10 rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.22),transparent)]" />
+          <ul data-gs="stagger" className="relative grid gap-3">
+            {[["Due-date reminders", "Every treatment carries its own cycle"], ["Memberships", "Billed to your own Stripe every month"], ["Rewards", "Points for visits, reviews and referrals"], ["Front-desk list", "Who's due, who's overdue, who booked"]].map(([t, d]) => (
+              <li key={t} data-gs-item className="s-glass flex items-center gap-4 !rounded-2xl p-4">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--s-ocean)] text-white"><Check className="h-5 w-5" strokeWidth={3} aria-hidden /></span>
+                <span><span className="block font-bold">{t}</span><span className="block text-[14px] text-[var(--s-ink-3)]">{d}</span></span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>
@@ -354,7 +305,7 @@ function Calculator({ onStart }: { onStart: () => void }) {
               <p className="mt-3 text-[15px] text-white/85">About {fmtMoney(est.perMonth)} a month, from roughly {est.recovered.toLocaleString()} of the {est.lapsedVisits.toLocaleString()} due visits that slip each year. Range {fmtMoney(est.low)} to {fmtMoney(est.high)}.</p>
             </div>
             <div className="mt-8">
-              <button type="button" onClick={() => { track("hero_cta_clicked", { source: "medspa_calculator", est_likely: est.likely }); onStart(); }} className="s-btn s-btn-light s-focus w-full sm:w-auto">See my practice&apos;s app and full estimate <ArrowRight className="h-4 w-4" aria-hidden /></button>
+              <button type="button" onClick={() => { track("hero_cta_clicked", { source: "medspa_calculator", est_likely: est.likely }); onStart(); }} className="s-btn s-btn-light s-focus w-full sm:w-auto">Check my area and full estimate <ArrowRight className="h-4 w-4" aria-hidden /></button>
               <p className="mt-4 text-[13px] leading-relaxed text-white/70">A planning estimate, not a promise: it assumes reminders win back {Math.round(SCENARIOS.likely * 100)}% of missed visits ({Math.round(SCENARIOS.low * 100)}% to {Math.round(SCENARIOS.high * 100)}% for the range). We check it against your real numbers on the call.</p>
             </div>
           </div>
@@ -402,10 +353,10 @@ function DeskBand() {
 
 /* ───────────── how it works: the funnel, honestly ───────────── */
 const STEPS = [
-  { icon: Sparkles, when: "Today, 60 seconds", t: "See your app and your numbers", d: "Seven taps. Your colors and name on the app, and a recall estimate from your own numbers." },
-  { icon: Clock, when: "Today", t: "Pick a time", d: "A few quick questions about your practice, then a 20-minute slot on Andrew's calendar." },
-  { icon: Video, when: "Before the call", t: "A 3-minute video", d: "What Atlas does and how the call works, so the call is about your practice, not a pitch." },
-  { icon: ShieldCheck, when: "The call", t: "20 minutes, no pressure", d: "Andrew walks through the app he built for you and your numbers. You decide." },
+  { icon: MapPin, when: "Today, 10 seconds", t: "Check your area", d: "We work with one med spa per area. Enter your zip and see if yours is still open." },
+  { icon: Sparkles, when: "Today, 60 seconds", t: "See your numbers", d: "Five taps about your practice, then what patient recall could win back each year." },
+  { icon: Clock, when: "Today", t: "Pick a time", d: "If you qualify, a 20-minute slot on Andrew's calendar." },
+  { icon: ShieldCheck, when: "The call", t: "20 minutes, no pressure", d: "Your numbers, how Atlas runs at your desk, and the offer for your area. You decide." },
   { icon: Check, when: "Within 7 days", t: "Live at your checkout", d: "We load your menu, set up your first membership, print your QR and train your staff." },
 ];
 function HowItWorks({ onStart }: { onStart: () => void }) {
@@ -415,7 +366,7 @@ function HowItWorks({ onStart }: { onStart: () => void }) {
       <div className="s-wrap">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <h2 id="how-title" className="s-h2 max-w-[16ch]">From first look to live in about a week.</h2>
-          <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus self-start lg:self-auto">Start with your app <ArrowRight className="h-4 w-4" aria-hidden /></button>
+          <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus self-start lg:self-auto">Check your area <ArrowRight className="h-4 w-4" aria-hidden /></button>
         </div>
         <ol ref={v.ref} data-gs="pop" className={cn("relative mt-16 grid gap-10 md:grid-cols-5 md:gap-6", v.inView && "s-in")}>
           <span aria-hidden className="pointer-events-none absolute left-[18px] right-0 top-[17px] hidden h-[2px] bg-[var(--s-ice)] md:block"><span data-gs="draw" data-gs-axis="x" className="block h-full w-full bg-[var(--s-ocean)]" /></span>
@@ -433,6 +384,47 @@ function HowItWorks({ onStart }: { onStart: () => void }) {
   );
 }
 
+/* ───────────── CP-204: the offer — area lock, founding spots, three guarantees ───────────── */
+function Offer({ onStart }: { onStart: () => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <section id="offer" className="s-ocean relative overflow-hidden scroll-mt-16" aria-labelledby="offer-title">
+      <div className="s-ocean-img" aria-hidden />
+      <div className="s-wrap relative py-24 lg:py-32">
+        <div className="mx-auto max-w-[44rem] text-center">
+          <p className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3.5 py-1.5 text-[13.5px] font-semibold text-white ring-1 ring-white/30"><MapPin className="h-4 w-4" aria-hidden />One med spa per {TERRITORY.radiusMiles}-mile area</p>
+          <h2 id="offer-title" className="s-h2 mt-5 text-white">Your area, locked. Your risk, gone.</h2>
+          <p className="s-lead mx-auto mt-5 max-w-[36rem]">Once you&apos;re in, we won&apos;t work with another med spa within {TERRITORY.radiusMiles} miles of you for as long as you&apos;re a client. And every practice gets the same three promises.</p>
+        </div>
+
+        <ul className="mt-14 grid gap-4 lg:grid-cols-3">
+          {GUARANTEES.map((g, i) => (
+            <li key={g.id} className={cn("flex flex-col rounded-[26px] p-6 sm:p-7", i === 0 ? "bg-white text-[var(--s-ink)] shadow-[0_30px_60px_-30px_rgba(2,20,70,.7)]" : "bg-white/10 text-white ring-1 ring-white/25 backdrop-blur")}>
+              <span className={cn("grid h-11 w-11 place-items-center rounded-2xl", i === 0 ? "bg-[var(--s-ocean)] text-white" : "bg-white text-[var(--s-ocean)]")}><ShieldCheck className="h-6 w-6" aria-hidden /></span>
+              <h3 className={cn("mt-5 text-[1.3rem] font-bold leading-snug tracking-[-0.015em]", i === 0 ? "text-[var(--s-ink)]" : "text-white")}>{g.title}</h3>
+              <p className={cn("mt-2 flex-1 text-[15px] leading-relaxed", i === 0 ? "text-[var(--s-ink-2)]" : "text-white/85")}>{g.body}</p>
+              <button type="button" onClick={() => setOpen(open === g.id ? null : g.id)} aria-expanded={open === g.id} className={cn("s-focus mt-4 inline-flex items-center gap-1 self-start rounded text-[13px] font-semibold", i === 0 ? "text-[var(--s-ocean)]" : "text-white/85")}>
+                The fine print <ChevronDown className={cn("h-4 w-4 transition-transform", open === g.id && "rotate-180")} aria-hidden />
+              </button>
+              {open === g.id && <p className={cn("mt-2 text-[13px] leading-relaxed", i === 0 ? "text-[var(--s-ink-3)]" : "text-white/75")}>{g.fine}</p>}
+            </li>
+          ))}
+        </ul>
+
+        {FOUNDING.active && (
+          <div className="mx-auto mt-8 flex max-w-[60rem] flex-col items-start justify-between gap-5 rounded-[26px] bg-white/10 p-6 ring-1 ring-white/25 backdrop-blur sm:flex-row sm:items-center sm:p-7">
+            <div>
+              <div className="flex items-center gap-2 text-[1.15rem] font-bold text-white"><Sparkles className="h-5 w-5" aria-hidden />Founding practices: setup {fmtMoney(FOUNDING.setupFounding)} instead of {fmtMoney(FOUNDING.setupFull)}</div>
+              <p className="mt-1.5 max-w-[38rem] text-[14.5px] text-white/85">For the first {FOUNDING.spots} med spas, in exchange for {FOUNDING.trade}. Setup covers your app, large banner, table tents, their design and QR scanners. Check your area to see how many spots are left.</p>
+            </div>
+            <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus shrink-0"><MapPin className="h-4 w-4" aria-hidden />Check my area</button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /* ───────────── what's included + risk reversal ───────────── */
 function Included({ onStart }: { onStart: () => void }) {
   return (
@@ -442,17 +434,7 @@ function Included({ onStart }: { onStart: () => void }) {
           <h2 id="inc-title" className="s-h2 max-w-[12ch]">Everything your practice gets.</h2>
           <p className="s-lead mt-6 max-w-[28rem]">One flat monthly fee. No per-patient fees, no percentage of your treatment revenue. {MEDSPA_OFFER_COPY.riskReversal}</p>
           <p className="s-body mt-4 max-w-[28rem]">{MEDSPA_OFFER_COPY.rationale}</p>
-          {OFFER.guarantee && (
-            <div className="s-ocean relative mt-8 overflow-hidden rounded-[24px] p-6">
-              <div className="s-ocean-img opacity-70" aria-hidden />
-              <div className="relative flex gap-4">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-[var(--s-ocean)]"><ShieldCheck className="h-6 w-6" aria-hidden /></span>
-                <div><div className="text-[1.1rem] font-bold text-white">{OFFER.guarantee.title}</div><p className="mt-1 text-[14.5px] leading-relaxed text-white/85">{OFFER.guarantee.body}</p></div>
-              </div>
-            </div>
-          )}
-          {OFFER.founding && <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--s-ice)] px-3.5 py-1.5 text-[13.5px] font-bold text-[var(--s-ocean-deep)]"><Sparkles className="h-4 w-4" aria-hidden />{OFFER.founding}</p>}
-          <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus mt-9">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
+          <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus mt-9">Check if your area is open <ArrowRight className="h-4 w-4" aria-hidden /></button>
         </div>
         <div className="s-panel p-7 sm:p-10">
           <div className="flex items-baseline justify-between"><span className="s-h3">Everything included</span><span className="s-small">No tiers</span></div>
@@ -466,14 +448,23 @@ function Included({ onStart }: { onStart: () => void }) {
   );
 }
 
-/* ───────────── faq ───────────── */
+/* ───────────── faq ─────────────
+ * CP-204: the funnel's own list. Area lock and guarantee questions first; the
+ * cost answer reflects the setup pricing in FOUNDING. The main site keeps MEDSPA_FAQ. */
+const FUNNEL_FAQ: { q: string; a: string }[] = [
+  { q: "What does \"one med spa per area\" mean?", a: `Once you're a client, we won't work with another med spa within ${TERRITORY.radiusMiles} miles of your practice for as long as you stay with us. If you cancel, the area opens back up.` },
+  { q: "How does the pays-for-itself guarantee work?", a: `${GUARANTEES[0].body} ${GUARANTEES[0].fine}` },
+  ...MEDSPA_FAQ.map((f) => f.q === "What does it cost?"
+    ? { q: f.q, a: `Setup is ${fmtMoney(FOUNDING.setupFull)}${FOUNDING.active ? ` (${fmtMoney(FOUNDING.setupFounding)} for our first ${FOUNDING.spots} founding practices)` : ""} and covers your app, banner, table tents, their design and QR scanners. Then one flat monthly plan, month to month, quoted on your walkthrough. No percentage of your treatment revenue, ever.` }
+    : f),
+];
 function Faq() {
   return (
     <section className="s-section" aria-labelledby="faq-title">
       <div className="s-wrap grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
         <h2 id="faq-title" className="s-h2 max-w-[12ch]">What owners ask us first.</h2>
         <div className="divide-y divide-[var(--s-line)] border-y border-[var(--s-line)]">
-          {MEDSPA_FAQ.map((f) => (
+          {FUNNEL_FAQ.map((f) => (
             <details key={f.q} className="group py-6" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && track("faq_opened", { source: "medspa", q: f.q.slice(0, 60) })}>
               <summary className="s-focus flex cursor-pointer list-none items-center justify-between gap-6 rounded-md text-left text-[1.1rem] font-bold">{f.q}<span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--s-ice)] text-[var(--s-ocean)]"><Plus className="s-plus h-4 w-4" aria-hidden /></span></summary>
               <p className="s-body mt-3 max-w-[40rem]">{f.a}</p>
@@ -493,8 +484,8 @@ function Closing({ onStart }: { onStart: () => void }) {
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#06318F]/60 to-transparent" />
       <div className="s-wrap relative py-28 text-center sm:py-40">
         <h2 id="close-title" className="s-display mx-auto max-w-[14ch] text-[clamp(2.4rem,1.5rem+4vw,5rem)] text-white">Some of your patients are due this week.</h2>
-        <p className="s-lead mx-auto mt-6 max-w-[32rem]">Make sure they hear from you before they hear from someone else. Seeing your app costs nothing.</p>
-        <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus mt-10">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
+        <p className="s-lead mx-auto mt-6 max-w-[32rem]">Make sure they hear from you before they hear from someone else. We take one med spa per area, and checking yours takes 10 seconds.</p>
+        <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus mt-10">Check if your area is open <ArrowRight className="h-4 w-4" aria-hidden /></button>
       </div>
     </section>
   );
@@ -522,8 +513,15 @@ function MobileBar({ onStart }: { onStart: () => void }) {
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[var(--s-ocean)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/landing/atlas-icon-white.png" alt="" width={1100} height={852} className="h-[15px] w-auto object-contain" />
-        </span>See your practice&apos;s app <ArrowRight className="h-5 w-5" aria-hidden />
+        </span>Check if your area is open <ArrowRight className="h-5 w-5" aria-hidden />
       </button>
     </div>
   );
 }
+
+/*
+ * CP-204 notes: the phone hero (arm A of the CP-202 hero test), its app screenshots and the
+ * tap-through demo app were removed. The landing page now sells the offer: one med spa per area
+ * (lib/landing/territory.ts), founding spots and the three guarantees in GUARANTEES
+ * (lib/landing/medspa-funnel.ts). Every button sends visitors to /medspa/start, area check first.
+ */

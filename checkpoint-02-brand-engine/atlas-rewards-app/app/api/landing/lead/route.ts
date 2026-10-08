@@ -5,6 +5,8 @@ import { notifyLead, emailProspect, hashIp, EMAIL_RE, clean } from "@/lib/landin
 import { qualify, ROLES, STAGES, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
 import { newEventId } from "@/lib/landing/funnel-sign";
+// CP-204: one med spa per area; the area is re-checked here, the browser check is only a preview.
+import { checkArea } from "@/lib/landing/territory";
 
 /**
  * POST /api/landing/lead — CP-201 · step 1 of the /medspa funnel (the gate).
@@ -48,6 +50,12 @@ export async function POST(req: Request) {
 
   const visitBand = clean(b.visit_band, 8) || null;
   const verdict = qualify({ role, stage, visitBand });
+  // CP-204: a taken area can't book (but still gets a kind email and a spot on the waitlist).
+  const zipIn = clean(b.zip, 10);
+  let area: Awaited<ReturnType<typeof checkArea>> | null = null;
+  if (zipIn) { try { area = await checkArea(zipIn); } catch (e) { console.error("[lead] area check failed", e); } }
+  if (area?.ok && !area.open) { verdict.qualified = false; verdict.reasons.push("area_taken"); }
+  const areaTaken = !!(area?.ok && !area.open);
   const eventId = verdict.qualified ? newEventId("lead") : null;
   const source = clean(b.source, 120) || null;
 
@@ -71,6 +79,10 @@ export async function POST(req: Request) {
     status: verdict.qualified ? "new" : "nurture",
     source,
     variant: clean(b.variant, 40) || null, // CP-202: A/B arm
+    zip: area?.ok ? area.zip : zipIn || null, // CP-204
+    city: area?.ok ? area.city : null,
+    state: area?.ok ? area.state : null,
+    area_open: area?.ok ? area.open : null,
     path: clean(b.path, 200) || null,
     utm_source: clean(b.utm_source, 80) || null,
     utm_campaign: clean(b.utm_campaign, 120) || null,
@@ -94,6 +106,7 @@ export async function POST(req: Request) {
   const sent = await notifyLead(`${verdict.qualified ? "Qualified lead" : "Not a fit (nurture)"}: ${business}`, [
     ["Name", `${name} (${roleLabel})`],
     ["Practice", `${business} · ${stageLabel}`],
+    ["Area", area?.ok ? `${area.city}, ${area.state} ${area.zip} · ${area.open ? "open" : "TAKEN (waitlist)"} · ${area.founding.spotsLeft} founding spots left` : zipIn || null],
     ["Email", email],
     ["Mobile", phone],
     ["Website / IG", row.website],
@@ -117,15 +130,17 @@ export async function POST(req: Request) {
     });
   } else {
     const first = name.split(" ")[0];
-    const ok = await emailProspect(email, `${business}: your app preview and recall estimate`, [
+    const where = area?.ok ? `${area.city}, ${area.state}` : "your area";
+    const ok = await emailProspect(email, areaTaken ? `${business}: ${where} is taken for now` : `${business}: your recall estimate`, [
       `Hi ${first},`,
       "",
-      "Thanks for building your app with us. A live call isn't the right next step yet, so here's everything in one place instead:",
+      ...(areaTaken
+        ? [`Atlas works with one med spa per area, and a practice near ${where} already holds yours. You're on the waitlist: if the area opens up, you'll hear from me first.`]
+        : ["Thanks for checking your area. A live walkthrough isn't the right next step yet (walkthroughs are for owners and managers of practices that are open today), so here's your estimate to share with whoever makes the call."]),
       "",
       row.estimate_likely ? `Your recall estimate: about $${row.estimate_likely.toLocaleString()} a year in visits that slip today (a planning estimate from your answers, not a promise).` : "",
-      `Tap around the demo practice app like a patient would: ${SITE_ORIGIN}/medspa#demo`,
       "",
-      "If things change (you're open, or the owner wants to see it), reply to this email and I'll set up a time.",
+      "If anything changes, reply to this email and I'll set up a time.",
       "",
       "Andrew Montano",
       "Atlas Engine · atlas-engine.app",
@@ -133,5 +148,5 @@ export async function POST(req: Request) {
     if (ok) await supabase.from("landing_leads").update({ nurture_sent_at: new Date().toISOString() }).eq("id", data.id);
   }
 
-  return NextResponse.json(verdict.qualified ? { qualified: true, lead_id: data.id, event_id: eventId } : { qualified: false });
+  return NextResponse.json(verdict.qualified ? { qualified: true, lead_id: data.id, event_id: eventId } : { qualified: false, reason: areaTaken ? "area_taken" : "not_a_fit" });
 }

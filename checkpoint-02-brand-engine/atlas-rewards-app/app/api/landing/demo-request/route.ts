@@ -144,7 +144,7 @@ export async function POST(req: Request) {
         summary: `Atlas × ${business} — app walkthrough`,
         description: [
           `${name} (${business})`, `${email} · ${phone}`, row.industry ? `Industry: ${row.industry}` : "",
-          "", "We'll walk through the app we built for you, your numbers, and setup. 20 minutes, no pressure.",
+          "", "We'll walk through your numbers, how Atlas would run at your desk, and setup. 20 minutes, no pressure.",
           "", row.notes ? `Notes from the builder:\n${row.notes}` : "", row.source ? `Source: ${row.source}` : "",
         ].filter((l) => l !== undefined).join("\n").trim(),
         attendee: { email, name },
@@ -166,7 +166,7 @@ export async function POST(req: Request) {
     await emailProspect(email, `You're booked: Atlas walkthrough, ${when}`, [
       `Hi ${name.split(" ")[0]},`,
       "",
-      `You're booked for a ${CALL_MINUTES}-minute walkthrough of ${business}'s app on ${when}.`,
+      `You're booked for a ${CALL_MINUTES}-minute Atlas walkthrough for ${business} on ${when}.`,
       meetUrl ? `Video link: ${meetUrl}` : "Andrew will send the video link before the call.",
       calendarStatus === "created" ? "A calendar invite is on its way from andrew@atlas-engine.app." : "",
       // CP-201: the pre-call page (short video + "confirm I'll be there").
