@@ -108,7 +108,7 @@ export async function GET(req: Request) {
     await emailProspect(l.email, `${l.business}: your walkthrough times are still open`, join([
       `Hi ${String(l.name).split(" ")[0]},`, "",
       "You built your app and qualified for a walkthrough but didn't pick a time. Your app and numbers are saved; it's 20 minutes on video.",
-      `Pick a time here: ${SITE_ORIGIN}/medspa?lead=${l.id}`, "",
+      `Pick a time here: ${SITE_ORIGIN}/medspa/start?lead=${l.id}`, "",
       "Or just reply with two times that work and I'll send the invite.", "",
       "Andrew Montano", "Atlas Engine · atlas-engine.app",
     ]));

@@ -47,15 +47,30 @@ export function PrecallPage(p: Props) {
 
   return (
     <div className="site min-h-screen overflow-x-clip bg-[var(--s-paper)]">
-      <header className="border-b border-[var(--s-line)] bg-white/80 backdrop-blur-xl">
-        <div className="s-wrap flex h-16 items-center justify-between">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
-          <span className="hidden text-[13px] font-semibold text-[var(--s-ink-3)] sm:block">{p.business}</span>
-        </div>
-      </header>
+      {/* CP-202: brand ocean band (blue-lines) behind the logo and the headline */}
+      <div className="s-ocean relative overflow-hidden pb-40">
+        <div className="s-ocean-img" aria-hidden />
+        <header className="relative">
+          <div className="s-wrap flex h-16 items-center justify-between">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/atlas-engine-logo.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
+            <span className="hidden text-[13px] font-semibold text-white/85 sm:block">{p.business}</span>
+          </div>
+        </header>
+        {!p.past && (
+          <div className="s-wrap relative pt-8 text-center sm:pt-12">
+            <p className={cn("s-load-1 mx-auto inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-bold", confirmed ? "bg-emerald-50 text-emerald-700" : "bg-[#FFF3DC] text-[#8A5A0B]")}>
+              {confirmed ? <><CheckCircle2 className="h-4 w-4" aria-hidden /> Confirmed. See you then.</> : <><Clock className="h-4 w-4" aria-hidden /> One step left</>}
+            </p>
+            <h1 className="s-display s-load-2 mx-auto mt-5 max-w-[16ch] !text-[clamp(2.1rem,1.4rem+3vw,3.6rem)] text-white">
+              {confirmed ? `You're all set${p.firstName ? `, ${p.firstName}` : ""}.` : <>Your call isn&apos;t confirmed yet{p.firstName ? `, ${p.firstName}` : ""}.</>}
+            </h1>
+            <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{confirmed ? "Andrew will bring your app and your numbers. Here's everything in one place." : `Watch the short video, then tap confirm so Andrew holds ${day} for ${p.business}.`}</p>
+          </div>
+        )}
+      </div>
 
-      <main className="s-wrap py-10 sm:py-16">
+      <main className="s-wrap relative -mt-32 pb-10 sm:pb-16">
         <div className="mx-auto max-w-[760px]">
           {p.past ? (
             <div className="s-panel p-8 text-center">
@@ -64,17 +79,7 @@ export function PrecallPage(p: Props) {
             </div>
           ) : (
             <>
-              <div className="text-center">
-                <p className={cn("s-load-1 mx-auto inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-bold", confirmed ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-[#FFF3DC] text-[#8A5A0B] ring-1 ring-[#F5D9A6]")}>
-                  {confirmed ? <><CheckCircle2 className="h-4 w-4" aria-hidden /> Confirmed. See you then.</> : <><Clock className="h-4 w-4" aria-hidden /> One step left</>}
-                </p>
-                <h1 className="s-display s-load-2 mx-auto mt-5 max-w-[16ch] !text-[clamp(2.1rem,1.4rem+3vw,3.6rem)]">
-                  {confirmed ? `You're all set${p.firstName ? `, ${p.firstName}` : ""}.` : <>Your call isn&apos;t confirmed yet{p.firstName ? `, ${p.firstName}` : ""}.</>}
-                </h1>
-                <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{confirmed ? "Andrew will bring your app and your numbers. Here's everything in one place." : `Watch the short video, then tap confirm so Andrew holds ${day} for ${p.business}.`}</p>
-              </div>
-
-              <div className="s-panel s-load-3 mt-8 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+              <div className="s-panel s-load-3 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                 <div className="flex items-center gap-4">
                   <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--s-ice)] text-[var(--s-ocean)]"><Video className="h-6 w-6" aria-hidden /></span>
                   <div><div className="text-[17px] font-bold">{day}</div><div className="text-[14px] text-[var(--s-ink-3)]">{time} · {CALL_MINUTES} min on video with Andrew</div></div>
@@ -163,7 +168,17 @@ function PrecallVideo({ token, embed }: { token: string; embed: string | null })
     return () => window.removeEventListener("message", onMsg);
   }, [playing, embed, token]);
 
-  if (!embed) return null;
+  if (!embed) {
+    // CP-202: placeholder until PRECALL_VIDEO.embed is set (the written version shows underneath).
+    return (
+      <div className="relative aspect-video overflow-hidden rounded-2xl bg-[#06318F] ring-1 ring-[var(--s-line)]">
+        <div aria-hidden className="absolute inset-0 bg-[url('/landing/blue-lines.jpg')] bg-cover bg-center" />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#041F5C]/70 to-transparent" />
+        <span className="absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-[var(--s-ocean)] shadow-xl"><Play className="ml-1 h-7 w-7 fill-current" aria-hidden /></span>
+        <div className="absolute inset-x-0 bottom-0 p-5 text-white"><div className="text-[15px] font-bold">Before your call, from Andrew</div><div className="text-[13px] text-white/75">Video coming soon. The short version is below.</div></div>
+      </div>
+    );
+  }
   const src = `${embed}${embed.includes("?") ? "&" : "?"}autoplay=1&playsinline=1&api=1`;
   return (
     <div className="relative aspect-video overflow-hidden rounded-2xl bg-[var(--s-ocean-deep)]">

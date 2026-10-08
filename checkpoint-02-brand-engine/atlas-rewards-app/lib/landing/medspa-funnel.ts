@@ -114,3 +114,44 @@ export const DEFAULT_PURCHASE_VALUE = Number(process.env.META_PURCHASE_VALUE ?? 
 
 /** Where funnel links point (emails are opened outside the site). */
 export const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.atlas-engine.app").replace(/\/$/, "");
+
+/* ───────────── CP-202: landing video, offer, A/B tests ───────────── */
+
+/**
+ * The landing-page video (hero, "video" variant). Record 60–120 s: who you
+ * are, the leak (patients drift between treatments), what Atlas does, "see
+ * your app in 60 seconds". Paste a Vimeo/YouTube embed URL. While null, a
+ * branded placeholder shows in its place.
+ */
+export const LANDING_VSL: { embed: string | null; minutes: number; label: string } = {
+  embed: null,
+  minutes: 2,
+  label: "Andrew, founder of Atlas, in 2 minutes",
+};
+
+/**
+ * The offer block on /medspa. Both are null until Andrew approves the wording
+ * (a guarantee is a promise to customers, so it never ships by default).
+ * Recommended (CP-202 notes): a guarantee Atlas controls, e.g.
+ *   guarantee: { title: "Live in 7 days, or your first month is free.",
+ *                body: "If your app isn't live at your checkout within 7 days of your setup call, you don't pay for month one. After that it's month to month: cancel any time." }
+ *   founding:  "Founding-practice pricing for our first 10 med spas. We onboard a few practices a week."
+ */
+export const OFFER: { guarantee: { title: string; body: string } | null; founding: string | null } = {
+  guarantee: null,
+  founding: null,
+};
+
+/**
+ * A/B tests. Each visitor gets one arm, kept on their browser so they always
+ * see the same page; the arm is saved on their lead (landing_leads.variant)
+ * and sent with every analytics event, so you can compare leads, bookings
+ * and paid by arm (SQL view landing_funnel_by_variant).
+ *
+ *   hero: on /medspa, "phone" (app screens in a phone frame) vs "video" (the
+ *         founder video up top). Force one with /medspa?hero=video.
+ *   entry: Meta ad set A → /medspa (landing page first), ad set B →
+ *         /medspa/start (straight into the quiz). Run them as a Meta A/B test.
+ */
+export const HERO_ARMS = ["phone", "video"] as const;
+export type HeroArm = (typeof HERO_ARMS)[number];

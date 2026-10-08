@@ -43,7 +43,9 @@ export type LandingEvent =
   | "lead_unqualified"
   | "precall_viewed"
   | "precall_video"
-  | "call_confirmed";
+  | "call_confirmed"
+  // CP-202: A/B arms
+  | "variant_assigned";
 
 type Props = Record<string, string | number | boolean | undefined>;
 

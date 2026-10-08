@@ -15,13 +15,11 @@
  * estimate; price is quoted on the call unless PRICE_BEFORE_CALL is set.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Clock, Plus, ShieldCheck, Sparkles, Video } from "lucide-react";
+import { ArrowRight, Check, Clock, Play, Plus, ShieldCheck, Sparkles, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { useInView } from "@/components/landing/reveal";
-import { LandingProviders, useLanding } from "@/components/landing/landing-providers";
 import { LiveApp } from "@/components/landing/live-app/live-app";
-import { siteFontClass } from "@/lib/landing/site-fonts";
 import { fmtMoney } from "@/lib/landing/quiz-model";
 import { REBOOK, SCENARIOS, estimateMedspa } from "@/lib/landing/medspa-quiz-model";
 import { MEDSPA_FAQ, MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
@@ -29,45 +27,32 @@ import { MEDSPA_BOOKING, MEDSPA_BRAND, MEDSPA_HOURS, MEDSPA_MEMBER_NOTE, MEDSPA_
 import { AppShot, Compare, ReviewsBand } from "@/components/site/site-page";
 import { BookedPillMock, DeskListMock, PhoneShell, ReminderMock } from "@/components/site/site-mocks";
 import { useSiteMotion } from "@/components/site/motion";
-import { MedspaFunnel } from "./medspa-funnel";
+// CP-202: buttons go to the funnel page; hero A/B; video placeholder; offer block
+import { HERO_ARMS, LANDING_VSL, OFFER, type HeroArm } from "@/lib/landing/medspa-funnel";
+import { useArm, withQuery } from "@/lib/landing/ab";
 
 const DEMO = { brand: MEDSPA_BRAND, categories: MEDSPA_BOOKING, rewards: MEDSPA_REWARDS, hours: MEDSPA_HOURS, offer: MEDSPA_OFFER, memberNote: MEDSPA_MEMBER_NOTE, guest: "Maya" };
 
-function useAdSource() {
-  const [source, setSource] = useState("medspa");
-  useEffect(() => {
-    try {
-      const p = new URLSearchParams(window.location.search);
-      setSource(["medspa", p.get("utm_source"), p.get("utm_campaign"), p.get("utm_content")].filter(Boolean).join(":").slice(0, 120));
-    } catch { /* keep default */ }
-  }, []);
-  return source;
-}
-
 export function MedspaFunnelPage() {
-  return (
-    <LandingProviders fontClassName={`site ${siteFontClass}`} renderQuiz={(src, ref) => <MedspaFunnel source={src} firstFieldRef={ref} />}>
-      <Page />
-    </LandingProviders>
-  );
-}
-
-function Page() {
-  const source = useAdSource();
-  const { openDemo } = useLanding();
-  const start = (where: string) => { track("hero_cta_clicked", { source: `medspa_${where}` }); openDemo(`${source}:${where}`); };
+  const hero = useArm<HeroArm>("hero", HERO_ARMS);
+  // Every button goes to the funnel page, carrying UTMs/fbclid and which hero this visitor saw.
+  const start = (where: string) => {
+    track("hero_cta_clicked", { source: `medspa_${where}`, variant: hero ? `lp-${hero}` : undefined });
+    window.location.assign(withQuery("/medspa/start", { from: "landing", hero: hero ?? "phone", at: where }));
+  };
   const rootRef = useRef<HTMLDivElement>(null);
   useSiteMotion(rootRef);
-  // The "your times are still open" email links to /medspa?lead=<id>: open straight onto the calendar.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("lead")) openDemo(`${source}:return`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The "your times are still open" email used to link here; send those straight to the calendar.
+    const lead = new URLSearchParams(window.location.search).get("lead");
+    if (lead) window.location.replace(`/medspa/start?lead=${encodeURIComponent(lead)}`);
   }, []);
+  useEffect(() => { if (hero) track("variant_assigned", { test: "hero", variant: `lp-${hero}` }); }, [hero]);
   return (
     <div ref={rootRef} className="site overflow-x-clip">
-      <Header onStart={() => start("header")} />
+      <Header onStart={() => start("header")} onDark={hero === "video"} />
       <main id="main">
-        <Hero onStart={() => start("hero")} />
+        {hero === "video" ? <HeroVideo onStart={() => start("hero")} /> : hero === "phone" ? <Hero onStart={() => start("hero")} /> : <div className="min-h-[720px]" aria-hidden />}
         <Assurances />
         <Leak />
         <WhatAtlasRuns />
@@ -87,15 +72,15 @@ function Page() {
 }
 
 /* ───────────── header: logo + one button, nothing to wander off to ───────────── */
-function Header({ onStart }: { onStart: () => void }) {
+function Header({ onStart, onDark = false }: { onStart: () => void; onDark?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => { const on = () => setScrolled(window.scrollY > 10); on(); window.addEventListener("scroll", on, { passive: true }); return () => window.removeEventListener("scroll", on); }, []);
   return (
     <header className={cn("sticky top-0 z-40 transition-[background,box-shadow] duration-300", scrolled ? "bg-white/85 shadow-[0_1px_0_var(--s-line)] backdrop-blur-xl" : "bg-transparent")}>
       <div className="s-wrap flex h-[68px] items-center justify-between gap-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
-        <button type="button" onClick={onStart} className={cn("s-btn s-focus !h-11 !px-5 text-[15px]", scrolled ? "s-btn-primary" : "s-btn-quiet")}>See your app</button>
+        <img src={onDark && !scrolled ? "/atlas-engine-logo.png" : "/landing/atlas-engine-logo-navy.png"} alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
+        <button type="button" onClick={onStart} className={cn("s-btn s-focus !h-11 !px-5 text-[15px]", scrolled ? "s-btn-primary" : onDark ? "s-btn-light" : "s-btn-quiet")}>See your app</button>
       </div>
     </header>
   );
@@ -146,6 +131,69 @@ function Hero({ onStart }: { onStart: () => void }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/* ───────────── CP-202 hero, arm B: the founder video on the brand ocean ───────────── */
+function HeroVideo({ onStart }: { onStart: () => void }) {
+  return (
+    <section className="s-ocean relative -mt-[68px] overflow-hidden pb-20 pt-[104px] sm:pt-[124px] lg:pb-24" aria-labelledby="hero-title">
+      <div className="s-ocean-img" aria-hidden />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent to-[#06318F]/45" />
+      <div className="s-wrap relative text-center">
+        <p className="s-load-1 mx-auto inline-flex items-center gap-2.5 rounded-full bg-white/12 py-1.5 pl-2 pr-4 text-[14px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
+          <span className="relative h-2 w-2 rounded-full bg-white s-ping" aria-hidden />For med spas and aesthetic practices
+        </p>
+        <h1 id="hero-title" className="s-display s-load-1 mx-auto mt-6 max-w-[14ch] text-white">Every patient has a due date.</h1>
+        <p className="s-lead s-load-2 mx-auto mt-5 max-w-[36rem]">Your own patient app that brings each patient back before her treatment wears off, and memberships that bill every month. Watch how it works.</p>
+        <div className="s-load-3 mx-auto mt-10 max-w-[900px]"><VideoFrame onStart={onStart} /></div>
+        <div className="s-load-4 mt-9 flex flex-col items-center gap-3">
+          <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
+          <p className="text-[14px] text-white/80">{MEDSPA_OFFER_COPY.ctaNote} Month to month, cancel anytime.</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** The video, or a branded placeholder until LANDING_VSL.embed is set. The player loads only after a tap. */
+function VideoFrame({ onStart }: { onStart: () => void }) {
+  const [state, setState] = useState<"idle" | "playing" | "soon">("idle");
+  const src = LANDING_VSL.embed ? `${LANDING_VSL.embed}${LANDING_VSL.embed.includes("?") ? "&" : "?"}autoplay=1&playsinline=1` : null;
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-[26px] bg-[#06318F] shadow-[0_40px_90px_-30px_rgba(2,20,70,.8)] ring-1 ring-white/25">
+      {state === "playing" && src ? (
+        <iframe src={src} title={LANDING_VSL.label} allow="autoplay; fullscreen; picture-in-picture" allowFullScreen className="absolute inset-0 h-full w-full" />
+      ) : (
+        <>
+          <div aria-hidden className="absolute inset-0 bg-[url('/landing/blue-lines.jpg')] bg-cover bg-center" />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#041F5C]/70 via-transparent to-transparent" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/atlas-engine-logo.png" alt="" aria-hidden width={1315} height={494} className="absolute left-6 top-6 h-6 w-auto opacity-90" />
+          {state === "soon" ? (
+            <div className="absolute inset-0 grid place-items-center p-6" role="status">
+              <div className="max-w-[26rem] rounded-3xl bg-white/95 p-6 text-center text-[var(--s-ink)] shadow-2xl">
+                <div className="text-[1.15rem] font-bold">The video is on its way.</div>
+                <p className="mt-2 text-[15px] text-[var(--s-ink-2)]">In the meantime, the fastest way to see Atlas is your own app. It takes about 60 seconds.</p>
+                <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus mt-5 !h-12">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" onClick={() => { setState(src ? "playing" : "soon"); track("vsl_played", { source: "medspa_hero", placeholder: !src }); }}
+              className="s-focus absolute inset-0 grid place-items-center" aria-label={src ? `Play: ${LANDING_VSL.label}` : "Video coming soon"}>
+              <span className="relative grid h-20 w-20 place-items-center rounded-full bg-white text-[var(--s-ocean)] shadow-[0_20px_50px_-10px_rgba(0,0,0,.5)] transition-transform hover:scale-105 sm:h-24 sm:w-24">
+                <span aria-hidden className="absolute inset-0 rounded-full bg-white/40 s-ping" />
+                <Play className="relative ml-1 h-8 w-8 fill-current sm:h-10 sm:w-10" aria-hidden />
+              </span>
+            </button>
+          )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-left text-white sm:p-6">
+            <div><div className="text-[15px] font-bold sm:text-[17px]">{LANDING_VSL.label}</div><div className="text-[13px] text-white/75">{src ? `${LANDING_VSL.minutes} min · sound on` : "Video coming soon"}</div></div>
+            <span className="hidden rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold ring-1 ring-white/25 backdrop-blur sm:inline">{LANDING_VSL.minutes}:00</span>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -394,6 +442,16 @@ function Included({ onStart }: { onStart: () => void }) {
           <h2 id="inc-title" className="s-h2 max-w-[12ch]">Everything your practice gets.</h2>
           <p className="s-lead mt-6 max-w-[28rem]">One flat monthly fee. No per-patient fees, no percentage of your treatment revenue. {MEDSPA_OFFER_COPY.riskReversal}</p>
           <p className="s-body mt-4 max-w-[28rem]">{MEDSPA_OFFER_COPY.rationale}</p>
+          {OFFER.guarantee && (
+            <div className="s-ocean relative mt-8 overflow-hidden rounded-[24px] p-6">
+              <div className="s-ocean-img opacity-70" aria-hidden />
+              <div className="relative flex gap-4">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-[var(--s-ocean)]"><ShieldCheck className="h-6 w-6" aria-hidden /></span>
+                <div><div className="text-[1.1rem] font-bold text-white">{OFFER.guarantee.title}</div><p className="mt-1 text-[14.5px] leading-relaxed text-white/85">{OFFER.guarantee.body}</p></div>
+              </div>
+            </div>
+          )}
+          {OFFER.founding && <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-[var(--s-ice)] px-3.5 py-1.5 text-[13.5px] font-bold text-[var(--s-ocean-deep)]"><Sparkles className="h-4 w-4" aria-hidden />{OFFER.founding}</p>}
           <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus mt-9">See your practice&apos;s app <ArrowRight className="h-4 w-4" aria-hidden /></button>
         </div>
         <div className="s-panel p-7 sm:p-10">

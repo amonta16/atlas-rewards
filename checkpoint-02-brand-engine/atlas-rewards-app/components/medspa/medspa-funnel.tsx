@@ -12,7 +12,7 @@
  * (the follow-up email link) or on the same browser and lands on the calendar.
  */
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { ArrowLeft, ArrowRight, Ban, CalendarDays, Check, ChevronDown, ImagePlus, Loader2, Lock, Mail, MessageSquare, Pipette, ShieldCheck, Smartphone, Sparkles, Ticket, Users, Wallet, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ban, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, Globe, ImagePlus, Loader2, Lock, Mail, MessageSquare, Pipette, ShieldCheck, Smartphone, Sparkles, Ticket, Users, Video, Wallet, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { optimizedUrl } from "@/lib/img";
 import { dominantColorsFromFile, paletteFromColor } from "@/lib/logo-colors";
@@ -73,7 +73,7 @@ function utms() {
   return { utm_source: p.get("utm_source") ?? "", utm_campaign: p.get("utm_campaign") ?? "", utm_content: p.get("utm_content") ?? "" };
 }
 
-export function MedspaFunnel({ source, firstFieldRef }: { source: string; firstFieldRef?: RefObject<HTMLInputElement> }) {
+export function MedspaFunnel({ source, firstFieldRef, variant }: { source: string; firstFieldRef?: RefObject<HTMLInputElement>; variant?: string }) {
   const [phase, setPhase] = useState<Phase>("quiz");
   const [step, setStep] = useState(0);
   const [type, setType] = useState<PracticeTypeId>("medspa");
@@ -271,7 +271,7 @@ export function MedspaFunnel({ source, firstFieldRef }: { source: string; firstF
 
           {phase === "about" && (
             <AboutYou headRef={headRef} firstFieldRef={firstFieldRef} source={source} practice={name.trim()}
-              answers={{ practice_type: venue.label, visit_band: visitId, value_band: valueId, rebook: rebookId, recall: recallId, estimate_likely: est?.likely ?? null, app_color: brand.primary }}
+              answers={{ variant: variant ?? null, practice_type: venue.label, visit_band: visitId, value_band: valueId, rebook: rebookId, recall: recallId, estimate_likely: est?.likely ?? null, app_color: brand.primary }}
               onBack={() => setPhase("results")}
               onResult={(r) => {
                 setFirstName(r.first);
@@ -289,11 +289,11 @@ export function MedspaFunnel({ source, firstFieldRef }: { source: string; firstF
               <h3 ref={headRef} tabIndex={-1} className="mt-4 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none">Thanks{firstName ? `, ${firstName}` : ""}. Your estimate is on its way.</h3>
               <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">From what you told us, a live walkthrough isn&apos;t the right next step yet. Walkthroughs are for owners and managers of practices that are open today. We&apos;ve emailed you your recall estimate and the demo app, so you can share it with whoever makes the call.</p>
               <p className="mt-3 max-w-[34rem] text-[15px] leading-relaxed text-[var(--s-ink-2)]">If that changes, reply to the email and Andrew will set up a time.</p>
-              <a href="#demo" className="s-btn s-btn-quiet s-focus mt-6">Tap around the demo app</a>
+              <a href="/medspa#demo" className="s-btn s-btn-quiet s-focus mt-6">Tap around the demo app</a>
             </div>
           )}
 
-          {phase === "time" && leadId && <TimePicker leadId={leadId} firstName={firstName} source={source} headRef={headRef} extraNotes={est ? `Estimate: ${fmtMoney(est.likely)}/yr likely (${fmtMoney(est.low)}–${fmtMoney(est.high)}) · ${visits?.label} visits/mo · ${value?.label} per visit · rebook: ${rebook?.label} · recall today: ${recall?.label}${logoName ? ` · has a logo (${logoName}), ask them to email it` : ""}` : undefined} />}
+          {phase === "time" && leadId && <TimePicker leadId={leadId} firstName={firstName} practice={name.trim()} source={source} headRef={headRef} extraNotes={est ? `Estimate: ${fmtMoney(est.likely)}/yr likely (${fmtMoney(est.low)}–${fmtMoney(est.high)}) · ${visits?.label} visits/mo · ${value?.label} per visit · rebook: ${rebook?.label} · recall today: ${recall?.label}${logoName ? ` · has a logo (${logoName}), ask them to email it` : ""}` : undefined} />}
         </div>
 
         {phase === "quiz" && step > 0 && (
@@ -440,12 +440,18 @@ function Options<T extends { id: string; label: string; sub?: string; icon?: Rea
   );
 }
 
-/* ───────────── the calendar (qualified leads only) ───────────── */
-function TimePicker({ leadId, firstName, source, headRef, extraNotes }: { leadId: string; firstName: string; source: string; headRef: RefObject<HTMLHeadingElement>; extraNotes?: string }) {
+/* ───────────── the calendar (qualified leads only) — CP-202: Calendly layout ─────────────
+ * People know Calendly's page, so this mirrors it: who/what/how long on the left,
+ * a month grid in the middle, the day's times on the right, a time splits into
+ * [time | Next], then one confirm screen. Times come from Andrew's Google Calendar
+ * (GET /api/landing/availability) and are shown in the visitor's timezone. */
+function TimePicker({ leadId, firstName, practice, source, headRef, extraNotes }: { leadId: string; firstName: string; practice: string; source: string; headRef: RefObject<HTMLHeadingElement>; extraNotes?: string }) {
   const [slots, setSlots] = useState<Date[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [tz, setTz] = useState(HOST_TZ);
   const [day, setDay] = useState<string | null>(null);
+  const [month, setMonth] = useState<{ y: number; m: number } | null>(null);
+  const [pending, setPending] = useState<Date | null>(null);
   const [slot, setSlot] = useState<Date | null>(null);
   const [state, setState] = useState<"idle" | "sending">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -459,18 +465,38 @@ function TimePicker({ leadId, firstName, source, headRef, extraNotes }: { leadId
     return () => { off = true; };
   }, []);
 
-  const dayFmt = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }), [tz]);
-  const days = useMemo(() => {
+  const keyFmt = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }), [tz]);
+  const byDay = useMemo(() => {
     const m = new Map<string, Date[]>();
-    for (const s of slots ?? []) { const k = dayFmt.format(s); (m.get(k) ?? m.set(k, []).get(k)!).push(s); }
-    return Array.from(m.entries()).slice(0, 14);
-  }, [slots, dayFmt]);
-  useEffect(() => { if (!day && days[0]) setDay(days[0][0]); }, [days, day]);
-  const times = days.find(([k]) => k === day)?.[1] ?? [];
-  const fTime = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d);
-  const fDay = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(d);
-  const fNum = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, month: "short", day: "numeric" }).format(d);
-  const fLong = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric" }).format(d);
+    for (const s of slots ?? []) { const k = keyFmt.format(s); (m.get(k) ?? m.set(k, []).get(k)!).push(s); }
+    return m;
+  }, [slots, keyFmt]);
+  const firstKey = useMemo(() => Array.from(byDay.keys()).sort()[0] ?? null, [byDay]);
+  useEffect(() => {
+    if (!month) { const k = firstKey ?? keyFmt.format(new Date()); setMonth({ y: +k.slice(0, 4), m: +k.slice(5, 7) - 1 }); }
+  }, [firstKey, keyFmt, month]);
+  // Calendly opens with the first open day already selected on desktop.
+  useEffect(() => { if (!day && firstKey && window.matchMedia("(min-width: 1024px)").matches) setDay(firstKey); }, [firstKey, day]);
+
+  const todayKey = keyFmt.format(new Date());
+  const times = day ? byDay.get(day) ?? [] : [];
+  const lc = (t: string) => t.replace(" AM", "am").replace(" PM", "pm");
+  const fTime = (d: Date) => lc(new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d));
+  const fLong = (d: Date) => new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(d);
+  const dayTitle = day ? new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`)) : "";
+
+  // Month grid, Monday first (Calendly's US layout)
+  const grid = useMemo(() => {
+    if (!month) return [];
+    const first = new Date(Date.UTC(month.y, month.m, 1));
+    const lead = (first.getUTCDay() + 6) % 7;
+    const n = new Date(Date.UTC(month.y, month.m + 1, 0)).getUTCDate();
+    return [...Array(lead).fill(null), ...Array.from({ length: n }, (_, i) => i + 1)] as Array<number | null>;
+  }, [month]);
+  const keyOf = (d: number) => month ? `${month.y}-${String(month.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}` : "";
+  const monthLabel = month ? new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(month.y, month.m, 1))) : "";
+  const canPrev = month ? `${month.y}-${String(month.m + 1).padStart(2, "0")}` > todayKey.slice(0, 7) : false;
+  const shift = (d: number) => setMonth((v) => (v ? { y: v.m + d < 0 ? v.y - 1 : v.m + d > 11 ? v.y + 1 : v.y, m: (v.m + d + 12) % 12 } : v));
 
   async function book() {
     if (!slot) return;
@@ -482,7 +508,7 @@ function TimePicker({ leadId, firstName, source, headRef, extraNotes }: { leadId
       });
       const j = await r.json().catch(() => ({}));
       if (r.status === 409 && !/already have a call/i.test(j.error ?? "")) {
-        setSlots((s) => (s ?? []).filter((x) => x.getTime() !== slot.getTime())); setSlot(null);
+        setSlots((s) => (s ?? []).filter((x) => x.getTime() !== slot.getTime())); setSlot(null); setPending(null);
         throw new Error(j.error || "That time was just taken. Please pick another.");
       }
       if (!r.ok) throw new Error(j.error || "Something went wrong.");
@@ -495,50 +521,119 @@ function TimePicker({ leadId, firstName, source, headRef, extraNotes }: { leadId
     }
   }
 
+  const BLUE = "var(--s-ocean)";
   return (
-    <div>
-      <p className="inline-flex items-center gap-1.5 rounded-full bg-[var(--s-ice)] px-3 py-1 text-xs font-bold text-[var(--s-ocean-deep)]"><ShieldCheck className="h-3.5 w-3.5" aria-hidden /> You qualify for a walkthrough</p>
-      <h3 ref={headRef} tabIndex={-1} className="mt-3 text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">Pick a time{firstName ? `, ${firstName}` : ""}.</h3>
-      <p className="mt-2 text-[15px] text-[var(--s-ink-3)]">{CALL_MINUTES} minutes on video with Andrew. He&apos;ll bring your app and your numbers.</p>
-
-      {slots === null ? (
-        <p className="mt-8 flex items-center gap-2 text-sm text-[var(--s-ink-3)]"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking Andrew&apos;s calendar…</p>
-      ) : days.length === 0 ? (
-        <p className="mt-6 rounded-2xl bg-[var(--s-paper)] p-4 text-sm text-[var(--s-ink-2)] ring-1 ring-[var(--s-line)]">{failed ? "We couldn't load the calendar just now." : "No open times in the next two weeks."} Email <a className="font-semibold text-[var(--s-ocean)]" href="mailto:andrew@atlas-engine.app">andrew@atlas-engine.app</a> with two times that work and he&apos;ll send the invite.</p>
-      ) : (
-        <>
-          <div className="mt-6 flex snap-x gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="radiogroup" aria-label="Choose a day">
-            {days.map(([k, list]) => {
-              const on = k === day;
-              return (
-                <button key={k} type="button" role="radio" aria-checked={on} onClick={() => { setDay(k); setSlot(null); }}
-                  className={cn("s-focus flex w-[76px] shrink-0 snap-start flex-col items-center rounded-2xl border py-3 transition-colors", on ? "border-[var(--s-ocean)] bg-[var(--s-ocean)] text-white" : "border-[var(--s-line)] bg-white text-[var(--s-ink)] hover:border-[var(--s-ocean)]/40")}>
-                  <span className={cn("text-[12px] font-semibold", on ? "text-white/80" : "text-[var(--s-ink-3)]")}>{fDay(list[0])}</span>
-                  <span className="text-[15px] font-bold">{fNum(list[0])}</span>
-                  <span className={cn("mt-1 text-[11px]", on ? "text-white/80" : "text-[var(--s-ocean)]")}>{list.length} open</span>
-                </button>
-              );
-            })}
+    <div className="overflow-hidden rounded-[18px] border border-[#E3E8EF] bg-white text-[#1A1A1A] shadow-[0_1px_8px_rgba(0,0,0,.06)]">
+      <div className={cn("grid", slot ? "lg:grid-cols-[minmax(0,320px)_1fr]" : day ? "lg:grid-cols-[minmax(0,300px)_1fr_minmax(0,240px)]" : "lg:grid-cols-[minmax(0,300px)_1fr]")}>
+        {/* Left: who, what, how long */}
+        <aside className="border-b border-[#E3E8EF] p-6 lg:border-b-0 lg:border-r lg:p-7">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-full" style={{ background: BLUE }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/landing/atlas-icon-white.png" alt="" width={1100} height={852} className="h-[17px] w-auto object-contain" />
+            </span>
+            <span className="text-[15px] font-semibold text-[#6B6B6B]">Andrew Montano</span>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Choose a time">
-            {times.map((t) => {
-              const on = slot?.getTime() === t.getTime();
-              return <button key={t.toISOString()} type="button" role="radio" aria-checked={on} onClick={() => setSlot(t)} className={cn("s-focus h-11 rounded-xl border text-[14px] font-semibold transition-colors", on ? "border-[var(--s-ocean)] bg-[var(--s-ice)] text-[var(--s-ocean-deep)] ring-2 ring-[var(--s-ocean)]/25" : "border-[var(--s-line)] bg-white text-[var(--s-ink)] hover:border-[var(--s-ocean)]/50")}>{fTime(t)}</button>;
-            })}
-          </div>
-          <label className="mt-4 flex items-center gap-2 text-xs text-[var(--s-ink-3)]">
-            <span>Times shown in</span>
-            <select value={tz} onChange={(e) => { setTz(e.target.value); setDay(null); setSlot(null); }} className="s-focus h-8 rounded-lg border border-[var(--s-line)] bg-white px-2 text-xs text-[var(--s-ink-2)]">
-              {Array.from(new Set([tz, ...COMMON_TZS])).map((z) => <option key={z} value={z}>{tzLabel(z)}</option>)}
-            </select>
-          </label>
-        </>
-      )}
+          <h3 ref={headRef} tabIndex={-1} className="mt-3 text-[1.6rem] font-bold leading-tight tracking-[-0.02em] outline-none">Atlas app walkthrough</h3>
+          <ul className="mt-5 space-y-3 text-[15px] font-semibold text-[#6B6B6B]">
+            <li className="flex items-center gap-3"><Clock className="h-5 w-5" aria-hidden />{CALL_MINUTES} min</li>
+            <li className="flex items-start gap-3"><Video className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />Video call details provided upon confirmation.</li>
+            {slot && <li className="flex items-start gap-3 text-[#1A7F4B]"><CalendarDays className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />{fTime(slot)} – {fTime(new Date(slot.getTime() + CALL_MINUTES * 60_000))}, {fLong(slot)}</li>}
+            {slot && <li className="flex items-center gap-3"><Globe className="h-5 w-5" aria-hidden />{tzLabel(tz, slot)}</li>}
+          </ul>
+          <p className="mt-5 text-[14px] leading-relaxed text-[#4D4D4D]">{firstName ? `${firstName}, ` : ""}Andrew will walk through the app he built for {practice || "your practice"}, your recall numbers, and what setup looks like. You decide if it&apos;s a fit.</p>
+          <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--s-ice)] px-2.5 py-1 text-[12px] font-bold text-[var(--s-ocean-deep)]"><ShieldCheck className="h-3.5 w-3.5" aria-hidden /> You qualify for a walkthrough</p>
+        </aside>
 
-      {error && <p role="alert" className="mt-4 text-sm font-medium text-rose-600">{error}</p>}
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-[var(--s-ink-3)]">{slot ? <>You picked <b className="text-[var(--s-ink)]">{fLong(slot)} at {fTime(slot)}</b>.</> : "Pick a day, then a time."}</p>
-        <button type="button" onClick={book} disabled={!slot || state === "sending"} className="s-btn s-btn-primary s-focus disabled:opacity-50">{state === "sending" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <CalendarDays className="h-4 w-4" aria-hidden />}Book this time</button>
+        {slot ? (
+          /* Confirm */
+          <section className="p-6 lg:p-8" aria-label="Confirm your time">
+            <button type="button" onClick={() => { setSlot(null); setPending(null); }} className="s-focus grid h-11 w-11 place-items-center rounded-full border border-[#E3E8EF] text-[var(--s-ocean)] hover:bg-[#F2F7FF]" aria-label="Back to times"><ArrowLeft className="h-5 w-5" aria-hidden /></button>
+            <h4 className="mt-5 text-[1.25rem] font-bold">Confirm your walkthrough</h4>
+            <p className="mt-2 max-w-[30rem] text-[15px] leading-relaxed text-[#4D4D4D]">We&apos;ll send the calendar invite and video link to the email you gave us. Next you&apos;ll see a short page to confirm you can make it.</p>
+            <div className="mt-6 rounded-xl border border-[#E3E8EF] p-4 text-[15px]">
+              <div className="font-bold">{fLong(slot)}</div>
+              <div className="text-[#4D4D4D]">{fTime(slot)} · {CALL_MINUTES} minutes · {tzLabel(tz, slot)}</div>
+            </div>
+            {error && <p role="alert" className="mt-4 text-sm font-medium text-rose-600">{error}</p>}
+            <button type="button" onClick={book} disabled={state === "sending"} className="s-focus mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-full px-7 text-[15px] font-bold text-white disabled:opacity-60" style={{ background: BLUE }}>
+              {state === "sending" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}Schedule event
+            </button>
+          </section>
+        ) : (
+          <>
+            {/* Middle: the month */}
+            <section className="p-6 lg:p-7" aria-label="Select a date">
+              <h4 className="text-[1.2rem] font-bold">Select a Date &amp; Time</h4>
+              {slots === null ? (
+                <p className="mt-8 flex items-center gap-2 text-sm text-[#6B6B6B]"><Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Checking Andrew&apos;s calendar…</p>
+              ) : byDay.size === 0 ? (
+                <p className="mt-6 rounded-xl bg-[#F7F9FC] p-4 text-sm text-[#4D4D4D]">{failed ? "We couldn't load the calendar just now." : "No open times in the next few weeks."} Email <span className="font-semibold">andrew@atlas-engine.app</span> with two times that work and he&apos;ll send the invite.</p>
+              ) : (
+                <>
+                  <div className="mt-5 flex items-center justify-center gap-6">
+                    <button type="button" onClick={() => shift(-1)} disabled={!canPrev} className="s-focus grid h-10 w-10 place-items-center rounded-full text-[var(--s-ocean)] enabled:hover:bg-[#F2F7FF] disabled:text-[#C9CED6]" aria-label="Previous month"><ChevronLeft className="h-5 w-5" aria-hidden /></button>
+                    <span className="min-w-[10rem] text-center text-[15px] font-medium" aria-live="polite">{monthLabel}</span>
+                    <button type="button" onClick={() => shift(1)} className="s-focus grid h-10 w-10 place-items-center rounded-full bg-[#F2F7FF] text-[var(--s-ocean)] hover:bg-[#E3EEFF]" aria-label="Next month"><ChevronRight className="h-5 w-5" aria-hidden /></button>
+                  </div>
+                  <div className="mx-auto mt-4 grid max-w-[420px] grid-cols-7 gap-y-1 text-center">
+                    {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((d) => <span key={d} className="pb-2 text-[11px] font-medium tracking-wide text-[#4D4D4D]">{d}</span>)}
+                    {grid.map((d, i) => {
+                      if (!d) return <span key={`e${i}`} />;
+                      const k = keyOf(d);
+                      const open = byDay.has(k);
+                      const on = k === day;
+                      return (
+                        <span key={k} className="grid place-items-center">
+                          <button type="button" disabled={!open} onClick={() => { setDay(k); setPending(null); track("interactive_demo_used", { demo: "booking_calendar" }); }}
+                            aria-pressed={on} aria-label={`${k}${open ? `, ${byDay.get(k)!.length} times open` : ", no times"}`}
+                            className={cn("s-focus relative grid h-11 w-11 place-items-center rounded-full text-[15px] transition-colors sm:h-12 sm:w-12",
+                              on ? "font-bold text-white" : open ? "bg-[#E8F1FF] font-bold text-[var(--s-ocean)] hover:bg-[#D4E5FF]" : "text-[#B3B9C3]")}
+                            style={on ? { background: BLUE } : undefined}>
+                            {d}
+                            {k === todayKey && <span aria-hidden className={cn("absolute bottom-1.5 h-1 w-1 rounded-full", on ? "bg-white" : open ? "bg-[var(--s-ocean)]" : "bg-[#B3B9C3]")} />}
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <div className="mx-auto mt-6 max-w-[420px]">
+                    <div className="text-[14px] font-bold">Time zone</div>
+                    <label className="mt-1.5 flex items-center gap-2 text-[14px] text-[#4D4D4D]">
+                      <Globe className="h-4 w-4 shrink-0" aria-hidden /><span className="sr-only">Time zone</span>
+                      <select value={tz} onChange={(e) => { setTz(e.target.value); setDay(null); setPending(null); setMonth(null); }} className="s-focus h-9 flex-1 rounded-lg border-0 bg-transparent pr-2 text-[14px] text-[#1A1A1A] hover:bg-[#F7F9FC]">
+                        {Array.from(new Set([tz, ...COMMON_TZS])).map((z) => <option key={z} value={z}>{tzLabel(z)}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                </>
+              )}
+            </section>
+
+            {/* Right: the day's times */}
+            {day && (
+              <section className="border-t border-[#E3E8EF] p-6 lg:border-t-0 lg:py-7 lg:pl-0 lg:pr-7" aria-label="Select a time">
+                <h4 className="text-[15px] font-medium">{dayTitle}</h4>
+                {error && <p role="alert" className="mt-3 text-sm font-medium text-rose-600">{error}</p>}
+                <div className="mt-4 grid max-h-[420px] gap-2.5 overflow-y-auto pr-1">
+                  {times.map((t) => {
+                    const sel = pending?.getTime() === t.getTime();
+                    return sel ? (
+                      <div key={t.toISOString()} className="grid grid-cols-2 gap-2">
+                        <span className="grid h-[52px] place-items-center rounded-lg bg-[#666A73] text-[15px] font-bold text-white">{fTime(t)}</span>
+                        <button type="button" onClick={() => { setSlot(t); setError(null); }} className="s-focus h-[52px] rounded-lg text-[15px] font-bold text-white" style={{ background: BLUE }}>Next</button>
+                      </div>
+                    ) : (
+                      <button key={t.toISOString()} type="button" onClick={() => setPending(t)}
+                        className="s-focus h-[52px] rounded-lg border border-[var(--s-ocean)]/50 text-[15px] font-bold text-[var(--s-ocean)] transition hover:border-2 hover:border-[var(--s-ocean)]">{fTime(t)}</button>
+                    );
+                  })}
+                  {times.length === 0 && <p className="text-sm text-[#6B6B6B]">No times left that day.</p>}
+                </div>
+              </section>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

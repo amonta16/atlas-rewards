@@ -70,6 +70,7 @@ export async function POST(req: Request) {
     disqualify_reasons: verdict.reasons,
     status: verdict.qualified ? "new" : "nurture",
     source,
+    variant: clean(b.variant, 40) || null, // CP-202: A/B arm
     path: clean(b.path, 200) || null,
     utm_source: clean(b.utm_source, 80) || null,
     utm_campaign: clean(b.utm_campaign, 120) || null,
@@ -102,6 +103,7 @@ export async function POST(req: Request) {
     ["Estimate", row.estimate_likely ? `$${row.estimate_likely.toLocaleString()}/yr likely` : null],
     ["Why not a fit", verdict.qualified ? null : verdict.reasons.join(", ")],
     ["Source", source],
+    ["A/B arm", row.variant],
     ["Next", verdict.qualified ? "Calendar unlocked. If they don't book, they get one follow-up in a few hours." : "No calendar. They got the nurture email."],
   ]);
   if (sent) await supabase.from("landing_leads").update({ notified_at: new Date().toISOString() }).eq("id", data.id);
