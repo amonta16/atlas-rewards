@@ -23,6 +23,11 @@ export const metadata: Metadata = {
     title: "Atlas Engine",
     statusBarStyle: "default",
   },
+  // Meta Business Manager domain verification for atlas-engine.app (Brand safety → Domains).
+  // Must be in the server-rendered <head>; Next prints it as <meta name="facebook-domain-verification" ...>.
+  verification: {
+    other: { "facebook-domain-verification": "t5fpe6a0joj05utttqf97vz21xcdle" },
+  },
   openGraph: {
     title: "Atlas Engine — Loyalty for Local Business",
     description: "Your own branded loyalty app. Live in 30 minutes.",
