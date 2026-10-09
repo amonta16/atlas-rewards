@@ -78,7 +78,7 @@ function Nav({ onStart }: { onStart: () => void }) {
     <header className={cn("sticky top-0 z-40 transition-[background,box-shadow] duration-300", scrolled || open ? "bg-[var(--s-pearl)]/85 shadow-[0_1px_0_var(--s-line)] backdrop-blur-xl" : "bg-transparent")}>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2">Skip to content</a>
       <div className="s-wrap flex h-[68px] items-center justify-between gap-6">
-        <Link href="/" className="s-focus flex items-center rounded-md" aria-label="Atlas Engine home">
+        <Link href="/med-spas" className="s-focus flex items-center rounded-md" aria-label="Atlas Engine for med spas">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
         </Link>
@@ -440,8 +440,8 @@ export function Compare() {
 }
 
 /* ───────────── reviews band (Owner-style): ocean panel, badges, cards sliding across ───────────── */
-/** CP-201: also used on /medspa. */
-export function ReviewsBand() {
+/** CP-201: also used on /medspa. CP-206: and on the all-business home page (audience "general"). */
+export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "general" } = {}) {
   // CP-191: all three Flippo's clips, playable in place (not inside the moving row).
   const videos = TESTIMONIALS.filter((t) => t.embed);
   const real = SITE_REVIEWS.filter((r) => r.quote);
@@ -480,7 +480,7 @@ export function ReviewsBand() {
                   </figure>
                 ))}
               </div>
-              <p className="s-small mt-4 text-center text-white/80">Flippo&apos;s is an arcade and batting cage, the first business on Atlas. Med spa owners are next{real.length === 0 ? "; their words land below as they come in" : ""}.</p>
+              <p className="s-small mt-4 text-center text-white/80">Flippo&apos;s is an arcade and batting cage, the first business on Atlas. {audience === "general" ? "More owners are next" : "Med spa owners are next"}{real.length === 0 ? "; their words land below as they come in" : ""}.</p>
             </div>
           )}
 
@@ -493,11 +493,11 @@ export function ReviewsBand() {
                     <figure key={r.id} className={cn("flex w-[340px] shrink-0 flex-col justify-between rounded-3xl p-6", r.quote ? "bg-[var(--s-ice)]" : "border border-dashed border-white/40 bg-white/10 text-white backdrop-blur")}>
                       <div>
                         <div className={cn("flex gap-0.5", r.quote ? "text-[var(--s-ink)]" : "text-white/50")}>{[0, 1, 2, 3, 4].map((n) => <Star key={n} className={cn("h-4 w-4", r.quote && r.rating && n < r.rating ? "fill-current" : "")} />)}</div>
-                        <blockquote className={cn("mt-4 text-[17px] font-semibold leading-snug", r.quote ? "text-[var(--s-ink)]" : "text-white/85")}>{r.quote ? `“${r.quote}”` : "Review slot: this fills with a real owner's words when the first practices go live."}</blockquote>
+                        <blockquote className={cn("mt-4 text-[17px] font-semibold leading-snug", r.quote ? "text-[var(--s-ink)]" : "text-white/85")}>{r.quote ? `“${r.quote}”` : `Review slot: this fills with a real owner's words when the first ${audience === "general" ? "businesses" : "practices"} go live.`}</blockquote>
                       </div>
                       <figcaption className="mt-6 flex items-center gap-3">
-                        <span className={cn("grid h-10 w-10 place-items-center rounded-full text-[13px] font-bold", r.quote ? "bg-[var(--s-ocean)] text-white" : "bg-white/20 text-white")}>{r.name[0]}</span>
-                        <span><span className={cn("block text-[14px] font-bold", r.quote ? "text-[var(--s-ink)]" : "text-white")}>{r.name}</span><span className={cn("block text-[12px]", r.quote ? "text-[var(--s-ink-3)]" : "text-white/70")}>{r.role} · {r.business} · {r.city}</span></span>
+                        <span className={cn("grid h-10 w-10 place-items-center rounded-full text-[13px] font-bold", r.quote ? "bg-[var(--s-ocean)] text-white" : "bg-white/20 text-white")}>{!r.quote && audience === "general" ? "L" : r.name[0]}</span>
+                        <span><span className={cn("block text-[14px] font-bold", r.quote ? "text-[var(--s-ink)]" : "text-white")}>{!r.quote && audience === "general" ? "Local business owner" : r.name}</span><span className={cn("block text-[12px]", r.quote ? "text-[var(--s-ink-3)]" : "text-white/70")}>{!r.quote && audience === "general" ? "Owner · Your business · California" : `${r.role} · ${r.business} · ${r.city}`}</span></span>
                       </figcaption>
                     </figure>
                   ))}
