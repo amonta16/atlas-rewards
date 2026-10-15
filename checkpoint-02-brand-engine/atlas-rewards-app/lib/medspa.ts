@@ -36,6 +36,13 @@ export type MedspaTreatment = {
   aftercare: string[];
   image_url: string | null;
   is_active: boolean;
+  /**
+   * CP-207 (Dermis model): this treatment's page on the practice's own
+   * booking system (Boulevard, Vagaro, Mangomint, Zenoti, Square, Acuity,
+   * a Calendly…). "Book" opens it. Blank → the practice-wide link, then
+   * call / text the clinic.
+   */
+  booking_url?: string | null;
 };
 
 export type MedspaProvider = {
@@ -115,6 +122,12 @@ export type MedspaShop = {
   pay_mode: "stripe" | "in_person";
   intro: string;
   items: MedspaShopItem[];
+  /**
+   * CP-207: pay-over-time options at checkout (Stripe on the practice's
+   * connected account). Each must also be turned on in the practice's own
+   * Stripe dashboard → Settings → Payment methods.
+   */
+  financing: { klarna: boolean; affirm: boolean };
 };
 
 export const DEFAULT_MEDSPA_SHOP: MedspaShop = {
@@ -122,7 +135,106 @@ export const DEFAULT_MEDSPA_SHOP: MedspaShop = {
   pay_mode: "stripe",
   intro: "Treatment packages, skincare we use in the room, and gift cards.",
   items: [],
+  financing: { klarna: true, affirm: false },
 };
+
+/* ───────────── CP-207 · financing (Klarna, Affirm via Stripe) ───────────── */
+
+export type FinancingMethod = "klarna" | "affirm";
+
+/** US order limits Stripe enforces per method (cents). Outside them the tile is disabled. */
+export const FINANCING_LIMITS: Record<FinancingMethod, { min: number; max: number; label: string }> = {
+  klarna: { min: 3_500, max: 1_000_000, label: "Klarna" },
+  affirm: { min: 5_000, max: 3_000_000, label: "Affirm" },
+};
+
+/** Interest-free "pay in 4" applies up to about this total (Klarna's US cap). */
+export const PAY_IN_4_MAX = 200_000;
+
+export function financingFits(m: FinancingMethod, totalCents: number): boolean {
+  const l = FINANCING_LIMITS[m];
+  return totalCents >= l.min && totalCents <= l.max;
+}
+
+/** Financing methods the practice offers that fit this total. */
+export function financingFor(shop: MedspaShop, totalCents: number | null): FinancingMethod[] {
+  if (totalCents == null) return [];
+  return (["klarna", "affirm"] as FinancingMethod[]).filter((m) => shop.financing[m] && financingFits(m, totalCents));
+}
+
+/** "Klarna or Affirm" / "Klarna" */
+export function financingNames(ms: FinancingMethod[]): string {
+  return ms.map((m) => FINANCING_LIMITS[m].label).join(" or ");
+}
+
+/* ───────────── CP-207 · booking (the Dermis model) ───────────── */
+
+export type MedspaBooking = {
+  /** Practice-wide scheduling page, used when a treatment has no link of its own. */
+  default_url: string;
+  /** Number patients call. Blank → the business phone from Brand → Contact. */
+  phone: string;
+  /** Offer "Text us" (SMS) with a pre-filled message. */
+  text: boolean;
+  /** WhatsApp number (digits, country code first). Blank = no WhatsApp button. */
+  whatsapp: string;
+  /** Pre-filled text / WhatsApp message. {treatment} and {practice} are filled in. */
+  message: string;
+};
+
+export const DEFAULT_MEDSPA_BOOKING: MedspaBooking = {
+  default_url: "",
+  phone: "",
+  text: true,
+  whatsapp: "",
+  message: "Hi {practice}! I'd like to book {treatment}.",
+};
+
+/** Accept "boulevard.io/…" as typed; only http(s) links pass. */
+export function cleanUrl(raw: string | null | undefined): string | null {
+  const v = (raw ?? "").trim();
+  if (!v) return null;
+  const withScheme = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  try { const u = new URL(withScheme); return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null; } catch { return null; }
+}
+
+export type BookingOptions = {
+  /** External scheduling page for this treatment (or the practice-wide one). */
+  url: string | null;
+  /** Whether that link is the treatment's own (deep link) or the general page. */
+  deep: boolean;
+  /** tel: target (digits) or null. */
+  phone: string | null;
+  sms: string | null;
+  whatsapp: string | null;
+  message: string;
+};
+
+/**
+ * What "Book" does for a treatment, Dermis-style:
+ * treatment link → practice link → call / text / WhatsApp the clinic.
+ */
+export function bookingOptions(booking: MedspaBooking, practice: string, contactPhone: string | null | undefined, treatment: Pick<MedspaTreatment, "name" | "booking_url"> | null): BookingOptions {
+  const own = cleanUrl(treatment?.booking_url);
+  const url = own ?? cleanUrl(booking.default_url);
+  const digits = (s: string | null | undefined) => (s ?? "").replace(/[^\d+]/g, "") || null;
+  const phone = digits(booking.phone) ?? digits(contactPhone);
+  const message = (booking.message || DEFAULT_MEDSPA_BOOKING.message)
+    .replaceAll("{practice}", practice)
+    .replaceAll("{treatment}", treatment?.name ? treatment.name : "an appointment");
+  return {
+    url, deep: !!own, phone,
+    sms: booking.text ? phone : null,
+    whatsapp: digits(booking.whatsapp)?.replace(/^\+/, "") ?? null,
+    message,
+  };
+}
+
+/** True when a patient has ANY way to book from the app (external link or a way to reach the clinic). */
+export function hasBookingPath(cfg: MedspaConfig, contactPhone: string | null | undefined): boolean {
+  const o = bookingOptions(cfg.booking, "", contactPhone, null);
+  return !!(o.url || o.phone || o.whatsapp || cfg.treatments.some((t) => t.is_active && cleanUrl(t.booking_url)));
+}
 
 /** Starter shop an owner can load and price. Names are generic on purpose (no brand names). */
 export const MEDSPA_STARTER_SHOP: Omit<MedspaShopItem, "id">[] = [
@@ -166,6 +278,8 @@ export type MedspaConfig = {
   welcome_note: string;
   /** CP-190: the Shop tab (packages, skincare, gift cards). */
   shop: MedspaShop;
+  /** CP-207: how "Book" works (scheduling links, call / text fallback). */
+  booking: MedspaBooking;
 };
 
 export const MEDSPA_CATEGORIES = ["Injectables", "Skin", "Laser", "Body", "Wellness", "Consult"] as const;
@@ -188,6 +302,7 @@ export const DEFAULT_MEDSPA_CONFIG: MedspaConfig = {
   pick_provider: true,
   welcome_note: "Your treatments, aftercare and due dates will show up here after your first visit.",
   shop: DEFAULT_MEDSPA_SHOP,
+  booking: DEFAULT_MEDSPA_BOOKING,
 };
 
 /** Starter menu an owner can load with one tap, then edit. Recall windows are typical, not medical advice. */
@@ -216,7 +331,12 @@ export function readMedspaConfig(raw: unknown): MedspaConfig {
     gallery: Array.isArray(r.gallery) ? r.gallery : [],
     credits: { ...DEFAULT_MEDSPA_CONFIG.credits, ...(r.credits ?? {}) },
     recall: { ...DEFAULT_MEDSPA_CONFIG.recall, ...(r.recall ?? {}) },
-    shop: { ...DEFAULT_MEDSPA_SHOP, ...(r.shop ?? {}), items: Array.isArray(r.shop?.items) ? r.shop!.items : [] },
+    shop: {
+      ...DEFAULT_MEDSPA_SHOP, ...(r.shop ?? {}),
+      items: Array.isArray(r.shop?.items) ? r.shop!.items : [],
+      financing: { ...DEFAULT_MEDSPA_SHOP.financing, ...(r.shop?.financing ?? {}) },
+    },
+    booking: { ...DEFAULT_MEDSPA_BOOKING, ...(r.booking ?? {}) },
   };
 }
 

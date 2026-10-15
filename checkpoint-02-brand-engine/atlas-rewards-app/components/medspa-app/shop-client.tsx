@@ -6,7 +6,12 @@
  *   Membership  the practice's membership (join / pending / member)
  *   Treatments  the menu with member prices, Book
  *   Orders      via the bag icon (?tab=mine)
- *   Checkout    full screen: total, Card / wallet / Klarna, Place order
+ *   Checkout    full screen: total, Card / wallet / Klarna / Affirm, Place order
+ *
+ * CP-207: Affirm next to Klarna (each only if the practice offers it and the
+ * total fits), "pay over time" on the item sheet, and Dermis-style booking:
+ * Book on each treatment and on every package you own opens the practice's
+ * scheduling link, or call / text when there isn't one.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,22 +19,28 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAppBase } from "@/lib/use-app-base";
 import { optimizedUrl } from "@/lib/img";
-import { cents, shopPrice, weeksLabel, SHOP_KIND_LABEL, type MedspaShop, type MedspaShopItem, type MedspaTreatment, type ShopOrderRow } from "@/lib/medspa";
+import { bookingOptions, cents, financingFits, financingFor, DEFAULT_MEDSPA_BOOKING, shopPrice, weeksLabel, FINANCING_LIMITS, PAY_IN_4_MAX, SHOP_KIND_LABEL, type FinancingMethod, type MedspaBooking, type MedspaShop, type MedspaShopItem, type MedspaTreatment, type ShopOrderRow } from "@/lib/medspa";
 import { joinFinePrint, money, type MembershipOffer } from "@/lib/membership";
 import type { MsMembership } from "@/lib/medspa-app/data";
 import type { Business } from "@/lib/types/database";
 import { ManageMembership } from "@/components/customer/manage-membership";
 import { MsTopBar } from "./chrome";
+import { BookButton } from "./book-button";
 import { IcBag, IcCard, IcCheck, IcClose, IcGift, IcSparkle } from "./icons";
 
 type Tab = "browse" | "membership" | "treatments" | "mine";
 type Flash = "paid" | "cancelled" | null;
 
-export function MedspaShopClient({ business, userId, membershipId, shop, treatments, orders, membershipInfo: ms, payOnline, canBook, bagCount, initial }: {
+export function MedspaShopClient({ business, userId, membershipId, shop, treatments, orders, membershipInfo: ms, payOnline, canBook, booking, bagCount, initial }: {
   business: Business; userId: string; membershipId: string | null; shop: MedspaShop; treatments: MedspaTreatment[];
   orders: ShopOrderRow[]; membershipInfo: MsMembership; payOnline: boolean; canBook: boolean; bagCount: number;
-  initial: { tab: string | null; item: string | null; flash: Flash };
+  /** CP-207: practice booking settings (scheduling link, phone, text / WhatsApp). */
+  booking?: MedspaBooking;
+  initial: { tab: string | null; item: string | null; flash: Flash; order?: string | null };
 }) {
+  // CP-207: "Book" for a treatment (null = a general visit).
+  const bookFor = (t: Pick<MedspaTreatment, "name" | "booking_url"> | null) =>
+    bookingOptions(booking ?? DEFAULT_MEDSPA_BOOKING, business.name, business.contact_info?.phone, t);
   const items = useMemo(() => (shop.enabled ? shop.items.filter((i) => i.is_active) : []), [shop]);
   const hasMembership = ms.view.enabled && (ms.isPaid || ms.isPending || ms.view.purchasable);
   const tabs: { id: Tab; label: string }[] = [
@@ -43,6 +54,7 @@ export function MedspaShopClient({ business, userId, membershipId, shop, treatme
   const [checkout, setCheckout] = useState<{ item: MedspaShopItem; qty: number; amount: number | null; recipient: string; note: string } | null>(null);
   const isMember = ms.isPaid;
   const slug = business.slug;
+  const justBought = initial.order ? orders.find((o) => o.id === initial.order) ?? null : null;
 
   // Checkout and Your orders are pushed screens: open them at the top.
   useEffect(() => { if (checkout || tab === "mine") window.scrollTo({ top: 0 }); }, [checkout, tab]);
@@ -55,7 +67,7 @@ export function MedspaShopClient({ business, userId, membershipId, shop, treatme
   }, [tab]);
 
   if (checkout) {
-    return <Checkout business={business} line={checkout} isMember={isMember} payOnline={payOnline} onBack={() => { setCheckout(null); setSheet(checkout.item); }} onReserved={() => { setCheckout(null); setTab("mine"); }} />;
+    return <Checkout business={business} shop={shop} line={checkout} isMember={isMember} payOnline={payOnline} onBack={() => { setCheckout(null); setSheet(checkout.item); }} onReserved={() => { setCheckout(null); setTab("mine"); }} />;
   }
 
   if (tab === "mine") {
@@ -65,12 +77,30 @@ export function MedspaShopClient({ business, userId, membershipId, shop, treatme
         {initial.flash && (
           <div className="mx-5 mt-4 rounded-2xl px-4 py-3 text-[15px]" style={initial.flash === "paid" ? { background: "color-mix(in srgb, var(--ms-p) 10%, #fff)", color: "var(--ms-ink)" } : { background: "#fff", color: "var(--ms-sub)" }}>
             {initial.flash === "paid" ? "Payment received. Your order is below and the front desk can see it." : "Checkout cancelled. Nothing was charged."}
+            {initial.flash === "paid" && justBought?.kind === "package" && (() => {
+              const t = treatments.find((x) => x.id === justBought.treatment_id) ?? null;
+              return (
+                <BookButton slug={slug} treatmentId={t?.id} options={bookFor(t)} inApp={canBook}
+                  className="mt-3 flex h-12 w-full items-center justify-center rounded-xl text-[16px] font-semibold text-white" style={{ background: "var(--ms-p)" }}>
+                  Book your first session
+                </BookButton>
+              );
+            })()}
           </div>
         )}
         <div className="space-y-3 px-5 pt-4">
           {orders.length === 0
             ? <Empty icon={<IcBag className="h-8 w-8" />} title="No orders yet" body="Packages, skincare and gift cards you buy will show up here." />
-            : orders.map((o) => <OrderCard key={o.id} o={o} tName={new Map(treatments.map((t) => [t.id, t.name]))} />)}
+            : orders.map((o) => {
+                const t = o.treatment_id ? treatments.find((x) => x.id === o.treatment_id) ?? null : null;
+                return <OrderCard key={o.id} o={o} tName={new Map(treatments.map((x) => [x.id, x.name]))}
+                  book={o.kind === "package" && (o.sessions_total ?? 0) > o.sessions_used && o.status !== "pending" && !(initial.flash === "paid" && justBought?.id === o.id)
+                    ? <BookButton slug={slug} treatmentId={t?.id} options={bookFor(t)} inApp={canBook}
+                        className="mt-3.5 flex h-11 w-full items-center justify-center rounded-xl text-[15px] font-semibold text-white" style={{ background: "var(--ms-p)" }}>
+                        Book a session
+                      </BookButton>
+                    : null} />;
+              })}
         </div>
       </div>
     );
@@ -94,10 +124,10 @@ export function MedspaShopClient({ business, userId, membershipId, shop, treatme
 
       {tab === "browse" && <Browse items={items} shopOpen={shop.enabled} intro={shop.intro} isMember={isMember} onOpen={setSheet} />}
       {tab === "membership" && <MembershipTab business={business} ms={ms} userId={userId} membershipId={membershipId} />}
-      {tab === "treatments" && <Treatments treatments={treatments} isMember={isMember} canBook={canBook} slug={slug} packages={items.filter((i) => i.kind === "package")} onOpen={setSheet} />}
+      {tab === "treatments" && <Treatments treatments={treatments} isMember={isMember} canBook={canBook} bookFor={bookFor} slug={slug} packages={items.filter((i) => i.kind === "package")} onOpen={setSheet} />}
 
       {sheet && (
-        <ItemSheet item={sheet} isMember={isMember} payOnline={payOnline} treatments={treatments}
+        <ItemSheet item={sheet} isMember={isMember} payOnline={payOnline} shop={shop} treatments={treatments}
           onClose={() => setSheet(null)}
           onContinue={(line) => { setSheet(null); setCheckout({ item: sheet, ...line }); }} />
       )}
@@ -287,8 +317,7 @@ function MembershipTab({ business, ms, userId, membershipId }: { business: Busin
 
 /* ───────────────────────── Treatments ───────────────────────── */
 
-function Treatments({ treatments, isMember, canBook, slug, packages, onOpen }: { treatments: MedspaTreatment[]; isMember: boolean; canBook: boolean; slug: string; packages: MedspaShopItem[]; onOpen: (i: MedspaShopItem) => void }) {
-  const base = useAppBase(slug);
+function Treatments({ treatments, isMember, canBook, bookFor, slug, packages, onOpen }: { treatments: MedspaTreatment[]; isMember: boolean; canBook: boolean; bookFor: (t: MedspaTreatment) => ReturnType<typeof bookingOptions>; slug: string; packages: MedspaShopItem[]; onOpen: (i: MedspaShopItem) => void }) {
   if (treatments.length === 0) return <div className="px-5 pt-6"><Empty icon={<IcSparkle className="h-8 w-8" />} title="Menu coming soon" body="The treatment menu will be listed here." /></div>;
   const groups = [...new Set(treatments.map((t) => t.category))];
   return (
@@ -316,7 +345,7 @@ function Treatments({ treatments, isMember, canBook, slug, packages, onOpen }: {
                       {!isMember && t.member_price_cents ? <span className="text-[13px]" style={{ color: "var(--ms-p)" }}>Members {cents(t.member_price_cents)}</span> : null}
                       <span className="ml-auto flex gap-2">
                         {pack && <button type="button" onClick={() => onOpen(pack)} className="h-9 rounded-full px-3.5 text-[14px] font-medium ring-1 ring-[var(--ms-line)]" style={{ color: "var(--ms-ink)" }}>Package</button>}
-                        {canBook && <Link href={`${base}/book`} className="grid h-9 place-items-center rounded-full px-4 text-[14px] font-semibold text-white" style={{ background: "var(--ms-p)" }}>Book</Link>}
+                        <BookButton slug={slug} treatmentId={t.id} options={bookFor(t)} inApp={canBook} className="grid h-9 place-items-center rounded-full px-4 text-[14px] font-semibold text-white" style={{ background: "var(--ms-p)" }}>Book</BookButton>
                       </span>
                     </div>
                   </div>
@@ -332,8 +361,8 @@ function Treatments({ treatments, isMember, canBook, slug, packages, onOpen }: {
 
 /* ───────────────────────── Item sheet ───────────────────────── */
 
-function ItemSheet({ item, isMember, payOnline, treatments, onClose, onContinue }: {
-  item: MedspaShopItem; isMember: boolean; payOnline: boolean; treatments: MedspaTreatment[];
+function ItemSheet({ item, isMember, payOnline, shop, treatments, onClose, onContinue }: {
+  item: MedspaShopItem; isMember: boolean; payOnline: boolean; shop: MedspaShop; treatments: MedspaTreatment[];
   onClose: () => void; onContinue: (line: { qty: number; amount: number | null; recipient: string; note: string }) => void;
 }) {
   const [qty, setQty] = useState(1);
@@ -388,6 +417,7 @@ function ItemSheet({ item, isMember, payOnline, treatments, onClose, onContinue 
             {total == null ? "Ask the front desk" : payOnline ? `Continue · ${cents(total)}` : `Reserve · ${cents(total)}`}
           </button>
           {isMember && item.member_price_cents != null && item.kind !== "gift_card" && <p className="mt-2 text-center text-[13px]" style={{ color: "var(--ms-p)" }}>Member price applied</p>}
+          {payOnline && <PayOverTime shop={shop} total={total} />}
         </div>
       </div>
     </div>
@@ -396,10 +426,28 @@ function ItemSheet({ item, isMember, payOnline, treatments, onClose, onContinue 
 
 /* ───────────────────────── Checkout ───────────────────────── */
 
-type Method = "card" | "wallet" | "klarna";
+type Method = "card" | "wallet" | FinancingMethod;
 
-function Checkout({ business, line, isMember, payOnline, onBack, onReserved }: {
-  business: Business; line: { item: MedspaShopItem; qty: number; amount: number | null; recipient: string; note: string };
+const FIN_MARK: Record<FinancingMethod, React.ReactNode> = {
+  klarna: <span className="rounded-md px-1.5 py-0.5 text-[12px] font-bold" style={{ background: "#ffb3c7", color: "#17120f" }}>Klarna.</span>,
+  affirm: <span className="rounded-md bg-white px-1.5 py-0.5 text-[12px] font-bold ring-1 ring-black/10" style={{ color: "#4a4af4" }}>affirm</span>,
+};
+
+/** CP-207: "Pay over time with Klarna or Affirm · 4 payments of $X" under the price. */
+function PayOverTime({ shop, total }: { shop: MedspaShop; total: number | null }) {
+  const ms = financingFor(shop, total);
+  if (!ms.length || total == null) return null;
+  const in4 = ms.includes("klarna") && total <= PAY_IN_4_MAX ? Math.ceil(total / 4) : null;
+  return (
+    <div className="mt-3 flex items-center justify-center gap-2 text-[13.5px]" style={{ color: "var(--ms-sub)" }} data-testid="pay-over-time">
+      <span>{in4 ? <>Or 4 payments of <b style={{ color: "var(--ms-ink)" }}>{cents(in4)}</b> with</> : <>Pay over time with</>}</span>
+      <span className="flex items-center gap-1">{ms.map((m) => <span key={m}>{FIN_MARK[m]}</span>)}</span>
+    </div>
+  );
+}
+
+function Checkout({ business, shop, line, isMember, payOnline, onBack, onReserved }: {
+  business: Business; shop: MedspaShop; line: { item: MedspaShopItem; qty: number; amount: number | null; recipient: string; note: string };
   isMember: boolean; payOnline: boolean; onBack: () => void; onReserved: () => void;
 }) {
   const { item, qty, amount } = line;
@@ -428,11 +476,13 @@ function Checkout({ business, line, isMember, payOnline, onBack, onReserved }: {
     }
   }
 
-  const tiles: { id: Method; label: string; mark: React.ReactNode }[] = [
+  const tiles: { id: Method; label: string; mark: React.ReactNode; off?: boolean }[] = [
     { id: "card", label: "Card", mark: <IcCard className="h-7 w-7" /> },
     { id: "wallet", label: wallet, mark: <span className="rounded-md bg-white px-1.5 py-0.5 text-[12px] font-semibold ring-1 ring-black/10" style={{ color: "#111" }}>{wallet === "Apple Pay" ? "Pay" : "G Pay"}</span> },
-    { id: "klarna", label: "Klarna", mark: <span className="rounded-md px-1.5 py-0.5 text-[12px] font-bold" style={{ background: "#ffb3c7", color: "#17120f" }}>Klarna.</span> },
+    // CP-207: each financing option the practice offers. Out of its range → shown, but off.
+    ...(["klarna", "affirm"] as FinancingMethod[]).filter((m) => shop.financing[m]).map((m) => ({ id: m as Method, label: FINANCING_LIMITS[m].label, mark: FIN_MARK[m], off: !financingFits(m, total) })),
   ];
+  const cols = tiles.length === 4 ? 2 : tiles.length;
 
   return (
     <div className="min-h-[85vh] bg-[var(--ms-bg)]">
@@ -442,15 +492,16 @@ function Checkout({ business, line, isMember, payOnline, onBack, onReserved }: {
         <div className="mt-1 text-[34px] font-semibold tracking-[-0.02em] tabular-nums" style={{ color: "var(--ms-ink)" }}>{cents(total)}</div>
 
         {payOnline && (
-          <div className="mt-6 grid grid-cols-3 gap-2.5">
+          <div className="mt-6 grid gap-2.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
             {tiles.map((t) => {
               const on = method === t.id;
+              const lim = t.id === "klarna" || t.id === "affirm" ? FINANCING_LIMITS[t.id] : null;
               return (
-                <button key={t.id} type="button" onClick={() => setMethod(t.id)} aria-pressed={on}
-                  className="flex h-[104px] flex-col items-start justify-between rounded-2xl p-3.5 text-left transition"
+                <button key={t.id} type="button" onClick={() => setMethod(t.id)} aria-pressed={on} disabled={t.off}
+                  className={`flex flex-col items-start justify-between rounded-2xl p-3.5 text-left transition disabled:opacity-45 ${cols === 2 ? "h-[88px]" : "h-[104px]"}`}
                   style={{ background: on ? "color-mix(in srgb, var(--ms-p) 8%, #fff)" : "#fff", boxShadow: on ? "inset 0 0 0 2px var(--ms-p)" : "inset 0 0 0 1px #d9dce0", color: "var(--ms-ink)" }}>
                   <span style={{ color: "var(--ms-ink)" }}>{t.mark}</span>
-                  <span className="text-[16px]">{t.label}</span>
+                  <span className="text-[16px] leading-tight">{t.label}{t.off && lim ? <span className="block text-[12px]" style={{ color: "var(--ms-sub)" }}>{total < lim.min ? `From ${cents(lim.min)}` : `Up to ${cents(lim.max)}`}</span> : null}</span>
                 </button>
               );
             })}
@@ -473,7 +524,13 @@ function Checkout({ business, line, isMember, payOnline, onBack, onReserved }: {
           </div>
         </div>
 
-        {method === "klarna" && payOnline && <p className="mt-3 text-[14px]" style={{ color: "var(--ms-sub)" }}>Split it into payments with Klarna. You'll see your plan and agree to Klarna&apos;s terms on the next screen.</p>}
+        {(method === "klarna" || method === "affirm") && payOnline && (
+          <p className="mt-3 text-[14px] leading-snug" style={{ color: "var(--ms-sub)" }}>
+            {method === "klarna"
+              ? <>Split it into payments with Klarna{total <= PAY_IN_4_MAX ? <>, as low as 4 interest-free payments of {cents(Math.ceil(total / 4))}</> : null}. You&apos;ll see your plan and agree to Klarna&apos;s terms on the next screen.</>
+              : <>Pay over time with Affirm: pick a plan (4 payments or monthly) on the next screen. A quick eligibility check won&apos;t affect your credit score. Rates depend on approval.</>}
+          </p>
+        )}
         {err && <p className="mt-3 text-[15px] text-rose-600" role="alert">{err}</p>}
 
         <button type="button" onClick={place} disabled={busy}
@@ -491,7 +548,7 @@ function Checkout({ business, line, isMember, payOnline, onBack, onReserved }: {
 
 /* ───────────────────────── Orders ───────────────────────── */
 
-function OrderCard({ o, tName }: { o: ShopOrderRow; tName: Map<string, string> }) {
+function OrderCard({ o, tName, book }: { o: ShopOrderRow; tName: Map<string, string>; book?: React.ReactNode }) {
   const status = o.status === "pending" ? "Processing" : o.status === "reserved" ? "Pay at the desk" : o.status === "paid" ? (o.kind === "product" ? "Ready at the desk" : "Paid") : o.status === "fulfilled" ? (o.kind === "product" ? "Picked up" : "Done") : o.status;
   return (
     <div className="rounded-[18px] bg-white p-4 ring-1 ring-[var(--ms-line)]">
@@ -508,6 +565,7 @@ function OrderCard({ o, tName }: { o: ShopOrderRow; tName: Map<string, string> }
           <div className="mt-2 flex gap-1">{Array.from({ length: o.sessions_total }, (_, k) => <span key={k} className="h-2 flex-1 rounded-full" style={{ background: k < o.sessions_used ? "var(--ms-chip)" : "var(--ms-p)" }} />)}</div>
         </div>
       ) : null}
+      {book}
       {o.kind === "gift_card" && o.gift_code && (
         <div className="mt-3.5 rounded-xl border border-dashed p-3 text-center" style={{ borderColor: "color-mix(in srgb, var(--ms-p) 45%, #fff)" }}>
           <div className="text-[13px]" style={{ color: "var(--ms-sub)" }}>Gift code{o.recipient_name ? ` for ${o.recipient_name}` : ""}</div>

@@ -20,7 +20,9 @@ import { getMedspaPatientContext } from "@/lib/data/medspa";
 import { AppLink } from "@/components/customer/app-link";
 import { MsTopBar } from "@/components/medspa-app/chrome";
 import { isMedspaApp } from "@/lib/medspa-app/route";
-import { cents, describeDue, dueDateFor, type MedspaTreatment } from "@/lib/medspa";
+import { bookingOptions, cents, describeDue, dueDateFor, type MedspaTreatment } from "@/lib/medspa";
+import { bookingEnabled } from "@/lib/booking";
+import { BookButton } from "@/components/medspa-app/book-button";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,9 @@ export default async function CarePage({ params }: { params: { business: string 
   const menu = ctx.cfg.treatments.filter((t) => t.is_active);
   const groups = [...new Set(menu.map((t) => t.category))];
   const ink = "var(--ms-ink)";
+  // CP-207: Book opens the treatment's scheduling link (Dermis model), else /book.
+  const inApp = bookingEnabled(business);
+  const opts = (t: MedspaTreatment | null | undefined) => bookingOptions(ctx.cfg.booking, business.name, business.contact_info?.phone, t ?? null);
 
   return (
     <div className="pb-10">
@@ -64,7 +69,7 @@ export default async function CarePage({ params }: { params: { business: string 
                   <div className="truncate text-[17px] font-semibold text-zinc-900">{row.treatment_name}</div>
                   <div className="text-[13px] text-zinc-500">Around {fmt(due, { weekday: "short", month: "short", day: "numeric" })} · last visit {fmt(new Date(row.performed_at), { month: "short", day: "numeric" })}</div>
                 </div>
-                <AppLink slug={slug} to="/book" className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold text-white" style={{ background: primary }}>Book</AppLink>
+                <BookButton slug={slug} treatmentId={row.treatment_id} options={opts(byId.get(row.treatment_id) ?? { name: row.treatment_name } as MedspaTreatment)} inApp={inApp} className="shrink-0 rounded-full px-4 py-2 text-[14px] font-semibold text-white" style={{ background: primary }}>Book</BookButton>
               </div>
             );
           })}
@@ -73,9 +78,9 @@ export default async function CarePage({ params }: { params: { business: string 
         <section className="mx-4 mt-5 rounded-2xl bg-white p-5 shadow-[0_1px_0_rgba(0,0,0,.04),0_12px_28px_-20px_rgba(0,0,0,.25)] ring-1 ring-black/5">
           <h2 className="text-[17px] font-semibold text-zinc-900">Your care plan starts at your first visit</h2>
           <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-600">After each treatment, your aftercare shows up here, and we&apos;ll let you know when you&apos;re due again.</p>
-          <AppLink slug={slug} to="/book" className="mt-4 inline-flex h-11 items-center gap-1 rounded-full px-5 text-[15px] font-semibold text-white" style={{ background: primary }}>
+          <BookButton slug={slug} options={opts(null)} inApp={inApp} className="mt-4 inline-flex h-11 items-center gap-1 rounded-full px-5 text-[15px] font-semibold text-white" style={{ background: primary }}>
             Book your first visit <ChevronRight className="h-4 w-4" />
-          </AppLink>
+          </BookButton>
         </section>
       )}
 
@@ -162,7 +167,7 @@ export default async function CarePage({ params }: { params: { business: string 
 function TreatmentRow({ t, slug, primary }: { t: MedspaTreatment; slug: string; primary: string }) {
   const iv = interval(t.recall_weeks);
   return (
-    <AppLink slug={slug} to="/book" className="flex items-center gap-3.5 px-4 py-3.5 active:bg-zinc-50">
+    <AppLink slug={slug} to={`/book?t=${encodeURIComponent(t.id)}`} className="flex items-center gap-3.5 px-4 py-3.5 active:bg-zinc-50">
       <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl leading-none" style={{ background: `${primary}10`, color: primary }} aria-label={iv.label} title={iv.label}>
         <span className="text-[17px] font-semibold tabular-nums">{iv.n}</span>
         {iv.unit && <span className="mt-0.5 text-[11px] font-medium">{iv.unit}</span>}

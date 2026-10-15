@@ -57,6 +57,10 @@ import { GuestAppLink } from "@/components/staff/app-switch";
 // CP-147: Booking v2 — schedule + walk-ins + resource set-up.
 import { BookingsDesk } from "@/components/manager/bookings-desk";
 import { CampaignsStudio } from "@/components/manager/campaigns-studio";
+// CP-208: med spa manager home (Dermis-style overview) + Marketing tab.
+import { MedspaOverview } from "@/components/manager/medspa-overview";
+import { MedspaMarketing } from "@/components/manager/medspa-marketing";
+import { LayoutDashboard } from "lucide-react";
 import { bookingEnabled } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
@@ -67,7 +71,8 @@ import type { Business } from "@/lib/types/database";
 // notification surface is owned by the agency, not the front desk.
 type ManagerTab = "desk" | "users" | "bookings" | "offers" | "news" | "campaigns" | "waivers" | "insights" | "billing" | "membership" | "team"
   | "patients" // CP-186: med spa recall list + directory
-  | "shop";     // CP-190: med spa shop orders
+  | "shop"     // CP-190: med spa shop orders
+  | "overview"; // CP-208: med spa manager home (stats + live feed)
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -101,6 +106,8 @@ function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; la
   // directory) instead of Users, Consents instead of Waivers, no News.
   if (business.layout_preset === "medspa") {
     const t: { id: ManagerTab; label: string; icon: React.ReactNode }[] = [
+      // CP-208: managers land on the Dermis-style Overview; front desk keeps the desk.
+      ...(isManager ? [{ id: "overview" as ManagerTab, label: "Overview", icon: <LayoutDashboard className="h-4 w-4" /> }] : []),
       { id: "desk",     label: "Front desk", icon: <Home className="h-4 w-4" /> },
       { id: "patients", label: "Patients",   icon: <Users className="h-4 w-4" /> },
       { id: "bookings", label: "Bookings",   icon: <CalendarClock className="h-4 w-4" /> },
@@ -108,7 +115,8 @@ function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; la
     ];
     if (isManager) t.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
     t.push({ id: "offers",  label: "Offers",   icon: <Tag className="h-4 w-4" /> });
-    if (isManager) t.push({ id: "campaigns", label: "Campaigns", icon: <Megaphone className="h-4 w-4" /> });
+    // CP-208: Campaigns becomes Marketing for med spas (MedspaMarketing below).
+    if (isManager) t.push({ id: "campaigns", label: "Marketing", icon: <Megaphone className="h-4 w-4" /> });
     if (isManager) {
       t.push({ id: "billing",    label: "Billing",    icon: <CreditCard className="h-4 w-4" /> });
       t.push({ id: "membership", label: "Membership", icon: <Crown className="h-4 w-4" /> });
@@ -235,7 +243,13 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
     const supabase = createClient();
     (async () => {
       const { data } = await supabase.rpc("current_app_role", { p_business_id: business.id });
-      setRole((typeof data === "string" ? data : (data as any)?.[0]) as AppRole);
+      const r = (typeof data === "string" ? data : (data as any)?.[0]) as AppRole;
+      setRole(r);
+      // CP-208: med spa managers open on the Overview (Dermis-style home).
+      // Only if they haven't already clicked somewhere while the role loaded.
+      if (business.layout_preset === "medspa" && (r === "business_manager" || r === "agency_admin")) {
+        setTab((prev) => (prev === "desk" ? "overview" : prev));
+      }
       const { data: nm } = await supabase.rpc("my_display_name");
       if (typeof nm === "string" && nm) setWhoami(nm);
     })();
@@ -523,10 +537,10 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
 
         {/* CP-165: compact nav — 36px rows, 13px labels, tighter groups. */}
         <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-px">
-          <div className="px-2.5 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Front desk</div>
-          {visibleTabs.filter(t => ["desk", "users", "bookings", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+          <div className="px-2.5 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{isMedspa ? "Practice" : "Front desk"}</div>
+          {visibleTabs.filter(t => ["overview", "desk", "patients", "users", "bookings", "shop", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["offers", "news", "campaigns", "membership"].includes(t.id)) && (
-            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Customer app</div>
+            <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{isMedspa ? "Patient app" : "Customer app"}</div>
           )}
           {visibleTabs.filter(t => ["offers", "news", "campaigns", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["insights", "billing", "team"].includes(t.id)) && (
@@ -654,6 +668,17 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       </div>
 
       <main className="max-w-2xl lg:max-w-none mx-auto p-4 lg:p-6 space-y-4">
+        {tab === "overview" && isMedspa && (
+          <MedspaOverview
+            business={business}
+            whoami={whoami}
+            openMarketing={() => setTab("campaigns")}
+            openOffers={() => { setOffersSubTab("automated"); setTab("offers"); }}
+            openPatients={() => setTab("patients")}
+            openShop={() => setTab("shop")}
+          />
+        )}
+
         {tab === "desk" && (
           <>
             {/* CP-42 (round 3): Scanner hero MOVES UP to the top — Andrew
@@ -1010,7 +1035,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
           />
         )}
         {tab === "news"       && <NewsManager             business={business} />}
-        {tab === "campaigns"  && <CampaignsStudio business={business} />}
+        {tab === "campaigns"  && (isMedspa
+          ? <MedspaMarketing business={business} openOffers={() => { setOffersSubTab("automated"); setTab("offers"); }} openInsights={() => setTab("insights")} />
+          : <CampaignsStudio business={business} />)}
         {tab === "waivers"    && <ManagerWaiversTab       business={business} />}
         {tab === "billing"    && <ManagerBilling         business={business} />}
         {tab === "membership" && <MembershipStudio business={business} />}

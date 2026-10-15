@@ -4,7 +4,7 @@ import { createClient as createServer } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { liveStripeAccount } from "@/lib/payments/accounts";
 import { platformFeePercent, stripe, StripeError } from "@/lib/payments/stripe";
-import { readMedspaConfig, shopPrice } from "@/lib/medspa";
+import { FINANCING_LIMITS, financingFits, readMedspaConfig, shopPrice, type FinancingMethod } from "@/lib/medspa";
 import { resolvePreset } from "@/lib/layout-presets";
 
 /**
@@ -14,6 +14,9 @@ import { resolvePreset } from "@/lib/layout-presets";
  * CP-193: method "klarna" opens Checkout with Klarna only (pay over time);
  * "card" / "wallet" use the account's default methods (cards, Apple Pay,
  * Google Pay). Klarna must be switched on in the practice's Stripe account.
+ * CP-207: method "affirm" does the same with Affirm. Both are checked on the
+ * server against the practice's Shop settings (shop.financing) and the
+ * method's US order limits before Checkout opens.
  * Prices come from businesses.medspa_config on the SERVER (never the client).
  * Members (business_memberships.membership_payment_status = 'paid') get the
  * member price when one is set.
@@ -60,6 +63,14 @@ export async function POST(req: NextRequest, { params }: { params: { business: s
   if (unit == null) return NextResponse.json({ error: "Ask the front desk about this one." }, { status: 400 });
   const amount = unit * quantity;
 
+  // CP-207: pay over time only when the practice offers it and the total fits.
+  const finance: FinancingMethod | null = body.method === "klarna" || body.method === "affirm" ? body.method : null;
+  if (finance) {
+    const l = FINANCING_LIMITS[finance];
+    if (!cfg.shop.financing[finance]) return NextResponse.json({ error: `${l.label} isn't offered here. Choose Card instead.` }, { status: 400 });
+    if (!financingFits(finance, amount)) return NextResponse.json({ error: `${l.label} works for orders from $${l.min / 100} to $${(l.max / 100).toLocaleString("en-US")}. Choose Card instead.` }, { status: 400 });
+  }
+
   const connected = cfg.shop.pay_mode === "stripe" ? await liveStripeAccount(biz.id) : null;
   const isGift = item.kind === "gift_card";
   const order = {
@@ -87,7 +98,6 @@ export async function POST(req: NextRequest, { params }: { params: { business: s
   const base = body.returnUrl ? new URL(body.returnUrl).origin : process.env.NEXT_PUBLIC_APP_URL ?? "";
   // CP-193: back to the med spa Shop (/store), not the points catalog (/shop).
   const back = `${base}/${biz.slug}/app/store`;
-  const klarna = body.method === "klarna";
   const fee = platformFeePercent();
   const metadata = { atlas_kind: "shop", atlas_order_id: row.id, atlas_business_id: biz.id, atlas_user_id: user.id };
   try {
@@ -97,7 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: { business: s
       customer_email: user.email ?? undefined,
       line_items: [{ quantity, price_data: { currency: "usd", unit_amount: unit, product_data: { name: order.item_name, description: (item.description || biz.name).slice(0, 300) } } }],
       metadata,
-      ...(klarna ? { payment_method_types: ["klarna"] } : {}),
+      ...(finance ? { payment_method_types: [finance] } : {}),
       payment_intent_data: { metadata, ...(fee ? { application_fee_amount: Math.round(amount * fee / 100) } : {}) },
       success_url: `${back}?tab=mine&order=${row.id}&paid=1`,
       cancel_url: `${back}?tab=mine&order=${row.id}&cancelled=1`,
@@ -106,8 +116,8 @@ export async function POST(req: NextRequest, { params }: { params: { business: s
     return NextResponse.json({ url: session.url });
   } catch (e) {
     await admin.from("medspa_shop_orders").update({ status: "cancelled" }).eq("id", row.id);
-    const msg = klarna
-      ? `Klarna isn't available at ${biz.name} for this order. Choose Card instead.`
+    const msg = finance
+      ? `${FINANCING_LIMITS[finance].label} isn't available at ${biz.name} for this order. Choose Card instead.`
       : e instanceof StripeError ? e.message : "Payment couldn't start.";
     console.error("[shop] checkout error", msg);
     return NextResponse.json({ error: msg }, { status: 502 });

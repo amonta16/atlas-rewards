@@ -16,7 +16,7 @@ import { MedspaShopClient } from "./shop-client";
 
 export async function MedspaShop({ business, membership, searchParams }: {
   business: Business; membership: Membership | null;
-  searchParams: { tab?: string; item?: string; paid?: string; cancelled?: string };
+  searchParams: { tab?: string; item?: string; paid?: string; cancelled?: string; order?: string };
 }) {
   const cfg = readMedspaConfig(business.medspa_config);
   const user = await getCachedUser();
@@ -40,8 +40,9 @@ export async function MedspaShop({ business, membership, searchParams }: {
       membershipInfo={ms}
       payOnline={!!connected}
       canBook={bookingEnabled(business)}
+      booking={cfg.booking}
       bagCount={bag}
-      initial={{ tab: searchParams.tab ?? null, item: searchParams.item ?? null, flash: searchParams.paid ? "paid" : searchParams.cancelled ? "cancelled" : null }}
+      initial={{ tab: searchParams.tab ?? null, item: searchParams.item ?? null, flash: searchParams.paid ? "paid" : searchParams.cancelled ? "cancelled" : null, order: searchParams.order ?? null }}
     />
   );
 }

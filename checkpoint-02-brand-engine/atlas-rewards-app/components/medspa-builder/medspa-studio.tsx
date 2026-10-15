@@ -13,9 +13,11 @@
  *   Credits        rules stored; balance shown in app is an estimate
  *   Providers      live  — shown in app; booking does not assign yet
  *   Gallery        live  — public before/after strip (consent gate)
+ *   Booking        live  — CP-207: per-treatment scheduling links + call / text
+ *   Financing      live  — CP-207: Klarna / Affirm at Shop checkout
  */
 import { useMemo, useState } from "react";
-import { Plus, Trash2, GripVertical, Sparkles, Clock, BellRing, Wallet, Users, Images, ShieldCheck, ChevronDown, ChevronUp, Copy, ShoppingBag, Gift, Package } from "lucide-react";
+import { Plus, Trash2, GripVertical, Sparkles, Clock, BellRing, Wallet, Users, Images, ShieldCheck, ChevronDown, ChevronUp, Copy, ShoppingBag, Gift, Package, CalendarClock, Link2, Phone, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "@/components/agency/image-uploader";
 import type { Business } from "@/lib/types/database";
 import {
-  MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, RECALL_TOKENS, SHOP_KIND_LABEL, cents, fillTemplate, newId, weeksLabel,
+  FINANCING_LIMITS, cleanUrl, MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, RECALL_TOKENS, SHOP_KIND_LABEL, cents, fillTemplate, newId, weeksLabel,
   type MedspaConfig, type MedspaGalleryItem, type MedspaProvider, type MedspaShopItem, type MedspaTreatment, type ShopKind,
 } from "@/lib/medspa";
 
@@ -145,6 +147,13 @@ export function TreatmentsEditor({ business, cfg, onChange }: EditorProps) {
                             </div>
                           </div>
                           <div className="space-y-1.5"><Label>One line for patients</Label><Input value={t.description} onChange={(e) => upd(t.id, { description: e.target.value })} placeholder="Smooths lines in the forehead, between the brows and around the eyes." /></div>
+                          <div className="space-y-1.5">
+                            <Label className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />Scheduling link <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                            <Input inputMode="url" value={t.booking_url ?? ""} onChange={(e) => upd(t.id, { booking_url: e.target.value || null })} placeholder={cfg.booking.default_url ? `Blank = ${cfg.booking.default_url}` : "https://your-booking-site.com/neurotoxin"} />
+                            {t.booking_url && !cleanUrl(t.booking_url)
+                              ? <p className="text-xs text-red-600">That doesn&apos;t look like a web link.</p>
+                              : <p className="text-xs text-muted-foreground">The page for <b>this treatment</b> on your booking system, so &ldquo;Book&rdquo; lands on it directly. Blank uses your general booking link, then call / text.</p>}
+                          </div>
                           <div className="grid gap-3 sm:grid-cols-4">
                             <div className="space-y-1.5"><Label>Length</Label>
                               <div className="relative"><Input inputMode="numeric" value={t.duration_minutes} onChange={(e) => upd(t.id, { duration_minutes: Math.max(5, parseInt(e.target.value || "0", 10) || 0) })} /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">min</span></div>
@@ -183,8 +192,55 @@ export function TreatmentsEditor({ business, cfg, onChange }: EditorProps) {
         )}
       </Card>
 
+      <BookingEditor business={business} cfg={cfg} onChange={onChange} />
       <RecallEditor business={business} cfg={cfg} onChange={onChange} />
     </div>
+  );
+}
+
+/** CP-207: how "Book" works in the patient app (the Dermis model). */
+function BookingEditor({ business, cfg, onChange }: EditorProps) {
+  const b = cfg.booking;
+  const setB = (p: Partial<MedspaConfig["booking"]>) => onChange({ ...cfg, booking: { ...b, ...p } });
+  const active = cfg.treatments.filter((t) => t.is_active);
+  const linked = active.filter((t) => cleanUrl(t.booking_url)).length;
+  const fallbackPhone = business.contact_info?.phone ?? "";
+  const general = cleanUrl(b.default_url);
+  return (
+    <Card icon={<CalendarClock className="h-4 w-4" />} title="How patients book"
+      subtitle="Keep your booking system. Each treatment's Book button opens its page on it (Boulevard, Vagaro, Mangomint, Zenoti, Square, Acuity, Calendly…). No link? Patients call or text you instead."
+      aside={<Status kind="live">Live in the patient app</Status>}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />General booking link</Label>
+          <Input inputMode="url" value={b.default_url} onChange={(e) => setB({ default_url: e.target.value })} placeholder="https://your-booking-site.com" />
+          {b.default_url && !general && <p className="text-xs text-red-600">That doesn&apos;t look like a web link.</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />Phone for bookings</Label>
+          <Input inputMode="tel" value={b.phone} onChange={(e) => setB({ phone: e.target.value })} placeholder={fallbackPhone || "(555) 123-4567"} />
+          <p className="text-xs text-muted-foreground">{fallbackPhone ? `Blank = ${fallbackPhone} (Brand → Contact).` : "Shown as Call when a treatment has no link."}</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label>WhatsApp number <span className="font-normal text-muted-foreground">(optional)</span></Label>
+          <Input inputMode="tel" value={b.whatsapp} onChange={(e) => setB({ whatsapp: e.target.value })} placeholder="15551234567" />
+          <p className="text-xs text-muted-foreground">Country code first, digits only.</p>
+        </div>
+        <div className="flex items-center justify-between rounded-xl border p-3 sm:col-span-2">
+          <div><div className="text-sm font-semibold">Offer &ldquo;Text us&rdquo;</div><div className="text-xs text-muted-foreground">Opens Messages with the note below, to the booking phone.</div></div>
+          <Switch checked={b.text} onCheckedChange={(v) => setB({ text: v })} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Pre-filled message</Label>
+          <Input value={b.message} onChange={(e) => setB({ message: e.target.value })} />
+          <p className="text-xs text-muted-foreground">{"{treatment}"} and {"{practice}"} are filled in. Patients can edit it before sending.</p>
+        </div>
+      </div>
+      <div className="rounded-xl bg-zinc-50 p-3 text-xs leading-relaxed text-muted-foreground ring-1 ring-zinc-200">
+        <b className="text-zinc-800">{linked} of {active.length}</b> treatments have their own link{general ? "; the rest use your general link" : ""}.
+        For the smoothest booking, link straight to the treatment (not your home page), and don&apos;t require a deposit on that page if the patient already paid in the app.
+      </div>
+    </Card>
   );
 }
 
@@ -459,6 +515,24 @@ export function ShopEditor({ business, cfg, onChange }: EditorProps) {
           </div>
           <div className="space-y-1.5"><Label>Line under the Shop title</Label><Input value={shop.intro} onChange={(e) => setShop({ intro: e.target.value })} /></div>
         </div>
+        {shop.pay_mode === "stripe" && (
+          <div className="rounded-xl border p-3" data-testid="financing-settings">
+            <div className="flex items-center gap-2 text-sm font-semibold"><CreditCard className="h-4 w-4" />Pay over time</div>
+            <p className="mt-0.5 text-xs text-muted-foreground">Patients split a package into payments; you&apos;re paid in full up front and the provider takes the risk. One provider — two tiles at checkout just splits the same decision. Turn it on in your Stripe dashboard too (Settings → Payment methods). US patients only.</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <Pill on={!shop.financing.klarna && !shop.financing.affirm} onClick={() => setShop({ financing: { klarna: false, affirm: false } })}>Off</Pill>
+              <Pill on={shop.financing.klarna} onClick={() => setShop({ financing: { klarna: true, affirm: false } })}>Klarna</Pill>
+              <Pill on={shop.financing.affirm} onClick={() => setShop({ financing: { klarna: false, affirm: true } })}>Affirm</Pill>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {shop.financing.affirm
+                ? <>Affirm: orders {cents(FINANCING_LIMITS.affirm.min)}–{cents(FINANCING_LIMITS.affirm.max)}, 4 payments or monthly plans — the pick when you sell big packages.</>
+                : shop.financing.klarna
+                  ? <>Klarna: orders {cents(FINANCING_LIMITS.klarna.min)}–{cents(FINANCING_LIMITS.klarna.max)}, interest-free pay-in-4 up to $2,000 — the pick for most menus (it&apos;s what patients know).</>
+                  : <>Off: checkout shows Card and wallet only.</>}
+            </p>
+          </div>
+        )}
         {list.length === 0 ? (
           <div className="rounded-2xl border border-dashed bg-zinc-50 p-6 text-center">
             <p className="text-sm font-medium">Nothing in the shop yet.</p>

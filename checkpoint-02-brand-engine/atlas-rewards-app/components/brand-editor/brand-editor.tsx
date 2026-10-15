@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Eye, QrCode, User, Palette, Tag, Crown, Gift, Settings as SettingsIcon, BarChart3, Newspaper, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { ArrowLeft, Check, Eye, QrCode, User, Palette, Tag, Crown, Gift, Settings as SettingsIcon, BarChart3, Newspaper, SlidersHorizontal, ChevronDown, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn, hexToHsl, businessUrl } from "@/lib/utils";
 import { INDUSTRY_PRESETS, type Business } from "@/lib/types/database";
 // CP-131: per-niche layout presets (tab set + Home order).
-import { LAYOUT_PRESETS, LAYOUT_PRESET_IDS, resolvePreset, presetForIndustry } from "@/lib/layout-presets";
+import { LAYOUT_PRESETS, resolvePreset } from "@/lib/layout-presets";
 import { PATTERN_OPTIONS, patternStyle } from "@/lib/patterns";
 import { BANNER_OPTIONS, bannerStyle } from "@/lib/banner-styles";
 import { CARD_STYLES, BUTTON_STYLES, designVars } from "@/lib/design-styles";
@@ -429,53 +429,35 @@ export function BrandEditor({ initial }: { initial: Business }) {
           {activeTab === "brand" && (
             <>
               {/* CP-131: the layout preset — which tabs are on the bar and what
-                  Home leads with. Picked first because it frames everything
-                  under it. "Classic" is what every pre-CP-131 app runs. */}
+                  Home leads with. CP-208: LOCKED. The niche is chosen when the
+                  business is created (new-business modal) and never switched
+                  here — every layout carries its own tabs, data model and
+                  animations, and flipping between them live left apps with
+                  crossed wires (med spa tabs over venue data). To change it,
+                  create the business fresh on the right layout. */}
               <Section title="Layout" subtitle="Which tabs the app has and what the home screen leads with — tuned per niche.">
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {LAYOUT_PRESET_IDS.map((id) => {
-                    const p = LAYOUT_PRESETS[id];
-                    const on = resolvePreset(b.layout_preset) === id;
-                    const suggested = presetForIndustry(b.industry) === id && id !== "custom";
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => update("layout_preset", id)}
-                        className={cn(
-                          "text-left rounded-2xl border p-3.5 transition",
-                          on ? "border-zinc-900 bg-zinc-900 text-white shadow-md" : "bg-white hover:bg-zinc-50",
-                        )}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="font-bold text-sm">{p.label}</div>
-                          {on ? (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-white/80">Active</span>
-                          ) : suggested ? (
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Suggested</span>
-                          ) : null}
-                        </div>
-                        <div className={cn("text-[12px] mt-1 leading-snug", on ? "text-white/80" : "text-zinc-600")}>{p.blurb}</div>
-                        <div className={cn("text-[11px] mt-2", on ? "text-white/60" : "text-zinc-400")}>{p.fits}</div>
-                        <div className={cn("mt-2.5 flex flex-wrap gap-1", on ? "opacity-90" : "")}>
-                          {p.tabs.map((t) => (
-                            <span
-                              key={t.id}
-                              className={cn(
-                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
-                                on ? "border-white/30 text-white" : "border-zinc-200 text-zinc-600 bg-zinc-50",
-                              )}
-                            >
-                              {t.label}
-                            </span>
-                          ))}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                {(() => {
+                  const id = resolvePreset(b.layout_preset);
+                  const pr = LAYOUT_PRESETS[id];
+                  return (
+                    <div className="rounded-2xl border border-zinc-900 bg-zinc-900 text-white p-4 shadow-md max-w-md">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="font-bold text-sm">{pr.label}</div>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-white/80">
+                          <Lock className="h-3 w-3" /> Locked
+                        </span>
+                      </div>
+                      <div className="text-[12px] mt-1 leading-snug text-white/80">{pr.blurb}</div>
+                      <div className="mt-2.5 flex flex-wrap gap-1 opacity-90">
+                        {pr.tabs.map(t => (
+                          <span key={t.id} className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-white/30 text-white">{t.label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <p className="text-[11px] text-zinc-500 mt-3 leading-snug">
-                  Presets change structure only — your colors, rewards, offers and streak setup all stay. Streak and spin settings still apply on layouts that keep those tabs.
+                  The layout is set when the business is created and can&apos;t be switched here — each niche runs its own tabs, screens and data, and swapping live would scramble them. Need a different niche? Spin the business up fresh on the right layout.
                 </p>
               </Section>
 

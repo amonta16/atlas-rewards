@@ -3,6 +3,9 @@ import { BookFlow } from "@/components/customer/book-flow";
 import { ResourceBooking } from "@/components/customer/resource-booking";
 import { bookingEnabled, type BookingResource } from "@/lib/booking";
 import type { Business, BookingTag } from "@/lib/types/database";
+import { isMedspaApp } from "@/lib/medspa-app/route";
+import { bookingOptions, readMedspaConfig } from "@/lib/medspa";
+import { MedspaBookScreen } from "@/components/medspa-app/book-screen";
 
 export const dynamic = "force-dynamic";
 
@@ -13,12 +16,26 @@ export const dynamic = "force-dynamic";
  * lanes, rooms — things with capacity), the customer gets ResourceBooking.
  * Businesses still on the CP-16/17 tag-based calendar (incl. GHL-backed
  * ones) keep the legacy BookFlow, untouched.
+ *
+ * CP-207: med spas book the Dermis way. ?t=<treatment id> picks the
+ * treatment; its scheduling link (or the practice-wide one) wins, then
+ * Atlas booking if it's on, then call / text / WhatsApp the clinic.
  */
-export default async function CustomerBookPage({ params }: { params: { business: string } }) {
+export default async function CustomerBookPage({ params, searchParams }: { params: { business: string }; searchParams?: { t?: string } }) {
   const supabase = createClient();
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
   const business = biz as Business;
+
+  if (business && isMedspaApp(business)) {
+    const cfg = readMedspaConfig(business.medspa_config);
+    const menu = cfg.treatments.filter((t) => t.is_active);
+    const treatment = menu.find((t) => t.id === searchParams?.t) ?? null;
+    const options = bookingOptions(cfg.booking, business.name, business.contact_info?.phone, treatment);
+    if (options.url || !bookingEnabled(business)) {
+      return <MedspaBookScreen business={business} treatment={treatment} menu={menu} options={options} />;
+    }
+  }
 
   // If the business doesn't have booking enabled, render a "not enabled" notice
   // rather than 404 — keeps the UX friendly if a customer hits a stale link.

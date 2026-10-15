@@ -11,7 +11,7 @@ import { optimizedUrl } from "@/lib/img";
 import { AppLink } from "@/components/customer/app-link";
 import { bookingEnabled } from "@/lib/booking";
 import { getMedspaPatientContext, type MedspaPatientContext } from "@/lib/data/medspa";
-import { cents, shopPrice, type MedspaProvider, type MedspaShopItem } from "@/lib/medspa";
+import { cents, hasBookingPath, shopPrice, type MedspaProvider, type MedspaShopItem } from "@/lib/medspa";
 import { money } from "@/lib/membership";
 import { firstNameOf, getMsBirthdayGift, getMsMembership, getMsOpenOrderCount, getMsProfile, getMsRewards, type MsMembership, type MsReward } from "@/lib/medspa-app/data";
 import { MsTopBar } from "./chrome";
@@ -40,14 +40,17 @@ export async function MedspaHome({ business, membership }: { business: Business;
       next={ctx.due[0] ?? null}
       shopPicks={ctx.cfg.shop.enabled ? ctx.cfg.shop.items.filter((i) => i.is_active && i.featured).slice(0, 6) : []}
       team={ctx.cfg.providers.filter((p) => p.is_active)}
+      canBook={hasBookingPath(ctx.cfg, business.contact_info?.phone)}
     />
   );
 }
 
 /** Presentational Home. Props only, so it renders the same in the builder preview or a test harness. */
-export function MedspaHomeView({ business, firstName: first, fullName, points, rewards, bag, ms, gift, next, shopPicks, team }: {
+export function MedspaHomeView({ business, firstName: first, fullName, points, rewards, bag, ms, gift, next, shopPicks, team, canBook = false }: {
   business: Business; firstName: string; fullName: string; points: number; rewards: MsReward[]; bag: number; ms: MsMembership;
   gift: number | null; next: MedspaPatientContext["due"][number] | null; shopPicks: MedspaShopItem[]; team: MedspaProvider[];
+  /** CP-207: the practice has a scheduling link or a phone / WhatsApp to book through. */
+  canBook?: boolean;
 }) {
   const slug = business.slug;
   const unlocked = rewards.filter((r) => r.point_cost <= points).length;
@@ -90,7 +93,7 @@ export function MedspaHomeView({ business, firstName: first, fullName, points, r
       {gift && <BirthdayGift firstName={first} fullName={fullName} points={gift} pointsLabel={pointsLabel} />}
 
       {/* What's due */}
-      {(next || bookingEnabled(business)) && (
+      {(next || bookingEnabled(business) || canBook) && (
         <section className="px-5 pt-8">
           <AppLink slug={slug} to={next ? "/care" : "/book"} className="flex items-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-[var(--ms-line)] active:scale-[.99] transition">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, var(--ms-p) 12%, #fff)", color: "var(--ms-p)" }}><IcCalendar className="h-6 w-6" /></span>
