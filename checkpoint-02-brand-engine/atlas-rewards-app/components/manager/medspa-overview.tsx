@@ -38,13 +38,16 @@ const METRICS: { id: Metric; label: string }[] = [
 const money = (c: number) => `$${(c / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const monthLabel = (ym: string) => new Date(`${ym}-15T12:00:00`).toLocaleDateString(undefined, { month: "short" });
 
-export function MedspaOverview({ business, whoami, openMarketing, openOffers, openPatients, openShop, demo }: {
+export function MedspaOverview({ business, whoami, openMarketing, openOffers, openPatients, openShop, openReports, openBuilder, demo }: {
   business: Business;
   whoami: string | null;
   openMarketing: () => void;
   openOffers: () => void;
   openPatients: () => void;
   openShop: () => void;
+  /** CP-209: Reports tab + App builder tab. */
+  openReports?: () => void;
+  openBuilder?: () => void;
   /** Preloaded data for previews/demos — skips the RPC. */
   demo?: Overview;
 }) {
@@ -85,9 +88,23 @@ export function MedspaOverview({ business, whoami, openMarketing, openOffers, op
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-black text-zinc-900">{greet}{first ? `, ${first}` : ""} 👋</h1>
-        <p className="text-sm text-zinc-500 mt-0.5">A live pulse on {business.name}&apos;s app.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-zinc-900">{greet}{first ? `, ${first}` : ""} 👋</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">A live pulse on {business.name}&apos;s app.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {openBuilder && (
+            <button type="button" onClick={openBuilder} className="rounded-full bg-white px-3.5 py-2 text-xs font-bold text-zinc-700 ring-1 ring-zinc-200 hover:bg-zinc-50">
+              Edit your app
+            </button>
+          )}
+          {openReports && (
+            <button type="button" onClick={openReports} className="rounded-full px-3.5 py-2 text-xs font-bold text-white shadow" style={{ background: primary }}>
+              Monthly report
+            </button>
+          )}
+        </div>
       </div>
 
       {err && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Couldn&apos;t load the overview: {err}</div>}

@@ -60,7 +60,10 @@ import { CampaignsStudio } from "@/components/manager/campaigns-studio";
 // CP-208: med spa manager home (Dermis-style overview) + Marketing tab.
 import { MedspaOverview } from "@/components/manager/medspa-overview";
 import { MedspaMarketing } from "@/components/manager/medspa-marketing";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, Wrench, FileBarChart } from "lucide-react";
+// CP-209: managers set up their own app + the monthly report.
+import { MedspaAppBuilder } from "@/components/manager/medspa-app-builder";
+import { MonthlyReport } from "@/components/manager/monthly-report";
 import { bookingEnabled } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
@@ -72,7 +75,9 @@ import type { Business } from "@/lib/types/database";
 type ManagerTab = "desk" | "users" | "bookings" | "offers" | "news" | "campaigns" | "waivers" | "insights" | "billing" | "membership" | "team"
   | "patients" // CP-186: med spa recall list + directory
   | "shop"     // CP-190: med spa shop orders
-  | "overview"; // CP-208: med spa manager home (stats + live feed)
+  | "overview"  // CP-208: med spa manager home (stats + live feed)
+  | "builder"   // CP-209: med spa App builder for managers
+  | "reports";  // CP-209: monthly report (every niche, managers)
 
 /** Roles returned by public.current_app_role(business_id) — CP-22 SQL. */
 type AppRole = "agency_admin" | "business_manager" | "business_staff" | "customer" | null;
@@ -114,6 +119,9 @@ function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; la
       { id: "shop",     label: "Shop",       icon: <Tag className="h-4 w-4" /> },
     ];
     if (isManager) t.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
+    if (isManager) t.push({ id: "reports",  label: "Reports",  icon: <FileBarChart className="h-4 w-4" /> });
+    // CP-209: managers build their own app (treatments, shop, rewards…).
+    if (isManager) t.push({ id: "builder",  label: "App builder", icon: <Wrench className="h-4 w-4" /> });
     t.push({ id: "offers",  label: "Offers",   icon: <Tag className="h-4 w-4" /> });
     // CP-208: Campaigns becomes Marketing for med spas (MedspaMarketing below).
     if (isManager) t.push({ id: "campaigns", label: "Marketing", icon: <Megaphone className="h-4 w-4" /> });
@@ -138,6 +146,8 @@ function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; la
   }
   if (isManager) {
     tabs.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
+    // CP-209: monthly report (also emailed on the 1st).
+    tabs.push({ id: "reports",  label: "Reports",  icon: <FileBarChart className="h-4 w-4" /> });
   }
   tabs.push({ id: "offers", label: "Offers", icon: <Tag className="h-4 w-4" /> });
   tabs.push({ id: "news",   label: "News",   icon: <Newspaper className="h-4 w-4" /> });
@@ -278,9 +288,22 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   // If the user clicked into a tab that role-loading then disallows
   // (e.g. they were on Billing and the role resolved to business_staff),
   // bounce them back to the always-available Front desk.
+  // CP-209: only once the role is known — otherwise a deep link like
+  // ?tab=reports (the monthly email's button) bounced to the desk before the
+  // manager tabs existed.
   useEffect(() => {
+    if (role === null) return;
     if (!visibleTabs.some(t => t.id === tab)) setTab("desk");
-  }, [visibleTabs, tab]);
+  }, [visibleTabs, tab, role]);
+
+  // CP-209: deep links — /manage?tab=reports&month=2026-09 from the email.
+  const [reportMonth, setReportMonth] = useState<string | null>(null);
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const t = sp.get("tab") as ManagerTab | null;
+    if (t) setTab(t);
+    setReportMonth(sp.get("month"));
+  }, []);
 
   /** Save patches to the business record (products edits etc.). */
   function persistBusiness(patch: Partial<Business>) {
@@ -539,14 +562,14 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
         <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-px">
           <div className="px-2.5 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{isMedspa ? "Practice" : "Front desk"}</div>
           {visibleTabs.filter(t => ["overview", "desk", "patients", "users", "bookings", "shop", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
-          {visibleTabs.some(t => ["offers", "news", "campaigns", "membership"].includes(t.id)) && (
+          {visibleTabs.some(t => ["builder", "offers", "news", "campaigns", "membership"].includes(t.id)) && (
             <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{isMedspa ? "Patient app" : "Customer app"}</div>
           )}
-          {visibleTabs.filter(t => ["offers", "news", "campaigns", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
-          {visibleTabs.some(t => ["insights", "billing", "team"].includes(t.id)) && (
+          {visibleTabs.filter(t => ["builder", "offers", "news", "campaigns", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+          {visibleTabs.some(t => ["insights", "reports", "billing", "team"].includes(t.id)) && (
             <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Business</div>
           )}
-          {visibleTabs.filter(t => ["insights", "billing", "team"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+          {visibleTabs.filter(t => ["insights", "reports", "billing", "team"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
         </nav>
 
         <div className="border-t border-white/10 px-2.5 py-2 space-y-px">
@@ -627,20 +650,26 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       />
 
       {/* Tabs (below lg only — the sidebar carries them on desktop / landscape tablet) */}
-      <div className="bg-white border-b lg:hidden">
-        <div className="max-w-2xl mx-auto px-2 flex overflow-x-auto">
+      {/* CP-209: the active tab is a filled brand pill (was a thin underline
+          that staff missed) and scrolls itself into view. */}
+      <div className="bg-white border-b lg:hidden sticky top-0 z-30">
+        <div className="max-w-2xl mx-auto px-2 py-2 flex gap-1.5 overflow-x-auto" role="tablist" aria-label="Sections">
           {visibleTabs.map(t => {
             const n = badgeFor(t.id);
+            const on = tab === t.id;
             return (
               <button
                 key={t.id}
+                role="tab"
+                aria-selected={on}
+                aria-current={on ? "page" : undefined}
+                ref={on ? (el) => { el?.scrollIntoView({ block: "nearest", inline: "center" }); } : undefined}
                 onClick={() => setTab(t.id)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-3 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap",
-                  tab === t.id
-                    ? "border-zinc-900 text-zinc-900"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                  "flex items-center gap-1.5 px-3.5 h-9 rounded-full text-xs font-bold transition whitespace-nowrap shrink-0",
+                  on ? "text-white shadow-md" : "text-zinc-600 bg-zinc-100 hover:bg-zinc-200"
                 )}
+                style={on ? { background: business.brand_colors.primary } : undefined}
               >
                 {t.icon}{t.label}
                 {n > 0 && <span className="ml-0.5 h-4 min-w-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{n}</span>}
@@ -656,10 +685,17 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       </div>
 
       {/* Desktop page title bar */}
-      <div className="hidden lg:flex items-center justify-between px-6 h-14 bg-white border-b">
-        <div className="text-sm font-extrabold flex items-center gap-2">
-          {visibleTabs.find(t => t.id === tab)?.icon}
-          {visibleTabs.find(t => t.id === tab)?.label}
+      {/* CP-209: a real page title — brand icon chip + big label + section
+          breadcrumb — so it's obvious which screen you're on. */}
+      <div className="hidden lg:flex items-center justify-between px-6 h-16 bg-white border-b">
+        <div className="flex items-center gap-3">
+          <span className="h-9 w-9 rounded-xl grid place-items-center text-white shadow-sm" style={{ background: business.brand_colors.primary }}>
+            {visibleTabs.find(t => t.id === tab)?.icon}
+          </span>
+          <div className="leading-tight">
+            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">{sectionOf(tab, isMedspa)}</div>
+            <div className="text-lg font-black text-zinc-900">{visibleTabs.find(t => t.id === tab)?.label}</div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="text-[11px] text-zinc-500">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
@@ -668,6 +704,18 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       </div>
 
       <main className="max-w-2xl lg:max-w-none mx-auto p-4 lg:p-6 space-y-4">
+        {/* CP-209: phones/tablets get the same "you are here" title. */}
+        {tab !== "overview" && (
+          <div className="lg:hidden flex items-center gap-2.5">
+            <span className="h-8 w-8 rounded-lg grid place-items-center text-white" style={{ background: business.brand_colors.primary }}>
+              {visibleTabs.find(t => t.id === tab)?.icon}
+            </span>
+            <div className="leading-tight">
+              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">{sectionOf(tab, isMedspa)}</div>
+              <div className="text-base font-black text-zinc-900">{visibleTabs.find(t => t.id === tab)?.label}</div>
+            </div>
+          </div>
+        )}
         {tab === "overview" && isMedspa && (
           <MedspaOverview
             business={business}
@@ -676,7 +724,17 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             openOffers={() => { setOffersSubTab("automated"); setTab("offers"); }}
             openPatients={() => setTab("patients")}
             openShop={() => setTab("shop")}
+            openReports={() => setTab("reports")}
+            openBuilder={() => setTab("builder")}
           />
+        )}
+
+        {tab === "builder" && isMedspa && (role === "business_manager" || role === "agency_admin") && (
+          <MedspaAppBuilder business={business} onSaved={(next) => { setBusiness(next); setBizSavedAt(new Date()); }} />
+        )}
+
+        {tab === "reports" && (role === "business_manager" || role === "agency_admin") && (
+          <MonthlyReport business={business} initialMonth={reportMonth} />
         )}
 
         {tab === "desk" && (
@@ -1067,6 +1125,13 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
 }
 
 // CP-148: sidebar item with optional needs-action badge.
+/** CP-209: the sidebar group a tab lives in — the breadcrumb over the page title. */
+function sectionOf(tab: ManagerTab, medspa: boolean): string {
+  if (["overview", "desk", "patients", "users", "bookings", "shop", "waivers"].includes(tab)) return medspa ? "Practice" : "Front desk";
+  if (["builder", "offers", "news", "campaigns", "membership"].includes(tab)) return medspa ? "Patient app" : "Customer app";
+  return "Business";
+}
+
 function SideItem({ t, active, badge, primary, onClick }: {
   t: { id: ManagerTab; label: string; icon: React.ReactNode }; active: boolean; badge: number; primary: string; onClick: () => void;
 }) {
@@ -1076,11 +1141,14 @@ function SideItem({ t, active, badge, primary, onClick }: {
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold transition text-left",
-        active ? "text-white shadow-md" : "text-zinc-300 hover:bg-white/[0.07] hover:text-white",
+        // CP-209: active = white chip + brand bar on the left. Readable on
+        // any brand color (a pale primary used to wash the white text out).
+        active ? "bg-white text-zinc-900 shadow-md" : "text-zinc-300 hover:bg-white/[0.07] hover:text-white",
       )}
-      style={active ? { background: primary } : undefined}
+      style={active ? { boxShadow: `inset 3px 0 0 0 ${primary}` } : undefined}
+      aria-current={active ? "page" : undefined}
     >
-      <span className={cn("shrink-0", active ? "opacity-100" : "opacity-75")}>{t.icon}</span>
+      <span className={cn("shrink-0", active ? "opacity-100" : "opacity-75")} style={active ? { color: primary } : undefined}>{t.icon}</span>
       <span className="flex-1 truncate">{t.label}</span>
       {badge > 0 && (
         <span className={cn("h-5 min-w-5 px-1.5 rounded-full text-[10px] font-black flex items-center justify-center text-white", active ? "bg-rose-500" : "bg-rose-500 ring-2 ring-white/30")}>{badge}</span>

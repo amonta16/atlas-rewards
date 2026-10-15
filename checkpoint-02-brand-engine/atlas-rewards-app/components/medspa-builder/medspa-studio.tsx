@@ -175,7 +175,7 @@ export function TreatmentsEditor({ business, cfg, onChange }: EditorProps) {
                           </div>
                         </div>
                         <div className="space-y-3">
-                          <ImageUploader bucket="business-heroes" pathPrefix={`medspa/${business.id}/treatments`} value={t.image_url} onChange={(url) => upd(t.id, { image_url: url })} label="Photo" aspectClass="aspect-square" library={{ category: "offer", industry: "medspa" }} />
+                          <ImageUploader bucket="business-heroes" pathPrefix={`${business.id}/medspa/treatments`} value={t.image_url} onChange={(url) => upd(t.id, { image_url: url })} label="Photo" aspectClass="aspect-square" library={{ category: "offer", industry: "medspa" }} />
                           <Button variant="ghost" size="sm" className="w-full text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => { set(list.filter((x) => x.id !== t.id)); setOpenId(null); }}><Trash2 className="mr-1.5 h-4 w-4" />Remove treatment</Button>
                         </div>
                       </div>
@@ -356,7 +356,7 @@ export function ProvidersEditor({ business, cfg, onChange }: EditorProps) {
           {list.map((p) => (
             <div key={p.id} className={cn("rounded-2xl border p-4", !p.is_active && "opacity-60")}>
               <div className="flex gap-4">
-                <div className="w-24 shrink-0"><ImageUploader bucket="business-heroes" pathPrefix={`medspa/${business.id}/providers`} value={p.photo_url} onChange={(url) => upd(p.id, { photo_url: url })} label="Photo" aspectClass="aspect-square" /></div>
+                <div className="w-24 shrink-0"><ImageUploader bucket="business-heroes" pathPrefix={`${business.id}/medspa/providers`} value={p.photo_url} onChange={(url) => upd(p.id, { photo_url: url })} label="Photo" aspectClass="aspect-square" /></div>
                 <div className="min-w-0 flex-1 space-y-2">
                   <Input value={p.name} onChange={(e) => upd(p.id, { name: e.target.value })} placeholder="Full name" />
                   <Input value={p.title} onChange={(e) => upd(p.id, { title: e.target.value })} placeholder="Nurse injector, RN" />
@@ -446,8 +446,8 @@ export function GalleryEditor({ business, cfg, onChange }: EditorProps) {
           {list.map((g) => (
             <div key={g.id} className="rounded-2xl border p-4">
               <div className="grid grid-cols-2 gap-3">
-                <ImageUploader bucket="business-heroes" pathPrefix={`medspa/${business.id}/gallery`} value={g.before_url} onChange={(url) => upd(g.id, { before_url: url })} label="Before" aspectClass="aspect-[4/5]" />
-                <ImageUploader bucket="business-heroes" pathPrefix={`medspa/${business.id}/gallery`} value={g.after_url} onChange={(url) => upd(g.id, { after_url: url })} label="After" aspectClass="aspect-[4/5]" />
+                <ImageUploader bucket="business-heroes" pathPrefix={`${business.id}/medspa/gallery`} value={g.before_url} onChange={(url) => upd(g.id, { before_url: url })} label="Before" aspectClass="aspect-[4/5]" />
+                <ImageUploader bucket="business-heroes" pathPrefix={`${business.id}/medspa/gallery`} value={g.after_url} onChange={(url) => upd(g.id, { after_url: url })} label="After" aspectClass="aspect-[4/5]" />
               </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <Input value={g.title} onChange={(e) => upd(g.id, { title: e.target.value })} placeholder="Lip filler, 1 syringe" />
@@ -599,7 +599,7 @@ export function ShopEditor({ business, cfg, onChange }: EditorProps) {
                                   <label className="flex items-center gap-2 text-sm"><Switch checked={it.featured} onCheckedChange={(v) => upd(it.id, { featured: v })} />Feature it on Home</label>
                                 </div>
                                 <div className="space-y-3">
-                                  <ImageUploader bucket="business-heroes" pathPrefix={`medspa/${business.id}/shop`} value={it.image_url} onChange={(url) => upd(it.id, { image_url: url })} label="Photo" aspectClass="aspect-square" library={{ category: "offer", industry: "medspa" }} />
+                                  <ImageUploader bucket="business-heroes" pathPrefix={`${business.id}/medspa/shop`} value={it.image_url} onChange={(url) => upd(it.id, { image_url: url })} label="Photo" aspectClass="aspect-square" library={{ category: "offer", industry: "medspa" }} />
                                   <Button variant="ghost" size="sm" className="w-full text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => { setItems(list.filter((x) => x.id !== it.id)); setOpenId(null); }}><Trash2 className="mr-1.5 h-4 w-4" />Remove</Button>
                                 </div>
                               </div>
