@@ -8,11 +8,11 @@
  * numbers, same takeaways as the email (lib/reports/monthly.ts).
  */
 import { useEffect, useMemo, useState } from "react";
-import { FileBarChart, Mail, ArrowUpRight, ArrowDownRight, Minus, Trophy, Sparkles, Loader2 } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/lib/types/database";
-import { delta, fmtNum, fmtVal, kpisFor, monthName, takeaways, type MonthlyReport as Report } from "@/lib/reports/monthly";
+import { brandOf, changeText, fmtNum, fmtVal, kpisFor, monthName, prevMonthName, summary, takeaways, type MonthlyReport as Report } from "@/lib/reports/monthly";
 
 type ArchiveRow = { month: string; data: Report; emailed_at: string | null; emailed_to: string[] | null };
 
@@ -25,7 +25,7 @@ export function MonthlyReport({ business, initialMonth, demo }: {
   /** Preloaded data for previews — skips both queries. */
   demo?: { live: Report; archive: ArchiveRow[] };
 }) {
-  const primary = business.brand_colors.primary;
+  const brand = brandOf(business.brand_colors);
   const [live, setLive] = useState<Report | null>(demo?.live ?? null);
   const [archive, setArchive] = useState<ArchiveRow[] | null>(demo?.archive ?? null);
   const [sel, setSel] = useState<string>(initialMonth || LIVE);
@@ -62,28 +62,24 @@ export function MonthlyReport({ business, initialMonth, demo }: {
   }, [live, archive]);
 
   return (
-    <div className="space-y-4 max-w-5xl">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2"><FileBarChart className="h-5 w-5" style={{ color: primary }} /> Monthly report</h2>
-          <p className="text-sm text-zinc-500 mt-1">Emailed to every manager on the 1st. Pick a month to look back.</p>
-        </div>
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Report month">
-          {options.map((o) => (
-            <button key={o.id} type="button" role="tab" aria-selected={sel === o.id} onClick={() => setSel(o.id)}
-              className={cn("rounded-full px-3.5 py-1.5 text-xs font-bold transition",
-                sel === o.id ? "text-white shadow" : "bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50")}
-              style={sel === o.id ? { background: primary } : undefined}>
-              {o.label}
-            </button>
-          ))}
-        </div>
+    <div className="space-y-3 max-w-5xl">
+      {/* Month picker — quiet text tabs, the report itself is the show. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-zinc-200" role="tablist" aria-label="Report month">
+        {options.map((o) => (
+          <button key={o.id} type="button" role="tab" aria-selected={sel === o.id} onClick={() => setSel(o.id)}
+            className={cn("-mb-px border-b-2 pb-2.5 pt-1 text-[13px] font-semibold transition-colors",
+              sel === o.id ? "text-zinc-900" : "border-transparent text-zinc-500 hover:text-zinc-800")}
+            style={sel === o.id ? { borderColor: brand.accent } : undefined}>
+            {o.label}
+          </button>
+        ))}
+        <span className="ml-auto pb-2.5 text-xs text-zinc-400 hidden sm:inline">Emailed to your managers on the 1st</span>
       </div>
 
       {err && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Couldn&apos;t load the report: {err}</div>}
       {!report && !err && <div className="flex items-center gap-2 py-16 justify-center text-sm text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Building your report…</div>}
 
-      {report && <ReportView report={report} primary={primary} emailed={row ? { at: row.emailed_at, to: row.emailed_to } : null} />}
+      {report && <ReportView report={report} business={business} emailed={row ? { at: row.emailed_at, to: row.emailed_to } : null} />}
 
       {archive && archive.length === 0 && live && (
         <p className="text-xs text-zinc-400">Your first emailed report arrives on the 1st. Until then, this month&apos;s numbers update live.</p>
@@ -92,103 +88,149 @@ export function MonthlyReport({ business, initialMonth, demo }: {
   );
 }
 
-export function ReportView({ report: r, primary, emailed }: { report: Report; primary: string; emailed: { at: string | null; to: string[] | null } | null }) {
+/**
+ * CP-210 design: reads like a letter, not a dashboard. The app's hero photo
+ * under a brand-color wash (same treatment as the membership card), the
+ * month set large in a serif, a written summary, one plain figures table,
+ * a numbered list, and bar rows. No badges, tags or icon chips.
+ */
+export function ReportView({ report: r, business, emailed }: { report: Report; business: Business; emailed: { at: string | null; to: string[] | null } | null }) {
+  // The live business wins (logo/colors/photo may have changed since an archived month).
+  const brand = brandOf(business.brand_colors ?? r.business.brand_colors);
+  const logo = business.logo_url || (business as { app_icon_url?: string | null }).app_icon_url || r.business.logo_url || r.business.icon_url || null;
+  const hero = business.hero_image_url || r.business.hero_url || null;
   const k = kpisFor(r.business.layout);
   const tk = takeaways(r);
   const medspa = r.business.layout === "medspa";
   const through = new Date(r.through);
-  const toneStyle = { good: "#047857", watch: "#b45309", do: primary } as const;
-  const toneLabel = { good: "Win", watch: "Watch", do: "Do next" } as const;
+  const serif = { fontFamily: "Georgia, 'Times New Roman', serif" };
+
+  const bars = medspa && r.top_treatments.length
+    ? { title: "Most-booked treatments", items: r.top_treatments.map((t) => ({ a: t.name, b: `${t.n}`, v: t.n })) }
+    : null;
+  const people = r.top_members.map((m) => ({ a: m.name, b: `${fmtNum(m.points)} pts`, v: m.points }));
 
   return (
-    <div className="space-y-4">
-      {/* Header band — mirrors the email */}
-      <div className="rounded-2xl p-5 text-white shadow-sm" style={{ background: primary }}>
-        <div className="text-[11px] font-black uppercase tracking-widest opacity-85">{r.partial ? "Month to date" : "Monthly report"}</div>
-        <div className="mt-1 text-2xl font-black">{monthName(r.month)}</div>
-        <div className="mt-0.5 text-sm opacity-90">
-          {r.partial
-            ? `Through ${through.toLocaleDateString(undefined, { month: "short", day: "numeric" })}, compared with the same days last month`
-            : "Compared with the month before"}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-        {k.map((x) => {
-          const d = delta(r.current[x.key], r.previous[x.key]);
-          return (
-            <div key={x.key} className="rounded-2xl bg-white p-4 ring-1 ring-black/5 shadow-sm" title={x.hint}>
-              <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">{x.label}</div>
-              <div className="mt-1.5 text-[28px] font-black leading-none tabular-nums text-zinc-900">{fmtVal(x, r.current[x.key])}</div>
-              <div className={cn("mt-1.5 flex items-center gap-1 text-[12px] font-semibold",
-                !d ? "text-zinc-400" : d.dir === "up" ? "text-emerald-700" : d.dir === "down" ? "text-rose-700" : "text-zinc-500")}>
-                {d ? (d.dir === "up" ? <ArrowUpRight className="h-3.5 w-3.5" /> : d.dir === "down" ? <ArrowDownRight className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />) : null}
-                {d ? `${d.text} vs last month` : "No activity yet"}
-                <span className="font-normal text-zinc-400">· was {fmtVal(x, r.previous[x.key])}</span>
-              </div>
+    <article className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 shadow-sm">
+      {/* Header: photo + brand wash */}
+      <header className="relative min-h-[220px]" style={{ background: brand.primary, color: brand.onPrimary }}>
+        {hero && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={hero} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        )}
+        <div className="absolute inset-0" style={{
+          background: hero
+            ? `linear-gradient(90deg, ${brand.primary} 0%, ${brand.primary}e6 38%, ${brand.primary}66 70%, ${brand.primary}1a 100%)`
+            : undefined,
+        }} />
+        <div className="relative flex h-full min-h-[220px] flex-col justify-between p-6 sm:p-8">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[13px] opacity-85">{business.name} · {r.partial ? "Month to date" : "Monthly report"}</div>
+            {logo && (
+              <span className="grid h-11 place-items-center rounded-lg bg-white px-2.5 shadow-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logo} alt={business.name} className="h-7 w-auto max-w-[120px] object-contain" />
+              </span>
+            )}
+          </div>
+          <div className="mt-10">
+            <h2 className="text-[40px] leading-none sm:text-[48px]" style={serif}>{monthName(r.month, { month: "long" })}</h2>
+            <div className="mt-2 text-sm opacity-85">
+              {r.partial
+                ? `${monthName(r.month, { year: "numeric" })} · through ${through.toLocaleDateString(undefined, { month: "long", day: "numeric" })}, compared with the same days of ${prevMonthName(r.month)}`
+                : `${monthName(r.month, { year: "numeric" })} · compared with ${prevMonthName(r.month)}`}
             </div>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-2xl bg-white p-5 ring-1 ring-black/5 shadow-sm">
-          <div className="text-sm font-extrabold text-zinc-900">What it means</div>
-          {tk.length === 0 && <p className="mt-2 text-sm text-zinc-500">Not enough activity yet to call a trend.</p>}
-          <div className="mt-3 space-y-2">
-            {tk.map((t, i) => (
-              <div key={i} className="rounded-r-xl bg-zinc-50 px-4 py-3" style={{ borderLeft: `3px solid ${toneStyle[t.tone]}` }}>
-                <div className="text-[10px] font-black uppercase tracking-widest" style={{ color: toneStyle[t.tone] }}>{toneLabel[t.tone]}</div>
-                <div className="text-[14px] font-bold text-zinc-900 mt-0.5">{t.title}</div>
-                <div className="text-[13px] text-zinc-600 mt-0.5 leading-snug">{t.body}</div>
-              </div>
-            ))}
           </div>
         </div>
+        {brand.secondary && <div className="relative h-1" style={{ background: brand.secondary }} />}
+      </header>
 
-        <div className="space-y-4">
-          {medspa && r.top_treatments.length > 0 && (
-            <ListCard icon={<Sparkles className="h-4 w-4" />} primary={primary} title="Most-booked treatments"
-              items={r.top_treatments.map((t) => [t.name, `${t.n}×`])} />
-          )}
-          <ListCard icon={<Trophy className="h-4 w-4" />} primary={primary} title={`Top ${medspa ? "patients" : "members"}`}
-            items={r.top_members.map((m) => [m.name, `${fmtNum(m.points)} pts`])} empty="No points earned yet this month." />
-          <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5 shadow-sm text-[12.5px] text-zinc-600 space-y-1">
-            <Row label={medspa ? "Patients in your app" : "Members in your app"} value={fmtNum(r.current.total_members)} />
-            <Row label="Paying members" value={fmtNum(r.current.paid_members)} />
-            <Row label="Points earned" value={fmtNum(r.current.points_earned)} />
-            <Row label="Referrals" value={fmtNum(r.current.referrals)} />
-          </div>
+      <div className="px-6 pb-8 pt-7 sm:px-8">
+        {/* Written summary */}
+        <p className="max-w-3xl text-[19px] leading-[1.55] text-zinc-900 sm:text-[21px]" style={serif}>{summary(r)}</p>
+
+        {/* Figures: one plain table */}
+        <div className="mt-7 grid grid-cols-2 overflow-hidden rounded-xl border border-zinc-200 sm:grid-cols-3">
+          {k.map((x, i) => {
+            const d = changeText(r.current[x.key], r.previous[x.key], r.month);
+            return (
+              <div key={x.key} title={x.hint}
+                className={cn("px-5 py-4 border-zinc-200",
+                  i % 2 === 1 && "border-l sm:border-l-0", i % 3 !== 0 && "sm:border-l",
+                  i >= 2 && "border-t sm:border-t-0", i >= 3 && "sm:border-t")}>
+                <div className="text-[12.5px] text-zinc-500">{x.label}</div>
+                <div className="mt-1 text-[26px] font-bold tracking-[-0.01em] tabular-nums text-zinc-900">{fmtVal(x, r.current[x.key])}</div>
+                <div className={cn("mt-0.5 text-[12.5px]", !d ? "text-zinc-400" : d.dir === "up" ? "text-green-700" : d.dir === "down" ? "text-red-700" : "text-zinc-500")}>
+                  {d ? d.text : "nothing yet"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_300px]">
+          {/* Worth your attention */}
+          <section>
+            <h3 className="text-[13px] font-bold tracking-wide text-zinc-900">Worth your attention</h3>
+            {tk.length === 0 && <p className="mt-2 text-sm text-zinc-500">Not enough activity yet to call a trend.</p>}
+            <ol className="mt-2">
+              {tk.map((t, i) => (
+                <li key={i} className={cn("flex gap-4 py-3.5", i > 0 && "border-t border-zinc-100")}>
+                  <span className="w-5 shrink-0 text-[20px] leading-6" style={{ ...serif, color: brand.accent }}>{i + 1}</span>
+                  <div>
+                    <div className="text-[15px] font-semibold text-zinc-900">{t.title}</div>
+                    <div className="mt-0.5 text-[13.5px] leading-relaxed text-zinc-600">{t.body}</div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <aside className="space-y-7">
+            {bars && <Bars title={bars.title} items={bars.items} color={brand.primary} />}
+            {people.length > 0 && <Bars title={`Top ${medspa ? "patients" : "members"}`} items={people} color={brand.primary} />}
+            <section>
+              <h3 className="text-[13px] font-bold tracking-wide text-zinc-900">At a glance</h3>
+              <dl className="mt-2 divide-y divide-zinc-100 text-[13.5px]">
+                <Row label={medspa ? "Patients in your app" : "Members in your app"} value={fmtNum(r.current.total_members)} />
+                <Row label="Paying members" value={fmtNum(r.current.paid_members)} />
+                <Row label="Points earned" value={fmtNum(r.current.points_earned)} />
+                <Row label="Referrals" value={fmtNum(r.current.referrals)} />
+              </dl>
+            </section>
+          </aside>
         </div>
       </div>
 
       {emailed && (
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
+        <footer className="flex items-center gap-2 border-t border-zinc-100 bg-zinc-50 px-6 py-3 text-xs text-zinc-500 sm:px-8">
           <Mail className="h-3.5 w-3.5" />
           {emailed.at
             ? <>Emailed {new Date(emailed.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} to {(emailed.to ?? []).join(", ") || "your managers"}</>
             : "Saved, not emailed (no manager email on file)."}
-        </div>
+        </footer>
       )}
-    </div>
+    </article>
   );
 }
 
-function ListCard({ icon, primary, title, items, empty }: { icon: React.ReactNode; primary: string; title: string; items: string[][]; empty?: string }) {
+function Bars({ title, items, color }: { title: string; items: { a: string; b: string; v: number }[]; color: string }) {
+  const max = Math.max(1, ...items.map((x) => x.v));
   return (
-    <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-1.5 px-4 pt-3.5 pb-2 text-sm font-extrabold text-zinc-900"><span style={{ color: primary }}>{icon}</span>{title}</div>
-      {items.length === 0
-        ? <div className="px-4 pb-4 text-xs text-zinc-400">{empty}</div>
-        : items.map(([a, b], i) => (
-          <div key={i} className="flex items-center justify-between gap-3 border-t border-zinc-100 px-4 py-2.5 text-[13px]">
-            <span className="truncate text-zinc-800">{a}</span><span className="shrink-0 tabular-nums text-zinc-500">{b}</span>
-          </div>
+    <section>
+      <h3 className="text-[13px] font-bold tracking-wide text-zinc-900">{title}</h3>
+      <ul className="mt-2.5 space-y-3">
+        {items.map((x, i) => (
+          <li key={i}>
+            <div className="flex justify-between gap-3 text-[13.5px]"><span className="truncate text-zinc-800">{x.a}</span><span className="shrink-0 tabular-nums text-zinc-500">{x.b}</span></div>
+            <div className="mt-1.5 h-1.5 rounded-full bg-zinc-100"><div className="h-1.5 rounded-full" style={{ width: `${Math.max(4, (x.v / max) * 100)}%`, background: color }} /></div>
+          </li>
         ))}
-    </div>
+      </ul>
+    </section>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
-  return <div className="flex justify-between gap-3"><span>{label}</span><span className="font-bold tabular-nums text-zinc-900">{value}</span></div>;
+  return <div className="flex justify-between gap-3 py-2"><dt className="text-zinc-600">{label}</dt><dd className="font-semibold tabular-nums text-zinc-900">{value}</dd></div>;
 }

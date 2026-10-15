@@ -61,3 +61,7 @@ grant execute on function public._report_core(uuid, timestamptz, timestamptz) to
 grant execute on function public._build_monthly_report(uuid, date) to service_role;
 grant execute on function public._report_recipients(uuid) to service_role;
 grant execute on function public.business_monthly_report(uuid, date) to authenticated;
+
+-- CP-209b (APPLIED Oct 14 2026, migration cp209b_report_logo): _build_monthly_report's
+-- `business` object now also carries logo_url and icon_url (app_icon_url) so the
+-- email header and dashboard band show the business's own logo.

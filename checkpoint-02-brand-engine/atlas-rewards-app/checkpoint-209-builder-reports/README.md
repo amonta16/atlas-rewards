@@ -32,3 +32,9 @@ Trigger `trg_pin_layout_preset` pins any change to a set layout (CP-208 only hid
 
 ## Verified
 `tsc` 0 errors, `next build` green. Playwright with fixture data: Reports tab (archived + month-to-date toggle), App builder (sub-tabs, save bar appears on edit), email HTML (UTF-8, renders cleanly). Report SQL smoke-tested on production data. Not yet exercised as a real signed-in manager or with a real Resend send — use `?to=` for that.
+
+## CP-209b · Logo + color branded
+- Email header and dashboard band show the **business's logo** (white chip, falls back to the square app icon, then to no logo) on its **primary color**, with the **secondary color** as a thin stripe.
+- Text color is picked automatically: dark text on a pale brand (e.g. blush pink), white on a dark one. Accent text (links, "Do next") uses the brand color darkened until it's readable on white.
+- Relative logo paths are made absolute in the email so Gmail/Outlook can load them.
+- Footer: "Sent on the 1st of every month to <business>'s managers · Powered by Atlas Engine".

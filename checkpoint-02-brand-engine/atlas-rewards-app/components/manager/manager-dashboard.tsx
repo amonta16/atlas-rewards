@@ -64,6 +64,8 @@ import { LayoutDashboard, Wrench, FileBarChart } from "lucide-react";
 // CP-209: managers set up their own app + the monthly report.
 import { MedspaAppBuilder } from "@/components/manager/medspa-app-builder";
 import { MonthlyReport } from "@/components/manager/monthly-report";
+// CP-210: the marketing tab is "Atlas Engine" with its own mark.
+import { AtlasEngineIcon } from "@/components/manager/atlas-engine-icon";
 import { bookingEnabled } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
@@ -119,12 +121,12 @@ function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; la
       { id: "shop",     label: "Shop",       icon: <Tag className="h-4 w-4" /> },
     ];
     if (isManager) t.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
-    if (isManager) t.push({ id: "reports",  label: "Reports",  icon: <FileBarChart className="h-4 w-4" /> });
     // CP-209: managers build their own app (treatments, shop, rewards…).
     if (isManager) t.push({ id: "builder",  label: "App builder", icon: <Wrench className="h-4 w-4" /> });
     t.push({ id: "offers",  label: "Offers",   icon: <Tag className="h-4 w-4" /> });
     // CP-208: Campaigns becomes Marketing for med spas (MedspaMarketing below).
-    if (isManager) t.push({ id: "campaigns", label: "Marketing", icon: <Megaphone className="h-4 w-4" /> });
+    // CP-210: "Atlas Engine" — the marketing engine (always-on + ads).
+    if (isManager) t.push({ id: "campaigns", label: "Atlas Engine", icon: <AtlasEngineIcon className="h-4 w-4" /> });
     if (isManager) {
       t.push({ id: "billing",    label: "Billing",    icon: <CreditCard className="h-4 w-4" /> });
       t.push({ id: "membership", label: "Membership", icon: <Crown className="h-4 w-4" /> });
@@ -146,8 +148,6 @@ function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; la
   }
   if (isManager) {
     tabs.push({ id: "insights", label: "Insights", icon: <BarChart3 className="h-4 w-4" /> });
-    // CP-209: monthly report (also emailed on the 1st).
-    tabs.push({ id: "reports",  label: "Reports",  icon: <FileBarChart className="h-4 w-4" /> });
   }
   tabs.push({ id: "offers", label: "Offers", icon: <Tag className="h-4 w-4" /> });
   tabs.push({ id: "news",   label: "News",   icon: <Newspaper className="h-4 w-4" /> });
@@ -297,12 +297,18 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   }, [visibleTabs, tab, role]);
 
   // CP-209: deep links — /manage?tab=reports&month=2026-09 from the email.
+  // CP-210: Reports live inside Insights now (sub-tab). ?tab=reports from
+  // the monthly email still works — it opens Insights → Monthly reports.
   const [reportMonth, setReportMonth] = useState<string | null>(null);
+  const [insightsSub, setInsightsSub] = useState<"live" | "reports">("live");
+  const openReports = () => { setInsightsSub("reports"); setTab("insights"); };
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    const t = sp.get("tab") as ManagerTab | null;
-    if (t) setTab(t);
+    const t = sp.get("tab");
+    if (t === "reports") openReports();
+    else if (t) setTab(t as ManagerTab);
     setReportMonth(sp.get("month"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /** Save patches to the business record (products edits etc.). */
@@ -566,10 +572,10 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{isMedspa ? "Patient app" : "Customer app"}</div>
           )}
           {visibleTabs.filter(t => ["builder", "offers", "news", "campaigns", "membership"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
-          {visibleTabs.some(t => ["insights", "reports", "billing", "team"].includes(t.id)) && (
+          {visibleTabs.some(t => ["insights", "billing", "team"].includes(t.id)) && (
             <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">Business</div>
           )}
-          {visibleTabs.filter(t => ["insights", "reports", "billing", "team"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
+          {visibleTabs.filter(t => ["insights", "billing", "team"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={0} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
         </nav>
 
         <div className="border-t border-white/10 px-2.5 py-2 space-y-px">
@@ -577,9 +583,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
           <DeskRefreshButton tone="dark" className="w-full justify-start" />
           <GuestAppLink tone="dark" />
           <div className="[&_button]:text-zinc-300 [&_button:hover]:bg-white/[0.07]"><ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} /></div>
-          <button type="button" onClick={() => setTutorialOpen(true)} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-zinc-300 hover:bg-white/[0.07] hover:text-white">
-            <Lightbulb className="h-4 w-4" /> Tutorial
-          </button>
+          {/* CP-210: Tutorial button removed to give the nav room. */}
           <button type="button" onClick={signOut} className="w-full flex items-center gap-2.5 px-2.5 h-9 rounded-lg text-[13px] font-semibold text-zinc-300 hover:bg-white/[0.07] hover:text-white">
             <LogOut className="h-4 w-4" /> Sign out
           </button>
@@ -623,16 +627,6 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             <DeskRefreshButton compact />
             <ManagerPwaInstall primary={business.brand_colors.primary} businessName={business.name} />
             <GuestAppLink compact />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setTutorialOpen(true)}
-              title="Show tutorial"
-              aria-label="Show tutorial"
-            >
-              <Lightbulb className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Tutorial</span>
-            </Button>
             <Button variant="ghost" size="sm" onClick={signOut}><LogOut className="h-4 w-4 mr-1"/>Sign out</Button>
           </div>
         </div>
@@ -724,7 +718,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             openOffers={() => { setOffersSubTab("automated"); setTab("offers"); }}
             openPatients={() => setTab("patients")}
             openShop={() => setTab("shop")}
-            openReports={() => setTab("reports")}
+            openReports={openReports}
             openBuilder={() => setTab("builder")}
           />
         )}
@@ -733,9 +727,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
           <MedspaAppBuilder business={business} onSaved={(next) => { setBusiness(next); setBizSavedAt(new Date()); }} />
         )}
 
-        {tab === "reports" && (role === "business_manager" || role === "agency_admin") && (
-          <MonthlyReport business={business} initialMonth={reportMonth} />
-        )}
+
 
         {tab === "desk" && (
           <>
@@ -1036,10 +1028,22 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
           // InsightsDashboard that already showed all of it. It now renders
           // embedded (period picker + KPIs + two charts) inside the
           // dashboard, after the operations row.
-          <InsightsDashboard
-            business={business}
-            trends={<BusinessInsights business={business} variant="embedded" />}
-          />
+          // CP-210: two views — live insights, and the monthly reports
+          // (the same report that's emailed on the 1st).
+          <div className="space-y-4">
+            <div className="inline-flex rounded-xl bg-zinc-100 p-1 gap-1" role="tablist" aria-label="Insights view">
+              {([["live", "Live insights"], ["reports", "Monthly reports"]] as const).map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={insightsSub === id} onClick={() => setInsightsSub(id)}
+                  className={cn("rounded-lg px-4 py-2 text-xs font-bold transition-colors flex items-center gap-1.5",
+                    insightsSub === id ? "bg-white text-zinc-900 shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                  {id === "live" ? <BarChart3 className="h-3.5 w-3.5" /> : <FileBarChart className="h-3.5 w-3.5" />}{label}
+                </button>
+              ))}
+            </div>
+            {insightsSub === "live"
+              ? <InsightsDashboard business={business} trends={<BusinessInsights business={business} variant="embedded" />} />
+              : <MonthlyReport business={business} initialMonth={reportMonth} />}
+          </div>
         )}
 
         {tab === "offers" && (

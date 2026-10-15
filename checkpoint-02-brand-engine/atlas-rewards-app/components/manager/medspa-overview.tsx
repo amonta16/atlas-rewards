@@ -151,7 +151,7 @@ export function MedspaOverview({ business, whoami, openMarketing, openOffers, op
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-extrabold text-zinc-900">Marketing pulse</div>
               <button type="button" onClick={openMarketing} className="flex items-center gap-1 text-xs font-bold" style={{ color: primary }}>
-                Open Marketing <ChevronRight className="h-3.5 w-3.5" />
+                Open Atlas Engine <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
             <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
@@ -177,7 +177,7 @@ export function MedspaOverview({ business, whoami, openMarketing, openOffers, op
                 icon={<Megaphone className="h-4 w-4" />}
                 title="Ad campaigns"
                 on={false} onLabel="Planning"
-                body="Paid ads that feed the app — plan them in Marketing."
+                body="Paid ads that feed the app — plan them in Atlas Engine."
                 onClick={openMarketing} primary={primary}
               />
             </div>

@@ -20,6 +20,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { readMedspaConfig } from "@/lib/medspa";
+import { AtlasEngineIcon } from "./atlas-engine-icon";
 import type { Business } from "@/lib/types/database";
 
 type AutoOfferRow = { template_id: string; name: string; is_active: boolean; trigger_type: string };
@@ -63,12 +64,26 @@ export function MedspaMarketing({ business, openOffers, openInsights, openBuilde
 
   return (
     <div className="space-y-5 max-w-5xl">
-      <div>
-        <h2 className="text-xl font-black text-zinc-900 flex items-center gap-2"><Megaphone className="h-5 w-5" style={{ color: primary }} /> Marketing</h2>
-        <p className="text-sm text-zinc-500 mt-1 max-w-2xl">
-          Two engines fill your book: the <b className="text-zinc-700">always-on</b> one inside the patient app, and the
-          <b className="text-zinc-700"> ad engine</b> that feeds it new patients. Run the first from here today; plan the second with your Atlas partner.
-        </p>
+      {/* CP-210: "Atlas Engine" banner — Atlas's own mark on deep navy, so it
+          reads as the engine room, distinct from the practice's brand pages. */}
+      <div className="relative overflow-hidden rounded-2xl px-6 py-6 text-white shadow-sm"
+        style={{ background: "radial-gradient(120% 140% at 100% 0%, #1d6fb8 0%, #0d3b74 45%, #0a1f3f 100%)" }}>
+        <svg viewBox="0 0 24 24" aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-56 w-56 text-white/[0.07]" fill="currentColor">
+          <path d="M8.6 4.5h6.8a1.6 1.6 0 0 1 1.4.8l3.4 5.9a1.6 1.6 0 0 1 0 1.6l-3.4 5.9a1.6 1.6 0 0 1-1.4.8H8.6a1.6 1.6 0 0 1-1.4-.8l-3.4-5.9a1.6 1.6 0 0 1 0-1.6l3.4-5.9a1.6 1.6 0 0 1 1.4-.8zM12 9.2l-2.6 4.6h5.2z" fillRule="evenodd" />
+        </svg>
+        <div className="relative flex items-start gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/10 ring-1 ring-white/20">
+            <AtlasEngineIcon className="h-7 w-7" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/60">Your marketing engine</div>
+            <h2 className="text-2xl font-black leading-tight">Atlas Engine</h2>
+            <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-white/75">
+              Two engines fill your book: the <b className="text-white">always-on</b> one inside the patient app, and the
+              <b className="text-white"> ad engine</b> that feeds it new patients. Run the first from here today; plan the second with your Atlas partner.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ── Always-on, in the app today ── */}

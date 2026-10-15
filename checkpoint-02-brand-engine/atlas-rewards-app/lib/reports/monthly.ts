@@ -20,7 +20,14 @@ export type ReportCore = {
 };
 
 export type MonthlyReport = {
-  business: { id: string; name: string; slug: string; layout: string; brand_colors?: { primary?: string; secondary?: string } | null };
+  business: {
+    id: string; name: string; slug: string; layout: string;
+    brand_colors?: { primary?: string; secondary?: string } | null;
+    /** CP-209b: the business's own logo + square app icon (email header, dashboard band). */
+    logo_url?: string | null; icon_url?: string | null;
+    /** CP-210: the app's hero photo — the report's header image. */
+    hero_url?: string | null;
+  };
   month: string;          // "2026-09"
   partial: boolean;       // month-to-date
   through: string;
@@ -29,6 +36,40 @@ export type MonthlyReport = {
   top_members: { name: string; points: number; visits: number }[];
   top_treatments: { name: string; n: number }[];
 };
+
+/* ─────────────────────────── branding ─────────────────────────── */
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((hex || "").trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].split("").map((c) => c + c).join("") : m[1];
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function luminance([r, g, b]: [number, number, number]) {
+  const f = (c: number) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+function darken([r, g, b]: [number, number, number], k: number) {
+  const h = (n: number) => Math.round(n * k).toString(16).padStart(2, "0");
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+
+/**
+ * The business's colors, made safe to use: `primary` for big color areas,
+ * `onPrimary` for text on it (dark text on a pale brand, white otherwise),
+ * `accent` = the brand color darkened until it reads as text on white.
+ */
+export function brandOf(colors?: { primary?: string; secondary?: string } | null) {
+  // Normalized to #rrggbb so callers can append an alpha suffix ("…e6").
+  const rgb = hexToRgb(colors?.primary ?? "") ?? [24, 24, 27];
+  const primary = darken(rgb, 1);
+  const L = luminance(rgb);
+  const onPrimary = L > 0.45 ? "#18181b" : "#ffffff";
+  let k = 1, accent = primary;
+  while (luminance(hexToRgb(accent)!) > 0.18 && k > 0.3) { k -= 0.08; accent = darken(rgb, k); }
+  const secondary = hexToRgb(colors?.secondary ?? "") ? colors!.secondary! : null;
+  return { primary, onPrimary, accent, secondary };
+}
 
 export type Kpi = { key: keyof ReportCore; label: string; money?: boolean; hint: string };
 
@@ -70,6 +111,50 @@ export function delta(cur: number, prev: number): { text: string; dir: "up" | "d
   return { text: `${pct > 0 ? "+" : ""}${pct}%`, dir: pct > 0 ? "up" : "down" };
 }
 
+/** "August" — the month before r.month. */
+export function prevMonthName(ym: string): string {
+  const d = new Date(`${ym}-15T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  return d.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
+}
+
+/** "up 17% on August" / "down 8% on August" / "level with August" / null. */
+export function changeText(cur: number, prev: number, ym: string): { text: string; dir: "up" | "down" | "flat" } | null {
+  const d = delta(cur, prev);
+  if (!d) return null;
+  const m = prevMonthName(ym);
+  if (d.text === "new") return { text: `none in ${m}`, dir: "up" };
+  if (d.dir === "flat") return { text: `level with ${m}`, dir: "flat" };
+  return { text: `${d.dir === "up" ? "up" : "down"} ${d.text.replace(/^[+-]/, "")} on ${m}`, dir: d.dir };
+}
+
+/**
+ * The month in two sentences, the way a person would write it. Built only
+ * from the numbers in the report.
+ */
+export function summary(r: MonthlyReport): string {
+  const c = r.current, p = r.previous;
+  const medspa = r.business.layout === "medspa";
+  const lead = r.partial ? `So far this month, ` : "";
+  const ch = (a: number, b: number) => {
+    const d = changeText(a, b, r.month);
+    return d && d.dir !== "flat" && !d.text.startsWith("none") ? `, ${d.text}` : "";
+  };
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const parts: string[] = [];
+  if (medspa) {
+    parts.push(cap(`${lead}${r.business.name} logged ${fmtNum(c.treatments)} treatment${c.treatments === 1 ? "" : "s"}${ch(c.treatments, p.treatments)}.`));
+    const money: string[] = [];
+    if (c.shop_sales_cents) money.push(`${fmtMoney(c.shop_sales_cents)} in app sales`);
+    if (c.membership_revenue_cents) money.push(`${fmtMoney(c.membership_revenue_cents)} in memberships`);
+    parts.push(`${fmtNum(c.new_members)} new patient${c.new_members === 1 ? "" : "s"} joined the app${money.length ? `, and it brought in ${money.join(" plus ")}` : ""}.`);
+  } else {
+    parts.push(cap(`${lead}${r.business.name} had ${fmtNum(c.visits)} member visit${c.visits === 1 ? "" : "s"}${ch(c.visits, p.visits)}.`));
+    parts.push(`${fmtNum(c.new_members)} new member${c.new_members === 1 ? "" : "s"} joined and ${fmtNum(c.rewards_redeemed)} reward${c.rewards_redeemed === 1 ? " was" : "s were"} redeemed.`);
+  }
+  return parts.join(" ");
+}
+
 /**
  * 2–4 plain-English takeaways, each with the action it points to.
  * Ordered by what an owner should do first.
@@ -82,9 +167,8 @@ export function takeaways(r: MonthlyReport): { title: string; body: string; tone
 
   const vNow = medspa ? c.treatments : c.visits;
   const vPrev = medspa ? p.treatments : p.visits;
-  if (vNow > vPrev && vPrev > 0) {
-    out.push({ tone: "good", title: `${medspa ? "Treatments" : "Visits"} up ${Math.round(((vNow - vPrev) / vPrev) * 100)}%`, body: `${fmtNum(vNow)} this month vs ${fmtNum(vPrev)} last month.` });
-  } else if (vPrev > 0 && vNow < vPrev) {
+  // CP-210: a rise is already in the written summary; only a drop earns a list item.
+  if (vPrev > 0 && vNow < vPrev) {
     out.push({ tone: "watch", title: `${medspa ? "Treatments" : "Visits"} down ${Math.round(((vPrev - vNow) / vPrev) * 100)}%`, body: `${fmtNum(vNow)} vs ${fmtNum(vPrev)} last month. An automated offer or a win-back send is the fastest lever.` });
   }
 
@@ -119,73 +203,110 @@ export function reportText(r: MonthlyReport, dashboardUrl: string, firstName?: s
   const k = kpisFor(r.business.layout);
   const lines = [
     `Hi${firstName ? ` ${firstName}` : ""},`, "",
-    `Here's how ${r.business.name} did in ${monthName(r.month)}.`, "",
+    summary(r), "",
     ...k.map((x) => {
-      const d = delta(r.current[x.key], r.previous[x.key]);
-      return `${x.label}: ${fmtVal(x, r.current[x.key])}${d ? ` (${d.text} vs last month)` : ""}`;
+      const d = changeText(r.current[x.key], r.previous[x.key], r.month);
+      return `${x.label}: ${fmtVal(x, r.current[x.key])}${d ? ` (${d.text})` : ""}`;
     }),
     "",
-    ...takeaways(r).flatMap((t) => [`• ${t.title}. ${t.body}`]),
+    "Worth your attention:",
+    ...takeaways(r).map((t, i) => `${i + 1}. ${t.title}. ${t.body}`),
     "",
     `Full report: ${dashboardUrl}`, "",
-    "— Atlas Engine",
+    `${r.business.name} · Powered by Atlas Engine`,
   ];
   return lines.join("\n");
 }
 
-/** Table-based HTML so it renders in Gmail, Outlook and Apple Mail. */
+const abs = (u: string | null | undefined, base: string) => {
+  if (!u) return null;
+  if (!u.startsWith("/")) return u;
+  try { return new URL(u, base).toString(); } catch { return null; }
+};
+
+/**
+ * Table-based HTML so it renders in Gmail, Outlook and Apple Mail.
+ * CP-210 design: the app's hero photo on top, a brand-color band with the
+ * logo and the month, a written summary, a plain figures table, a numbered
+ * "worth your attention" list and simple bar rows. No badges or tags.
+ */
 export function reportHtml(r: MonthlyReport, dashboardUrl: string, firstName?: string): string {
-  const primary = r.business.brand_colors?.primary || "#18181b";
+  const { primary, onPrimary, accent, secondary } = brandOf(r.business.brand_colors);
+  const logo = abs(r.business.logo_url || r.business.icon_url, dashboardUrl);
+  const hero = abs(r.business.hero_url, dashboardUrl);
   const k = kpisFor(r.business.layout);
   const tk = takeaways(r);
-  const tone = { good: "#047857", watch: "#b45309", do: primary };
-  const label = { good: "Win", watch: "Watch", do: "Do next" };
-  const cells = k.map((x) => {
-    const d = delta(r.current[x.key], r.previous[x.key]);
-    const color = !d ? "#71717a" : d.dir === "up" ? "#047857" : d.dir === "down" ? "#b91c1c" : "#71717a";
-    return `<td width="50%" style="padding:6px;vertical-align:top">
-      <div style="border:1px solid #e4e4e7;border-radius:14px;padding:14px 16px;background:#ffffff">
-        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a1a1aa">${esc(x.label)}</div>
-        <div style="font-size:26px;font-weight:800;color:#18181b;margin-top:4px">${esc(fmtVal(x, r.current[x.key]))}</div>
-        <div style="font-size:12px;color:${color};margin-top:2px">${d ? `${esc(d.text)} vs last month` : "&nbsp;"}</div>
-      </div></td>`;
-  });
+  const medspa = r.business.layout === "medspa";
+  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const serif = "Georgia,'Times New Roman',serif";
+
+  const cell = (x: Kpi, i: number) => {
+    const d = changeText(r.current[x.key], r.previous[x.key], r.month);
+    const color = !d ? "#a1a1aa" : d.dir === "up" ? "#15803d" : d.dir === "down" ? "#b91c1c" : "#71717a";
+    const left = i % 3 === 0 ? "" : "border-left:1px solid #ececec;";
+    const top = i >= 3 ? "border-top:1px solid #ececec;" : "";
+    return `<td width="33%" style="${left}${top}padding:16px 16px 14px;vertical-align:top">
+      <div style="font-size:12px;color:#71717a">${esc(x.label)}</div>
+      <div style="font-size:24px;font-weight:700;color:#18181b;margin-top:4px;letter-spacing:-.01em">${esc(fmtVal(x, r.current[x.key]))}</div>
+      <div style="font-size:12px;color:${color};margin-top:3px">${d ? esc(d.text) : "&nbsp;"}</div></td>`;
+  };
   const rows: string[] = [];
-  for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>${cells[i]}${cells[i + 1] ?? '<td width="50%"></td>'}</tr>`);
+  for (let i = 0; i < k.length; i += 3) rows.push(`<tr>${k.slice(i, i + 3).map((x, j) => cell(x, i + j)).join("")}</tr>`);
 
-  const top = r.business.layout === "medspa" && r.top_treatments.length
-    ? { title: "Most-booked treatments", items: r.top_treatments.map((t) => [t.name, `${t.n}×`]) }
+  const bars = medspa && r.top_treatments.length
+    ? { title: "Most-booked treatments", items: r.top_treatments.map((t) => ({ a: t.name, b: `${t.n}`, v: t.n })) }
     : r.top_members.length
-      ? { title: `Top ${r.business.layout === "medspa" ? "patients" : "members"} this month`, items: r.top_members.map((m) => [m.name, `${fmtNum(m.points)} pts`]) }
+      ? { title: `Top ${medspa ? "patients" : "members"}`, items: r.top_members.map((m) => ({ a: m.name, b: `${fmtNum(m.points)} pts`, v: m.points })) }
       : null;
+  const vmax = bars ? Math.max(1, ...bars.items.map((x) => x.v)) : 1;
 
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(reportSubject(r))}</title></head><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
-  <tr><td style="background:${primary};border-radius:18px 18px 0 0;padding:28px 28px 24px;color:#ffffff">
-    <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.85">Monthly report</div>
-    <div style="font-size:26px;font-weight:800;margin-top:6px">${esc(r.business.name)}</div>
-    <div style="font-size:15px;opacity:.9;margin-top:2px">${esc(monthName(r.month))}</div>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(reportSubject(r))}</title></head><body style="margin:0;padding:0;background:#f2f1ef;font-family:${font}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f1ef;padding:24px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden">
+  ${hero ? `<tr><td style="padding:0;line-height:0"><img src="${esc(hero)}" alt="" width="600" style="display:block;width:100%;max-width:600px;height:200px;object-fit:cover;border:0" /></td></tr>` : ""}
+  <tr><td style="background:${primary};padding:22px 28px;color:${onPrimary}">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="vertical-align:middle">
+        <div style="font-size:13px;opacity:.8">${esc(r.business.name)} · Monthly report</div>
+        <div style="font-family:${serif};font-size:30px;line-height:1.15;margin-top:4px">${esc(monthName(r.month))}</div>
+      </td>
+      ${logo ? `<td align="right" style="vertical-align:middle;width:1%;white-space:nowrap"><span style="display:inline-block;background:#ffffff;border-radius:10px;padding:7px 10px;line-height:0"><img src="${esc(logo)}" alt="${esc(r.business.name)}" height="34" style="display:block;height:34px;max-width:140px;width:auto;border:0" /></span></td>` : ""}
+    </tr></table>
   </td></tr>
-  <tr><td style="background:#fafafa;padding:22px 22px 8px">
-    <div style="font-size:15px;color:#3f3f46;padding:0 6px 10px">Hi${firstName ? ` ${esc(firstName)}` : ""}, here's how last month went in your app.</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.join("")}</table>
+  ${secondary ? `<tr><td style="background:${secondary};height:4px;line-height:4px;font-size:0">&nbsp;</td></tr>` : ""}
+  <tr><td style="padding:26px 28px 6px">
+    <div style="font-size:15px;color:#3f3f46">Hi${firstName ? ` ${esc(firstName)}` : ""},</div>
+    <div style="font-family:${serif};font-size:19px;line-height:1.5;color:#18181b;margin-top:10px">${esc(summary(r))}</div>
   </td></tr>
-  ${tk.length ? `<tr><td style="background:#fafafa;padding:8px 28px 6px">
-    <div style="font-size:15px;font-weight:800;color:#18181b;margin:8px 0 10px">What it means</div>
-    ${tk.map((t) => `<div style="border-left:3px solid ${tone[t.tone]};background:#ffffff;border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:8px">
-      <div style="font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:${tone[t.tone]}">${label[t.tone]}</div>
-      <div style="font-size:14px;font-weight:700;color:#18181b;margin-top:2px">${esc(t.title)}</div>
-      <div style="font-size:13px;color:#52525b;margin-top:2px;line-height:1.45">${esc(t.body)}</div></div>`).join("")}
-  </td></tr>` : ""}
-  ${top ? `<tr><td style="background:#fafafa;padding:8px 28px 6px">
-    <div style="font-size:15px;font-weight:800;color:#18181b;margin:8px 0 8px">${esc(top.title)}</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e4e4e7;border-radius:12px">
-      ${top.items.map(([a, b], i) => `<tr><td style="padding:10px 14px;font-size:14px;color:#18181b;${i ? "border-top:1px solid #f4f4f5;" : ""}">${esc(a)}</td><td align="right" style="padding:10px 14px;font-size:13px;color:#71717a;${i ? "border-top:1px solid #f4f4f5;" : ""}">${esc(b)}</td></tr>`).join("")}
+  <tr><td style="padding:16px 28px 4px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ececec;border-radius:12px">${rows.join("")}</table>
+  </td></tr>
+  ${tk.length ? `<tr><td style="padding:22px 28px 4px">
+    <div style="font-size:13px;font-weight:700;color:#18181b;letter-spacing:.02em">Worth your attention</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px">
+      ${tk.map((t, i) => `<tr>
+        <td style="width:28px;vertical-align:top;padding:10px 0;font-family:${serif};font-size:18px;color:${accent}">${i + 1}</td>
+        <td style="vertical-align:top;padding:10px 0;${i ? "border-top:1px solid #f0f0f0;" : ""}">
+          <div style="font-size:14px;font-weight:600;color:#18181b">${esc(t.title)}</div>
+          <div style="font-size:13px;color:#52525b;margin-top:2px;line-height:1.5">${esc(t.body)}</div>
+        </td></tr>`).join("")}
     </table></td></tr>` : ""}
-  <tr><td style="background:#fafafa;padding:22px 28px 28px;border-radius:0 0 18px 18px" align="center">
-    <a href="${esc(dashboardUrl)}" style="display:inline-block;background:${primary};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 26px;border-radius:12px">See the full report</a>
-    <div style="font-size:12px;color:#a1a1aa;margin-top:16px">Sent by Atlas Engine on the 1st of every month to ${esc(r.business.name)}'s managers.</div>
+  ${bars ? `<tr><td style="padding:18px 28px 4px">
+    <div style="font-size:13px;font-weight:700;color:#18181b;letter-spacing:.02em">${esc(bars.title)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px">
+      ${bars.items.map((x) => `<tr><td style="padding:6px 0">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="font-size:13px;color:#18181b">${esc(x.a)}</td><td align="right" style="font-size:12px;color:#71717a">${esc(x.b)}</td></tr></table>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:4px"><tr>
+          <td style="width:${Math.max(4, Math.round((x.v / vmax) * 100))}%;background:${primary};height:6px;line-height:6px;font-size:0;border-radius:3px">&nbsp;</td>
+          <td style="background:#f2f1ef;height:6px;line-height:6px;font-size:0">&nbsp;</td></tr></table>
+      </td></tr>`).join("")}
+    </table></td></tr>` : ""}
+  <tr><td style="padding:26px 28px 30px" align="left">
+    <a href="${esc(dashboardUrl)}" style="display:inline-block;background:${primary};color:${onPrimary};text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:10px">Open the full report</a>
+  </td></tr>
+  <tr><td style="background:#fafaf9;border-top:1px solid #f0f0f0;padding:14px 28px;font-size:12px;color:#a1a1aa">
+    Sent on the 1st of every month to ${esc(r.business.name)}'s managers · Powered by Atlas Engine
   </td></tr>
 </table></td></tr></table></body></html>`;
 }
