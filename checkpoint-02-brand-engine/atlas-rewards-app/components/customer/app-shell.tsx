@@ -9,6 +9,8 @@ import { presetSpec, type TabId } from "@/lib/layout-presets";
 import { useReviewStatus, reviewBadgeTone } from "@/lib/hooks/use-review-status";
 import { readableTextColor } from "@/lib/patterns";
 import { createClient } from "@/lib/supabase/client";
+// CP-211: cold-open requests shared with other components (one request each).
+import { sharedRpc } from "@/lib/shared-rpc";
 // CP-42: one-time first-visit nudge pointing at the bell.
 import { EnablePushNudge } from "./enable-push-nudge";
 
@@ -93,7 +95,8 @@ function useStreakNudge(
       try {
         const supabase = createClient();
         const [{ data: sData }, { data: gData }] = await Promise.all([
-          supabase.rpc("get_streak_status", { p_business_id: businessId, p_membership_id: membershipId }),
+          // CP-211: shared with the Home streak card's first load.
+          sharedRpc("get_streak_status", { p_business_id: businessId, p_membership_id: membershipId }),
           supabase.rpc("list_streak_gifts", { p_business_id: businessId, p_membership_id: membershipId }),
         ]);
         if (cancelled) return;

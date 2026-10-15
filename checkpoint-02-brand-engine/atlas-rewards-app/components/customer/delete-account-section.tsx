@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { clearDeviceCache } from "@/lib/device-cache";
 import { ConfirmDeleteModal } from "@/components/ui/confirm-delete-modal";
 import type { Business } from "@/lib/types/database";
 
@@ -27,6 +28,8 @@ export function DeleteAccountSection({ business }: { business: Business }) {
     if (error) throw new Error(error.message);
     // Auth row is gone; sign out the local session anyway to clear cookies.
     await supabase.auth.signOut();
+    // CP-211: drop the device's cached Home snapshot + page copies.
+    await clearDeviceCache();
     // CP-45: slug-prefixed so this works on path-based access too.
     router.push(`/${business.slug}/signup`);
     router.refresh();

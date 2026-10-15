@@ -24,6 +24,8 @@ import { Tag, Play, Pause, Ticket, Gift, Sparkles, CalendarDays, Crown, Zap } fr
 import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
+// CP-211: cold-open requests shared with other components (one request each).
+import { sharedRpc } from "@/lib/shared-rpc";
 import { bannerStyle } from "@/lib/banner-styles";
 // CP-85.1: a featured OPEN raffle takes over the banner (raffle > offer —
 // it's the bigger hype moment and it has a hard deadline).
@@ -93,18 +95,20 @@ export function FeaturedOfferBanner({
   useEffect(() => {
     if (!offersEnabled || !businessId) return;
     const supabase = createClient();
-    const reload = async () => {
-      const { data } = await supabase.rpc("featured_offer", {
-        p_business_id: businessId,
-      });
+    // CP-211: the mount-time pull is shared (the offer watcher asks the same
+    // question at the same moment); realtime events (an arg) always go fresh.
+    const reload = async (fromRealtime?: unknown) => {
+      const { data } = fromRealtime
+        ? await supabase.rpc("featured_offer", { p_business_id: businessId })
+        : await sharedRpc("featured_offer", { p_business_id: businessId });
       const row = (Array.isArray(data) ? data[0] : null) as FeaturedBannerOffer | null;
       setLiveOffer(row);
     };
     // CP-85.1: also watch the featured raffle — it outranks the offer.
-    const reloadRaffle = async () => {
-      const { data } = await supabase.rpc("featured_raffle", {
-        p_business_id: businessId,
-      });
+    const reloadRaffle = async (fromRealtime?: unknown) => {
+      const { data } = fromRealtime
+        ? await supabase.rpc("featured_raffle", { p_business_id: businessId })
+        : await sharedRpc("featured_raffle", { p_business_id: businessId });
       setLiveRaffle(((Array.isArray(data) ? data[0] : null) ?? null) as FeaturedRaffle | null);
     };
     // Pull once on mount in case the server-side fetch missed a write that

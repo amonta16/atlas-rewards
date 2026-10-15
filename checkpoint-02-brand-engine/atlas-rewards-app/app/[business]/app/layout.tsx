@@ -26,33 +26,68 @@ import { presetSpec } from "@/lib/layout-presets";
 // CP-193: med spas branch to their own frame right after enrollment.
 import { isMedspaApp } from "@/lib/medspa-app/route";
 import { MedspaFrame } from "@/components/medspa-app/frame";
+import { getMsProfile, getMsRewards } from "@/lib/medspa-app/data";
+import { timed } from "@/lib/perf/launch";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomerAppLayout({
   children, params,
 }: { children: React.ReactNode; params: { business: string } }) {
-  // CP-89: request-memoized — the page and metadata share these lookups.
-  const user = await getCachedUser();
+  // CP-211: the launch path is two round trips, not six.
+  //   1. session ‖ business — independent (the session usually comes from
+  //      middleware's signed handoff, so it's free).
+  //   2. everything that only needs business.id, in ONE concurrent batch:
+  //      membership, waiver gate, billing, featured offer, promo facts.
+  // The only real dependency kept sequential is enrollment: a brand-new
+  // member is enrolled first, and the waiver gate is re-checked after it
+  // (my_waiver_gate returns "ok" for a non-member, so a pre-enroll answer
+  // can't be trusted for them).
+  const [user, business] = await Promise.all([
+    timed("layout:getUser", getCachedUser()),
+    timed("layout:business", getBusinessBySlug(params.business)),
+  ]);
   // CP-45: slug-prefixed so path-based access (/<slug>/app, used by the
   // agency live preview + "Customer app" button) lands on this business's
   // login instead of 404ing. Subdomain access also resolves correctly.
   if (!user) redirect(`/${params.business}/login`);
-
-  const business = await getBusinessBySlug(params.business);
   if (!business) notFound(); // CP-36: invalid slug → 404 instead of crash
 
-  // CP-89: enroll_member is a WRITE and used to run on EVERY page view of
-  // every tab. For an existing member it only ever backfilled a missing
-  // referral_code (verified in checkpoint-25/01_enrollment_hardening.sql —
-  // it touches no activity timestamps), so it's now gated: run it only for
-  // brand-new members or a membership missing its code, then re-fetch
-  // fresh (bypassing the request memo, which would hand back the pre-enroll
-  // null).
   const supabase = createClient();
-  let membership: Membership | null = await getMyMembership(business.id);
+  const medspa = isMedspaApp(business);
+  type GateRow = {
+    state: "ok" | "needs_signature" | "awaiting_guardian";
+    waiver_id: string | null; waiver_title: string | null;
+    version_id: string | null; version_no: number | null;
+    body_text: string | null; document_url: string | null;
+    min_account_age: number | null; minors_enabled: boolean | null;
+    guardian_email: string | null;
+  };
+  const fetchGate = () => timed("layout:waiver_gate", supabase.rpc("my_waiver_gate", { p_business_id: business.id }))
+    .then(({ data }) => ((Array.isArray(data) ? data[0] : data) ?? null) as GateRow | null);
+
+  // Fire the whole batch now; med spas skip the parts their frame doesn't use.
+  const membershipP = timed("layout:membership", getMyMembership(business.id));
+  // Med spa frame data (request-memoized): start it in this same wave so the
+  // frame finds it ready instead of waiting a round trip after membership.
+  if (medspa) { void getMsProfile(user.id); void getMsRewards(business.id); }
+  const gateP = medspa ? null : fetchGate();
+  const restP = medspa ? null : timed("layout:billing+offer+promo", Promise.all([
+    supabase.rpc("membership_billing_public", { p_business_id: business.id }),
+    getFeaturedOffer(business.id),
+    // CP-153: one round-trip of live numbers for the banner's fallback lines
+    // (returns nothing on a pre-CP-153 DB → banner simply hides as before).
+    supabase.rpc("house_promo_facts", { p_business_id: business.id }),
+  ]));
+
+  // CP-89: enroll_member is a WRITE — only for brand-new members or a
+  // membership missing its referral code, then re-fetch fresh (bypassing the
+  // request memo, which would hand back the pre-enroll null).
+  let membership: Membership | null = await membershipP;
+  let enrolled = false;
   if (!membership || !membership.referral_code) {
-    await supabase.rpc("enroll_member", { p_user_id: user.id, p_business_id: business.id });
+    enrolled = !membership;
+    await timed("layout:enroll", supabase.rpc("enroll_member", { p_user_id: user.id, p_business_id: business.id }));
     const { data: fresh } = await supabase.rpc("my_membership", { p_business_id: business.id });
     membership = ((fresh as Membership[] | null)?.[0] ?? null);
   }
@@ -61,44 +96,20 @@ export default async function CustomerAppLayout({
   // CP-193: the med spa app has its own layout (components/medspa-app/frame).
   // Nothing below this line runs for med spas: no waiver gate, banners,
   // streak or spin plumbing.
-  if (isMedspaApp(business)) return <MedspaFrame business={business} membership={membership}>{children}</MedspaFrame>;
+  if (medspa) return <MedspaFrame business={business} membership={membership}>{children}</MedspaFrame>;
 
-  // CP-52.4: is a paid membership live? Gates the VIP quick-action in the
-  // shared header (same as the Home page does).
-  // CP-21: the featured offer loads once at the layout level so the sticky
-  // banner persists across every tab. CP-89: both fetches run in parallel,
-  // and featured_offer is request-memoized (the Home page reuses it free).
-  // CP-137: the required-waiver gate.
-  //
-  // CP-135 did this in CampaignResumer — a client useEffect that redirected
-  // to /app/waiver. That is advisory: it runs after the page has already
-  // rendered, it only fired once per session, and anyone who knew the shape
-  // of it could simply not follow the redirect. A waiver a business relies
-  // on has to hold, so the check moved here: one server call, and when it
-  // says no we render the waiver INSTEAD of the app. There is no shell, no
-  // tabs and no route to navigate to — the gate is the page, whatever URL
-  // under /app they asked for.
-  const { data: gateRows } = await supabase.rpc("my_waiver_gate", { p_business_id: business.id });
-  const gate = (Array.isArray(gateRows) ? gateRows[0] : gateRows) as {
-    state: "ok" | "needs_signature" | "awaiting_guardian";
-    waiver_id: string | null; waiver_title: string | null;
-    version_id: string | null; version_no: number | null;
-    body_text: string | null; document_url: string | null;
-    min_account_age: number | null; minors_enabled: boolean | null;
-    guardian_email: string | null;
-  } | null;
+  // CP-137: the required-waiver gate, server-side — when it says no we render
+  // the waiver INSTEAD of the app (no shell, no tabs, no route around it).
+  // CP-211: fetched concurrently above; re-checked after a first enrollment.
+  const [gate, [{ data: billing }, bannerOffer, { data: promoFactRows }]] = await Promise.all([
+    enrolled ? fetchGate() : gateP!,
+    restP!,
+  ]);
 
   const gateWaiver = gate && gate.state !== "ok" && gate.waiver_id && gate.version_id
     ? { ...gate, waiver_id: gate.waiver_id, version_id: gate.version_id } : null;
   const gateActive = gateWaiver !== null;
 
-  const [{ data: billing }, bannerOffer, { data: promoFactRows }] = await Promise.all([
-    supabase.rpc("membership_billing_public", { p_business_id: business.id }),
-    getFeaturedOffer(business.id),
-    // CP-153: one round-trip of live numbers for the banner's fallback lines
-    // (returns nothing on a pre-CP-153 DB → banner simply hides as before).
-    supabase.rpc("house_promo_facts", { p_business_id: business.id }),
-  ]);
   const promoFacts = ((Array.isArray(promoFactRows) ? promoFactRows[0] : promoFactRows) ?? null) as HousePromoFacts | null;
   const housePromos = buildHousePromos(promoFacts, membership, {
     bookingEnabled: bookingEnabled(business),

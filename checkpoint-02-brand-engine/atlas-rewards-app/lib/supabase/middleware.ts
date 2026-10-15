@@ -1,6 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { sharedCookieDomain, sharedCookieOptions } from "./cookie-domain";
+// CP-211: hand the verified user to the render so it doesn't call Auth again.
+import { HANDOFF_HEADER, authCookieHash, signHandoff } from "./session-handoff";
+
+/** Request headers with any client-supplied handoff removed (it's internal-only). */
+function scrubbedHeaders(request: NextRequest): Headers {
+  const h = new Headers(request.headers);
+  h.delete(HANDOFF_HEADER);
+  return h;
+}
 
 /**
  * Refreshes the Supabase auth cookie on every request, so sessions persist
@@ -102,9 +111,10 @@ function expireLegacyHostOnlyAuthCookies(request: NextRequest, response: NextRes
 }
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  let response = NextResponse.next({ request: { headers: scrubbedHeaders(request) } });
 
   // CP-84: speculative prefetches never touch the refresh token.
+  // CP-211: still scrubbed — a prefetch render falls back to its own getUser().
   if (isPrefetchRequest(request)) return response;
 
   const supabase = createServerClient(
@@ -117,7 +127,7 @@ export async function updateSession(request: NextRequest) {
         getAll() { return request.cookies.getAll(); },
         setAll(toSet: { name: string; value: string; options?: any }[]) {
           toSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
+          response = NextResponse.next({ request: { headers: scrubbedHeaders(request) } });
           toSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
         },
       },
@@ -125,8 +135,22 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Triggers cookie refresh.
+  const t0 = Date.now();
   try {
-    const { error } = await supabase.auth.getUser();
+    const { data, error } = await supabase.auth.getUser();
+    if (process.env.ATLAS_LAUNCH_TIMING === "1") console.info(`[launch] middleware getUser ${request.nextUrl.pathname} took ${Date.now() - t0}ms`);
+    // CP-211: pass the user Auth just verified to the render (signed, bound to
+    // this request's — possibly just-refreshed — auth cookie, 30 s lifetime).
+    if (data?.user && !error) {
+      const token = await signHandoff(data.user, await authCookieHash(request.cookies.getAll()));
+      if (token) {
+        const h = scrubbedHeaders(request);
+        h.set(HANDOFF_HEADER, token);
+        const next = NextResponse.next({ request: { headers: h } });
+        response.cookies.getAll().forEach((c) => next.cookies.set(c));
+        response = next;
+      }
+    }
     if (isStaleRefreshToken(error)) {
       expireLegacyHostOnlyAuthCookies(request, response);
     }

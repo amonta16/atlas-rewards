@@ -44,6 +44,9 @@ import { bookingEnabled, type BookingResource } from "@/lib/booking";
 // CP-193: med spas get their own Home (components/medspa-app).
 import { isMedspaApp } from "@/lib/medspa-app/route";
 import { MedspaHome } from "@/components/medspa-app/home-screen";
+import { timed } from "@/lib/perf/launch";
+import { HomeReady } from "@/components/perf/home-ready";
+import { HomeSnapshotWriter } from "@/components/customer/home-snapshot";
 
 export const dynamic = "force-dynamic";
 
@@ -63,13 +66,20 @@ export default async function CustomerHome({ params }: { params: { business: str
   // memoized (lib/data/customer-app.ts + getCachedUser) — the layout already
   // fetched them in this same request, so these four "calls" are free here.
   // Only top_rewards and latest_news are page-specific network calls.
-  const business = await getBusinessBySlug(params.business);
+  // CP-211: session ‖ business (both shared with the layout via React cache —
+  // whichever of the two asks first pays, the other gets the same promise).
+  const [business, sessionUser] = await Promise.all([
+    timed("page:business", getBusinessBySlug(params.business)),
+    getCachedUser(),
+  ]);
   if (!business) notFound();
   if (isMedspaApp(business)) return <MedspaHome business={business} membership={await getMyMembership(business.id)} />;
 
   const supabase = createClient();
-  const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }, { data: resourceRows }] = await Promise.all([
-    getCachedUser(),
+  // CP-211: the first name (profiles) joins the batch — it only needs the
+  // user id, which we already have. It used to be its own round trip after.
+  const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }, { data: resourceRows }, { data: profile }] = await timed("page:home-batch", Promise.all([
+    Promise.resolve(sessionUser),
     getMyMembership(business.id),
     getFeaturedOffer(business.id),
     // CP-52: show at least 4 top rewards on Home (was 2).
@@ -84,7 +94,10 @@ export default async function CustomerHome({ params }: { params: { business: str
     bookingEnabled(business)
       ? supabase.rpc("list_booking_resources", { p_business_id: business.id })
       : Promise.resolve({ data: [] as BookingResource[] }),
-  ]);
+    sessionUser
+      ? supabase.from("profiles").select("full_name").eq("id", sessionUser.id).maybeSingle()
+      : Promise.resolve({ data: null as { full_name: string | null } | null }),
+  ]));
 
   const topRewards = (rewards ?? []) as TopReward[];
   const newsPosts = (news ?? []) as NewsRow[];
@@ -92,7 +105,6 @@ export default async function CustomerHome({ params }: { params: { business: str
   const weeklySpecials = (specialRows ?? []) as SpecialRow[];
   const bookable = ((resourceRows ?? []) as BookingResource[]).filter(r => r.is_active);
 
-  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user!.id).single();
   const firstName = (profile?.full_name ?? user!.email?.split("@")[0] ?? "there").split(" ")[0];
 
   const greeting = business.welcome_message || `Welcome back, ${firstName}!`;
@@ -357,6 +369,9 @@ export default async function CustomerHome({ params }: { params: { business: str
           <Fragment key={key}>{blocks[key]}</Fragment>
         ))}
       </div>
+      <HomeSnapshotWriter slug={params.business} business={business.name} firstName={firstName} points={points}
+        pointsLabel="Your points" primary={business.brand_colors.primary} secondary={business.brand_colors.secondary} />
+      <HomeReady />
     </div>
   );
 }

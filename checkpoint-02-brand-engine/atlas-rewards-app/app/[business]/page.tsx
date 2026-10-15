@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Gift, ArrowRight } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import type { Business } from "@/lib/types/database";
 import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
@@ -26,7 +26,8 @@ export default async function BusinessRootPage({ params, searchParams }: { param
   }
 
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // CP-211: middleware's verified session (signed handoff) — no second Auth call.
+  const user = await getCachedUser();
 
   // If signed in, jump straight into the app.
   // CP-45: slug-prefixed so path-based access (/<slug>) doesn't lose the

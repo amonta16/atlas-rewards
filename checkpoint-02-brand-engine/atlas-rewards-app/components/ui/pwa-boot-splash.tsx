@@ -1,120 +1,75 @@
 "use client";
 /**
- * PWABootSplash — CP-42
+ * PWABootSplash — CP-42 → CP-211
  *
- * Shows a centered business logo on a WHITE background, then fades
- * seamlessly into the app UI behind it. Plays ONCE per cold-boot of
- * the PWA, not on every nav.
+ * The branded cold-boot screen: the business logo on its brand color.
  *
- * Detection rules (fire splash only when ALL true):
- *   • Window is loaded (DOMContentLoaded)
- *   • We haven't shown the splash this session (sessionStorage flag)
- *   • Either the PWA is running standalone, OR the URL is a fresh
- *     deep-link (we still show it on first browser visit — it makes
- *     the app feel intentional even outside the home-screen).
- *
- * After ~900ms, fade out over 350ms. Total perceived: ~1.25s.
+ * CP-211 (cold start): it used to mount AFTER hydration and then hold for a
+ * fixed 900 ms + 350 ms fade — so the app, already rendered underneath, was
+ * hidden for 1.25 s on every first open. Now:
+ *   • it's in the server HTML, so it covers the screen from the very first
+ *     paint while the app's JavaScript boots (that's the job of a splash);
+ *   • it lifts the moment the app has hydrated (taps work), with a short
+ *     fade — no fixed hold;
+ *   • a tiny inline script removes it before paint when it has already
+ *     played this session (same once-per-session rule as before).
+ * It's never interactive (pointer-events: none), so it can't block taps.
  */
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
 const SHOWN_FLAG = "atlas-boot-splash-shown";
-const DISPLAY_MS = 900;
-const FADE_MS = 350;
+const FADE_MS = 220;
 
-export function PWABootSplash({
-  primary,
-  name,
-  logoUrl,
-}: {
-  primary: string;
-  name: string;
-  logoUrl?: string | null;
-}) {
-  // Two phases: mounted-visible, then mounted-fading. Unmount after fade.
-  const [phase, setPhase] = useState<"hidden" | "visible" | "fading" | "gone">("hidden");
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
+export function PWABootSplash({ primary, name, logoUrl }: { primary: string; name: string; logoUrl?: string | null }) {
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (window.sessionStorage.getItem(SHOWN_FLAG)) return; // already shown this session
-      window.sessionStorage.setItem(SHOWN_FLAG, "1");
-    } catch { /* private mode: still show, just no flag */ }
-
-    setPhase("visible");
-    const t1 = window.setTimeout(() => setPhase("fading"), DISPLAY_MS);
-    const t2 = window.setTimeout(() => setPhase("gone"), DISPLAY_MS + FADE_MS);
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+    const el = document.getElementById("atlas-boot-splash");
+    const w = window as unknown as { __atlasSplashPending?: boolean; __atlasSplashDone?: number; __atlasHomeReady?: number };
+    if (!el) return; // already played this session (removed before paint)
+    w.__atlasSplashPending = true;
+    let lifted = false;
+    const lift = () => {
+      if (lifted) return; lifted = true;
+      // Next frame = the hydrated content is committed and painted underneath.
+      requestAnimationFrame(() => {
+        el.style.opacity = "0";
+        document.documentElement.classList.add("atlas-splash-done");
+        w.__atlasSplashDone = performance.now();
+        window.dispatchEvent(new Event("atlas:splash-done"));
+        window.setTimeout(() => el.remove(), FADE_MS);
+      });
+    };
+    // On Home, lift straight onto the live Home (no loader flash in between),
+    // but never wait more than 1.2 s for it. Anywhere else, lift now.
+    const onHome = /^(\/[^/]+)?\/app\/?$/.test(window.location.pathname);
+    if (!onHome || (w as { __atlasHomeReady?: number }).__atlasHomeReady !== undefined) { lift(); return; }
+    window.addEventListener("atlas:home-ready", lift, { once: true });
+    const cap = window.setTimeout(lift, 1200);
+    return () => { window.clearTimeout(cap); window.removeEventListener("atlas:home-ready", lift); };
   }, []);
 
-  if (phase === "hidden" || phase === "gone") return null;
+  const initials = (name || "").split(" ").map((s) => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "•";
+  const color = /^#[0-9a-f]{3,8}$/i.test(primary) ? primary : "#0a3d62";
+  const mark = logoUrl
+    ? `<div style="height:7rem;width:7rem;border-radius:1.5rem;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 25px 50px -12px rgba(0,0,0,.25)"><img src="${esc(logoUrl)}" alt="" style="height:100%;width:100%;object-fit:contain;padding:1rem"></div>`
+    : `<div style="height:7rem;width:7rem;border-radius:1.5rem;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:2.25rem">${esc(initials)}</div>`;
 
-  // Initials fallback when no logo image is set.
-  const initials = (name || "")
-    .split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "•";
+  // Plain HTML (not React-managed) so the pre-paint script can remove it
+  // without a hydration mismatch.
+  const html = `
+<style>
+  html.atlas-splash-done #atlas-boot-splash{display:none}
+  @keyframes atlas-boot-pop{0%{opacity:0;transform:scale(.85)}60%{opacity:1;transform:scale(1.05)}100%{opacity:1;transform:scale(1)}}
+  @keyframes atlas-boot-shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+</style>
+<div id="atlas-boot-splash" aria-hidden="true" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none;background:${color} radial-gradient(120% 80% at 50% -10%,rgba(255,255,255,.22),rgba(0,0,0,.2) 90%);transition:opacity ${FADE_MS}ms ease-out">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:1.25rem">
+    <div style="animation:atlas-boot-pop 700ms cubic-bezier(.22,1,.36,1)">${mark}</div>
+    <div style="height:.25rem;width:6rem;border-radius:9999px;overflow:hidden;background:rgba(255,255,255,.25)"><div style="height:100%;width:40%;border-radius:9999px;background:#fff;animation:atlas-boot-shimmer 1.2s ease-in-out infinite"></div></div>
+  </div>
+</div>
+<script>try{if(sessionStorage.getItem("${SHOWN_FLAG}")){var s=document.getElementById("atlas-boot-splash");s&&s.remove();document.documentElement.classList.add("atlas-splash-done")}else{sessionStorage.setItem("${SHOWN_FLAG}","1")}}catch(e){}</script>`;
 
-  return (
-    <div
-      aria-hidden
-      className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
-      style={{
-        // CP-115: brand-color canvas (was white) so the cold-boot splash, the
-        // route loading screen and the join splash are ONE continuous branded
-        // surface — no white flash / route glitch on open.
-        background: `${primary} radial-gradient(120% 80% at 50% -10%, rgba(255,255,255,0.22), rgba(0,0,0,0.20) 90%)`,
-        transition: `opacity ${FADE_MS}ms ease-out`,
-        opacity: phase === "fading" ? 0 : 1,
-      }}
-    >
-      <div className="flex flex-col items-center gap-5">
-        {/* Logo — drops in with a tiny scale + fade so the moment feels alive.
-            CP-115: bigger logo in a clean white tile (object-contain, padded —
-            never cropped). */}
-        <div
-          className="flex items-center justify-center"
-          style={{
-            animation: "atlas-boot-pop 700ms cubic-bezier(0.22, 1, 0.36, 1)",
-          }}
-        >
-          {logoUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <div className="h-28 w-28 rounded-3xl bg-white shadow-2xl ring-1 ring-white/40 flex items-center justify-center">
-              <img
-                src={logoUrl}
-                alt=""
-                className="h-full w-full object-contain p-4"
-              />
-            </div>
-          ) : (
-            <div
-              className="h-28 w-28 rounded-3xl flex items-center justify-center text-white font-extrabold text-4xl shadow-2xl ring-1 ring-white/30"
-              style={{ background: "rgba(255,255,255,0.15)" }}
-            >
-              {initials}
-            </div>
-          )}
-        </div>
-        {/* Soft white bar pulse */}
-        <div className="h-1 w-24 rounded-full overflow-hidden bg-white/25">
-          <div
-            className="h-full rounded-full bg-white"
-            style={{
-              width: "40%",
-              animation: "atlas-boot-shimmer 1.2s ease-in-out infinite",
-            }}
-          />
-        </div>
-      </div>
-      <style>{`
-        @keyframes atlas-boot-pop {
-          0%   { opacity: 0; transform: scale(0.85); }
-          60%  { opacity: 1; transform: scale(1.05); }
-          100% { opacity: 1; transform: scale(1); }
-        }
-        @keyframes atlas-boot-shimmer {
-          0%   { transform: translateX(-100%); }
-          100% { transform: translateX(260%); }
-        }
-      `}</style>
-    </div>
-  );
+  return <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: html }} />;
 }

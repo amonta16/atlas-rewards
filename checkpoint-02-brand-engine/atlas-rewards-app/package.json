@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "vapid": "node scripts/generate-vapid.mjs",
-    "test": "node --test tests/machine-secret.test.mjs"
+    "test": "node --test tests/machine-secret.test.mjs tests/session-handoff.test.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^7.0.0",

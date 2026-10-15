@@ -9,6 +9,9 @@
  * the bottom of the file. Keep the two copies identical.
  */
 
+// CP-211: same page/static caching as sw.js (see sw-offline.js).
+importScripts("/sw-offline.js");
+
 self.addEventListener("install",  (e) => { self.skipWaiting(); });
 self.addEventListener("activate", (e) => { e.waitUntil(self.clients.claim()); });
 

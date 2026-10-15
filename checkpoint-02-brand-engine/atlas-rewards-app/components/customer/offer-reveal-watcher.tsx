@@ -21,6 +21,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+// CP-211: cold-open requests shared with other components (one request each).
+import { sharedRpc } from "@/lib/shared-rpc";
 import { OfferRevealPopup, type RevealOffer } from "./offer-reveal-popup";
 import { isBellOnboardDone } from "./enable-push-nudge";
 import { useToast } from "@/components/ui/toast";
@@ -157,7 +159,8 @@ export function OfferRevealWatcher({
         return;
       }
       // 2) Fall back to the featured offer (per-device seen list, as before).
-      const { data } = await supabase.rpc("featured_offer", { p_business_id: businessId });
+      // CP-211: shared with the banner's mount-time pull — one request.
+      const { data } = await sharedRpc("featured_offer", { p_business_id: businessId });
       const row = (Array.isArray(data) ? data[0] : null) as RevealOffer | null;
       if (cancelled || !row?.id) return;
       if (!seenRef.current.includes(row.id)) {

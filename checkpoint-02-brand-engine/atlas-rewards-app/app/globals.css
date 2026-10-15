@@ -171,3 +171,13 @@ html:has(.lp-root) { scroll-behavior: smooth; }
 @keyframes ms-pop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.06); opacity: 1; } 100% { transform: scale(1); } }
 @keyframes ms-lift { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ms-app * { animation: none !important; } }
+
+/* CP-211: the service worker served the last good copy of this page because
+   the network is unreachable — say so, quietly, instead of pretending. */
+body[data-atlas-offline="1"]::before {
+  content: "Offline · showing your last screen";
+  position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 10000; padding: 8px 14px; border-radius: 9999px;
+  background: rgba(24, 24, 27, 0.92); color: #fff; font: 600 12px/1.2 system-ui, sans-serif;
+  pointer-events: none; white-space: nowrap;
+}

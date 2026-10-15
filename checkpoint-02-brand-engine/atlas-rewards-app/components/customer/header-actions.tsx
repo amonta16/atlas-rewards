@@ -19,6 +19,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, ChevronRight, Crown, Flame, Gift, Lock, Menu, Star, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { sharedRpc } from "@/lib/shared-rpc";
 import { jitteredPollMs } from "@/lib/realtime-jitter";
 import { readableTextColor } from "@/lib/patterns";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
@@ -128,21 +129,22 @@ export function HeaderActions({
     if (!membershipId) return;
     const supabase = createClient();
 
-    const loadStreak = async () => {
-      const { data: sd } = await supabase.rpc("get_streak_status", {
-        p_business_id: business.id,
-        p_membership_id: membershipId,
-      });
+    // CP-211: streak + check-in status are independent — fetch them
+    // together (was two sequential round trips). The first load shares the
+    // streak request with the nav badge and Home card; later refreshes (an
+    // argument from realtime/polling) always go fresh.
+    const loadStreak = async (fromRealtime?: unknown) => {
+      const args = { p_business_id: business.id, p_membership_id: membershipId };
+      const [{ data: sd }, { data: cs, error: csErr }] = await Promise.all([
+        fromRealtime ? supabase.rpc("get_streak_status", args) : sharedRpc("get_streak_status", args),
+        // CP-36: prefer the server-computed cooldown so the "6 Hr" timer is
+        // honest. Falls back to a simple "checked in today" calendar query
+        // if the cp36 RPC isn't installed yet.
+        supabase.rpc("member_checkin_status", args),
+      ]);
       const snap = (Array.isArray(sd) ? sd[0] : sd) as StreakSnap | null;
       setStreak(snap);
 
-      // CP-36: prefer the server-computed cooldown so the "6 Hr" timer is
-      // honest. Falls back to a simple "checked in today" calendar query
-      // if the cp36 RPC isn't installed yet.
-      const { data: cs, error: csErr } = await supabase.rpc("member_checkin_status", {
-        p_business_id: business.id,
-        p_membership_id: membershipId,
-      });
       if (!csErr && cs) {
         const status = (Array.isArray(cs) ? cs[0] : cs) as CheckinStatus | null;
         if (status) {
@@ -178,9 +180,9 @@ export function HeaderActions({
     // CP-89: safety-net poll raised from 60s to ~5min. The realtime
     // subscription below + the visibilitychange refresh are the real
     // update paths; this only catches silently-missed events.
-    const poll = setInterval(loadStreak, jitteredPollMs());
+    const poll = setInterval(() => loadStreak(true), jitteredPollMs());
     // And refresh when the tab regains focus.
-    const onVis = () => { if (document.visibilityState === "visible") loadStreak(); };
+    const onVis = () => { if (document.visibilityState === "visible") loadStreak(true); };
     document.addEventListener("visibilitychange", onVis);
 
     // CP-24-hotfix: realtime updates for streak_config + check_in_events

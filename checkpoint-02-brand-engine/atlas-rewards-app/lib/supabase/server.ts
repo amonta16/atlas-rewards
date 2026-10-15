@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { sharedCookieOptions } from "./cookie-domain";
+import { HANDOFF_HEADER, authCookieHash, verifyHandoff } from "./session-handoff";
 
 /**
  * CP-89: wrapped in React cache().
@@ -48,6 +49,17 @@ export const createClient = cache(function createClientForRequest() {
  * one refreshes the session cookie and can't be deduped from here.)
  */
 export const getCachedUser = cache(async () => {
+  // CP-211: middleware already validated this request's session with
+  // Supabase Auth; reuse its signed result instead of a second round trip.
+  // Anything that doesn't verify (missing secret, prefetch, tampering,
+  // stale) falls through to the network check below — old behaviour.
+  try {
+    const handoff = headers().get(HANDOFF_HEADER);
+    if (handoff) {
+      const u = await verifyHandoff(handoff, await authCookieHash(cookies().getAll()));
+      if (u) return u;
+    }
+  } catch { /* no request context (static render) — fall through */ }
   const { data: { user } } = await createClient().auth.getUser();
   return user;
 });

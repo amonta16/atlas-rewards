@@ -19,6 +19,8 @@ import { Clock, Ticket, Trophy } from "lucide-react";
 import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
+// CP-211: cold-open requests shared with other components (one request each).
+import { sharedRpc } from "@/lib/shared-rpc";
 import { type FeaturedRaffle, formatCountdown, formatRaffleTime } from "@/lib/raffles";
 import type { Business } from "@/lib/types/database";
 
@@ -45,8 +47,11 @@ export function FeaturedRaffleCard({
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
-    const load = async () => {
-      const { data } = await supabase.rpc("featured_raffle", { p_business_id: business.id });
+    // CP-211: mount-time pull shared with the banner; realtime (arg) goes fresh.
+    const load = async (fromRealtime?: unknown) => {
+      const { data } = fromRealtime
+        ? await supabase.rpc("featured_raffle", { p_business_id: business.id })
+        : await sharedRpc("featured_raffle", { p_business_id: business.id });
       if (!cancelled) setRaffle(((data as any)?.[0] ?? null) as FeaturedRaffle | null);
     };
     load();

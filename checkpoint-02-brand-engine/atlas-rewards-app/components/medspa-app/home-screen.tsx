@@ -18,6 +18,9 @@ import { MsTopBar } from "./chrome";
 import { RewardTile } from "./reward-card";
 import { BirthdayGift } from "./birthday-gift";
 import { IcCalendar, IcChevronRight, IcGift, IcSparkle } from "./icons";
+// CP-211: open → interactive marker.
+import { HomeReady } from "@/components/perf/home-ready";
+import { HomeSnapshotWriter } from "@/components/customer/home-snapshot";
 
 export async function MedspaHome({ business, membership }: { business: Business; membership: Membership | null }) {
   const user = await getCachedUser();
@@ -193,6 +196,9 @@ export function MedspaHomeView({ business, firstName: first, fullName, points, r
         </section>
       )}
       <div className="h-6" />
+      <HomeSnapshotWriter slug={slug} business={business.name} firstName={first} points={points}
+        pointsLabel={pointsLabel} primary={primary} secondary={secondary} />
+      <HomeReady />
     </div>
   );
 }

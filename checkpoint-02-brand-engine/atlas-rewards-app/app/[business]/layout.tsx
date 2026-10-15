@@ -12,6 +12,9 @@ import { BrandCacheWriter } from "@/components/ui/brand-cache-writer";
 // CP-42: logo-fade splash that plays once per cold boot (and on first
 // install). Replaces the prior brand-color body-paint approach.
 import { PWABootSplash } from "@/components/ui/pwa-boot-splash";
+// CP-211: open → interactive measurement (must render AFTER the splash).
+import { LaunchTimer } from "@/components/perf/launch-timer";
+import { timed } from "@/lib/perf/launch";
 
 export const dynamic = "force-dynamic";
 
@@ -91,8 +94,8 @@ export default async function BusinessLayout({
 
   // Resolve the business by slug. resolve_business_by_slug() is the function
   // we created in Checkpoint 1 — callable by anon users (pre-login customers).
-  const { data, error } = await supabase
-    .rpc("resolve_business_by_slug", { p_slug: params.business });
+  const { data, error } = await timed("biz-layout:resolve", supabase
+    .rpc("resolve_business_by_slug", { p_slug: params.business }));
 
   if (error || !data || data.length === 0) notFound();
 
@@ -123,6 +126,7 @@ export default async function BusinessLayout({
         name={business.name}
         logoUrl={business.logo_url ?? null}
       />
+      <LaunchTimer slug={business.slug} />
       {/* CP-42: store brand in localStorage so subsequent navigations
           render a THEMED loading screen (via BrandedLoading), not the
           default Atlas blue. No-op on first visit. */}

@@ -12,16 +12,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("fetch", (event) => {
-  // Network-first for navigation requests, cache fallback for offline
-  if (event.request.mode === "navigate") {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match(event.request).then((r) => r || caches.match("/offline"))
-      )
-    );
-  }
-});
+// CP-211: page + static caching (network-first app pages with an offline
+// fallback to the last good copy) lives in sw-offline.js, shared with
+// sw-push.js. The old navigate handler here fell back to a cache that was
+// never filled and an /offline route that doesn't exist.
+importScripts("/sw-offline.js");
 
 // Push notification handler — fires when a web-push message arrives
 self.addEventListener("push", (event) => {

@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { clearDeviceCache } from "@/lib/device-cache";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -10,6 +11,8 @@ export function SignOutButton() {
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // CP-211: drop the device's cached Home snapshot + page copies.
+    await clearDeviceCache();
     // CP-45: slug-aware — keep the /<slug> prefix on path-based access so
     // sign-out lands on this business's login instead of a 404.
     const base = pathname?.match(/^(.*?)\/app(\/|$)/)?.[1] ?? "";

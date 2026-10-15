@@ -19,6 +19,8 @@ import { Flame, Gift, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
+// CP-211: cold-open requests shared with other components (one request each).
+import { sharedRpc } from "@/lib/shared-rpc";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import type { Business } from "@/lib/types/database";
 
@@ -51,11 +53,12 @@ export function StreakMini({
     if (!membershipId) return;
     const supabase = createClient();
     let cancelled = false;
-    const load = async () => {
-      const { data } = await supabase.rpc("get_streak_status", {
-        p_business_id: business.id,
-        p_membership_id: membershipId,
-      });
+    // CP-211: first load shared with the nav's streak badge; check-ins (arg) go fresh.
+    const load = async (fromRealtime?: unknown) => {
+      const args = { p_business_id: business.id, p_membership_id: membershipId };
+      const { data } = fromRealtime
+        ? await supabase.rpc("get_streak_status", args)
+        : await sharedRpc("get_streak_status", args);
       const row = (Array.isArray(data) ? data[0] : data) as StreakStatus | null;
       if (!cancelled) setS(row);
     };
