@@ -21,6 +21,8 @@ import {
   NICHE_ORDER, NICHE_META, COLOR_THEMES, getDemoPack, packPayload, demoDesignPayload, type DemoNiche,
 } from "@/lib/demo-packs";
 import { cityFromAddress, fileDemoIntoFolders } from "@/lib/demo-folders";
+// CP-213: med spa demos can open fully built (example clinic).
+import { applyExampleClinic } from "@/lib/medspa-example";
 import { paletteFromLogoFile, monogramDataUrl, type BrandColors } from "@/lib/logo-colors";
 
 function slugify(s: string): string {
@@ -38,6 +40,7 @@ export function FieldDemoModal({
 }) {
   const [name, setName] = useState("");
   const [niche, setNiche] = useState<DemoNiche>("food");
+  const [fillExample, setFillExample] = useState(true);
   const [themeId, setThemeId] = useState<string>("from-logo");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -194,6 +197,11 @@ export function FieldDemoModal({
             ...(foundMeta.reviewUrl ? { google_review_url: foundMeta.reviewUrl } : {}),
           }).eq("id", bizId);
         } catch { /* design preset is best-effort */ }
+        // CP-213: med spa → fill with the example clinic so the demo shows a
+        // finished app (menu, shop, team, results, rewards, gift on Home).
+        if (niche === "medspa" && fillExample) {
+          try { await applyExampleClinic(supabase, { id: bizId }); } catch { /* best-effort */ }
+        }
         const city = cityFromAddress(foundMeta.address);
         if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[niche].label);
       }
@@ -297,6 +305,13 @@ export function FieldDemoModal({
                   ))}
                 </div>
               </div>
+
+              {niche === "medspa" && (
+                <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                  <input type="checkbox" className="mt-0.5" checked={fillExample} onChange={(e) => setFillExample(e.target.checked)} />
+                  <span><b>Fill with example clinic</b><br />Treatments, shop, team, before/afters, rewards and a gift on Home, so the app looks fully built.</span>
+                </label>
+              )}
 
               {/* logo */}
               <div>

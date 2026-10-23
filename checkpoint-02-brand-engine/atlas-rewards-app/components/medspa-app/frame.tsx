@@ -8,14 +8,13 @@
  * touching any other template.
  *
  * Kept from the shared layout: points celebrations, install prompt,
- * announcements, and the welcome-gift reveal.
+ * announcements. (CP-212: the welcome-gift pop-up became the Home scratch card.)
  */
 import type { Business, Membership } from "@/lib/types/database";
 import { getCachedUser } from "@/lib/supabase/server";
 import { CelebrateWatcher } from "@/components/customer/celebrate-watcher";
 import { PWAInstall } from "@/components/customer/pwa-install";
 import { AnnouncementBanner } from "@/components/customer/announcement-banner";
-import { OfferRevealWatcher } from "@/components/customer/offer-reveal-watcher";
 import { msFontClass } from "@/lib/medspa-app/font";
 import { getMsProfile, getMsRewards } from "@/lib/medspa-app/data";
 import { MsTabBar } from "./chrome";
@@ -41,9 +40,7 @@ export async function MedspaFrame({ business, membership, children }: { business
       <CelebrateWatcher businessName={business.name} primary={primary} membershipId={membership?.id ?? null} businessId={business.id} />
       <PWAInstall primary={primary} businessName={business.name} />
       <AnnouncementBanner businessId={business.id} primary={primary} secondary={secondary} />
-      {!!business.widget_config.offers && (
-        <OfferRevealWatcher businessId={business.id} businessName={business.name} primary={primary} secondary={secondary} membershipId={membership?.id ?? null} />
-      )}
+      {/* CP-212: no reveal pop-up for med spas; automated offers are a scratch card on Home (scratch-gift.tsx). */}
       <main style={{ paddingBottom: "calc(6.75rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
       <MsTabBar slug={business.slug} dots={dots} />
       <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-40 mx-auto max-w-md bg-white" style={{ height: "env(safe-area-inset-top, 0px)" }} />

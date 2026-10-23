@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Eye, QrCode, User, Palette, Tag, Crown, Gift, Settings as SettingsIcon, BarChart3, Newspaper, SlidersHorizontal, ChevronDown, Lock } from "lucide-react";
+import { ArrowLeft, Check, Eye, Sparkles, QrCode, User, Palette, Tag, Crown, Gift, Settings as SettingsIcon, BarChart3, Newspaper, SlidersHorizontal, ChevronDown, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+// CP-213: one-click example med spa clinic for quick mockups.
+import { applyExampleClinic } from "@/lib/medspa-example";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -216,6 +218,25 @@ export function BrandEditor({ initial }: { initial: Business }) {
   const setMedspa = (next: MedspaConfig) => update("medspa_config", next as unknown as Record<string, unknown>);
   // A tab that doesn't exist on the current layout (e.g. after switching
   // presets) falls back to Setup instead of rendering nothing.
+  // CP-213: "Load example clinic" — fills treatments, shop, team, results,
+  // rewards and a hero photo with the example clinic in one click.
+  const [exampleBusy, setExampleBusy] = useState(false);
+  async function loadExampleClinic() {
+    const hasContent = medspaCfg.treatments.length > 0 || medspaCfg.shop.items.length > 0;
+    if (hasContent && !window.confirm("Replace this practice's treatments, shop, team and results with the example clinic? Rewards are added, not replaced.")) return;
+    setExampleBusy(true);
+    try {
+      const r = await applyExampleClinic(createClient(), b);
+      patch({ medspa_config: r.medspa_config as unknown as Record<string, unknown>, hero_image_url: r.hero_image_url });
+      setSavedAt(new Date());
+      setLiveReloadKey((k) => k + 1);
+      setPreviewRefreshTick((t) => t + 1);
+    } catch (e) {
+      alert("Couldn't load the example: " + ((e as Error).message ?? e));
+    } finally {
+      setExampleBusy(false);
+    }
+  }
   const tabList = tabsFor(b);
   const activeTab: Tab = tabList.some(t => t.id === tab) ? tab : "brand";
 
@@ -374,6 +395,13 @@ export function BrandEditor({ initial }: { initial: Business }) {
               then dumped them on the customer view after sign-in.
               Path-based same-host URLs share the session immediately
               and land directly on /manage. */}
+          {medspa && (
+            <Button variant="outline" size="sm" onClick={loadExampleClinic} disabled={exampleBusy}
+              title="Fill this app with a fully built example clinic: treatments, shop, team, results, rewards and an automated gift"
+              className="border-amber-300 text-amber-800 hover:bg-amber-50">
+              <Sparkles className="h-4 w-4 mr-1"/>{exampleBusy ? "Loading example…" : "Load example clinic"}
+            </Button>
+          )}
           <a href={`/${b.slug}/app`} target="_blank">
             <Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1"/>Customer app</Button>
           </a>

@@ -11,12 +11,16 @@ import { optimizedUrl } from "@/lib/img";
 import { AppLink } from "@/components/customer/app-link";
 import { bookingEnabled } from "@/lib/booking";
 import { getMedspaPatientContext, type MedspaPatientContext } from "@/lib/data/medspa";
-import { cents, hasBookingPath, shopPrice, type MedspaProvider, type MedspaShopItem } from "@/lib/medspa";
+import { cents, hasBookingPath, shopPrice, type MedspaGalleryItem, type MedspaProvider, type MedspaShopItem } from "@/lib/medspa";
 import { money } from "@/lib/membership";
-import { firstNameOf, getMsBirthdayGift, getMsMembership, getMsOpenOrderCount, getMsProfile, getMsRewards, type MsMembership, type MsReward } from "@/lib/medspa-app/data";
+import { firstNameOf, getMsBirthdayGift, getMsMembership, getMsOpenOrderCount, getMsProfile, getMsRewards, getMsScratchGift, type MsMembership, type MsReward, type MsScratchGift } from "@/lib/medspa-app/data";
 import { MsTopBar } from "./chrome";
 import { RewardTile } from "./reward-card";
 import { BirthdayGift } from "./birthday-gift";
+// CP-212: automated offers arrive as a scratch card on Home.
+import { ScratchGift } from "./scratch-gift";
+// CP-213: before/after results from Builder → Gallery.
+import { ResultsRail } from "./results-rail";
 import { IcCalendar, IcChevronRight, IcGift, IcSparkle } from "./icons";
 // CP-211: open → interactive marker.
 import { HomeReady } from "@/components/perf/home-ready";
@@ -25,10 +29,12 @@ import { HomeSnapshotWriter } from "@/components/customer/home-snapshot";
 export async function MedspaHome({ business, membership }: { business: Business; membership: Membership | null }) {
   const user = await getCachedUser();
   const uid = user?.id ?? "";
-  const [profile, rewards, bag, ms, gift, ctx] = await Promise.all([
+  const [profile, rewards, bag, ms, gift, ctx, scratch] = await Promise.all([
     getMsProfile(uid), getMsRewards(business.id), getMsOpenOrderCount(business.id, uid),
     getMsMembership(business.id, membership?.id ?? null), getMsBirthdayGift(membership?.id ?? null),
     getMedspaPatientContext(business, uid || null),
+    // CP-213: demo / mockup apps always show the example gift.
+    business.widget_config.offers || business.is_demo ? getMsScratchGift(business.id, membership?.id ?? null, !!business.is_demo) : Promise.resolve(null),
   ]);
   return (
     <MedspaHomeView
@@ -44,16 +50,24 @@ export async function MedspaHome({ business, membership }: { business: Business;
       shopPicks={ctx.cfg.shop.enabled ? ctx.cfg.shop.items.filter((i) => i.is_active && i.featured).slice(0, 6) : []}
       team={ctx.cfg.providers.filter((p) => p.is_active)}
       canBook={hasBookingPath(ctx.cfg, business.contact_info?.phone)}
+      scratch={scratch}
+      results={ctx.cfg.gallery.filter((g) => g.consent && g.after_url)}
     />
   );
 }
 
 /** Presentational Home. Props only, so it renders the same in the builder preview or a test harness. */
-export function MedspaHomeView({ business, firstName: first, fullName, points, rewards, bag, ms, gift, next, shopPicks, team, canBook = false }: {
+export function MedspaHomeView({ business, firstName: first, fullName, points, rewards, bag, ms, gift, next, shopPicks, team, canBook = false, scratch = null, demo = false, results = [] }: {
   business: Business; firstName: string; fullName: string; points: number; rewards: MsReward[]; bag: number; ms: MsMembership;
   gift: number | null; next: MedspaPatientContext["due"][number] | null; shopPicks: MedspaShopItem[]; team: MedspaProvider[];
   /** CP-207: the practice has a scheduling link or a phone / WhatsApp to book through. */
   canBook?: boolean;
+  /** CP-212: the automated offer waiting to be scratched, if any. */
+  scratch?: MsScratchGift | null;
+  /** Builder preview / harness: the scratch card never calls the server. */
+  demo?: boolean;
+  /** CP-213: before/after pairs for "Real results". */
+  results?: MedspaGalleryItem[];
 }) {
   const slug = business.slug;
   const unlocked = rewards.filter((r) => r.point_cost <= points).length;
@@ -92,6 +106,8 @@ export function MedspaHomeView({ business, firstName: first, fullName, points, r
           <IcChevronRight className="h-5 w-5" style={{ color: "var(--ms-p)" }} />
         </AppLink>
       </div>
+
+      {scratch && <ScratchGift key={scratch.savedId ?? scratch.offerId} gift={scratch} slug={slug} primary={primary} pointsLabel={pointsLabel} fullName={fullName} demo={demo} />}
 
       {gift && <BirthdayGift firstName={first} fullName={fullName} points={gift} pointsLabel={pointsLabel} />}
 
@@ -175,6 +191,8 @@ export function MedspaHomeView({ business, firstName: first, fullName, points, r
         </section>
       )}
 
+      <ResultsRail items={results} />
+
       {/* Team */}
       {team.length > 0 && (
         <section className="pt-9">
@@ -186,7 +204,7 @@ export function MedspaHomeView({ business, firstName: first, fullName, points, r
                   {p.photo_url
                     /* eslint-disable-next-line @next/next/no-img-element */
                     ? <img src={optimizedUrl(p.photo_url, 240)} alt="" className="h-full w-full object-cover" />
-                    : <span className="grid h-full place-items-center text-[28px] font-semibold" style={{ color: "var(--ms-p)" }}>{p.name.slice(0, 1)}</span>}
+                    : <span className="grid h-full place-items-center text-[28px] font-semibold" style={{ color: "var(--ms-p)" }}>{p.name.replace(/^(dr|mr|mrs|ms)\.?\s+/i, "").slice(0, 1)}</span>}
                 </div>
                 <div className="mt-2 truncate text-[15px] font-semibold" style={{ color: "var(--ms-ink)" }}>{p.name}</div>
                 <div className="line-clamp-2 text-[13px] leading-snug" style={{ color: "var(--ms-sub)" }}>{p.title}</div>

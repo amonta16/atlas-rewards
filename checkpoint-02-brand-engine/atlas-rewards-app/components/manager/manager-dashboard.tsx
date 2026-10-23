@@ -199,6 +199,16 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   const pathname = usePathname();
   const [business, setBusiness] = useState<Business>(initialBusiness);
   const [tab, setTab] = useState<ManagerTab>("desk");
+  // CP-212: tabs stay mounted once opened (hidden when inactive). Switching
+  // used to unmount the panel you left and mount the next from scratch —
+  // every switch re-ran all of that tab's queries and re-joined its realtime
+  // channels, so Flippo's desk sat on spinners going back and forth. Now a
+  // tab you've already visited shows instantly with its data, and keeps
+  // itself fresh through the desk's live feed.
+  const [seen, setSeen] = useState<Set<ManagerTab>>(() => new Set<ManagerTab>(["desk"]));
+  useEffect(() => {
+    setSeen((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)));
+  }, [tab]);
   // CP-147: the phone/code box is OPEN by default — for Flippo's the desk
   // asks for a phone number on most visits, and the extra tap to reveal the
   // box was the most common "where do I type it" question.
@@ -283,7 +293,27 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   const badgeFor = (id: ManagerTab): number =>
     id === "bookings" ? actions.bookings : id === "desk" ? actions.reviews + actions.memberships : 0;
   // Recount whenever the user switches tabs (they probably just acted on something).
-  useEffect(() => { actions.refresh(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tab, live.tick]);
+  // CP-212: at most once every 15 s from tab switches (it is 3 RPCs incl. a
+  // 60-day bookings scan); live ticks (a real DB change) always recount.
+  const lastCountAt = useRef(0);
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastCountAt.current < 15_000) return;
+    lastCountAt.current = now;
+    actions.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+  useEffect(() => {
+    if (live.tick === 0) return;
+    lastCountAt.current = Date.now();
+    actions.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.tick]);
+  // CP-212: the desk stays mounted in the background now — don't leave the
+  // camera running behind another tab.
+  useEffect(() => {
+    if (tab !== "desk") setMode((m) => (m === "scanning" ? "code-entry" : m));
+  }, [tab]);
   const roleLabel = role === "agency_admin" ? "Agency admin" : role === "business_manager" ? "Manager" : role === "business_staff" ? "Front desk" : "Manage";
   // If the user clicked into a tab that role-loading then disallows
   // (e.g. they were on Billing and the role resolved to business_staff),
@@ -460,8 +490,15 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   // CP-98: the ScannerListener stays mounted while a panel is open, so the
   // desk can scan the NEXT customer without closing anything first — the
   // new scan simply swaps the panel. True "scan → pops up", zero clicks.
+  // CP-212: these panels used to REPLACE the dashboard (early return), so
+  // closing one remounted every tab and then router.refresh() re-rendered
+  // the whole page on the server — after every single award. Now they cover
+  // the dashboard, which stays mounted underneath; closing bumps the live
+  // feed so Recent activity / counts update without a server round-trip.
+  const closePanel = () => { setCode(""); setMode("code-entry"); live.bump(); window.scrollTo(0, 0); };
+  let overlay: React.ReactNode = null;
   if (member) {
-    return (
+    overlay = (
       <>
         <ScannerListener onScan={(code) => resolveCode(code)} />
         <AwardPointsPanel
@@ -469,46 +506,48 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
           member={member}
           // CP-147: back to the desk with the phone box open + cleared,
           // ready for the next customer.
-          onClose={() => { setMember(null); setCode(""); setMode("code-entry"); router.refresh(); }}
+          onClose={() => { setMember(null); closePanel(); }}
         />
       </>
     );
-  }
-  if (gift) {
-    return (
+  } else if (gift) {
+    overlay = (
       <>
         <ScannerListener onScan={(code) => resolveCode(code)} />
         <GiftFulfillPanel
           business={business}
           gift={gift}
-          onClose={() => { setGift(null); setCode(""); setMode("code-entry"); router.refresh(); }}
+          onClose={() => { setGift(null); closePanel(); }}
         />
       </>
     );
-  }
-  if (redemption) {
-    return (
+  } else if (redemption) {
+    overlay = (
       <>
         <ScannerListener onScan={(code) => resolveCode(code)} />
         <RedemptionFulfillPanel
           business={business}
           redemption={redemption}
-          onClose={() => { setRedemption(null); setCode(""); setMode("code-entry"); router.refresh(); }}
+          onClose={() => { setRedemption(null); closePanel(); }}
         />
       </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 lg:flex">
+    <>
+    {overlay}
+    <div className={overlay ? "hidden" : "min-h-screen bg-zinc-50 lg:flex"}>
       {/* CP-30: USB QR scanner support — catches HID-class scanner
           keystrokes and runs resolveCode. No UI footprint.
           CP-98: enabled on EVERY tab (was desk-only) — staff can be on
           Offers or Users when a customer walks up, and the scan still
           pops the award panel instantly. */}
-      <ScannerListener
-        onScan={(code) => resolveCode(code)}
-      />
+      {!overlay && (
+        <ScannerListener
+          onScan={(code) => resolveCode(code)}
+        />
+      )}
 
       {/* CP-148: LEFT SIDEBAR (lg+) — the CRM-familiar layout. Brand on
           top, sections in the middle with needs-action badges, tutorial /
@@ -710,7 +749,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             </div>
           </div>
         )}
-        {tab === "overview" && isMedspa && (
+        {seen.has("overview") && isMedspa && (<Pane on={tab === "overview"}>
           <MedspaOverview
             business={business}
             whoami={whoami}
@@ -721,16 +760,15 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             openReports={openReports}
             openBuilder={() => setTab("builder")}
           />
-        )}
+        </Pane>)}
 
-        {tab === "builder" && isMedspa && (role === "business_manager" || role === "agency_admin") && (
+        {seen.has("builder") && isMedspa && (role === "business_manager" || role === "agency_admin") && (<Pane on={tab === "builder"}>
           <MedspaAppBuilder business={business} onSaved={(next) => { setBusiness(next); setBizSavedAt(new Date()); }} />
-        )}
+        </Pane>)}
 
 
 
-        {tab === "desk" && (
-          <>
+        {seen.has("desk") && (<Pane on={tab === "desk"}>
             {/* CP-42 (round 3): Scanner hero MOVES UP to the top — Andrew
                 uses this every shift, so it gets the first visual slot.
                 Value strip moved to Insights where the impact data
@@ -979,14 +1017,13 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
                 per Andrew. Front desk shows it to walk-ins to open/join the
                 app. */}
             <BusinessDiscoveryQR business={business} />
-          </>
-        )}
+        </Pane>)}
 
         {/* CP-190: med spa Shop orders. */}
-        {tab === "shop" && <ShopOrdersPanel business={business} />}
+        {seen.has("shop") && <Pane on={tab === "shop"}><ShopOrdersPanel business={business} /></Pane>}
 
         {/* CP-186: med spa Patients tab — recall list first, directory under it. */}
-        {tab === "patients" && (
+        {seen.has("patients") && (<Pane on={tab === "patients"}>
           <div className="space-y-6">
             <DuePatientsPanel business={business} onOpen={(r) => setMember({ membership_id: r.membership_id, user_id: r.user_id, full_name: r.full_name, email: r.email, phone: r.phone, points_balance: r.points_balance, tier: r.tier, joined_at: r.joined_at, visit_count: r.visit_count })} />
             <MembersDirectory
@@ -1001,9 +1038,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
               />
             )}
           </div>
-        )}
+        </Pane>)}
 
-        {tab === "users" && (
+        {seen.has("users") && (<Pane on={tab === "users"}>
           <div className="space-y-6">
             <MembersDirectory
               businessId={business.id}
@@ -1019,9 +1056,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
               />
             )}
           </div>
-        )}
+        </Pane>)}
 
-        {tab === "insights" && (
+        {seen.has("insights") && (<Pane on={tab === "insights"}>
           // CP-147: ONE insights page. BusinessInsights used to stack a
           // second "Atlas drove $X" hero, a second members/revenue KPI row,
           // a second top-members list and a "member health" box under the
@@ -1044,9 +1081,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
               ? <InsightsDashboard business={business} trends={<BusinessInsights business={business} variant="embedded" />} />
               : <MonthlyReport business={business} initialMonth={reportMonth} />}
           </div>
-        )}
+        </Pane>)}
 
-        {tab === "offers" && (
+        {seen.has("offers") && (<Pane on={tab === "offers"}>
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
             <div className="space-y-4 min-w-0">
               {/* Sub-tabs: One-Time / Automated */}
@@ -1085,9 +1122,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
                 offer change in real time as they edit. */}
             <ManagerOffersPreview business={business} />
           </div>
-        )}
+        </Pane>)}
 
-        {tab === "bookings"   && (
+        {seen.has("bookings") && (<Pane on={tab === "bookings"}>
           <BookingsDesk
             business={business}
             isManager={role === "business_manager" || role === "agency_admin"}
@@ -1095,15 +1132,15 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
             onBusinessPatched={(patch) => setBusiness(b => ({ ...b, ...patch }))}
             onActionsChanged={actions.refresh}
           />
-        )}
-        {tab === "news"       && <NewsManager             business={business} />}
-        {tab === "campaigns"  && (isMedspa
+        </Pane>)}
+        {seen.has("news") && <Pane on={tab === "news"}><NewsManager business={business} /></Pane>}
+        {seen.has("campaigns") && <Pane on={tab === "campaigns"}>{isMedspa
           ? <MedspaMarketing business={business} openOffers={() => { setOffersSubTab("automated"); setTab("offers"); }} openInsights={() => setTab("insights")} />
-          : <CampaignsStudio business={business} />)}
-        {tab === "waivers"    && <ManagerWaiversTab       business={business} />}
-        {tab === "billing"    && <ManagerBilling         business={business} />}
-        {tab === "membership" && <MembershipStudio business={business} />}
-        {tab === "team"       && (role === "business_manager" || role === "agency_admin") && (
+          : <CampaignsStudio business={business} />}</Pane>}
+        {seen.has("waivers") && <Pane on={tab === "waivers"}><ManagerWaiversTab business={business} /></Pane>}
+        {seen.has("billing") && <Pane on={tab === "billing"}><ManagerBilling business={business} /></Pane>}
+        {seen.has("membership") && <Pane on={tab === "membership"}><MembershipStudio business={business} /></Pane>}
+        {seen.has("team") && (role === "business_manager" || role === "agency_admin") && (<Pane on={tab === "team"}>
           <div className="space-y-6">
             <TeamMembers
               businessId={business.id}
@@ -1117,7 +1154,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
               primary={business.brand_colors.primary}
             />
           </div>
-        )}
+        </Pane>)}
         {/* CP-36b: notifications surface (composer + toggles) moved to the
             agency admin's per-business settings. The manager dashboard no
             longer carries this tab — keeps the front-desk surface focused
@@ -1125,7 +1162,13 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       </main>
       </div>
     </div>
+    </>
   );
+}
+
+/** CP-212: a kept-alive tab — mounted once visited, hidden when not active. */
+function Pane({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return <div hidden={!on} className="space-y-4">{children}</div>;
 }
 
 // CP-148: sidebar item with optional needs-action badge.

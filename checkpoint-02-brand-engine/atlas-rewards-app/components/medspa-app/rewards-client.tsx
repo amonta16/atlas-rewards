@@ -10,18 +10,22 @@ import { createClient } from "@/lib/supabase/client";
 import { useAppBase } from "@/lib/use-app-base";
 import { cents } from "@/lib/medspa";
 import type { Business, Membership } from "@/lib/types/database";
-import type { MsReward } from "@/lib/medspa-app/data";
+import type { MsReward, MsSavedGift } from "@/lib/medspa-app/data";
 import { RedeemFlow } from "@/components/customer/redeem-flow";
 import { ReferFriendModal } from "@/components/customer/refer-friend-modal";
 import { ReviewSubmitModal } from "@/components/customer/review-submit-modal";
 import { RewardDetailModal } from "@/components/customer/reward-detail-modal";
 import { ActiveRedemptions, type ActiveRedemption } from "@/components/customer/active-redemptions";
+import { SavedGiftDetail } from "@/components/customer/saved-gift-detail";
+import { giftValueLine } from "./scratch-gift";
 import { MsTopBar } from "./chrome";
 import { RewardTile } from "./reward-card";
-import { IcChevronRight, IcQr, IcStar, IcUser, IcUsers } from "./icons";
+import { IcChevronRight, IcGift, IcQr, IcStar, IcUser, IcUsers } from "./icons";
 
-export function MedspaRewardsClient({ business, membership, rewards, redemptions, fullName, profileIncomplete, memberLabel, creditCents, bagCount }: {
+export function MedspaRewardsClient({ business, membership, rewards, redemptions, gifts = [], fullName, profileIncomplete, memberLabel, creditCents, bagCount }: {
   business: Business; membership: Membership | null; rewards: MsReward[]; redemptions: ActiveRedemption[];
+  /** CP-212: claimed gifts with a desk code. */
+  gifts?: MsSavedGift[];
   fullName: string; profileIncomplete: boolean; memberLabel: string | null; creditCents: number | null; bagCount: number;
 }) {
   const base = useAppBase(business.slug);
@@ -31,6 +35,7 @@ export function MedspaRewardsClient({ business, membership, rewards, redemptions
   const [redeem, setRedeem] = useState<MsReward | null>(null);
   const [detail, setDetail] = useState<MsReward | null>(null);
   const [refer, setRefer] = useState(false);
+  const [giftOpen, setGiftOpen] = useState<MsSavedGift | null>(null);
   const [review, setReview] = useState(false);
   const [reviewStatus, setReviewStatus] = useState<"none" | "pending" | "verified" | "rejected">("none");
   const reviewsOn = !!business.widget_config.reviews && !!business.google_review_url && rules.review > 0;
@@ -39,12 +44,17 @@ export function MedspaRewardsClient({ business, membership, rewards, redemptions
   useEffect(() => {
     const u = new URL(window.location.href);
     const want = u.searchParams.get("redeem");
-    if (!want) return;
-    const r = rewards.find((x) => x.id === want);
+    // CP-212: ?gift=<saved id> (from the Home scratch card) opens that gift's code.
+    const wantGift = u.searchParams.get("gift");
+    if (!want && !wantGift) return;
+    const r = want ? rewards.find((x) => x.id === want) : null;
     if (r && r.point_cost <= points) setRedeem(r);
+    const g = wantGift ? gifts.find((x) => x.saved_id === wantGift) : null;
+    if (g) setGiftOpen(g);
     u.searchParams.delete("redeem");
+    u.searchParams.delete("gift");
     window.history.replaceState({}, "", u.toString());
-  }, [rewards, points]);
+  }, [rewards, points, gifts]);
 
   useEffect(() => {
     if (!reviewsOn || !membership?.id) return;
@@ -121,10 +131,28 @@ export function MedspaRewardsClient({ business, membership, rewards, redemptions
         )}
       </section>
 
-      {redemptions.length > 0 && (
+      {(redemptions.length > 0 || gifts.length > 0) && (
         <section className="pt-8">
           <h2 className="px-5 text-[24px] font-semibold tracking-[-0.01em]" style={{ color: "var(--ms-ink)" }}>Ready to use</h2>
-          <ActiveRedemptions business={business} initialRedemptions={redemptions} membershipId={membership?.id ?? null} />
+          {gifts.length > 0 && (
+            <div className="mt-4 space-y-3 px-5">
+              {gifts.map((g) => (
+                <button key={g.saved_id} type="button" onClick={() => setGiftOpen(g)}
+                  className="flex w-full items-center gap-3.5 rounded-2xl bg-white px-4 py-3.5 text-left ring-1 ring-[var(--ms-line)] active:scale-[.99] transition">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl" style={{ background: "color-mix(in srgb, var(--ms-p) 12%, #fff)", color: "var(--ms-p)" }}><IcGift className="h-6 w-6" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[16px] font-semibold" style={{ color: "var(--ms-ink)" }}>{g.title}</span>
+                    <span className="block truncate text-[14px]" style={{ color: "var(--ms-sub)" }}>
+                      {giftValueLine({ discountType: g.discount_type, discountValue: g.discount_value, rewardName: g.gift_reward_name, description: g.description })}
+                      {g.expires_at ? ` · until ${new Date(g.expires_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-full px-3 py-1.5 text-[13px] font-semibold text-white" style={{ background: "var(--ms-p)" }}>Show code</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {redemptions.length > 0 && <ActiveRedemptions business={business} initialRedemptions={redemptions} membershipId={membership?.id ?? null} />}
         </section>
       )}
 
@@ -155,6 +183,7 @@ export function MedspaRewardsClient({ business, membership, rewards, redemptions
           businessSlug={business.slug} businessFinePrint={business.reward_fine_print} onClose={() => setDetail(null)}
           onRedeem={detail.point_cost <= points ? () => { setRedeem(detail); setDetail(null); } : undefined} />
       )}
+      {giftOpen && <SavedGiftDetail gift={giftOpen} primary={business.brand_colors.primary} secondary={business.brand_colors.secondary} onClose={() => setGiftOpen(null)} />}
       {redeem && <RedeemFlow business={business} reward={redeem} currentPoints={points} onClose={() => setRedeem(null)} />}
       {refer && membership?.referral_code && <ReferFriendModal business={business} referralCode={membership.referral_code} onClose={() => setRefer(false)} />}
       {review && <ReviewSubmitModal business={business} points={rules.review} existingStatus={reviewStatus} onClose={() => setReview(false)} />}

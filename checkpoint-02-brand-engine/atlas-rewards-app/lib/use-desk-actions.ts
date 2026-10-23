@@ -42,10 +42,11 @@ export function useDeskActions(businessId: string, pollMs = 120_000): DeskAction
 
   useEffect(() => {
     refresh();
+    // CP-212: no focus listener here any more — the desk's live feed already
+    // bumps on focus / visibility, and the dashboard recounts on that tick
+    // (this used to double every focus into two rounds of the same 3 RPCs).
     const t = setInterval(refresh, pollMs);
-    const onFocus = () => refresh();
-    window.addEventListener("focus", onFocus);
-    return () => { clearInterval(t); window.removeEventListener("focus", onFocus); };
+    return () => clearInterval(t);
   }, [refresh, pollMs]);
 
   return { ...counts, refresh };

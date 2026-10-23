@@ -7,7 +7,8 @@
  * live countdowns on top, then the news billboard (entertainment venues use
  * it for events and league nights). The featured offer itself stays on Home.
  */
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { isMedspaApp } from "@/lib/medspa-app/route";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { LimitedOffersSection } from "@/components/customer/limited-offers-section";
@@ -26,6 +27,9 @@ type NewsRow = {
 export default async function OffersTab({ params }: { params: { business: string } }) {
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
+  // CP-212: med spa offers live on Home as the scratch card (holiday
+  // notifications link here), so send patients there.
+  if (isMedspaApp(business)) redirect(`/${params.business}/app`);
   const supabase = createClient();
   const [{ data: news }, { data: eventRows }, { data: specialRows }] = await Promise.all([
     supabase.rpc("latest_news",            { p_business_id: business.id, p_limit: 6 }),

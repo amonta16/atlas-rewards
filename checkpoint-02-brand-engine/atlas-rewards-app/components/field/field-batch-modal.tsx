@@ -12,6 +12,7 @@
  * a monogram tile; the on-the-spot button is still there for real logos.
  */
 
+import { applyExampleClinic } from "@/lib/medspa-example";
 import { useMemo, useState } from "react";
 import { Loader2, Layers, Check, X, ExternalLink, Copy, AlertCircle, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -131,6 +132,10 @@ export function FieldBatchModal({
               ...(info?.reviewUrl ? { google_review_url: info.reviewUrl } : {}),
             }).eq("id", bizId);
           } catch { /* best-effort */ }
+          // CP-213: med spa demos come out fully built (example clinic).
+          if (row.niche === "medspa") {
+            try { await applyExampleClinic(supabase, { id: bizId }); } catch { /* best-effort */ }
+          }
           const city = cityFromAddress(info?.address);
           if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[row.niche].label);
         }
