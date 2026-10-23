@@ -31,7 +31,9 @@ import { IcBag, IcCard, IcCheck, IcClose, IcGift, IcSparkle } from "./icons";
 type Tab = "browse" | "membership" | "treatments" | "mine";
 type Flash = "paid" | "cancelled" | null;
 
-export function MedspaShopClient({ business, userId, membershipId, shop, treatments, orders, membershipInfo: ms, payOnline, canBook, booking, bagCount, initial }: {
+export function MedspaShopClient({ business, userId, membershipId, shop, treatments, orders, membershipInfo: ms, payOnline, demoPay = false, canBook, booking, bagCount, initial }: {
+  /** CP-214: example / demo app — full checkout UI, nothing is charged. */
+  demoPay?: boolean;
   business: Business; userId: string; membershipId: string | null; shop: MedspaShop; treatments: MedspaTreatment[];
   orders: ShopOrderRow[]; membershipInfo: MsMembership; payOnline: boolean; canBook: boolean; bagCount: number;
   /** CP-207: practice booking settings (scheduling link, phone, text / WhatsApp). */
@@ -67,7 +69,7 @@ export function MedspaShopClient({ business, userId, membershipId, shop, treatme
   }, [tab]);
 
   if (checkout) {
-    return <Checkout business={business} shop={shop} line={checkout} isMember={isMember} payOnline={payOnline} onBack={() => { setCheckout(null); setSheet(checkout.item); }} onReserved={() => { setCheckout(null); setTab("mine"); }} />;
+    return <Checkout business={business} shop={shop} line={checkout} isMember={isMember} payOnline={payOnline} demoPay={demoPay} onBack={() => { setCheckout(null); setSheet(checkout.item); }} onReserved={() => { setCheckout(null); setTab("mine"); }} />;
   }
 
   if (tab === "mine") {
@@ -446,10 +448,11 @@ function PayOverTime({ shop, total }: { shop: MedspaShop; total: number | null }
   );
 }
 
-function Checkout({ business, shop, line, isMember, payOnline, onBack, onReserved }: {
+function Checkout({ business, shop, line, isMember, payOnline, demoPay = false, onBack, onReserved }: {
   business: Business; shop: MedspaShop; line: { item: MedspaShopItem; qty: number; amount: number | null; recipient: string; note: string };
-  isMember: boolean; payOnline: boolean; onBack: () => void; onReserved: () => void;
+  isMember: boolean; payOnline: boolean; demoPay?: boolean; onBack: () => void; onReserved: () => void;
 }) {
+  const [demoDone, setDemoDone] = useState(false);
   const { item, qty, amount } = line;
   const unit = shopPrice(item, isMember, amount);
   const total = unit != null ? unit * (item.kind === "product" ? qty : 1) : 0;
@@ -461,6 +464,12 @@ function Checkout({ business, shop, line, isMember, payOnline, onBack, onReserve
 
   async function place() {
     setBusy(true); setErr(null);
+    if (demoPay) {
+      // CP-214: simulated payment for example apps. No Stripe, no order row.
+      await new Promise((r) => setTimeout(r, 900));
+      setBusy(false); setDemoDone(true); window.scrollTo({ top: 0 });
+      return;
+    }
     try {
       const r = await fetch(`/api/${business.slug}/shop/checkout`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -483,6 +492,30 @@ function Checkout({ business, shop, line, isMember, payOnline, onBack, onReserve
     ...(["klarna", "affirm"] as FinancingMethod[]).filter((m) => shop.financing[m]).map((m) => ({ id: m as Method, label: FINANCING_LIMITS[m].label, mark: FIN_MARK[m], off: !financingFits(m, total) })),
   ];
   const cols = tiles.length === 4 ? 2 : tiles.length;
+
+  if (demoDone) {
+    const fin = method === "klarna" || method === "affirm";
+    return (
+      <div className="min-h-[85vh] bg-[var(--ms-bg)]">
+        <MsTopBar slug={business.slug} title="Checkout" onBack={onBack} />
+        <div className="px-5 pt-10 text-center">
+          <span className="mx-auto grid h-16 w-16 place-items-center rounded-full text-white" style={{ background: "var(--ms-p)", animation: "ms-pop .45s cubic-bezier(.2,.9,.3,1.2) both" }}><IcCheck className="h-8 w-8" strokeWidth={2.4} /></span>
+          <h2 className="mt-5 text-[28px] font-semibold tracking-[-0.015em]" style={{ color: "var(--ms-ink)" }}>{fin ? "You're approved" : "Payment received"}</h2>
+          <p className="mx-auto mt-2 max-w-[32ch] text-[16px] leading-relaxed" style={{ color: "var(--ms-sub)" }}>
+            {method === "klarna" && total <= PAY_IN_4_MAX
+              ? <>4 interest-free payments of {cents(Math.ceil(total / 4))} with Klarna. The first one is today.</>
+              : fin ? <>Your {FINANCING_LIMITS[method as FinancingMethod].label} plan for {cents(total)} is set up.</>
+              : <>{cents(total)} paid by {method === "wallet" ? wallet : "card"}.</>}
+            {" "}{item.kind === "package" ? "Your sessions are ready to book." : item.kind === "gift_card" ? "Your gift code is on its way." : "It'll be ready at the front desk."}
+          </p>
+          <div className="mx-auto mt-6 max-w-[34ch] rounded-2xl bg-[#fdf3e1] px-4 py-3 text-[13.5px] leading-snug" style={{ color: "#8a5a12" }}>
+            Example checkout: no real payment was taken. With the practice&apos;s Stripe connected, this is a secure Stripe page and the money goes straight to them.
+          </div>
+          <button type="button" onClick={onBack} className="mt-8 h-14 w-full rounded-2xl text-[17px] font-semibold text-white" style={{ background: "var(--ms-p)" }}>Done</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[85vh] bg-[var(--ms-bg)]">
@@ -539,7 +572,7 @@ function Checkout({ business, shop, line, isMember, payOnline, onBack, onReserve
           {busy ? "One moment…" : payOnline ? "Place order" : "Reserve, pay at the desk"}
         </button>
         <p className="mt-3 text-center text-[13px]" style={{ color: "var(--ms-icon)" }}>
-          {payOnline ? `You'll pay on a secure Stripe page. ${business.name} receives the payment.` : "Nothing is charged now. The front desk will see your order."}
+          {demoPay ? "Example checkout: nothing is charged." : payOnline ? `You'll pay on a secure Stripe page. ${business.name} receives the payment.` : "Nothing is charged now. The front desk will see your order."}
         </p>
       </div>
     </div>

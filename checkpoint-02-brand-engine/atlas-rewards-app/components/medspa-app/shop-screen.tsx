@@ -10,7 +10,7 @@ import type { Business, Membership } from "@/lib/types/database";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { liveStripeAccount } from "@/lib/payments/accounts";
 import { bookingEnabled } from "@/lib/booking";
-import { readMedspaConfig, type ShopOrderRow } from "@/lib/medspa";
+import { readMedspaConfig, type ShopOrderRow, isExampleApp } from "@/lib/medspa";
 import { getMsMembership, getMsOpenOrderCount } from "@/lib/medspa-app/data";
 import { MedspaShopClient } from "./shop-client";
 
@@ -29,6 +29,11 @@ export async function MedspaShop({ business, membership, searchParams }: {
     cfg.shop.pay_mode === "stripe" ? liveStripeAccount(business.id) : Promise.resolve(null),
   ]);
 
+  // CP-214: example / demo apps show the full checkout (card, wallet, Klarna,
+  // Affirm) but never charge — no Stripe call is made. Real practices pay
+  // through their own connected Stripe account.
+  const demoPay = !connected && isExampleApp(business);
+
   return (
     <MedspaShopClient
       business={business}
@@ -38,7 +43,8 @@ export async function MedspaShop({ business, membership, searchParams }: {
       treatments={cfg.treatments.filter((t) => t.is_active)}
       orders={(orders ?? []) as ShopOrderRow[]}
       membershipInfo={ms}
-      payOnline={!!connected}
+      payOnline={!!connected || demoPay}
+      demoPay={demoPay}
       canBook={bookingEnabled(business)}
       booking={cfg.booking}
       bagCount={bag}

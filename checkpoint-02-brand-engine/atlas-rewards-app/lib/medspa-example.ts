@@ -116,6 +116,25 @@ export const EXAMPLE_REWARDS: { name: string; description: string; reward_type: 
   { name: "Complimentary Alastin Cleanser", description: "A full-size Alastin Gentle Cleanser, on us.", reward_type: "free_item", point_cost: 650, image_url: EXAMPLE_IMG.t("alastin-cleanser") },
 ];
 
+/** Clinic hours for in-app booking: Mon–Fri 9–6, Sat 10–4, 30-min slots. */
+export const EXAMPLE_HOURS = {
+  start: "09:00", end: "18:00", slot_minutes: 30, days: [1, 2, 3, 4, 5, 6],
+  week: { "1": ["09:00", "18:00"], "2": ["09:00", "18:00"], "3": ["09:00", "18:00"], "4": ["09:00", "19:00"], "5": ["09:00", "18:00"], "6": ["10:00", "16:00"] } as Record<string, [string, string]>,
+};
+
+/** Membership (Dermis template). */
+export const EXAMPLE_MEMBERSHIP = {
+  name: "Prevent & Protect",
+  price_cents: 15000,
+  image_url: EXAMPLE_IMG.t("alma-harmony"),
+  perks: [
+    "A Laser or Resurfacing facial every month",
+    "$150 a month banked toward any treatment",
+    "Member pricing on the whole menu",
+    "5% off skincare",
+  ],
+};
+
 /** The automated gift the example always shows on Home (scratch card). */
 export const EXAMPLE_GIFT = {
   title: "Welcome gift",
@@ -149,6 +168,7 @@ export function buildExampleMedspaConfig(base?: Partial<MedspaConfig>): MedspaCo
     welcome_note: "Your treatments, aftercare and due dates will show up here after your first visit.",
     shop: { ...prev.shop, enabled: true, pay_mode: prev.shop?.pay_mode ?? "stripe", intro: "Treatment packages, the skincare we use in the room, and gift cards.", items, financing: { klarna: true, affirm: true } },
     booking: { ...prev.booking, phone: prev.booking?.phone || "(805) 555-0142", text: true },
+    example: true,
   };
 }
 
@@ -164,8 +184,26 @@ type Sb = { from: (t: string) => any; rpc: (fn: string, args: Record<string, unk
 export async function applyExampleClinic(supabase: Sb, business: { id: string; medspa_config?: unknown; hero_image_url?: string | null }, opts: { keepHero?: boolean } = {}) {
   const cfg = buildExampleMedspaConfig((business.medspa_config ?? {}) as Partial<MedspaConfig>);
   const hero = opts.keepHero && business.hero_image_url ? business.hero_image_url : EXAMPLE_IMG.hero;
-  const { error } = await supabase.from("businesses").update({ medspa_config: cfg, hero_image_url: hero }).eq("id", business.id);
+  // CP-214: in-app booking on with clinic hours, offers on (the gift card).
+  const { data: cur } = await supabase.from("businesses").select("widget_config").eq("id", business.id).maybeSingle();
+  const widget = { ...(((cur as { widget_config?: Record<string, unknown> } | null)?.widget_config) ?? {}), booking: true, offers: true };
+  const { error } = await supabase.from("businesses").update({
+    medspa_config: cfg, hero_image_url: hero, widget_config: widget, booking_hours: EXAMPLE_HOURS,
+  }).eq("id", business.id);
   if (error) throw new Error(error.message);
+
+  // CP-214: membership (Dermis template "Prevent & Protect"). Pay at the desk
+  // until the practice connects Stripe; example apps never charge.
+  try {
+    await supabase.rpc("upsert_membership_billing_v3", {
+      p_business_id: business.id, p_is_enabled: true, p_membership_name: EXAMPLE_MEMBERSHIP.name,
+      p_price_cents: EXAMPLE_MEMBERSHIP.price_cents, p_perks: EXAMPLE_MEMBERSHIP.perks, p_monthly_cash_balance_cents: 0,
+      p_points_multiplier: 2, p_has_priority_booking: true, p_image_url: EXAMPLE_MEMBERSHIP.image_url,
+      p_payment_mode: "in_person", p_external_payment_url: null,
+      p_payment_instructions: "4-month commitment. Cancel any time after that.",
+      p_pass_options: [], p_offer_monthly: true,
+    });
+  } catch { /* best-effort */ }
 
   const { data: existing } = await supabase.from("rewards").select("name").eq("business_id", business.id);
   const have = new Set(((existing ?? []) as { name: string }[]).map((r) => r.name.toLowerCase()));

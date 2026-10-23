@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCachedUser } from "@/lib/supabase/server";
+import { MedspaBookFlow } from "@/components/medspa-app/book-flow";
 import { BookFlow } from "@/components/customer/book-flow";
 import { ResourceBooking } from "@/components/customer/resource-booking";
 import { bookingEnabled, type BookingResource } from "@/lib/booking";
@@ -35,6 +36,15 @@ export default async function CustomerBookPage({ params, searchParams }: { param
     if (options.url || !bookingEnabled(business)) {
       return <MedspaBookScreen business={business} treatment={treatment} menu={menu} options={options} />;
     }
+    // CP-214: Atlas booking on, no scheduling link → the med spa booking flow
+    // (treatment → who with → day → time → request). Never the venue picker.
+    const user = await getCachedUser();
+    const { data: prof } = user
+      ? await supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle()
+      : { data: null };
+    const p = prof as { full_name?: string | null; phone?: string | null } | null;
+    return <MedspaBookFlow business={{ ...business, ghl_api_key: null, webhook_secret: null } as Business} menu={menu}
+      providers={cfg.providers} initial={treatment} patient={{ name: p?.full_name ?? null, phone: p?.phone ?? null }} />;
   }
 
   // If the business doesn't have booking enabled, render a "not enabled" notice

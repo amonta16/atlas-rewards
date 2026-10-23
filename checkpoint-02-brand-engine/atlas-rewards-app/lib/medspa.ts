@@ -280,7 +280,15 @@ export type MedspaConfig = {
   shop: MedspaShop;
   /** CP-207: how "Book" works (scheduling links, call / text fallback). */
   booking: MedspaBooking;
+  /** CP-214: filled from the example clinic (lib/medspa-example). Example apps
+   *  always show the example gift and use the demo checkout (no real charge). */
+  example?: boolean;
 };
+
+/** CP-214: a mockup / example app: no real money, example gift always on. */
+export function isExampleApp(b: { is_demo?: boolean | null; medspa_config?: unknown }): boolean {
+  return !!b.is_demo || !!(b.medspa_config && typeof b.medspa_config === "object" && (b.medspa_config as { example?: boolean }).example);
+}
 
 export const MEDSPA_CATEGORIES = ["Injectables", "Skin", "Laser", "Body", "Wellness", "Consult"] as const;
 

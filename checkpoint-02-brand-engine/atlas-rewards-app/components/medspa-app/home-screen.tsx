@@ -11,7 +11,7 @@ import { optimizedUrl } from "@/lib/img";
 import { AppLink } from "@/components/customer/app-link";
 import { bookingEnabled } from "@/lib/booking";
 import { getMedspaPatientContext, type MedspaPatientContext } from "@/lib/data/medspa";
-import { cents, hasBookingPath, shopPrice, type MedspaGalleryItem, type MedspaProvider, type MedspaShopItem } from "@/lib/medspa";
+import { cents, hasBookingPath, isExampleApp, shopPrice, type MedspaGalleryItem, type MedspaProvider, type MedspaShopItem } from "@/lib/medspa";
 import { money } from "@/lib/membership";
 import { firstNameOf, getMsBirthdayGift, getMsMembership, getMsOpenOrderCount, getMsProfile, getMsRewards, getMsScratchGift, type MsMembership, type MsReward, type MsScratchGift } from "@/lib/medspa-app/data";
 import { MsTopBar } from "./chrome";
@@ -34,7 +34,7 @@ export async function MedspaHome({ business, membership }: { business: Business;
     getMsMembership(business.id, membership?.id ?? null), getMsBirthdayGift(membership?.id ?? null),
     getMedspaPatientContext(business, uid || null),
     // CP-213: demo / mockup apps always show the example gift.
-    business.widget_config.offers || business.is_demo ? getMsScratchGift(business.id, membership?.id ?? null, !!business.is_demo) : Promise.resolve(null),
+    business.widget_config.offers || isExampleApp(business) ? getMsScratchGift(business.id, membership?.id ?? null, isExampleApp(business)) : Promise.resolve(null),
   ]);
   return (
     <MedspaHomeView
