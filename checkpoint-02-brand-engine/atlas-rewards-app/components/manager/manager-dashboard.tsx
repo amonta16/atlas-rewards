@@ -1059,14 +1059,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
         </Pane>)}
 
         {seen.has("insights") && (<Pane on={tab === "insights"}>
-          // CP-147: ONE insights page. BusinessInsights used to stack a
-          // second "Atlas drove $X" hero, a second members/revenue KPI row,
-          // a second top-members list and a "member health" box under the
-          // InsightsDashboard that already showed all of it. It now renders
-          // embedded (period picker + KPIs + two charts) inside the
-          // dashboard, after the operations row.
-          // CP-210: two views — live insights, and the monthly reports
-          // (the same report that's emailed on the 1st).
+          {/* CP-147: ONE insights page (BusinessInsights renders embedded inside
+              InsightsDashboard). CP-210: two views, live insights and the
+              monthly reports (the same report that's emailed on the 1st). */}
           <div className="space-y-4">
             <div className="inline-flex rounded-xl bg-zinc-100 p-1 gap-1" role="tablist" aria-label="Insights view">
               {([["live", "Live insights"], ["reports", "Monthly reports"]] as const).map(([id, label]) => (
