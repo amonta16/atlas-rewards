@@ -58,7 +58,7 @@ export const NODE_TYPES: NodeTypeMeta[] = [
   { id: "a.tag", kind: "action", label: "Apply customer tag", hint: "Add or remove", availability: "ready", source: "customer_tags" },
   { id: "a.notify_admin", kind: "action", label: "Notify the business", hint: "Manager alert", availability: "ready", source: "notifications · staff" },
   { id: "a.enroll", kind: "action", label: "Add to another workflow", hint: "Or remove from one", availability: "ready", source: "engine" },
-  { id: "a.email", kind: "action", label: "Send email", hint: "Needs templates + unsubscribe", availability: "needs_setup", source: "Resend" },
+  { id: "a.email", kind: "action", label: "Send email", hint: "Branded, with unsubscribe", availability: "ready", source: "email_outbox · Resend" },
   { id: "a.sms", kind: "action", label: "Send SMS", hint: "Not planned yet", availability: "coming_soon" },
 
   { id: "w.wait", kind: "timing", label: "Wait", hint: "1h · 1d · 7d · custom", availability: "ready" },
@@ -70,14 +70,40 @@ export const NODE_TYPES: NodeTypeMeta[] = [
   { id: "w.exit", kind: "timing", label: "End workflow", hint: "", availability: "ready" },
 ];
 
-export const typeMeta = (id: NodeTypeId): NodeTypeMeta => NODE_TYPES.find((t) => t.id === id) ?? { id, kind: "action", label: id, hint: "", availability: "needs_setup" };
+/** Unknown ids (e.g. a newer server-side step) fall back by prefix so they still render sensibly. */
+export const typeMeta = (id: NodeTypeId): NodeTypeMeta => NODE_TYPES.find((t) => t.id === id) ?? {
+  id, kind: id.startsWith("t.") ? "trigger" : id.startsWith("c.") ? "condition" : id.startsWith("w.") ? "timing" : "action", label: id, hint: "", availability: "needs_setup",
+};
 
-export const VARIABLES = ["{{first_name}}", "{{points}}", "{{points_remaining}}", "{{days_since_last_visit}}", "{{offer_name}}", "{{business}}", "{{treatment}}"];
+export const VARIABLES = ["{{first_name}}", "{{points}}", "{{points_remaining}}", "{{days_since_last_visit}}", "{{offer_name}}", "{{business}}", "{{treatment}}", "{{item}}"];
+
+export type VarSample = Partial<Record<"first_name" | "points" | "points_remaining" | "days_since_last_visit" | "offer_name" | "business" | "treatment" | "item"
+  | "price" | "installment" | "member_value" | "bonus" | "friend_bonus" | "due_date" | "appt_time" | "link" | "member", string | number>>;
+
+/** CP-217: sample values for the suite's extra variables, so previews never show "…". */
+export const EXTRA_SAMPLE: VarSample = {
+  price: "$3,000", installment: "$750", member_value: "$1,800", bonus: "200", friend_bonus: "$25",
+  due_date: (() => { const d = new Date(Date.now() + 10 * 864e5); return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); })(),
+  appt_time: "Thu 2:30 PM", link: "your app", member: "member",
+};
+
+/** Render {{vars}} with sample values; `{{x|fallback}}` uses the fallback when x is missing. */
+export function renderVars(s: string | null | undefined, vals: VarSample): string {
+  return String(s ?? "").replace(/\{\{\s*([a-z_]+)\s*(?:\|([^}]*))?\}\}/g, (_, k: string, fb?: string) => {
+    const v = vals[k as keyof VarSample] ?? EXTRA_SAMPLE[k as keyof VarSample];
+    return v != null && v !== "" ? String(v) : fb?.trim() ?? "…";
+  });
+}
+
+/** Short human names for variables, used where raw {{tokens}} would overflow (node cards). */
+export const VAR_LABEL: Record<string, string> = {
+  first_name: "first name", points: "points", points_remaining: "points to go", days_since_last_visit: "days since visit", offer_name: "offer", business: "business", treatment: "treatment", item: "item",
+};
 
 /** Sample values for the live preview in the message editor. */
 export function previewText(s: string, business: string, isMedspa: boolean) {
   const vals: Record<string, string> = {
-    first_name: "Jane", points: "340", points_remaining: "160", days_since_last_visit: "21", offer_name: isMedspa ? "$25 off your next treatment" : "a free upgrade", business, treatment: "HydraFacial",
+    first_name: "Jane", points: "340", points_remaining: "160", days_since_last_visit: "21", offer_name: isMedspa ? "$25 off your next treatment" : "a free upgrade", business, treatment: "HydraFacial", item: "HydraFacial Signature",
   };
   return s.replace(/\{\{\s*([a-z_]+)\s*(?:\|([^}]*))?\}\}/g, (_, k: string, fb?: string) => vals[k] ?? fb?.trim() ?? "…");
 }

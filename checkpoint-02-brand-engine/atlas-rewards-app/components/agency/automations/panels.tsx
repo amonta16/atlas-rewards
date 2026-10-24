@@ -14,6 +14,8 @@ import { KIND_META, AVAILABILITY_LABEL, TEMPLATE_GROUPS, VARIABLES, previewText,
 import { humanMinutes, type WfEdge, type WfNode, type WfNodeData } from "@/lib/automations/graph";
 import type { AutomationSettings, LegacyAutomation, MemberHit, NodeConfig, NodeMetrics, PathStep, RunRow, SimResult, ValidationItem, WorkflowVersionRow } from "@/lib/automations/types";
 import { iconFor } from "./nodes";
+import { EmailPreview, PushPreview } from "./previews";
+import { EMAIL_FROM_ADDRESS } from "@/lib/automations/email-template";
 
 /* ───────────── shared ───────────── */
 export function DrawerHead({ title, sub, onClose }: { title: string; sub?: string; onClose: () => void }) {
@@ -115,12 +117,25 @@ export function ConfigPanel({ node, metrics, business, isMedspa, issues, onChang
           <div className="mt-2 flex flex-wrap gap-1.5">
             {VARIABLES.map((v) => <button key={v} type="button" onClick={() => insertVar(v)} className="rounded bg-zinc-100 px-2 py-1 font-mono text-[11px] text-zinc-700 hover:bg-zinc-200">{v}</button>)}
           </div>
-          <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">Preview · Jane Doe</div>
-            {!!(c.title || c.subject) && <div className="mt-1 text-[13px] font-semibold text-[#14213d]">{previewText(String(c.title ?? c.subject), business, isMedspa)}</div>}
-            <div className="mt-0.5 text-[13px] text-zinc-800">{c.body ? previewText(String(c.body), business, isMedspa) : <span className="text-zinc-400">Type a message…</span>}</div>
-            <div className="mt-1 text-[10px] text-zinc-400">Missing values fall back safely, e.g. {"{{first_name|there}}"}.</div>
-          </div>
+          {t === "a.push" ? (
+            <div className="mt-4">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">Preview · Jane</div>
+              <PushPreview brand={{ name: business, logoUrl: null, primary: "#0B5FD6", heroUrl: null }} title={previewText(String(c.title ?? ""), business, isMedspa)} body={previewText(String(c.body ?? ""), business, isMedspa)} />
+              <div className="mt-2 text-center text-[10px] text-zinc-400">Missing values fall back safely, e.g. {"{{first_name|there}}"}.</div>
+            </div>
+          ) : t === "a.email" ? (
+            <div className="mt-4">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">Preview · Jane</div>
+              <EmailPreview brand={{ name: business, logoUrl: null, primary: "#0B5FD6", heroUrl: null }} toName="Jane <jane@example.com>" sender={{ from_name: business, from_address: EMAIL_FROM_ADDRESS, reply_to: null }}
+                subject={previewText(String(c.subject ?? ""), business, isMedspa)} preheader="" heading={null} body={previewText(String(c.body ?? ""), business, isMedspa)} ctaLabel={null} ctaUrl={null} footnote={null} />
+            </div>
+          ) : (
+            <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-zinc-500">Preview · Jane</div>
+              {!!(c.title || c.subject) && <div className="mt-1 break-words text-[13px] font-semibold text-[#14213d]">{previewText(String(c.title ?? c.subject), business, isMedspa)}</div>}
+              <div className="mt-0.5 break-words text-[13px] text-zinc-800">{c.body ? previewText(String(c.body), business, isMedspa) : <span className="text-zinc-400">Type a message…</span>}</div>
+            </div>
+          )}
           {t === "a.push" && (<><Label>Opens (optional)</Label><Input value={String(c.link_path ?? "")} onChange={(e) => set({ link_path: e.target.value || null })} className="mt-1.5" placeholder="/app/rewards" /></>)}
           {t === "a.offer" && (<>
             <Label>Bonus points (optional)</Label><Input type="number" min={0} value={num("bonus_points")} onChange={(e) => set({ bonus_points: Number(e.target.value) || null })} className="mt-1.5 w-32" />
@@ -140,7 +155,7 @@ export function ConfigPanel({ node, metrics, business, isMedspa, issues, onChang
         <Label>Delay</Label>
         <Seg value={num("minutes")} options={[[60, "1 hour"], [1440, "1 day"], [4320, "3 days"], [10080, "7 days"]]} onChange={(v) => set({ minutes: v })} />
         <div className="mt-2 flex items-center gap-2 text-[12px] text-zinc-600">Custom: <Input type="number" min={0} value={Math.round(num("minutes") / 60)} onChange={(e) => set({ minutes: Number(e.target.value) * 60 })} className="h-8 w-20" /> hours <span className="text-zinc-400">({humanMinutes(num("minutes"))})</span></div>
-        <Note>Runs on the server. A message due inside quiet hours slides to the next allowed minute.</Note>
+        <Note>Runs on the server. A message due outside the sending window waits for the next allowed minute.</Note>
       </>)}
       {t === "w.until_date" && (<><Label>Wait until</Label><Input type="datetime-local" value={String(c.at ?? "")} onChange={(e) => set({ at: e.target.value })} className="mt-1.5" /></>)}
       {t === "w.until" && (<><Label>Give up after</Label><Seg value={num("timeout_minutes")} options={[[1440, "1 day"], [4320, "3 days"], [10080, "7 days"], [43200, "30 days"]]} onChange={(v) => set({ timeout_minutes: v })} /><Label>Condition</Label><Seg value={String(c.condition_type ?? "checkin")} options={[["checkin", "Checks in"], ["redeem", "Redeems"], ["purchase", "Purchases"], ["booking", "Books"]]} onChange={(v) => set({ condition_type: v })} /><Note>Continues the moment it happens; follows the No path on timeout if one exists.</Note></>)}
@@ -376,9 +391,9 @@ export function SettingsPanel({ value, saving, onSave, onClose, searchMembers }:
           <div><div className="text-[13px] font-semibold text-[#14213d]">Engine on for this business</div><div className="text-[11px] text-zinc-500">Off: no new runs start, waiting runs hold. System automations are unaffected.</div></div>
           <Switch checked={s.enabled} onCheckedChange={(v) => setS({ ...s, enabled: v })} />
         </div>
-        <Label>Quiet hours (local time)</Label>
+        <Label>Sending window (local time)</Label>
         <div className="mt-1.5 flex items-center gap-2 text-[13px] text-zinc-700"><Input type="time" value={s.quiet_start} onChange={(e) => setS({ ...s, quiet_start: e.target.value })} className="h-9 w-32" /> to <Input type="time" value={s.quiet_end} onChange={(e) => setS({ ...s, quiet_end: e.target.value })} className="h-9 w-32" /></div>
-        <Note>Messages due in this window slide to the end of it.</Note>
+        <Note>Messages only go out between these times. Anything due outside the window waits for the next allowed minute.</Note>
         <Label>Max messages per customer per week</Label>
         <Input type="number" min={1} max={14} value={s.max_msgs_per_member_per_week} onChange={(e) => setS({ ...s, max_msgs_per_member_per_week: Number(e.target.value) })} className="mt-1.5 w-24" />
         <Label>Test members</Label>

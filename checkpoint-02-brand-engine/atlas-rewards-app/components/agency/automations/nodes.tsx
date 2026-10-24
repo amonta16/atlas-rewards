@@ -8,7 +8,7 @@ import {
   Sparkles, UserPlus, QrCode, Flame, FlameKindling, UserX, Cake, Crown, ShoppingBag, CalendarX, Trophy, Repeat, CheckCircle2, Tags,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { KIND_META, AVAILABILITY_LABEL, typeMeta } from "@/lib/automations/catalog";
+import { KIND_META, AVAILABILITY_LABEL, VAR_LABEL, typeMeta } from "@/lib/automations/catalog";
 import { configSummary, type WfNode, type WfNodeData } from "@/lib/automations/graph";
 import type { NodeKind, NodeMetrics, NodeTypeId } from "@/lib/automations/types";
 
@@ -24,7 +24,20 @@ const ICONS: Partial<Record<NodeTypeId, React.ReactNode>> = {
 };
 export const iconFor = (id: NodeTypeId, kind: NodeKind) => ICONS[id] ?? (kind === "trigger" ? <Zap className="h-4 w-4" /> : kind === "condition" ? <GitBranch className="h-4 w-4" /> : <Send className="h-4 w-4" />);
 
-export type NodeExtra = { invalid?: boolean; warn?: boolean; simState?: "path" | "active" | "yes" | "no"; metrics?: NodeMetrics; dim?: boolean };
+export type NodeExtra = { invalid?: boolean; warn?: boolean; simState?: "path" | "active" | "yes" | "no"; metrics?: NodeMetrics; dim?: boolean; readOnly?: boolean; highlight?: boolean };
+
+/** Message text with {{variables}} shown as small readable chips, so a long token can't overflow and get clipped mid-word. */
+export function VarText({ text }: { text: string }) {
+  const parts = text.split(/(\{\{\s*[a-z_]+\s*(?:\|[^}]*)?\}\})/g);
+  return (
+    <>
+      {parts.map((p, i) => {
+        const m = p.match(/^\{\{\s*([a-z_]+)/);
+        return m ? <span key={i} className="mx-px inline-block rounded bg-[#eaf1fc] px-1 text-[0.92em] font-medium leading-[1.35] text-[#0B5FD6]">{VAR_LABEL[m[1]] ?? m[1].replace(/_/g, " ")}</span> : <span key={i}>{p}</span>;
+      })}
+    </>
+  );
+}
 
 export function WfNodeView({ data, selected }: NodeProps<WfNode>) {
   const d = data as WfNodeData & NodeExtra;
@@ -34,7 +47,7 @@ export function WfNodeView({ data, selected }: NodeProps<WfNode>) {
   const isEnd = d.typeId === "w.exit";
   const mt = d.metrics;
   const summary = configSummary(d.typeId, d.config);
-  const avail = AVAILABILITY_LABEL[m.availability];
+  const avail = d.readOnly ? null : AVAILABILITY_LABEL[m.availability];
   return (
     <div
       className={cn(
@@ -43,6 +56,7 @@ export function WfNodeView({ data, selected }: NodeProps<WfNode>) {
         d.simState === "path" && "ring-2 ring-emerald-500",
         d.simState === "active" && "ring-[3px] ring-emerald-400 scale-[1.02]",
         d.dim && "opacity-40",
+        d.highlight && "ring-2 ring-[#2C93FF] shadow-[0_10px_30px_-12px_rgba(11,95,214,.45)]",
       )}
     >
       <span className="absolute inset-y-3 left-0 w-[3px] rounded-r" style={{ background: k.color }} />
@@ -52,7 +66,7 @@ export function WfNodeView({ data, selected }: NodeProps<WfNode>) {
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-semibold uppercase tracking-[0.08em]" style={{ color: k.color }}>{k.singular}</div>
           <div className="truncate text-[13px] font-semibold text-[#14213d]">{d.title}</div>
-          {summary && <div className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-zinc-500">{summary}</div>}
+          {summary && <div className="mt-0.5 line-clamp-2 break-words text-[11px] leading-snug text-zinc-500"><VarText text={summary} /></div>}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           {d.invalid && <span title="Fix before publishing" className="grid h-5 w-5 place-items-center rounded-full bg-rose-500 text-white"><AlertTriangle className="h-3 w-3" /></span>}
@@ -83,7 +97,7 @@ export function WfNodeView({ data, selected }: NodeProps<WfNode>) {
       ) : !isEnd ? (
         <Handle type="source" position={Position.Bottom} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-zinc-400" />
       ) : null}
-      {m.availability !== "ready" && <span className="absolute -left-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-zinc-500 ring-1 ring-zinc-200"><Lock className="h-3 w-3" /></span>}
+      {m.availability !== "ready" && !d.readOnly && <span className="absolute -left-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-white text-zinc-500 ring-1 ring-zinc-200"><Lock className="h-3 w-3" /></span>}
     </div>
   );
 }

@@ -25,6 +25,7 @@ import type { MsMembership } from "@/lib/medspa-app/data";
 import type { Business } from "@/lib/types/database";
 import { ManageMembership } from "@/components/customer/manage-membership";
 import { MsTopBar } from "./chrome";
+import { track } from "@/lib/automations/track";
 import { BookButton } from "./book-button";
 import { IcBag, IcCard, IcCheck, IcClose, IcGift, IcSparkle } from "./icons";
 
@@ -60,6 +61,10 @@ export function MedspaShopClient({ business, userId, membershipId, shop, treatme
 
   // Checkout and Your orders are pushed screens: open them at the top.
   useEffect(() => { if (checkout || tab === "mine") window.scrollTo({ top: 0 }); }, [checkout, tab]);
+
+  // CP-217: events for the automation suite (browse reminder, membership interest). Fire-and-forget.
+  useEffect(() => { if (sheet) track(business.id, "shop.item_viewed", { item_id: sheet.id, item_name: sheet.name, kind: sheet.kind }); }, [sheet, business.id]);
+  useEffect(() => { if (tab === "membership" && !isMember) track(business.id, "membership.viewed", {}); }, [tab, isMember, business.id]);
 
   // Keep ?tab in the URL so Back and refresh land on the same tab.
   useEffect(() => {
@@ -461,6 +466,8 @@ function Checkout({ business, shop, line, isMember, payOnline, demoPay = false, 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { if (/iPhone|iPad|Macintosh/.test(navigator.userAgent)) setWallet("Apple Pay"); }, []);
+  // CP-217: feeds "Finish your order". Server dedupes; demo apps never run automations.
+  useEffect(() => { track(business.id, "checkout.started", { item_id: item.id, item_name: item.name, amount_cents: total }); }, [business.id, item.id, item.name, total]);
 
   async function place() {
     setBusy(true); setErr(null);

@@ -18,6 +18,7 @@ import { AnnouncementBanner } from "@/components/customer/announcement-banner";
 import { msFontClass } from "@/lib/medspa-app/font";
 import { getMsProfile, getMsRewards } from "@/lib/medspa-app/data";
 import { MsTabBar } from "./chrome";
+import { TrackOpen } from "./track-open";
 
 export async function MedspaFrame({ business, membership, children }: { business: Business; membership: Membership | null; children: React.ReactNode }) {
   const user = await getCachedUser();
@@ -38,6 +39,7 @@ export async function MedspaFrame({ business, membership, children }: { business
       style={{ ["--ms-p" as string]: primary, paddingTop: "env(safe-area-inset-top, 0px)" }}
     >
       <CelebrateWatcher businessName={business.name} primary={primary} membershipId={membership?.id ?? null} businessId={business.id} />
+      <TrackOpen businessId={business.id} enabled={!!membership} />
       <PWAInstall primary={primary} businessName={business.name} />
       <AnnouncementBanner businessId={business.id} primary={primary} secondary={secondary} />
       {/* CP-212: no reveal pop-up for med spas; automated offers are a scratch card on Home (scratch-gift.tsx). */}

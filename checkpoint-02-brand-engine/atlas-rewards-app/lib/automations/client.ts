@@ -8,9 +8,9 @@
 import { createClient } from "@/lib/supabase/client";
 import type {
   AutomationSettings, Graph, HubSummary, LegacyAutomation, MemberHit, NodeMetrics, PathStep, RunRow, SaveResult, SimResult,
-  ValidationItem, WorkflowDetail, WorkflowListRow, WorkflowStatus,
+  ValidationItem, WorkflowDetail, WorkflowListRow, WorkflowStatus, SuiteJourney, SuitePatch, SuitePreviewData,
 } from "./types";
-import { mock } from "./mock";
+import { mock, mockSuite } from "./mock";
 
 export class EngineError extends Error {
   constructor(message: string, public readonly rpc: string) { super(message); this.name = "EngineError"; }
@@ -79,6 +79,25 @@ export const hub = {
   loadTemplate: (businessId: string, key: string): Promise<WorkflowDetail> =>
     isMockHost() ? mock.loadTemplate(key) : rpc<WorkflowDetail | WorkflowDetail[]>("wf_load_template", { p_business_id: businessId, p_template_key: key }).then((d) => first(d) as WorkflowDetail),
 
+  /* ── CP-217 · Med Spa Suite ── */
+  suite: (businessId: string): Promise<SuiteJourney[]> =>
+    isMockHost() ? mockSuite.suite() : rpc<SuiteJourney[]>("wf_suite", { p_business_id: businessId }).then((d) => (d ?? []).map(normJourney)),
+
+  suiteToggle: (businessId: string, key: string, enabled: boolean): Promise<void> =>
+    isMockHost() ? mockSuite.suiteToggle(key, enabled) : rpc<unknown>("wf_suite_toggle", { p_business_id: businessId, p_key: key, p_enabled: enabled }).then(() => undefined),
+
+  suiteUpdate: (businessId: string, key: string, nodeId: string, patch: SuitePatch): Promise<SuiteJourney> =>
+    isMockHost() ? mockSuite.suiteUpdate(key, nodeId, patch) : rpc<SuiteJourney | SuiteJourney[]>("wf_suite_update", { p_business_id: businessId, p_key: key, p_node_id: nodeId, p_patch: patch }).then((d) => normJourney(first(d) as SuiteJourney)),
+
+  suiteReset: (businessId: string, key: string): Promise<void> =>
+    isMockHost() ? mockSuite.suiteReset(key) : rpc<unknown>("wf_suite_reset", { p_business_id: businessId, p_key: key }).then(() => undefined),
+
+  suitePreview: (businessId: string): Promise<SuitePreviewData> =>
+    isMockHost() ? mockSuite.suitePreview() : rpc<SuitePreviewData | SuitePreviewData[]>("wf_suite_preview_data", { p_business_id: businessId }).then((d) => first(d) as SuitePreviewData),
+
+  suiteInstall: (businessId: string): Promise<number> =>
+    isMockHost() ? Promise.resolve(14) : rpc<number>("wf_suite_install", { p_business_id: businessId }).then((d) => Number(d ?? 0)),
+
   /** Member picker for Test: the hub's 3-arg search_members (admin-only, returns is_demo).
    *  p_limit must always be passed — the 2-arg overload is the staff desk's. */
   searchMembers: async (businessId: string, q: string): Promise<MemberHit[]> => {
@@ -88,3 +107,9 @@ export const hub = {
     return ((data ?? []) as MemberHit[]).slice(0, 8);
   },
 };
+
+/** Defensive: jsonb columns can arrive as null; keep the UI from crashing on a half-installed suite. */
+function normJourney(j: SuiteJourney): SuiteJourney {
+  return { ...j, channels: j.channels ?? [], messages: Array.isArray(j.messages) ? j.messages : [], graph: j.graph?.nodes ? j.graph : { nodes: [], edges: [] },
+    entered_30d: j.entered_30d ?? 0, sent_30d: j.sent_30d ?? 0, converted_30d: j.converted_30d ?? 0 };
+}

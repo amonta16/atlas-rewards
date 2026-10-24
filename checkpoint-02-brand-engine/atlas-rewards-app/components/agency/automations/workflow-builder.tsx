@@ -7,7 +7,6 @@
  * is converted to/from React Flow in lib/automations/graph.ts only.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ReactFlow, Background, BackgroundVariant, Controls, MiniMap, addEdge, useNodesState, useEdgesState, useReactFlow, ReactFlowProvider, MarkerType, type Connection,
 } from "@xyflow/react";
@@ -16,28 +15,34 @@ import { Play, Save, Rocket, Pause, History, LayoutTemplate, Wand2, AlertTriangl
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { hub, EngineError, isMockHost } from "@/lib/automations/client";
+import { hub, EngineError } from "@/lib/automations/client";
 import { KIND_META, NODE_TYPES, typeMeta } from "@/lib/automations/catalog";
 import { autoLayout, fromFlow, hasErrors, toFlow, validateGraph, type WfEdge, type WfNode } from "@/lib/automations/graph";
 import type { AutomationSettings, BusinessOption, HubSummary, LegacyAutomation, MemberHit, NodeKind, NodeMetrics, NodeTypeId, PathStep, RunRow, SimResult, ValidationItem, WorkflowDetail, WorkflowListRow, WorkflowStatus } from "@/lib/automations/types";
 import { nodeTypes, edgeTypes, ArrowDefs, iconFor as iconForPalette, type NodeExtra } from "./nodes";
 import { DashboardStrip } from "./dashboard-strip";
+import { BusinessPicker, HubTitle } from "./hub-header";
 import { ConfigPanel, EmptyPanel, TemplatesDrawer, SimulateDrawer, HistoryDrawer, SystemDrawer, RunsDrawer, SettingsPanel } from "./panels";
 
 const STATUS: Record<WorkflowStatus, { label: string; dot: string }> = {
   draft: { label: "Draft", dot: "bg-zinc-400" }, testing: { label: "Testing", dot: "bg-amber-400" }, active: { label: "Active", dot: "bg-emerald-500" },
   paused: { label: "Paused", dot: "bg-orange-400" }, archived: { label: "Archived", dot: "bg-zinc-300" }, error: { label: "Error", dot: "bg-rose-500" },
 };
-const DEFAULT_SETTINGS: AutomationSettings = { enabled: false, quiet_start: "20:00", quiet_end: "10:00", max_msgs_per_member_per_week: 3, test_membership_ids: [] };
+const DEFAULT_SETTINGS: AutomationSettings = { enabled: false, quiet_start: "10:00", quiet_end: "20:00", max_msgs_per_member_per_week: 3, test_membership_ids: [] };
 
-export function WorkflowBuilder({ businesses, business }: { businesses: BusinessOption[]; business: BusinessOption }) {
-  return <ReactFlowProvider><Inner businesses={businesses} business={business} /></ReactFlowProvider>;
+type BuilderProps = { businesses: BusinessOption[]; business: BusinessOption; switcher?: React.ReactNode; note?: React.ReactNode };
+
+export function WorkflowBuilder(props: BuilderProps) {
+  return <ReactFlowProvider><Inner {...props} /></ReactFlowProvider>;
 }
+
+/** wf_get may not carry a top-level version; derive it from the current (or newest) version row. */
+const verNum = (wf: WorkflowDetail): number | null =>
+  wf.version ?? wf.versions.find((v) => v.id === wf.current_version_id)?.version ?? wf.versions[0]?.version ?? null;
 
 type Drawer = null | "templates" | "simulate" | "history" | "system" | "runs" | "settings";
 
-function Inner({ businesses, business }: { businesses: BusinessOption[]; business: BusinessOption }) {
-  const router = useRouter();
+function Inner({ businesses, business, switcher, note }: BuilderProps) {
   const rf = useReactFlow();
   const isMedspa = business.layout_preset === "medspa";
 
@@ -64,7 +69,6 @@ function Inner({ businesses, business }: { businesses: BusinessOption[]; busines
   const [sim, setSim] = useState<{ result: SimResult | null; step: number; running: boolean; error: string | null }>({ result: null, step: 0, running: false, error: null });
   const [runs, setRuns] = useState<RunRow[] | null>(null);
   const [runPath, setRunPath] = useState<{ membership: RunRow; steps: PathStep[] } | null>(null);
-  const [showPicker, setShowPicker] = useState(false);
   const [showWfMenu, setShowWfMenu] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
@@ -230,27 +234,12 @@ function Inner({ businesses, business }: { businesses: BusinessOption[]; busines
       <div className="px-8 pb-3 pt-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-[22px] font-semibold tracking-tight text-[#14213d]">Automations</h1>
-              {isMockHost() && <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200">Local preview · mock engine</span>}
-            </div>
-            <div className="relative mt-1.5">
-              <button type="button" onClick={() => setShowPicker((v) => !v)} className="flex items-center gap-1.5 text-[13px] text-zinc-600 hover:text-[#14213d]">
-                <span className="font-medium text-[#14213d]">{business.name}</span><span className="text-zinc-400">·</span>{isMedspa ? "Med spa" : "Classic"} layout<ChevronDown className="h-3.5 w-3.5" />
-              </button>
-              {showPicker && (
-                <div className="absolute left-0 top-7 z-30 max-h-80 w-80 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl">
-                  {businesses.map((b) => (
-                    <button key={b.id} type="button" onClick={() => { setShowPicker(false); router.push(`/agency/automations?business=${encodeURIComponent(b.slug)}`); }}
-                      className={cn("flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-[13px] hover:bg-zinc-50", b.id === business.id && "bg-[#eaf1fc]")}>
-                      <span className="truncate">{b.name}</span><span className="ml-2 shrink-0 text-[10px] uppercase tracking-wide text-zinc-400">{b.layout_preset === "medspa" ? "med spa" : "classic"}{b.is_demo ? " · demo" : ""}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <HubTitle />
+            <BusinessPicker businesses={businesses} business={business} view="custom" />
           </div>
           <div className="flex items-center gap-2">
+            {switcher}
+            {switcher && <span className="mx-1 h-6 w-px bg-zinc-200" />}
             <Button variant="outline" size="sm" onClick={openSystem}><Lock className="mr-1.5 h-4 w-4" />Existing automations</Button>
             <Button variant="outline" size="sm" onClick={() => setDrawer("settings")}><Settings2 className="mr-1.5 h-4 w-4" />Settings</Button>
             <Button size="sm" className="bg-[#06318F] text-white hover:bg-[#0B5FD6]" onClick={() => setDrawer("templates")}><LayoutTemplate className="mr-1.5 h-4 w-4" />Templates</Button>
@@ -264,6 +253,7 @@ function Inner({ businesses, business }: { businesses: BusinessOption[]; busines
           </div>
         )}
 
+        {note}
         <div className="mt-3"><DashboardStrip s={summary} loading={!summary && !engineError} /></div>
       </div>
 
@@ -278,7 +268,7 @@ function Inner({ businesses, business }: { businesses: BusinessOption[]; busines
               {(list ?? []).map((w) => (
                 <button key={w.id} type="button" onClick={() => { setShowWfMenu(false); openWorkflow(w.id); }} className={cn("flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-zinc-50", wf?.id === w.id && "bg-[#eaf1fc]")}>
                   <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS[w.status].dot)} />
-                  <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium text-[#14213d]">{w.name}</span><span className="block text-[11px] text-zinc-500">{STATUS[w.status].label} · v{w.version}{w.running_now ? ` · ${w.running_now} in progress` : ""}{w.sent_30d ? ` · ${w.sent_30d} sent` : ""}</span></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-[13px] font-medium text-[#14213d]">{w.name}</span><span className="block text-[11px] text-zinc-500">{STATUS[w.status]?.label ?? w.status}{w.version ? ` · v${w.version}` : ""}{w.running_now ? ` · ${w.running_now} in progress` : ""}{w.sent_30d ? ` · ${w.sent_30d} sent` : ""}</span></span>
                   {w.last_error && <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />}
                 </button>
               ))}
@@ -289,7 +279,7 @@ function Inner({ businesses, business }: { businesses: BusinessOption[]; busines
         </div>
         <input value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} className="min-w-0 flex-1 bg-transparent text-[15px] font-semibold text-[#14213d] outline-none" aria-label="Workflow name" />
         <span className="flex items-center gap-1.5 text-[12px] font-medium text-zinc-700"><span className={cn("h-2 w-2 rounded-full", STATUS[status].dot)} />{isNew ? "New" : STATUS[status].label}</span>
-        <span className="text-[12px] text-zinc-500">{wf ? `v${wf.version}` : ""}{dirty ? " · unsaved" : savedAt ? ` · saved ${savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
+        <span className="text-[12px] text-zinc-500">{wf && verNum(wf) ? `v${verNum(wf)}` : ""}{dirty ? " · unsaved" : savedAt ? ` · saved ${savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
         {errCount > 0 && <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200"><AlertTriangle className="h-3 w-3" />{errCount} to fix</span>}
         <div className="mx-1 h-6 w-px bg-zinc-200" />
         <Button variant="ghost" size="sm" onClick={doAutoLayout}><Wand2 className="mr-1.5 h-4 w-4" />Auto-layout</Button>

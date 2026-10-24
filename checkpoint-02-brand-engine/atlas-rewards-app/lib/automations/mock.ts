@@ -5,9 +5,9 @@
  */
 import type {
   AutomationSettings, Graph, HubSummary, LegacyAutomation, MemberHit, NodeMetrics, PathStep, RunRow, SaveResult, SimResult,
-  ValidationItem, WorkflowDetail, WorkflowListRow, WorkflowStatus,
+  ValidationItem, WorkflowDetail, WorkflowListRow, WorkflowStatus, Graph as G, NodeTypeId, SuiteGroup, SuiteJourney, SuiteMessage, SuitePatch, SuitePreviewData, NodeConfig,
 } from "./types";
-import { chainGraph, typeMeta, winBackGraph } from "./catalog";
+import { chainGraph, makeGraphEdge, makeGraphNode, typeMeta, winBackGraph } from "./catalog";
 import { autoLayout, validateGraph } from "./graph";
 
 const now = () => new Date().toISOString();
@@ -15,7 +15,7 @@ const ago = (d: number) => new Date(Date.now() - d * 864e5).toISOString();
 
 const store: { workflows: Map<string, WorkflowDetail & { rows: WorkflowListRow }>; settings: AutomationSettings } = {
   workflows: new Map(),
-  settings: { enabled: true, quiet_start: "20:00", quiet_end: "10:00", max_msgs_per_member_per_week: 3, test_membership_ids: [] },
+  settings: { enabled: true, quiet_start: "10:00", quiet_end: "20:00", max_msgs_per_member_per_week: 3, test_membership_ids: [] },
 };
 
 function seed() {
@@ -149,5 +149,244 @@ export const mock = {
   async members(q: string): Promise<MemberHit[]> {
     const all: MemberHit[] = [["Jane Doe", "jane@example.com", 340], ["Maya Chen", "maya@example.com", 120], ["Jordan Ruiz", "jordan@example.com", 860], ["Sam Okafor", "sam@example.com", 40]].map(([n, e, p], i) => ({ membership_id: `m_${i}`, user_id: `u_${i}`, full_name: String(n), email: String(e), points_balance: Number(p) }));
     return all.filter((m) => !q || m.full_name!.toLowerCase().includes(q.toLowerCase()) || m.email!.includes(q.toLowerCase()));
+  },
+};
+
+/* ───────────── CP-217 · the Med Spa Suite (mirrors wf_install_medspa_suite) ───────────── */
+
+type Step =
+  | { k: "trigger"; type: NodeTypeId; label: string; config?: NodeConfig }
+  | { k: "wait"; label: string; minutes: number }
+  | { k: "goal"; label: string }                       // condition: Yes → End (goal reached), No → continue
+  | { k: "msg"; id: string; when: string; m: Omit<SuiteMessage, "node_id" | "when_text"> }
+  | { k: "points"; label: string; points: number }
+  | { k: "tag"; label: string; tag: string };
+
+const P = (title: string, body: string, cta_path: string | null = null, points: number | null = null): Omit<SuiteMessage, "node_id" | "when_text"> =>
+  ({ channel: "push", title, body, subject: null, preheader: null, heading: null, cta_label: null, cta_path, footnote: null, points });
+const E = (subject: string, preheader: string, heading: string, body: string, cta_label: string, cta_path: string, footnote: string | null = null, points: number | null = null): Omit<SuiteMessage, "node_id" | "when_text"> =>
+  ({ channel: "email", title: null, body, subject, preheader, heading, cta_label, cta_path, footnote, points });
+
+function build(steps: Step[]): { graph: G; messages: SuiteMessage[] } {
+  const nodes: G["nodes"] = []; const edges: G["edges"] = []; const messages: SuiteMessage[] = [];
+  let prev: { id: string; cond: boolean } | null = null;
+  const link = (id: string) => { if (prev) edges.push(makeGraphEdge(prev.id, id, prev.cond ? "no" : null)); };
+  for (const st of steps) {
+    let n;
+    if (st.k === "trigger") n = makeGraphNode(st.type, 0, 0, st.label, st.config ?? {});
+    else if (st.k === "wait") n = makeGraphNode("w.wait", 0, 0, st.label, { minutes: st.minutes });
+    else if (st.k === "goal") n = makeGraphNode("c.goal" as NodeTypeId, 0, 0, st.label, {});
+    else if (st.k === "points") n = makeGraphNode("a.points", 0, 0, st.label, { points: st.points, note: st.label });
+    else if (st.k === "tag") n = makeGraphNode("a.tag", 0, 0, st.label, { tag: st.tag });
+    else {
+      const isPush = st.m.channel === "push";
+      n = makeGraphNode(isPush ? "a.push" : "a.email", 0, 0, `${isPush ? "Push" : "Email"} · ${st.when}`, isPush ? { title: st.m.title, body: st.m.body, link_path: st.m.cta_path } : { subject: st.m.subject, body: st.m.body });
+      n.id = st.id;
+      messages.push({ node_id: st.id, when_text: st.when, ...st.m });
+    }
+    nodes.push(n); link(n.id);
+    if (st.k === "goal") { const g = makeGraphNode("w.exit", 0, 0, "Goal reached · exit"); nodes.push(g); edges.push(makeGraphEdge(n.id, g.id, "yes")); }
+    prev = { id: n.id, cond: st.k === "goal" };
+  }
+  const end = makeGraphNode("w.exit", 0, 0, "End"); nodes.push(end); link(end.id);
+  return { graph: autoLayout({ nodes, edges }), messages };
+}
+
+type Def = Omit<SuiteJourney, "enabled" | "workflow_id" | "entered_30d" | "sent_30d" | "converted_30d" | "graph" | "messages"> & { steps: Step[]; stats: [number, number, number]; on?: boolean };
+
+const H = 60, D = 1440;
+const SUITE_DEFS: Def[] = [
+  { key: "ms.welcome", grp: "get_in", name: "New patient welcome", why: "Turns a fresh signup into a first booked visit.",
+    research: "The first week is when a new patient is most likely to book. One welcome right away, an explainer the next day, then two nudges that stop the moment they book.",
+    trigger_text: "When someone joins the app", timing_text: "Now, then day 1, 3 and 7", channels: ["push", "email"], reward_text: "First-visit bonus", engine: "workflow", stats: [64, 171, 23],
+    steps: [
+      { k: "trigger", type: "t.signup", label: "Patient joins the app" },
+      { k: "msg", id: "welcome_push", when: "Right away", m: P("Welcome to {{business}}", "Hi {{first_name}}, your welcome gift is waiting on Home. Scratch it to see what you got.", "/app") },
+      { k: "wait", label: "Wait 1 day", minutes: D },
+      { k: "msg", id: "welcome_email", when: "1 day after joining", m: E("How your {{business}} app works", "Points, rewards, the shop and paying over time.", "Welcome, {{first_name}}", "Every visit and purchase earns points you can trade for treatments and products.\n\nBook from the app, shop skincare between visits, and split bigger treatments into 4 interest-free payments with Klarna.", "Open the app", "/app") },
+      { k: "wait", label: "Wait 2 days", minutes: 2 * D },
+      { k: "goal", label: "Booked yet?" },
+      { k: "msg", id: "welcome_book", when: "Day 3, if no booking", m: P("Book your first visit", "{{first_name}}, pick a time that suits you. It takes under a minute.", "/book") },
+      { k: "wait", label: "Wait 4 days", minutes: 4 * D },
+      { k: "goal", label: "Booked yet?" },
+      { k: "msg", id: "welcome_bonus", when: "Day 7, if still no booking", m: E("+{{points}} pts on your first visit", "A little thank-you for coming in.", "Your first visit earns +{{points}} points", "Book your first treatment at {{business}} and we'll add +{{points}} points to your balance after the visit.", "Book now", "/book", "First-visit bonus is added after your visit is checked in.", 150) },
+    ] },
+  { key: "ms.app_checkin", grp: "get_in", name: "New in the app", why: "Brings quiet patients back when there's something new to see.",
+    research: "Content nudges work when they're rare and relevant. Only patients who haven't opened the app in 14+ days, at most twice a month.",
+    trigger_text: "When you add a featured item, reward or news post", timing_text: "Once, to patients away 14+ days · max 2/month", channels: ["push"], reward_text: null, engine: "workflow", stats: [212, 188, 41],
+    steps: [
+      { k: "trigger", type: "t.points", label: "New content published", config: { event: "content.published" } },
+      { k: "goal", label: "Opened the app in 14 days?" },
+      { k: "msg", id: "checkin_push", when: "When content goes live", m: P("New at {{business}}: {{offer_name}}", "Take a look before it's gone, {{first_name}}.", "/app") },
+    ] },
+  { key: "ms.cart_recovery", grp: "convert", name: "Finish your order", why: "Recovers checkouts that were started but not paid.",
+    research: "For higher-priced items a 3-touch sequence at about 2 hours, 24 hours and 72 hours works best, with the incentive saved for the last touch so earlier buyers pay full price.",
+    trigger_text: "When checkout is opened but not paid", timing_text: "2 h, 24 h, 72 h", channels: ["push", "email"], reward_text: "+200 pts, last touch", engine: "workflow", stats: [38, 79, 11],
+    steps: [
+      { k: "trigger", type: "t.purchase", label: "Checkout started", config: { event: "checkout.started" } },
+      { k: "wait", label: "Wait 2 hours", minutes: 2 * H },
+      { k: "goal", label: "Paid?" },
+      { k: "msg", id: "cart_push1", when: "2 hours after checkout", m: P("Still thinking about {{item}}?", "Your order is saved, {{first_name}}. Pick up right where you left off.", "/app/shop") },
+      { k: "wait", label: "Wait 22 hours", minutes: 22 * H },
+      { k: "goal", label: "Paid?" },
+      { k: "msg", id: "cart_email", when: "24 hours after checkout", m: E("Your {{item}} is still waiting", "Or split it into 4 interest-free payments.", "Ready when you are, {{first_name}}", "You left {{item}} in your order at {{business}}. It's still saved for you.\n\nPrefer to spread it out? Pay in 4 interest-free payments with Klarna at checkout.", "Finish my order", "/app/shop") },
+      { k: "wait", label: "Wait 2 days", minutes: 2 * D },
+      { k: "goal", label: "Paid?" },
+      { k: "msg", id: "cart_push2", when: "72 hours after checkout", m: P("Finish today, get +200 points", "Complete your {{item}} order today and we'll add +200 points.", "/app/shop", 200) },
+      { k: "wait", label: "Up to 48 hours", minutes: 48 * H },
+      { k: "points", label: "+200 pts if paid", points: 200 },
+    ] },
+  { key: "ms.browse_reminder", grp: "convert", name: "Viewed but didn't buy", why: "A gentle reminder about a treatment or product they looked at.",
+    research: "Browse reminders convert best as a single message within about an hour of leaving, and only if they didn't book or buy in the meantime.",
+    trigger_text: "When a patient opens a treatment or product twice", timing_text: "Once, 3 h later · max 1/week", channels: ["push"], reward_text: null, engine: "workflow", stats: [96, 71, 9],
+    steps: [
+      { k: "trigger", type: "t.purchase", label: "Viewed an item", config: { event: "shop.item_viewed" } },
+      { k: "wait", label: "Wait 3 hours", minutes: 3 * H },
+      { k: "goal", label: "Booked or bought?" },
+      { k: "msg", id: "browse_push", when: "3 hours after viewing", m: P("{{item}} at {{business}}", "Still curious, {{first_name}}? Book it or see the details again.", "/app/shop") },
+    ] },
+  { key: "ms.membership_promo", grp: "convert", name: "Membership interest", why: "Follows up when someone looks at the membership but doesn't join.",
+    research: "Lead with what members get, then show the yearly savings math a few days later. Also nudges non-members after their 2nd visit, when value is clearest.",
+    trigger_text: "When a non-member views the membership", timing_text: "Day 1, then day 4", channels: ["push", "email"], reward_text: "+250 pts join bonus", engine: "workflow", stats: [27, 48, 4],
+    steps: [
+      { k: "trigger", type: "t.tier", label: "Viewed membership", config: { event: "membership.viewed" } },
+      { k: "wait", label: "Wait 1 day", minutes: D },
+      { k: "goal", label: "Joined?" },
+      { k: "msg", id: "member_push", when: "1 day after viewing", m: P("What members get", "Monthly treatment credit, member pricing and priority booking. Join today for +250 points.", "/app/shop?tab=membership", 250) },
+      { k: "wait", label: "Wait 3 days", minutes: 3 * D },
+      { k: "goal", label: "Joined?" },
+      { k: "msg", id: "member_email", when: "4 days after viewing", m: E("Your year as a {{business}} member", "Here's what the membership saves you.", "The math on membership", "Members get a monthly treatment credit, member-only pricing on every service and first pick of appointment times.\n\nMost patients who come in every 6–8 weeks save more than the membership costs in the first few months.", "See membership", "/app/shop?tab=membership", "Join this week and get +250 bonus points.", 250) },
+    ] },
+  { key: "ms.aftercare", grp: "care", name: "After your treatment", why: "Sends aftercare right after a visit and checks in two days later.",
+    research: "Aftercare lands best within 2 hours, while instructions are still fresh. A check-in 24–48 hours later catches questions early.",
+    trigger_text: "When a visit is completed", timing_text: "2 h after, then day 2", channels: ["push"], reward_text: null, engine: "workflow", stats: [118, 229, 0],
+    steps: [
+      { k: "trigger", type: "t.checkin", label: "Visit completed", config: { event: "visit.completed" } },
+      { k: "wait", label: "Wait 2 hours", minutes: 2 * H },
+      { k: "msg", id: "care_push1", when: "2 hours after the visit", m: P("Aftercare for {{treatment}}", "Hi {{first_name}}, here's how to look after your skin for the next few days.", "/app/care") },
+      { k: "wait", label: "Wait 2 days", minutes: 2 * D },
+      { k: "msg", id: "care_push2", when: "2 days after the visit", m: P("How are you feeling after {{treatment}}?", "Any questions, just reply in the app. We're here.", "/app/care") },
+    ] },
+  { key: "ms.review", grp: "care", name: "Google review for points", why: "Asks happy patients for a Google review and rewards them for it.",
+    research: "Ask the same day, 2–4 hours after the visit, while the experience is fresh. One reminder 5–7 days later. Never more than 2 asks.",
+    trigger_text: "When a visit is completed", timing_text: "3 h after, reminder on day 6", channels: ["push", "email"], reward_text: "Review points", engine: "workflow", stats: [118, 163, 29],
+    steps: [
+      { k: "trigger", type: "t.checkin", label: "Visit completed", config: { event: "visit.completed" } },
+      { k: "wait", label: "Wait 3 hours", minutes: 3 * H },
+      { k: "msg", id: "review_push", when: "3 hours after the visit", m: P("Loved your visit? Review us, get +{{points}} pts", "It takes a minute and helps others find {{business}}.", "/app/review", 100) },
+      { k: "wait", label: "Wait 6 days", minutes: 6 * D },
+      { k: "goal", label: "Reviewed?" },
+      { k: "msg", id: "review_email", when: "6 days later, if no review", m: E("A quick favor, {{first_name}}?", "Your review earns you +{{points}} points.", "How was your {{treatment}}?", "If you enjoyed your visit, a short Google review means a lot to a small practice like ours.\n\nWe'll add +{{points}} points once it's verified.", "Leave a review", "/app/review", null, 100) },
+    ] },
+  { key: "ms.rebook", grp: "care", name: "Time for your next treatment", why: "Reminds patients before a treatment is due, based on what they had.",
+    research: "Prompt 1–2 weeks before results fade: neurotoxin ~12 weeks, filler 6–12 months, HydraFacial and peels 4–6 weeks, laser and body 4–8 weeks. Stops the moment they book.",
+    trigger_text: "When a treatment is due again", timing_text: "10 days before, on the date, 14 days after", channels: ["push", "email"], reward_text: "+150 pts late rebook", engine: "workflow", stats: [57, 102, 21],
+    steps: [
+      { k: "trigger", type: "t.booking", label: "Treatment due soon", config: { event: "recall.due" } },
+      { k: "msg", id: "rebook_push1", when: "10 days before it's due", m: P("Your {{treatment}} is due soon", "Book now to keep your results going, {{first_name}}.", "/book") },
+      { k: "wait", label: "Wait until due date", minutes: 10 * D },
+      { k: "goal", label: "Booked?" },
+      { k: "msg", id: "rebook_email", when: "On the due date", m: E("Time for your next {{treatment}}", "Keep your results looking their best.", "It's been about {{days_since_last_visit}} days", "Your last {{treatment}} was about {{days_since_last_visit}} days ago, which is right when most patients come back in.\n\nPick a time that works for you.", "Book my visit", "/book") },
+      { k: "wait", label: "Wait 14 days", minutes: 14 * D },
+      { k: "goal", label: "Booked?" },
+      { k: "msg", id: "rebook_push2", when: "14 days after due, if not booked", m: P("Book this week, get +150 pts", "Book your {{treatment}} in the next 7 days and we'll add +150 points.", "/book", 150) },
+    ] },
+  { key: "ms.appointment_reminder", grp: "care", name: "Appointment reminders", why: "Cuts no-shows and helps rebook missed visits.",
+    research: "A reminder 24 hours before and another 2 hours before is the standard for clinics. Missed or cancelled visits get one friendly rebooking nudge the next day.",
+    trigger_text: "When a booking is confirmed", timing_text: "24 h and 2 h before", channels: ["push"], reward_text: null, engine: "workflow", stats: [142, 271, 0],
+    steps: [
+      { k: "trigger", type: "t.booking", label: "Booking confirmed", config: { status: "confirmed" } },
+      { k: "msg", id: "appt_24h", when: "24 hours before", m: P("See you tomorrow, {{first_name}}", "Your {{treatment}} at {{business}} is tomorrow. Tap to see the details.", "/app/bookings") },
+      { k: "msg", id: "appt_2h", when: "2 hours before", m: P("See you soon", "Your {{treatment}} starts in 2 hours.", "/app/bookings") },
+      { k: "msg", id: "appt_missed", when: "1 day after a cancel or no-show", m: P("Let's find you a new time", "No worries, {{first_name}}. Pick a time that suits you better.", "/book") },
+    ] },
+  { key: "ms.winback", grp: "come_back", name: "We miss you", why: "Wins back patients who haven't visited in 90 days.",
+    research: "Three touches around day 90, 105 and 120, with a gift in the middle. After 180 days the patient is tagged lapsed. Members get the same, softer, at 35 days.",
+    trigger_text: "When a patient hasn't visited in 90 days", timing_text: "Day 90, 105, 120 · lapsed at 180", channels: ["push", "email"], reward_text: "+200 pt gift", engine: "workflow", stats: [74, 158, 12],
+    steps: [
+      { k: "trigger", type: "t.inactive", label: "No visit in 90 days", config: { days: 90 } },
+      { k: "msg", id: "winback_push1", when: "Day 90", m: P("We miss you, {{first_name}}", "It's been {{days_since_last_visit}} days. Your skin will thank you for a little care.", "/book") },
+      { k: "wait", label: "Wait 15 days", minutes: 15 * D },
+      { k: "goal", label: "Visited?" },
+      { k: "msg", id: "winback_email", when: "Day 105", m: E("A gift to welcome you back", "+200 points are waiting for you.", "Come back to {{business}}", "We've added a little something to your account: +200 points toward your next treatment.\n\nBook any time in the next 2 weeks to use it.", "Book a visit", "/book", "+200 points expire in 14 days.", 200) },
+      { k: "wait", label: "Wait 15 days", minutes: 15 * D },
+      { k: "goal", label: "Visited?" },
+      { k: "msg", id: "winback_push2", when: "Day 120", m: P("Your gift expires Friday", "{{first_name}}, your +200 points are still waiting. Book before Friday.", "/book") },
+      { k: "wait", label: "Wait 60 days", minutes: 60 * D },
+      { k: "goal", label: "Visited?" },
+      { k: "tag", label: "Tag: lapsed", tag: "lapsed" },
+    ] },
+  { key: "ms.reward_ready", grp: "come_back", name: "Reward unlocked", why: "Tells patients when they can redeem, then reminds them if they don't.",
+    research: "The unlock moment is the best time to bring someone back. If it's still unused after 2 weeks, one reminder.",
+    trigger_text: "When a balance reaches a reward", timing_text: "Right away, reminder after 14 days", channels: ["push"], reward_text: null, engine: "legacy", stats: [88, 112, 34],
+    steps: [
+      { k: "trigger", type: "t.points", label: "Balance reaches a reward" },
+      { k: "msg", id: "reward_push1", when: "Right away (built-in)", m: P("You unlocked {{offer_name}}", "Nice, {{first_name}}! Show it at the desk on your next visit.", "/app/rewards") },
+      { k: "wait", label: "Wait 14 days", minutes: 14 * D },
+      { k: "goal", label: "Redeemed?" },
+      { k: "msg", id: "reward_push2", when: "14 days later, if unused", m: P("Your {{offer_name}} is waiting", "Use it on your next visit to {{business}}.", "/app/rewards") },
+    ] },
+  { key: "ms.birthday", grp: "celebrate", name: "Birthday", why: "Birthday points plus a scratch-card gift in their birthday week.",
+    research: "Birthday offers are the highest-opened message most clinics send. Delivered the morning of, with a gift they can use that month.",
+    trigger_text: "On the patient's birthday", timing_text: "Morning of their birthday", channels: ["push"], reward_text: "Points + gift", engine: "legacy", stats: [9, 9, 3],
+    steps: [
+      { k: "trigger", type: "t.birthday", label: "Birthday" },
+      { k: "points", label: "Birthday points", points: 100 },
+      { k: "msg", id: "bday_push", when: "Morning of their birthday", m: P("Happy birthday, {{first_name}}!", "A birthday gift is waiting on your Home. Scratch to reveal it.", "/app") },
+    ] },
+  { key: "ms.referral", grp: "celebrate", name: "Bring a friend", why: "Asks your happiest patients to refer a friend.",
+    research: "Referral asks work best right after a moment of delight, like a verified review or a third visit.",
+    trigger_text: "After a verified review or the 3rd visit", timing_text: "Once, the next morning", channels: ["push"], reward_text: "Referral points", engine: "workflow", stats: [22, 22, 3], on: false,
+    steps: [
+      { k: "trigger", type: "t.checkin", label: "Review verified or 3rd visit" },
+      { k: "msg", id: "ref_push", when: "The next morning", m: P("Give a friend $25, get +{{points}} pts", "Share your link. When they visit, you both win.", "/app/refer", 250) },
+    ] },
+  { key: "ms.points_expiring", grp: "celebrate", name: "Gifts about to expire", why: "A heads-up 48 hours before a gift or reward expires.",
+    research: "A single reminder about 2 days before expiry recovers most gifts that would otherwise go unused.",
+    trigger_text: "When a gift expires in under 48 hours", timing_text: "Once, 48 h before", channels: ["push"], reward_text: null, engine: "legacy", stats: [17, 17, 6],
+    steps: [
+      { k: "trigger", type: "t.redeem", label: "Gift expires in 48 hours" },
+      { k: "msg", id: "exp_push", when: "48 hours before it expires", m: P("Your gift expires soon", "{{first_name}}, your {{offer_name}} expires in 2 days.", "/app/rewards") },
+    ] },
+];
+
+type SuiteState = { enabled: boolean; overrides: Record<string, SuitePatch> };
+const suiteState = new Map<string, SuiteState>();
+
+function suiteRow(d: Def): SuiteJourney {
+  const st = suiteState.get(d.key) ?? { enabled: d.on ?? true, overrides: {} };
+  suiteState.set(d.key, st);
+  const { graph, messages } = build(d.steps);
+  const merged = messages.map((m) => {
+    const o = st.overrides[m.node_id] ?? {};
+    return { ...m, ...o };
+  });
+  graph.nodes.forEach((n) => {
+    const o = st.overrides[n.id]; if (!o) return;
+    if (n.type === "a.push") n.config = { ...n.config, ...(o.title != null ? { title: o.title } : {}), ...(o.body != null ? { body: o.body } : {}) };
+    if (n.type === "a.email") n.config = { ...n.config, ...(o.subject != null ? { subject: o.subject } : {}), ...(o.body != null ? { body: o.body } : {}) };
+  });
+  const { steps: _s, stats, on: _o, ...rest } = d; void _s; void _o;
+  return { ...rest, enabled: st.enabled, workflow_id: d.engine === "workflow" ? `wf_${d.key}` : null, entered_30d: st.enabled ? stats[0] : 0, sent_30d: st.enabled ? stats[1] : 0, converted_30d: st.enabled ? stats[2] : 0, graph, messages: merged };
+}
+
+const findDef = (key: string) => { const d = SUITE_DEFS.find((x) => x.key === key); if (!d) throw new Error("Unknown journey"); return d; };
+export const SUITE_GROUP_ORDER: SuiteGroup[] = ["get_in", "convert", "care", "come_back", "celebrate"];
+
+export const mockSuite = {
+  async suite(): Promise<SuiteJourney[]> { return SUITE_DEFS.map(suiteRow); },
+  async suiteToggle(key: string, enabled: boolean) { findDef(key); const st = suiteState.get(key) ?? { enabled, overrides: {} }; st.enabled = enabled; suiteState.set(key, st); },
+  async suiteUpdate(key: string, nodeId: string, patch: SuitePatch): Promise<SuiteJourney> {
+    const d = findDef(key); suiteRow(d); const st = suiteState.get(key)!;
+    st.overrides[nodeId] = { ...(st.overrides[nodeId] ?? {}), ...patch };
+    return suiteRow(d);
+  },
+  async suiteReset(key: string) { const d = findDef(key); suiteRow(d); suiteState.get(key)!.overrides = {}; },
+  async suitePreview(): Promise<SuitePreviewData> {
+    return {
+      sample: { first_name: "Jane", points: 340, points_remaining: 160, days_since_last_visit: 84, treatment: "HydraFacial", item: "HydraFacial Signature", offer_name: "$25 off your next facial" },
+      brand: { name: "Lotus Aesthetics", logo_url: null, primary: "#2d6a78", hero_url: null },
+      sender: { from_name: "Lotus Aesthetics", from_address: "hello@atlas-engine.app", reply_to: "frontdesk@lotusaesthetics.com" },
+    };
   },
 };

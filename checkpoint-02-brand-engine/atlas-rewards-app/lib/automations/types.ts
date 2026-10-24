@@ -129,3 +129,53 @@ export type PathStep = { node_id: string; node_type: string; result: string; det
 export type MemberHit = { membership_id: string; user_id: string; full_name: string | null; email: string | null; points_balance: number };
 
 export type BusinessOption = { id: string; slug: string; name: string; layout_preset: string | null; is_demo: boolean };
+
+/* ───────────── CP-217 · Med Spa Automation Suite (medspa-suite-spec.md) ───────────── */
+export type SuiteGroup = "get_in" | "convert" | "care" | "come_back" | "celebrate";
+export type SuiteChannel = "push" | "email";
+
+export type SuiteMessage = {
+  node_id: string;
+  channel: SuiteChannel;
+  when_text: string;
+  title: string | null;
+  body: string | null;
+  subject: string | null;
+  preheader: string | null;
+  heading: string | null;
+  cta_label: string | null;
+  cta_path: string | null;
+  footnote: string | null;
+  points: number | null;
+};
+
+export type SuiteJourney = {
+  key: string;
+  grp: SuiteGroup;
+  name: string;
+  why: string;
+  research: string | null;
+  trigger_text: string;
+  timing_text: string;
+  channels: SuiteChannel[];
+  reward_text: string | null;
+  engine: "workflow" | "legacy";
+  enabled: boolean;
+  workflow_id: string | null;
+  entered_30d: number;
+  sent_30d: number;
+  converted_30d: number;
+  graph: Graph;
+  messages: SuiteMessage[];
+};
+
+/** Editable fields of one message; sent as p_patch to wf_suite_update. */
+export type SuitePatch = Partial<Pick<SuiteMessage, "title" | "body" | "subject" | "preheader" | "heading" | "cta_label" | "footnote" | "points">>;
+
+export type SuitePreviewData = {
+  sample: { first_name: string; points: number; points_remaining: number; days_since_last_visit: number; treatment: string; item: string; offer_name: string };
+  brand: { name: string; logo_url: string | null; primary: string | null; hero_url: string | null };
+  sender: { from_name: string; from_address: string; reply_to: string | null };
+};
+
+export type TrackEventType = "app.opened" | "shop.item_viewed" | "checkout.started" | "membership.viewed";

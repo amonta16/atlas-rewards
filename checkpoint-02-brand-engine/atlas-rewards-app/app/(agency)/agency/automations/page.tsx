@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { WorkflowBuilder } from "@/components/agency/automations/workflow-builder";
+import { AutomationsHome } from "@/components/agency/automations/automations-home";
 import type { BusinessOption } from "@/lib/automations/types";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 /**
  * /agency/automations — CP-216 · the Automation Hub. Admin-only.
  * ?business=<slug> picks the business; defaults to the first real (non-demo)
- * one. Everything else loads client-side through the contract RPCs.
+ * one. ?view=custom opens the canvas builder; med spas default to the
+ * CP-217 suite. Everything else loads client-side through the contract RPCs.
  */
-export default async function AgencyAutomations({ searchParams }: { searchParams?: { business?: string } }) {
+export default async function AgencyAutomations({ searchParams }: { searchParams?: { business?: string; view?: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -28,5 +29,5 @@ export default async function AgencyAutomations({ searchParams }: { searchParams
 
   const wanted = searchParams?.business?.trim();
   const business = (wanted && businesses.find((b) => b.slug === wanted)) || businesses.find((b) => !b.is_demo) || businesses[0];
-  return <WorkflowBuilder businesses={businesses} business={business} />;
+  return <AutomationsHome businesses={businesses} business={business} view={searchParams?.view === "custom" ? "custom" : "suite"} />;
 }
