@@ -1,13 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet } from "lucide-react";
+import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet, Workflow } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
-type NavItem = { href: string; label: string; icon: React.ReactNode; adminOnly?: boolean };
+type NavItem = { href: string; label: string; icon: React.ReactNode; adminOnly?: boolean; badge?: string };
 
 const NAV: NavItem[] = [
   { href: "/agency",              label: "My Apps",     icon: <LayoutGrid className="h-4 w-4" /> },
@@ -22,6 +22,8 @@ const NAV: NavItem[] = [
   // CP-112: internal bookkeeping — hosting costs, bills, expenses, mileage,
   // receipts, accountant export. Server-side admin gate in the page.
   { href: "/agency/bookkeeping",  label: "Bookkeeping", icon: <Wallet className="h-4 w-4" />, adminOnly: true },
+  // Visual Automation Hub prototype (mock data). Admin gate in the page.
+  { href: "/agency/automations",  label: "Automations", icon: <Workflow className="h-4 w-4" />, adminOnly: true, badge: "New" },
   // CP-33: White Label tab hidden from sidebar — placeholder until we
   // actually build out the master Atlas brand splash. The route file
   // (/agency/white-label/page.tsx) is still there if we re-enable it.
@@ -124,7 +126,8 @@ export function Sidebar({
             >
               {item.icon}
               {!collapsed && <span>{item.label}</span>}
-              {!collapsed && active && <span className="ml-auto text-xs">›</span>}
+              {!collapsed && item.badge && <span className="ml-auto rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200 ring-1 ring-amber-300/30">{item.badge}</span>}
+              {!collapsed && active && !item.badge && <span className="ml-auto text-xs">›</span>}
             </Link>
           );
         })}
