@@ -68,6 +68,8 @@ export async function generateMetadata(
       title: shortName,
       statusBarStyle: "default",
     },
+    // CP-219: the customer app's manifest (route handler — see app-manifest/route.ts).
+    manifest: `/${params.business}/app-manifest`,
     icons: iconUrl
       ? {
           icon: iconUrl,

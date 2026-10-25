@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { Business, BookingTag } from "@/lib/types/database";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 type Step = "pick-service" | "pick-time" | "confirm" | "done";
 
@@ -376,7 +377,7 @@ export function BookFlow({ business: b, tags, ghlOn }: { business: Business; tag
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Phone</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" type="tel" />
+              <PhoneInput value={phone} onChange={setPhone} placeholder="(555) 555-5555" />
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Anything we should know? (optional)</Label>

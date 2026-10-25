@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { SignOutButton } from "./sign-out-button";
 import type { Business } from "@/lib/types/database";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 type ProfileData = {
   email: string | null;
@@ -129,7 +130,7 @@ export function EditableProfile({
 
           {editing ? (
             <EditRow icon={<Phone className="h-4 w-4" />} label="Phone">
-              <Input type="tel" inputMode="tel" value={phone} onChange={e => { setPhone(e.target.value); setErr(null); }} placeholder="(555) 555-5555" />
+              <PhoneInput value={phone} onChange={v => { setPhone(v); setErr(null); }} placeholder="(555) 555-5555" />
             </EditRow>
           ) : (
             <Row icon={<Phone className="h-4 w-4" />} label="Phone" value={phone || "—"} />

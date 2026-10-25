@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 /* CP-103 (QA S-01): password fields hid what was typed with no way to check
    it, so a typo could only be found by failing to sign in. One small,
@@ -303,7 +304,7 @@ export default function CustomerSignup() {
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <Field label="Your name"><Input value={name} onChange={e => setName(e.target.value)} required /></Field>
           <Field label="Email"><Input type="email" value={email} onChange={e => setEmail(e.target.value)} required /></Field>
-          <Field label="Phone"><Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 555-5555" required /></Field>
+          <Field label="Phone"><PhoneInput value={phone} onChange={setPhone} placeholder="(555) 555-5555" required /></Field>
           {/* CP-46: birthday is MONTH + DAY only — powers Birthday automated
               offers without asking the customer's age/year. set-once: once
               saved, it can't be changed later (CP-28 server-side trigger). */}

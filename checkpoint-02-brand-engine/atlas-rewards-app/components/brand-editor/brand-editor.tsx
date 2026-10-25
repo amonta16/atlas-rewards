@@ -256,7 +256,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
         supabase.from("news_posts").select("id,title,body,image_url,published_at")
           .eq("business_id", b.id).eq("is_published", true)
           .order("published_at", { ascending: false }).limit(3),
-        supabase.from("booking_tags").select("id,name,emoji,duration_minutes,price_cents,image_url")
+        supabase.from("booking_tags").select("id,name,emoji,duration_minutes,price_cents")
           .eq("business_id", b.id).eq("is_active", true)
           .order("sort_order").limit(6),
       ]);

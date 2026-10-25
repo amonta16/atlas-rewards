@@ -39,6 +39,7 @@ import { Input } from "@/components/ui/input";
 import { SignaturePad } from "@/components/customer/signature-pad";
 import { DobField } from "@/components/customer/dob-field";
 import type { Business } from "@/lib/types/database";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 type Waiver = {
   waiver_id: string; waiver_title: string; version_id: string;
@@ -289,7 +290,7 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
                 </label>
                 <label className="block sm:col-span-2">
                   <span className="text-sm font-bold text-zinc-700">Phone <span className="font-normal text-zinc-400">(optional)</span></span>
-                  <Input className="h-16 text-xl mt-1.5" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(661) 555-0100" />
+                  <PhoneInput className="h-16 text-xl mt-1.5" value={phone} onChange={setPhone} placeholder="(661) 555-0100" />
                 </label>
                 {dob && age !== null && age < 18 && (
                   <p className="sm:col-span-2 text-[15px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-4">
