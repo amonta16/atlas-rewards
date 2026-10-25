@@ -15,6 +15,7 @@ import { DeskRewardStore } from "@/components/manager/desk-reward-store";
 // CP-147: per-platform follow points (same source approve_review uses).
 import { readSocialConfig } from "@/lib/social-config";
 import type { Business } from "@/lib/types/database";
+import { PointsExpiryChip } from "@/components/manager/points-expiry-chip";
 
 type Member = {
   membership_id: string; user_id: string; full_name: string | null;
@@ -507,6 +508,9 @@ export function AwardPointsPanel({
             {/* CP-86: tier label (Bronze/Silver/Gold) removed per Andrew —
                 tiers no longer exist in the customer app either (CP-73). */}
             <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">pts</div>
+            {/* CP-220: when the balance would expire (entertainment apps only). */}
+            <PointsExpiryChip membershipId={member.membership_id} balance={balance}
+              timezone={(business.contact_info as { timezone?: string } | null)?.timezone ?? null} />
           </div>
         </div>
 

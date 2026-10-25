@@ -40,13 +40,11 @@ export const NODE_TYPES: NodeTypeMeta[] = [
   { id: "t.purchase", kind: "trigger", label: "Completes a purchase", hint: "Desk purchase or shop order", availability: "ready", source: "events · medspa_shop_orders" },
   { id: "t.spend", kind: "trigger", label: "Reaches spending threshold", hint: "Lifetime spend ≥ $X", availability: "ready", source: "events.amount_cents" },
   { id: "t.birthday", kind: "trigger", label: "Customer's birthday", hint: "Birthday week", availability: "ready", source: "profiles.birthday" },
-  { id: "t.tier", kind: "trigger", label: "Enters a new tier", hint: "Tier recalculated", availability: "ready", source: "business_memberships.tier" },
 
   { id: "c.visited", kind: "condition", label: "Visited within N days?", hint: "Yes / No", availability: "ready" },
   { id: "c.points", kind: "condition", label: "Points balance is…", hint: "at least / under", availability: "ready" },
   { id: "c.new_vs_returning", kind: "condition", label: "New or returning?", hint: "≤ 1 visit = new", availability: "ready" },
   { id: "c.redeemed", kind: "condition", label: "Redeemed within N days?", hint: "Any or a specific reward", availability: "ready" },
-  { id: "c.tier", kind: "condition", label: "In loyalty tier?", hint: "Bronze / Silver / Gold", availability: "ready" },
   { id: "c.tagged", kind: "condition", label: "Has tag?", hint: "e.g. VIP, At Risk", availability: "ready" },
   { id: "c.eligible", kind: "condition", label: "Eligible for offer?", hint: "Hasn't received it yet", availability: "ready" },
   { id: "c.opened", kind: "condition", label: "Opened previous email?", hint: "Needs open tracking", availability: "needs_tracking", source: "email provider webhooks" },
@@ -136,7 +134,7 @@ export const TEMPLATE_GROUPS: TemplateGroup[] = [
       { key: "cl.winback", name: "Inactive customer win-back", summary: "The 14-day sequence" },
       { key: "cl.referral", name: "Referral incentive", summary: "After a great visit → ask for a referral" },
       { key: "cl.limited_promo", name: "Limited-time promotion", summary: "Eligible → offer → reminder before it ends" },
-      { key: "cl.vip", name: "VIP appreciation", summary: "Top tier → thank-you reward" },
+      { key: "cl.vip", name: "VIP appreciation", summary: "Top spenders → thank-you reward" },
     ],
   },
   {

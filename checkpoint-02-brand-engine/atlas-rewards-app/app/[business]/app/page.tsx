@@ -12,6 +12,8 @@ import { TopRewardsGrid } from "@/components/customer/top-rewards-grid";
 // path-form <a> reload/glitch on "See all" + "View more rewards".
 import { AppLink } from "@/components/customer/app-link";
 import { LiveMemberCard } from "@/components/customer/live-member-card";
+// CP-220: points-expiry line under the card (entertainment apps).
+import { PointsExpiryNote, type PointsExpiry } from "@/components/customer/points-expiry-note";
 import { WinbackBanner } from "@/components/customer/winback-banner";
 // CP-87: referred friends see their "spend $X to unlock your bonus" progress.
 import { ReferralProgressCard } from "@/components/customer/referral-progress-card";
@@ -78,7 +80,7 @@ export default async function CustomerHome({ params }: { params: { business: str
   const supabase = createClient();
   // CP-211: the first name (profiles) joins the batch — it only needs the
   // user id, which we already have. It used to be its own round trip after.
-  const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }, { data: resourceRows }, { data: profile }] = await timed("page:home-batch", Promise.all([
+  const [user, mem, offer, { data: rewards }, { data: news }, { data: eventRows }, { data: specialRows }, { data: resourceRows }, { data: profile }, { data: expiryRows }] = await timed("page:home-batch", Promise.all([
     Promise.resolve(sessionUser),
     getMyMembership(business.id),
     getFeaturedOffer(business.id),
@@ -97,7 +99,12 @@ export default async function CustomerHome({ params }: { params: { business: str
     sessionUser
       ? supabase.from("profiles").select("full_name").eq("id", sessionUser.id).maybeSingle()
       : Promise.resolve({ data: null as { full_name: string | null } | null }),
+    // CP-220: when this member's points expire (empty where they never do).
+    business.points_expiry_days
+      ? supabase.rpc("my_points_expiry", { p_business_id: business.id })
+      : Promise.resolve({ data: null }),
   ]));
+  const pointsExpiry = ((Array.isArray(expiryRows) ? expiryRows[0] : expiryRows) ?? null) as PointsExpiry | null;
 
   const topRewards = (rewards ?? []) as TopReward[];
   const newsPosts = (news ?? []) as NewsRow[];
@@ -137,6 +144,7 @@ export default async function CustomerHome({ params }: { params: { business: str
           initialPoints={points}
           isMember={!!mem}
         />
+        <PointsExpiryNote expiry={pointsExpiry} timezone={business.contact_info?.timezone ?? null} />
       </div>
     ) : null,
 

@@ -225,7 +225,7 @@ export function BusinessInsights({ business, variant = "full" }: { business: Bus
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{m.member_name}</div>
-                <div className="text-[11px] text-muted-foreground truncate">{m.member_email} · {m.tier}</div>
+                <div className="text-[11px] text-muted-foreground truncate">{m.member_email}</div>
               </div>
               <div className="text-right">
                 <div className="text-sm font-bold">{m.lifetime_points.toLocaleString()}</div>

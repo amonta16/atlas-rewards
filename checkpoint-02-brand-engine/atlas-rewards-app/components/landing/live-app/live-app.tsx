@@ -10,7 +10,7 @@ import { bannerStyle } from "@/lib/banner-styles";
 import { pointsCardStyle } from "@/lib/points-card-styles";
 import { loyaltyCardRamp, loyaltyCardSurface, loyaltyCardSheen } from "@/lib/loyalty-card";
 import {
-  FLIPPOS_BOOKING, FLIPPOS_BRAND, FLIPPOS_HOURS, FLIPPOS_OFFER, FLIPPOS_PACKAGES, FLIPPOS_REWARDS, FLIPPOS_TIERS,
+  FLIPPOS_BOOKING, FLIPPOS_BRAND, FLIPPOS_HOURS, FLIPPOS_OFFER, FLIPPOS_PACKAGES, FLIPPOS_REWARDS,
   POINTS, START_POINTS, type LiveBrand, type LiveCategory, type LiveResource, type LiveReward,
 } from "@/lib/landing/live-app-data";
 
@@ -126,7 +126,6 @@ export function LiveApp({
 
   const sorted = useMemo(() => [...rewards].sort((a, b) => a.cost - b.cost), [rewards]);
   const next = sorted.find((r) => r.cost > points);
-  const tier = [...FLIPPOS_TIERS].reverse().find((t) => lifetime >= t.min) ?? FLIPPOS_TIERS[0];
 
   const doCheckin = () => {
     setVisits((v) => v + 1);
@@ -201,7 +200,7 @@ export function LiveApp({
             <div key={tab} className="la-fade pb-6">
               {tab === "home" && (
                 <HomeTab
-                  brand={brand} guest={guest} points={points} next={next} rewards={sorted} tierName={tier.name}
+                  brand={brand} guest={guest} points={points} next={next} rewards={sorted}
                   spun={spun} bookings={bookings} categories={categories} offer={offer}
                   onSpin={(n) => { setSpun(true); earn(n, "Daily Spin win"); emit("spin"); }}
                   go={go}
@@ -211,7 +210,7 @@ export function LiveApp({
                 <BookTab brand={brand} categories={categories} bookings={bookings} onPick={(resource, cat) => setSheet({ kind: "book", resource, cat })} />
               )}
               {tab === "scan" && <ScanTab brand={brand} guest={guest} visits={visits} onCheckin={doCheckin} onEarnInfo={(t) => say(t)} />}
-              {tab === "rewards" && <RewardsTab brand={brand} guest={guest} points={points} rewards={sorted} tierName={tier.name} onRedeem={doRedeem} />}
+              {tab === "rewards" && <RewardsTab brand={brand} guest={guest} points={points} rewards={sorted} onRedeem={doRedeem} />}
               {tab === "member" && <MemberTab brand={brand} guest={guest} lifetime={lifetime} visits={visits} note={memberNote} />}
             </div>
           </div>
@@ -294,9 +293,9 @@ export function LiveApp({
 
 /* ══════════════════════════ HOME ══════════════════════════ */
 function HomeTab({
-  brand, guest, points, next, rewards, tierName, spun, bookings, categories, offer, onSpin, go,
+  brand, guest, points, next, rewards, spun, bookings, categories, offer, onSpin, go,
 }: {
-  brand: LiveBrand; guest: string; points: number; next?: LiveReward; rewards: LiveReward[]; tierName: string;
+  brand: LiveBrand; guest: string; points: number; next?: LiveReward; rewards: LiveReward[];
   spun: boolean; bookings: Booking[]; categories: LiveCategory[]; offer: { title: string; sub: string; kicker?: string }; onSpin: (n: number) => void; go: (t: Tab) => void;
 }) {
   const pc = pointsCardStyle("shiny", brand.primary, brand.secondary, brand.accent);
@@ -325,7 +324,7 @@ function HomeTab({
             <span className="text-[26px] font-extrabold tracking-tight tabular-nums" style={{ color: pc.number }}><CountUp value={points} /></span>
             <span className="min-w-0 flex-1">
               <span className="block text-[11px] font-semibold text-white">points</span>
-              <span className="block text-[10px] text-white/75">{tierName} member</span>
+              <span className="block text-[10px] text-white/75">Rewards member</span>
             </span>
             <span className="rounded-full px-2.5 py-1 text-[10px] font-bold" style={pc.pill}>Rewards</span>
           </span>
@@ -625,7 +624,7 @@ function EarnRow({ brand, icon, title, pts, onClick }: { brand: LiveBrand; icon:
 }
 
 /* ══════════════════════════ REWARDS ══════════════════════════ */
-function RewardsTab({ brand, guest, points, rewards, tierName, onRedeem }: { brand: LiveBrand; guest: string; points: number; rewards: LiveReward[]; tierName: string; onRedeem: (r: LiveReward) => void }) {
+function RewardsTab({ brand, guest, points, rewards, onRedeem }: { brand: LiveBrand; guest: string; points: number; rewards: LiveReward[]; onRedeem: (r: LiveReward) => void }) {
   return (
     <div className="px-3.5 pt-4">
       <h3 className="text-[22px] font-extrabold tracking-tight">Rewards</h3>
@@ -633,7 +632,7 @@ function RewardsTab({ brand, guest, points, rewards, tierName, onRedeem }: { bra
         <span className="pointer-events-none absolute inset-0" style={loyaltyCardSheen(0)} />
         <div className="relative flex items-start justify-between">
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">{short(brand.name)}</div>
-          <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">{tierName}</span>
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">Member</span>
         </div>
         <div className="relative mt-auto">
           <div className="text-[34px] font-extrabold leading-none tracking-tight tabular-nums"><CountUp value={points} /></div>
@@ -685,41 +684,33 @@ function RedeemSheet({ brand, reward, code, onClose }: { brand: LiveBrand; rewar
 
 /* ══════════════════════════ MEMBER ══════════════════════════ */
 function MemberTab({ brand, guest, lifetime, visits, note }: { brand: LiveBrand; guest: string; lifetime: number; visits: number; note: string }) {
-  const idx = FLIPPOS_TIERS.reduce((a, t, i) => (lifetime >= t.min ? i : a), 0);
-  const nextTier = FLIPPOS_TIERS[idx + 1];
-  const pct = nextTier ? ((lifetime - FLIPPOS_TIERS[idx].min) / (nextTier.min - FLIPPOS_TIERS[idx].min)) * 100 : 100;
+  // CP-220: no Bronze/Silver/Gold ladder — one membership, plain rules.
+  const rules = [
+    { t: "Earn on every visit", d: "Points for every check-in and purchase" },
+    { t: "Redeem any time", d: "Trade points for credits, cage time and prizes" },
+    { t: "Points stay active", d: "Any visit in 6 months keeps every point" },
+  ];
   return (
     <div className="px-3.5 pt-4">
       <h3 className="text-[22px] font-extrabold tracking-tight">Member</h3>
       <div className="relative mt-3 overflow-hidden rounded-3xl bg-zinc-900 p-4 text-white">
         <span className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full blur-2xl" style={{ background: `${brand.primary}88` }} />
-        <div className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70"><Crown className="h-3.5 w-3.5" style={{ color: brand.secondary }} /> {FLIPPOS_TIERS[idx].name} member</div>
+        <div className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70"><Crown className="h-3.5 w-3.5" style={{ color: brand.secondary }} /> Rewards member</div>
         <div className="relative mt-3 text-[20px] font-extrabold">{guest}</div>
         <div className="relative text-[11px] text-white/60">{visits} visits · {lifetime.toLocaleString()} lifetime pts</div>
-        {nextTier && (
-          <div className="relative mt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: brand.secondary }} /></div>
-            <div className="mt-1 text-[10.5px] text-white/70">{(nextTier.min - lifetime).toLocaleString()} pts to {nextTier.name}</div>
-          </div>
-        )}
       </div>
       <div className="mt-4 space-y-2">
-        {FLIPPOS_TIERS.map((t, i) => {
-          const on = i === idx;
-          const done = i < idx;
-          return (
-            <div key={t.name} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1" style={{ boxShadow: on ? `0 0 0 2px ${brand.primary}` : undefined, borderColor: "transparent" }}>
-              <span className="grid h-9 w-9 place-items-center rounded-full text-white" style={{ background: done || on ? brand.primary : "#d4d4d8" }}>
-                {done ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-bold">{t.name} <span className="font-medium text-zinc-400">· {t.min.toLocaleString()}+</span></span>
-                <span className="block truncate text-[11px] text-zinc-500">{t.perks.join(" · ")}</span>
-              </span>
-              {on && <span className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white" style={{ background: brand.primary }}>You</span>}
-            </div>
-          );
-        })}
+        {rules.map((r) => (
+          <div key={r.t} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5">
+            <span className="grid h-9 w-9 place-items-center rounded-full text-white" style={{ background: brand.primary }}>
+              <Check className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-bold">{r.t}</span>
+              <span className="block truncate text-[11px] text-zinc-500">{r.d}</span>
+            </span>
+          </div>
+        ))}
       </div>
       <div className="mt-3 flex items-center gap-2 rounded-2xl bg-white p-3 text-[11.5px] text-zinc-600 shadow-sm ring-1 ring-black/5">
         <Ticket className="h-4 w-4 shrink-0" style={{ color: brand.primary }} /> {note}

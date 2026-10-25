@@ -240,12 +240,10 @@ export function HeaderActions({
   const streakNudge =
     streakEnabled && streakCount > 0 && (streak?.checked_in_this_period ?? false) && !streakNudgeSeen;
 
-  // A member is "paid" if their tier carries a monthly price.
-  const isPaid = !!(
-    membership &&
-    (business.tiers ?? []).find((t) => t.name === membership.tier)
-      ?.monthly_price_cents
-  );
+  // CP-220: tiers are gone (this read a tier's monthly price, which no
+  // business ever set, so it was always false). Paid VIP status is shown on
+  // the Membership tab from membership billing.
+  const isPaid = false;
 
   // ── handlers ──────────────────────────────────────────────────────────────
   function handleMemberClick() {

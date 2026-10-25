@@ -47,7 +47,7 @@ const TYPES: Array<{
   tone: string;
 }> = [
   { key: "streak_reminders",            label: "Streak reminders",         description: "Nudge members on the day their streak is about to break.",          icon: Flame,             tone: "bg-orange-100 text-orange-700" },
-  { key: "gift_expiration_reminders",   label: "Gift expiration reminders", description: "Heads-up when a saved gift is about to expire.",                    icon: Gift,              tone: "bg-rose-100 text-rose-700" },
+  { key: "gift_expiration_reminders",   label: "Gift & points expiration reminders", description: "Heads-up when a saved gift is about to expire — and, on entertainment apps, before unused points expire.",                    icon: Gift,              tone: "bg-rose-100 text-rose-700" },
   { key: "customer_offer_announcements",label: "Customer offer announcements", description: "Drop a notification when a new automated offer is featured.",   icon: Tag,               tone: "bg-amber-100 text-amber-700" },
   { key: "check_in_available",          label: "Check-in available",       description: "Ping members when their 12h check-in cooldown ends.",               icon: Bell,              tone: "bg-blue-100 text-blue-700" },
   { key: "we_miss_you",                 label: "We-miss-you (inactives)",  description: "Win-back nudge for members past the inactive cutoff.",              icon: MessageSquareHeart, tone: "bg-pink-100 text-pink-700" },

@@ -133,7 +133,7 @@ function stepsFor(role: Role, primary: string): Step[] {
       visual: <VisualBilling primary={primary} />,
     },
     {
-      title: "Membership tiers",
+      title: "Paid membership",
       body: "If you sell a paid VIP membership, this tab controls perks, monthly cost, and payment mode (in-person / external link / Stripe).",
       icon: <Crown className="h-6 w-6" />,
       hint: "Membership tab",

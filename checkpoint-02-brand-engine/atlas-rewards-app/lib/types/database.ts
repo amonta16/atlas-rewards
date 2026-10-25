@@ -99,6 +99,9 @@ export type Business = {
   brand_colors: BrandColors;
   welcome_message: string | null;
   contact_info: ContactInfo;
+  /** CP-220: points expire after this many days without activity (entertainment apps; null = never). */
+  points_expiry_days?: number | null;
+  points_expiry_since?: string | null;
   google_review_url: string | null;
   widget_config: WidgetConfig;
   point_rules: PointRules;

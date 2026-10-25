@@ -109,14 +109,6 @@ export const FLIPPOS_HOURS: Record<number, [number, number]> = {
   1: [10, 20], 2: [10, 20], 3: [10, 20], 4: [10, 20], 5: [11, 21], 6: [11, 21], 7: [11, 19],
 };
 
-/** Real membership tiers. */
-export const FLIPPOS_TIERS = [
-  { name: "Bronze", min: 0, perks: ["Points on every visit"] },
-  { name: "Silver", min: 500, perks: ["Birthday gift"] },
-  { name: "Gold", min: 1500, perks: ["Birthday gift", "10% off"] },
-  { name: "VIP", min: 5000, perks: ["Birthday gift", "10% off", "Free upgrade"] },
-];
-
 /** The offer running on the live app / used across the site. */
 export const FLIPPOS_OFFER = { title: "Happy Hour Tuesday", sub: "10% off cages", daysLeft: 3 };
 

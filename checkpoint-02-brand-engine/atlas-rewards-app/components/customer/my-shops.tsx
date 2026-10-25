@@ -145,7 +145,7 @@ export function MyShops({
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold text-zinc-900 truncate">{s.name}</div>
                   <div className="text-[12px] text-zinc-500">
-                    {s.points_balance.toLocaleString()} points · {s.tier}
+                    {s.points_balance.toLocaleString()} points
                   </div>
                 </div>
                 {isCurrent ? (

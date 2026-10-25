@@ -33,7 +33,7 @@ type ToggleKey = Exclude<keyof Prefs, "membership_id">;
 
 const TYPES: Array<{ key: ToggleKey; label: string; icon: typeof Bell; tone: string }> = [
   { key: "streak_reminders",             label: "Streak reminders",          icon: Flame,             tone: "bg-orange-100 text-orange-700" },
-  { key: "gift_expiration_reminders",    label: "Gift expiration",           icon: Gift,              tone: "bg-rose-100 text-rose-700" },
+  { key: "gift_expiration_reminders",    label: "Gifts & points expiring",           icon: Gift,              tone: "bg-rose-100 text-rose-700" },
   { key: "customer_offer_announcements", label: "Offer announcements",       icon: Tag,               tone: "bg-amber-100 text-amber-700" },
   { key: "check_in_available",           label: "Check-in available",        icon: Bell,              tone: "bg-blue-100 text-blue-700" },
   { key: "we_miss_you",                  label: "We-miss-you nudges",        icon: MessageSquareHeart, tone: "bg-pink-100 text-pink-700" },

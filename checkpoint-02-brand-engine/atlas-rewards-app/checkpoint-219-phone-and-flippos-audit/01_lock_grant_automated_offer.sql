@@ -1,4 +1,4 @@
--- CP-219 · SECURITY FIX — NOT YET APPLIED (needs Andrew's go-ahead)
+-- CP-219 · SECURITY FIX — APPLIED Oct 24 2026 as part of CP-220 (cp220_part1a)
 -- _grant_automated_offer is an internal helper whose only caller is the
 -- process_member_date_offers cron job (runs as postgres). It is SECURITY
 -- DEFINER, has no caller check, and was executable by PUBLIC/anon/authenticated,
