@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { campaignFromLocation, rememberCampaign } from "@/lib/campaign-storage";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
@@ -81,6 +81,10 @@ export default function CustomerSignup() {
   const [notifyConsent, setNotifyConsent] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // CP-218: set when the account exists but opening the app is taking too long.
+  const [stuckTarget, setStuckTarget] = useState<string | null>(null);
+  const openTimer = useRef<number | null>(null);
+  useEffect(() => () => { if (openTimer.current) window.clearTimeout(openTimer.current); }, []);
 
   // Stash referral code so it survives the signup → email-confirm → return cycle
   useEffect(() => {
@@ -101,6 +105,19 @@ export default function CustomerSignup() {
     if (password.length < 6)     { setErr("Password must be at least 6 characters."); return; }
     setLoading(true);
     setErr(null);
+    // CP-218: nothing below may leave the button spinning forever. Every
+    // request is already time-limited (lib/supabase/client.ts); anything that
+    // still throws lands in the catch with a message they can act on.
+    try {
+      await createAccount();
+    } catch (e) {
+      console.error("[signup] failed", e);
+      setErr(friendlyNetworkError(e));
+      setLoading(false);
+    }
+  }
+
+  async function createAccount() {
     const supabase = createClient();
 
     // CP-59: one account per phone. Businesses give welcome gifts for signing
@@ -155,7 +172,7 @@ export default function CustomerSignup() {
         // Sign-in worked — fall through. The enroll_member call below
         // will attach this business to the existing account.
       } else {
-        setErr(error.message);
+        setErr(friendlyNetworkError(error));
         setLoading(false);
         return;
       }
@@ -208,8 +225,11 @@ export default function CustomerSignup() {
         });
         if (enroll.error) {
           // Surface the failure instead of silently sending the user to a
-          // membership-less app shell.
-          setErr(`Enrollment failed: ${enroll.error.message}`);
+          // membership-less app shell. CP-218: the account exists now, so a
+          // retry signs them in and enrolls (the "already registered" path).
+          setErr(isNetworkError(enroll.error)
+            ? "Your account was created, but we couldn't finish joining — your connection dropped. Tap Create account again to finish."
+            : `Enrollment failed: ${enroll.error.message}`);
           setLoading(false);
           return;
         }
@@ -250,8 +270,14 @@ export default function CustomerSignup() {
     const total = welcomeBonus + referralBonus;
     // CP-45: slug-aware app path (works on both subdomain and /<slug> access).
     const appBase = `${window.location.pathname.replace(/\/signup\/?$/, "")}/app`;
-    router.push(total > 0 ? `${appBase}?celebrate=${total}` : appBase);
+    const target = total > 0 ? `${appBase}?celebrate=${total}` : appBase;
+    router.push(target);
     router.refresh();
+    // CP-218: the account is done; only the hop into the app is left. If
+    // that hop stalls (weak connection), don't leave them on a spinning
+    // button — offer a direct, full-page way in. Unmount (= the app opened)
+    // cancels this.
+    openTimer.current = window.setTimeout(() => setStuckTarget(target), 10_000);
   }
 
   return (
@@ -339,7 +365,15 @@ export default function CustomerSignup() {
           </label>
 
           {err && <p className="text-sm text-red-600">{err}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>{loading ? "Creating account…" : "Create my rewards account"}</Button>
+          {stuckTarget ? (
+            <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+              <div className="font-semibold">Your account is ready.</div>
+              <div className="text-xs text-emerald-800 mt-0.5">Opening the app is taking a while — your connection may be weak.</div>
+              <Button type="button" className="w-full mt-3" onClick={() => window.location.assign(stuckTarget)}>Open my rewards</Button>
+            </div>
+          ) : (
+            <Button type="submit" className="w-full" disabled={loading}>{loading ? "Creating account…" : "Create my rewards account"}</Button>
+          )}
         </form>
 
         <p className="text-xs text-center text-muted-foreground mt-4">
@@ -384,4 +418,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+/** CP-218: a request that timed out / never reached us, vs a real answer. */
+function isNetworkError(e: unknown): boolean {
+  const m = String((e as { message?: string; name?: string })?.message ?? e ?? "") + " " + String((e as { name?: string })?.name ?? "");
+  return /fetch|network|abort|timed? ?out|load failed|connection|offline|AuthRetryableFetchError/i.test(m);
+}
+function friendlyNetworkError(e: unknown): string {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return "You're offline. Connect to Wi-Fi or turn off Airplane Mode, then tap Create account again.";
+  }
+  if (isNetworkError(e)) {
+    return "We couldn't reach the server — your connection may be weak. Tap Create account again. (If your account was already created, this will just sign you in.)";
+  }
+  const msg = (e as { message?: string })?.message;
+  return msg || "Something went wrong. Please try again.";
 }

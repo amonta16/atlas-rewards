@@ -158,6 +158,20 @@ export default function CustomerLogin() {
     e.preventDefault();
     setLoading(true);
     setErr(null);
+    // CP-218: a dropped connection used to leave "Signing in…" up forever
+    // (a thrown error skipped setLoading(false)). Now it says what happened.
+    try {
+      await signIn();
+    } catch (e) {
+      console.error("[login] failed", e);
+      setErr(typeof navigator !== "undefined" && navigator.onLine === false
+        ? "You're offline. Connect to Wi-Fi or turn off Airplane Mode, then try again."
+        : "We couldn't reach the server — your connection may be weak. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  async function signIn() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
@@ -169,6 +183,8 @@ export default function CustomerLogin() {
         setErr("Your email hasn't been confirmed yet. Check your inbox for the confirmation link, or tap \"Send me a sign-in link\" below.");
       } else if (msg.includes("invalid login")) {
         setErr("Wrong email or password. If you signed up via an invite, you may not have a password yet — tap \"Send me a sign-in link\" below.");
+      } else if (/fetch|network|abort|timed? ?out|load failed|retryable/i.test(`${error.message} ${error.name}`)) {
+        setErr("We couldn't reach the server — your connection may be weak. Please try again.");
       } else {
         setErr(error.message);
       }

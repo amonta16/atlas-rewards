@@ -17,7 +17,8 @@
  * can fill it without a hydration mismatch, and values are written with
  * textContent / validated colors only (nothing from storage is parsed as HTML).
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { StallNotice } from "@/components/ui/stall-notice";
 import { BrandedLoading } from "@/components/ui/branded-loading";
 import { saveHomeSnapshot, type HomeSnapshot } from "@/lib/device-cache";
 
@@ -77,6 +78,29 @@ export function CachedHomeOrLoading({ title }: { title?: string }) {
     <>
       <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: SHELL }} />
       <div id="atlas-branded-loading"><BrandedLoading title={title} /></div>
+      <CachedShellStall />
     </>
+  );
+}
+
+/**
+ * CP-218: the cached Home says "Updating…" — and before this it said so
+ * forever when the fresh Home never arrived (dead connection). When the
+ * cached shell is the thing on screen, a slow/stuck load gets the same
+ * message + Try again as every other loading screen, as a bottom card.
+ */
+function CachedShellStall() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = document.getElementById("atlas-cached-home");
+    setShown(!!el && el.style.display === "block");
+  }, []);
+  if (!shown) return null;
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-[60] flex justify-center px-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
+      <div className="pointer-events-auto flex w-full max-w-sm justify-center rounded-2xl bg-white/95 px-4 pb-4 shadow-xl ring-1 ring-black/5 empty:hidden">
+        <StallNotice tone="onLight" />
+      </div>
+    </div>
   );
 }

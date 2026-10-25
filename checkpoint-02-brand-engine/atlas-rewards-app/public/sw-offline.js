@@ -14,6 +14,7 @@
  */
 var PAGE_CACHE = "atlas-pages-v1";
 var STATIC_CACHE = "atlas-static-v1";
+var NAV_TIMEOUT_MS = 10000; // CP-218
 
 function isAppPage(req) {
   if (req.method !== "GET" || req.mode !== "navigate") return false;
@@ -29,9 +30,10 @@ function isNextStatic(req) {
 }
 
 var OFFLINE_HTML = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-  '<title>Offline</title><body style="margin:0;font-family:-apple-system,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f4f4f5;color:#18181b">' +
-  '<div style="text-align:center;padding:24px"><div style="font-size:20px;font-weight:700">You\'re offline</div>' +
-  '<p style="color:#52525b;margin-top:6px">Your rewards will load as soon as you\'re back online.</p>' +
+  '<title>Can\'t connect</title><body style="margin:0;font-family:-apple-system,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;background:#f4f4f5;color:#18181b">' +
+  '<div style="text-align:center;padding:24px"><div style="font-size:20px;font-weight:700">Can\'t connect right now</div>' +
+  '<p style="color:#52525b;margin-top:6px">Your connection is offline or too weak. Your rewards are safe and will load as soon as it\'s back.</p>' +
+  '<script>addEventListener("online",function(){location.reload()})<\/script>' +
   '<button onclick="location.reload()" style="margin-top:14px;padding:10px 18px;border-radius:10px;border:0;background:#18181b;color:#fff;font-weight:600">Try again</button></div>';
 
 self.addEventListener("fetch", function (event) {
@@ -40,10 +42,23 @@ self.addEventListener("fetch", function (event) {
     event.respondWith((async function () {
       var cache = await caches.open(PAGE_CACHE);
       try {
-        var res = await fetch(req);
-        if (res && res.ok && !res.redirected && res.type === "basic") {
-          cache.put(req.url.split("#")[0], res.clone()).catch(function () {});
-        }
+        // CP-218: a navigation on a dead connection (phone backgrounded,
+        // weak venue Wi-Fi / cellular) used to wait here with no limit —
+        // a white or frozen screen until the OS gave up minutes later.
+        // After NAV_TIMEOUT_MS we answer with the fallback below instead;
+        // the network request keeps going and still refreshes the cache.
+        var network = fetch(req).then(function (res) {
+          if (res && res.ok && !res.redirected && res.type === "basic") {
+            cache.put(req.url.split("#")[0], res.clone()).catch(function () {});
+          }
+          return res;
+        });
+        network.catch(function () {});           // the loser of the race must not surface as an error
+        event.waitUntil(network.catch(function () {}));  // let it finish caching after we answered
+        var res = await Promise.race([
+          network,
+          new Promise(function (_, reject) { setTimeout(function () { reject(new Error("nav-timeout")); }, NAV_TIMEOUT_MS); }),
+        ]);
         return res;
       } catch (_) {
         var hit = await cache.match(req.url.split("#")[0]);

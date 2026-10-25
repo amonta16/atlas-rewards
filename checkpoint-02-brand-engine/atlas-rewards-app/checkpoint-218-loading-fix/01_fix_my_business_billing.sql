@@ -1,0 +1,3 @@
+-- CP-218 · already applied to production on 2026-10-24 (migration cp218_fix_my_business_billing_ambiguous_status).
+-- my_business_billing errored with 42702 "column reference status is ambiguous" (manager Billing card).
+-- Fix: every column in the sub-selects is table-qualified. See the function body in the migration history.

@@ -22,6 +22,22 @@
  */
 import { Capacitor } from "@capacitor/core";
 
+
+/**
+ * CP-218: every bridge call here first downloads a plugin chunk (dynamic
+ * import) and then waits on the native side. On a weak connection the chunk
+ * request can hang, and the /join boot awaited these with no limit — the
+ * "Loading…" splash never ended. Each helper now gives up after a few
+ * seconds and returns its normal "nothing" value, so the caller carries on.
+ */
+const BRIDGE_TIMEOUT_MS = 4000;
+function bounded<T>(work: Promise<T>, fallback: T, ms = BRIDGE_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const t = setTimeout(() => resolve(fallback), ms);
+    work.then((v) => { clearTimeout(t); resolve(v); }, () => { clearTimeout(t); resolve(fallback); });
+  });
+}
+
 /** True only inside the installed mobile app. */
 export function isNative(): boolean {
   try {
@@ -43,6 +59,9 @@ export function nativePlatform(): "ios" | "android" | "web" {
 /** Android/iOS build number (integer we bump every store release). */
 export async function getAppBuild(): Promise<number | null> {
   if (!isNative()) return null;
+  return bounded(getAppBuildRaw(), null);
+}
+async function getAppBuildRaw(): Promise<number | null> {
   try {
     const { App } = await import("@capacitor/app");
     const info = await App.getInfo();
@@ -55,6 +74,9 @@ export async function getAppBuild(): Promise<number | null> {
 
 /** Native key-value storage (shared across all origins in the webview). */
 export async function prefGet(key: string): Promise<string | null> {
+  return bounded(prefGetRaw(key), null);
+}
+async function prefGetRaw(key: string): Promise<string | null> {
   try {
     const { Preferences } = await import("@capacitor/preferences");
     const r = await Preferences.get({ key });
@@ -65,6 +87,9 @@ export async function prefGet(key: string): Promise<string | null> {
 }
 
 export async function prefSet(key: string, value: string): Promise<void> {
+  return bounded(prefSetRaw(key, value), undefined);
+}
+async function prefSetRaw(key: string, value: string): Promise<void> {
   try {
     const { Preferences } = await import("@capacitor/preferences");
     await Preferences.set({ key, value });
@@ -109,6 +134,9 @@ export async function scanQrCode(): Promise<string | null> {
  * absent (iOS, sideloads, plugin not installed).
  */
 export async function getInstallReferrer(): Promise<string | null> {
+  return bounded(getInstallReferrerRaw(), null);
+}
+async function getInstallReferrerRaw(): Promise<string | null> {
   if (typeof window === "undefined") return null;
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const plugins = (window as any).Capacitor?.Plugins;

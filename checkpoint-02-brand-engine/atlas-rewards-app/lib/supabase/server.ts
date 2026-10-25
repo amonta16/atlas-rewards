@@ -14,6 +14,24 @@ import { HANDOFF_HEADER, authCookieHash, verifyHandoff } from "./session-handoff
  * handlers (no React render pass) cache() simply executes the function —
  * behaviour there is unchanged.
  */
+/**
+ * CP-218: server → Supabase reads get a time limit too. Without one, a
+ * request stuck on a bad connection held the whole page render (and the
+ * customer's loading screen) until the function's max duration. After
+ * SERVER_REQUEST_TIMEOUT_MS the call fails like any other error and the
+ * route's error.tsx offers Try again. Only PostgREST (/rest/v1) is limited:
+ * Auth calls (token refresh) and Storage keep their own behaviour, since
+ * aborting a refresh mid-flight could cost the customer their session.
+ */
+const SERVER_REQUEST_TIMEOUT_MS = 15_000;
+const serverFetch: typeof fetch = (input, init) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+  if (init?.signal || !/\/rest\/v1\//.test(url)) return fetch(input, init);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SERVER_REQUEST_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+};
+
 export const createClient = cache(function createClientForRequest() {
   const cookieStore = cookies();
   // CP-81: one login across every business subdomain.
@@ -24,6 +42,7 @@ export const createClient = cache(function createClientForRequest() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       ...sharedCookieOptions(host),
+      global: { fetch: serverFetch },
       cookies: {
         getAll() { return cookieStore.getAll(); },
         setAll(toSet: { name: string; value: string; options?: any }[]) {

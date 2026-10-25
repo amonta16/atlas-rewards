@@ -97,7 +97,9 @@ export default async function BusinessLayout({
   const { data, error } = await timed("biz-layout:resolve", supabase
     .rpc("resolve_business_by_slug", { p_slug: params.business }));
 
-  if (error || !data || data.length === 0) notFound();
+  // CP-218: an error (timeout, network) is retryable — error.tsx — not a 404.
+  if (error) throw new Error(`resolve_business_by_slug failed: ${error.message}`);
+  if (!data || data.length === 0) notFound();
 
   const business = data[0] as unknown as Business;
 

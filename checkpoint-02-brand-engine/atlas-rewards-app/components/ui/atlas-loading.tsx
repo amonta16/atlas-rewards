@@ -11,6 +11,8 @@
  * looks like the same continuous branded screen instead of white flashes.
  */
 import { Loader2 } from "lucide-react";
+// CP-218: no loading screen may spin forever — slow/offline message + Try again.
+import { StallNotice } from "./stall-notice";
 
 export function AtlasLoading({
   primary,
@@ -68,6 +70,7 @@ export function AtlasLoading({
       </div>
 
       <Loader2 className="h-5 w-5 animate-spin mt-5 text-white/80" />
+      <StallNotice tone="onBrand" />
     </div>
   );
 }

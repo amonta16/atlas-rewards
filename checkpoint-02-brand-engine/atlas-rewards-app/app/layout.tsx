@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { NativeShell } from "@/components/native/native-shell";
+// CP-218: no boot screen may hang forever (see boot-watchdog.tsx).
+import { BootWatchdogScript } from "@/components/ui/boot-watchdog";
+import { HydrationMark } from "@/components/ui/hydration-mark";
+import { OfflineGuard } from "@/components/ui/offline-guard";
 export const metadata: Metadata = {
   metadataBase: new URL("https://atlas-engine.app"),
   title: {
@@ -61,6 +65,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body className="min-h-screen antialiased">
+        <BootWatchdogScript />
+        <HydrationMark />
+        <OfflineGuard />
         {/* CP-31: app-wide toaster — every alert() should migrate to this. */}
         {/* CP-76: native shell glue — renders nothing on the web/PWA. */}
         <NativeShell />

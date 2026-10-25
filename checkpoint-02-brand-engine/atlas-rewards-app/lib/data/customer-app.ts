@@ -47,15 +47,21 @@ function stripBusinessSecrets<T extends Record<string, any> | null>(row: T): T {
 /** One business row per slug per request — replaces five duplicate fetches. */
 export const getBusinessBySlug = cache(async (slug: string): Promise<Business | null> => {
   const supabase = createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("businesses").select("*").eq("slug", slug).maybeSingle();
+  // CP-218: a failed lookup (timeout, network) is NOT "no such business" —
+  // that turned a dropped request into a 404. Throw → error.tsx → Try again.
+  if (error) throw new Error(`business lookup failed: ${error.message}`);
   return stripBusinessSecrets((data ?? null) as Business | null);
 });
 
 /** The signed-in customer's membership for this business, once per request. */
 export const getMyMembership = cache(async (businessId: string): Promise<Membership | null> => {
   const supabase = createClient();
-  const { data } = await supabase.rpc("my_membership", { p_business_id: businessId });
+  const { data, error } = await supabase.rpc("my_membership", { p_business_id: businessId });
+  // CP-218: a failed lookup must not read as "not a member yet" (which
+  // re-runs enrollment); surface it so the customer gets Try again.
+  if (error) throw new Error(`membership lookup failed: ${error.message}`);
   return (((data as Membership[] | null)?.[0]) ?? null);
 });
 
