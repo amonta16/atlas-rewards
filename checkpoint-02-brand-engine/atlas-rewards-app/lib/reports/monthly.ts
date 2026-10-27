@@ -124,7 +124,7 @@ export function kpisFor(layout: string): Kpi[] {
     { key: "new_members", label: "New members", hint: "Joined your app this month" },
     { key: "active_members", label: "Active members", hint: "Visited at least once this month" },
     { key: "rewards_redeemed", label: "Rewards redeemed", hint: "Prizes and perks claimed" },
-    { key: "returning_members", label: "Returning members", hint: "Came back after an earlier visit" },
+    { key: "returning_members", label: "Returning members", hint: "Visited on two or more different days" },
     { key: "reviews", label: "Reviews", hint: "Review requests submitted through the app" },
   ];
 }
@@ -208,7 +208,8 @@ export function takeaways(r: MonthlyReport): { title: string; body: string; tone
 
   if (c.active_members > 0) {
     const rate = Math.round((c.returning_members / c.active_members) * 100);
-    out.push({ tone: rate >= 40 ? "good" : "watch", title: `${rate}% of ${who} who came in were returning`, body: `${fmtNum(c.returning_members)} of ${fmtNum(c.active_members)} had been in before. ${rate >= 40 ? "Your regulars are sticking." : "Most visits were first-timers; the next job is getting them back."}` });
+    // CP-222: "returning" = visited on 2+ different days (not only "before this month").
+    out.push({ tone: rate >= 40 ? "good" : "watch", title: `${rate}% of ${who} who came in came back`, body: `${fmtNum(c.returning_members)} of ${fmtNum(c.active_members)} have visited on two or more different days. ${rate >= 40 ? "Your regulars are sticking." : "Most were one-time visits so far; the next job is getting them back."}` });
   }
 
   if (c.inactive_60d > 0) {
