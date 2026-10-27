@@ -31,6 +31,9 @@
  */
 
 export const PopupPriority = {
+  /** CP-224: a gift opened from a notification tap owns the screen — nothing
+   *  else (bell onboarding, confetti, offer reveals) may cover it. */
+  pushGift: -10,
   /** Notification opt-in onboarding — always first. */
   notifications: 0,
   /** Welcome / points-earned confetti. */

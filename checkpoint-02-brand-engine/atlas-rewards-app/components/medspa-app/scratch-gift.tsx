@@ -100,7 +100,7 @@ export function giftFrontSvg(primary: string) {
 }
 
 /** Draws the patient's name tag (bottom-left, tilted) onto the front. */
-function drawNameTag(ctx: CanvasRenderingContext2D, w: number, h: number, name: string) {
+export function drawNameTag(ctx: CanvasRenderingContext2D, w: number, h: number, name: string) {
   const tagW = Math.min(w * 0.4, 220), tagH = Math.max(46, h * 0.2);
   ctx.save();
   ctx.translate(w * 0.06 + tagW / 2, h * 0.76);

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles, X, Gift } from "lucide-react";
+import Link from "next/link";
+import { useAppBase } from "@/lib/use-app-base";
 import { createClient } from "@/lib/supabase/client";
 import type { Business } from "@/lib/types/database";
 
@@ -13,6 +15,10 @@ type Message = {
   expires_at: string | null;
   is_dismissed: boolean;
   created_at: string;
+  /** CP-224: win-back gifts are unwrapped on /app/gift/<id>. */
+  revealed_at?: string | null;
+  redemption_id?: string | null;
+  points_credited_at?: string | null;
 };
 
 /**
@@ -22,6 +28,7 @@ type Message = {
  */
 export function WinbackBanner({ business, membershipId }: { business: Business; membershipId: string | null }) {
   const [msg, setMsg] = useState<Message | null>(null);
+  const base = useAppBase(business.slug);
 
   useEffect(() => {
     if (!membershipId) return;
@@ -86,11 +93,17 @@ export function WinbackBanner({ business, membershipId }: { business: Business; 
           <div className="flex-1 min-w-0">
             <div className="font-bold leading-tight">{msg.title}</div>
             {msg.body && <div className="text-xs opacity-90 mt-0.5">{msg.body}</div>}
-            {msg.bonus_points != null && msg.bonus_points > 0 && (
+            {/* CP-224: an unopened win-back gift → one tap to the scratch card. */}
+            {msg.kind === "winback" && !msg.revealed_at && (msg.redemption_id || (msg.bonus_points ?? 0) > 0) ? (
+              <Link href={`${base}/gift/${msg.id}`}
+                className="mt-2 inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-white text-zinc-900 text-[13px] font-extrabold shadow">
+                <Gift className="h-4 w-4" /> Unwrap your gift
+              </Link>
+            ) : msg.bonus_points != null && msg.bonus_points > 0 && (msg.points_credited_at || msg.kind !== "winback") ? (
               <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[11px] font-bold">
                 +{msg.bonus_points.toLocaleString()} points added to your account
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
