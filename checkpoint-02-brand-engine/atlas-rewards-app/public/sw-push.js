@@ -25,7 +25,7 @@ self.addEventListener("push", (event) => {
     icon: data.icon || "/atlas-engine-logo.png",
     badge: data.badge || "/atlas-engine-logo.png",
     tag: data.tag || ("atlas-" + (data.kind || "notif")),
-    data: { url: data.link_path || data.url || "/" },
+    data: { url: data.link_path || data.url || "/", slug: data.slug || null },   // CP-223
     requireInteraction: false,
   };
   event.waitUntil(self.registration.showNotification(title, options));
@@ -33,25 +33,44 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const raw = (event.notification.data && event.notification.data.url) || "/";
+  const d = event.notification.data || {};
+  const raw = d.url || "/app";
+  const slug = typeof d.slug === "string" && /^[a-z0-9-]+$/.test(d.slug) ? d.slug : null;
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    // CP-120.1: stored links are bare "/app/..." — correct on subdomain
-    // routing, but on the path-routed hosts (www/app.<root>/<slug>/app)
-    // they 404. If an open window is on the path form, borrow its
-    // "/<slug>/app" base; otherwise keep the raw path (subdomain PWA).
+    // CP-223: stored links are bare "/app/..."; the push now names its
+    // business, so build "/<slug>/app/..." from it (unless this worker runs on
+    // that business's own subdomain) instead of borrowing the base of
+    // whichever tab is open — that sent a Flippo's tap into another
+    // business's app. Older pushes without a slug keep the CP-120.1 guess.
+    const isApp = raw === "/app" || raw.indexOf("/app/") === 0 || raw.indexOf("/app?") === 0;
     let target = raw;
-    if (raw === "/app" || raw.indexOf("/app/") === 0) {
-      for (const c of all) {
-        try {
-          const pth = new URL(c.url).pathname;
-          const m = pth.match(/^(.*?\/app)(\/|$)/);
-          if (m && m[1] !== "/app") { target = m[1] + raw.slice(4); break; }
-        } catch (_) { /* ignore */ }
+    if (isApp) {
+      const onSub = slug && self.location.hostname.split(".")[0] === slug;
+      if (slug && !onSub) target = "/" + slug + raw;
+      else if (!slug) {
+        for (const c of all) {
+          try {
+            const m = new URL(c.url).pathname.match(/^(.*?\/app)(\/|$)/);
+            if (m && m[1] !== "/app") { target = m[1] + raw.slice(4); break; }
+          } catch (_) { /* ignore */ }
+        }
       }
     }
+    const base = target.split("?")[0].replace(/\/app\/.*$/, "/app");   // "/<slug>/app"
+    // Reuse a window already inside the same app: focus it and move it to the
+    // target (no second copy of the app, no cold boot).
     for (const c of all) {
-      if (c.url.includes(target) && "focus" in c) return c.focus();
+      try {
+        const p = new URL(c.url).pathname;
+        if ((p === base || p.indexOf(base + "/") === 0) && "focus" in c) {
+          const w = await c.focus();
+          if ("navigate" in w && new URL(c.url).pathname + new URL(c.url).search !== target) {
+            try { await w.navigate(target); } catch (_) { /* uncontrolled window — focus only */ }
+          }
+          return;
+        }
+      } catch (_) { /* ignore */ }
     }
     if (self.clients.openWindow) return self.clients.openWindow(target);
   })());

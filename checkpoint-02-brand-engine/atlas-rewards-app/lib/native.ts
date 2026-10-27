@@ -239,20 +239,54 @@ export async function debugNativePushPermission(): Promise<{
   }
 }
 
-/** CP-77: notification tapped (app background/closed) → route to its link. */
-export function onPushTap(cb: (linkPath: string) => void): void {
-  if (!isNative()) return;
+/**
+ * CP-77: notification tapped (app background/closed) → route to its link.
+ * CP-223: also hands back the push's business slug (sent since CP-223), and
+ * registers ONCE per webview — the listener used to live inside a
+ * "we know the business" branch, so a cold start from a tap (which boots on
+ * /join, where no business is known yet) never listened and the tap was lost.
+ */
+let pushTapRegistered = false;
+export function onPushTap(cb: (linkPath: string, slug: string | null) => void): void {
+  if (!isNative() || pushTapRegistered) return;
+  pushTapRegistered = true;
   void (async () => {
     try {
       const { PushNotifications } = await import("@capacitor/push-notifications");
       await PushNotifications.addListener("pushNotificationActionPerformed", (e) => {
-        const lp = (e?.notification?.data as Record<string, unknown> | undefined)?.link_path;
-        if (typeof lp === "string" && lp.startsWith("/")) cb(lp);
+        const d = (e?.notification?.data as Record<string, unknown> | undefined) ?? {};
+        const lp = d.link_path;
+        const slug = typeof d.slug === "string" && /^[a-z0-9-]+$/.test(d.slug) ? d.slug : null;
+        if (typeof lp === "string" && lp.startsWith("/")) cb(lp, slug);
       });
     } catch {
-      /* no-op */
+      pushTapRegistered = false;
     }
   })();
+}
+
+/**
+ * CP-223: a notification tap is taking the user somewhere. Stored for the
+ * session so (a) the /join boot screen doesn't race it with its own
+ * "open your last business" redirect or the business chooser, and (b) if a
+ * page load wins the race anyway, the next page finishes the trip.
+ */
+const PUSH_TARGET_KEY = "atlas-push-target";
+export function setPushTarget(target: string): void {
+  try { sessionStorage.setItem(PUSH_TARGET_KEY, JSON.stringify({ target, at: Date.now() })); } catch { /* ignore */ }
+}
+/** The pending tap target, if one was set in the last 20 seconds. */
+export function peekPushTarget(): string | null {
+  try {
+    const raw = sessionStorage.getItem(PUSH_TARGET_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { target?: string; at?: number };
+    if (!v.target || !v.at || Date.now() - v.at > 20_000) { sessionStorage.removeItem(PUSH_TARGET_KEY); return null; }
+    return v.target;
+  } catch { return null; }
+}
+export function clearPushTarget(): void {
+  try { sessionStorage.removeItem(PUSH_TARGET_KEY); } catch { /* ignore */ }
 }
 
 /**

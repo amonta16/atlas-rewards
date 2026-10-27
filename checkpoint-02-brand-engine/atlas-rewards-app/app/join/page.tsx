@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { AtlasLoading } from "@/components/ui/atlas-loading";
 import {
   isNative, scanQrCode, getInstallReferrer,
-  prefGet, prefSet, prefRemove, PREF_LAST_BUSINESS,
+  prefGet, prefSet, prefRemove, PREF_LAST_BUSINESS, peekPushTarget,
 } from "@/lib/native";
 
 /**
@@ -171,6 +171,9 @@ export default function JoinPage() {
           if (user) {
             const { data } = await supabase.rpc("my_memberships");
             const shops = (Array.isArray(data) ? data : []) as BootShop[];
+            // CP-223: a notification tap is already taking them to the right
+            // business + tab — don't show the chooser or redirect over it.
+            if (peekPushTarget()) { navigating = true; return; }
             if (shops.length > 1) {
               setLastSlug(last && /^[a-z0-9-]+$/.test(last) ? last : null);
               setChooser(shops);
@@ -187,6 +190,7 @@ export default function JoinPage() {
           /* offline / RPC missing — fall back to the legacy boot below */
         }
 
+        if (peekPushTarget()) { navigating = true; return; }   // CP-223
         if (last && /^[a-z0-9-]+$/.test(last)) {
           // Keep the splash up — the page is navigating away.
           navigating = true;

@@ -37,7 +37,22 @@ export type PushPayload = {
   body?: string | null;
   link_path?: string | null;
   kind?: string;
+  /** CP-223: the business this push belongs to — the tap handlers (service
+   *  worker + native shell) build "/<slug>/app/..." from it instead of
+   *  guessing from whatever tab/business happens to be open. */
+  slug?: string | null;
 };
+
+// CP-223: business slug for the tap target, cached per server instance.
+const slugCache = new Map<string, string | null>();
+async function slugFor(businessId: string | null): Promise<string | null> {
+  if (!businessId) return null;
+  if (slugCache.has(businessId)) return slugCache.get(businessId) ?? null;
+  const { data } = await createAdminClient().from("businesses").select("slug").eq("id", businessId).maybeSingle();
+  const slug = (data as { slug?: string | null } | null)?.slug ?? null;
+  slugCache.set(businessId, slug);
+  return slug;
+}
 
 // CP-77: p256dh/auth are null for native rows (endpoint = "fcm:<token>").
 // CP-99: user_id included so deliver() can prefer native over web per user.
@@ -76,6 +91,7 @@ async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: nu
     body: payload.body ?? "",
     link_path: payload.link_path ?? "/",
     kind: payload.kind ?? "generic",
+    slug: payload.slug ?? null,
   });
 
   let sent = 0, failed = 0;
@@ -142,7 +158,8 @@ export async function sendPushToUsers(
   q = businessId === null ? q.is("business_id", null) : q.eq("business_id", businessId);
 
   const { data: subs } = await q;
-  return deliver((subs ?? []) as SubRow[], payload);
+  if (!subs?.length) return { sent: 0, failed: 0 };
+  return deliver(subs as SubRow[], { ...payload, slug: payload.slug ?? await slugFor(businessId) });
 }
 
 /**
@@ -163,5 +180,6 @@ export async function sendPushToBusiness(
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth, user_id")
     .eq("business_id", businessId);
-  return deliver((subs ?? []) as SubRow[], payload);
+  if (!subs?.length) return { sent: 0, failed: 0 };
+  return deliver(subs as SubRow[], { ...payload, slug: payload.slug ?? await slugFor(businessId) });
 }

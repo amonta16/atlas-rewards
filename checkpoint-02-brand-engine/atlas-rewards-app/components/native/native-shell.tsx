@@ -11,20 +11,70 @@
  *      them into the webview instead of dropping them.
  */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   isNative, getAppBuild, prefSet, onAppUrlOpen, PREF_LAST_BUSINESS,
   registerNativePush, onPushTap, nativePlatform, checkNativePushPermission,
-  resolveNativeBusinessSlug,
+  resolveNativeBusinessSlug, setPushTarget, peekPushTarget, clearPushTarget,
 } from "@/lib/native";
+
+/**
+ * CP-223: where a tapped notification should land. The push carries its
+ * business slug, so a Flippo's push opens Flippo's even when the app is
+ * sitting on another business (or on the /join boot screen / chooser).
+ * Bare "/app/..." links get the "/<slug>" prefix unless we're actually on
+ * that business's subdomain.
+ */
+function pushTargetFor(linkPath: string, slug: string | null): string {
+  const s = slug ?? resolveNativeBusinessSlug();
+  const isAppLink = linkPath === "/app" || linkPath.startsWith("/app/") || linkPath.startsWith("/app?");
+  if (!s || !isAppLink) return linkPath;
+  try {
+    if (window.location.hostname.split(".")[0] === s) return linkPath;
+  } catch { /* fall through */ }
+  return `/${s}${linkPath}`;
+}
 
 type Wall = { kind: "update" | "kill"; message: string } | null;
 
 export function NativeShell() {
   const [wall, setWall] = useState<Wall>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (!isNative()) return;
+
+    // CP-223: notification taps. Registered on EVERY page (incl. the /join
+    // boot screen a cold start opens on), once per webview.
+    //  · same business already open → in-app navigation (no reload, no splash)
+    //  · anything else → one direct page load to the right business + tab
+    // The target is also remembered for ~20 s so the boot screen's own
+    // redirect / chooser can't win the race (see /join) and, if a page load
+    // still beats it, the next page finishes the trip (below).
+    onPushTap((linkPath, slug) => {
+      const target = pushTargetFor(linkPath, slug);
+      if (slug) void prefSet(PREF_LAST_BUSINESS, slug);
+      const here = window.location.pathname;
+      const s = slug ?? resolveNativeBusinessSlug();
+      const sameBusiness = !!s && (here === `/${s}/app` || here.startsWith(`/${s}/app/`)
+        || (window.location.hostname.split(".")[0] === s && (here === "/app" || here.startsWith("/app/"))));
+      if (sameBusiness) {
+        clearPushTarget();
+        router.push(target);
+      } else {
+        setPushTarget(target);
+        window.location.replace(target);
+      }
+    });
+    {
+      const pending = peekPushTarget();
+      if (pending) {
+        const cur = window.location.pathname + window.location.search;
+        clearPushTarget();
+        if (cur !== pending && !window.location.pathname.startsWith("/join")) window.location.replace(pending);
+      }
+    }
 
     // 1) Remember the business we're inside.
     // CP-91: was subdomain-only — on the path-routed apex host
@@ -61,23 +111,8 @@ export function NativeShell() {
               }),
             }).catch(() => { /* offline — retried next open */ });
           });
-          // CP-120.1: stored link_paths are bare "/app/..." — correct on
-          // SUBDOMAIN routing, but the native shell runs the PATH form
-          // (www.<root>/<slug>/app — CP-97), where a bare "/app/scan" is
-          // a 404. Every notification tap in the native app hit this.
-          // Prefix the business slug unless we're actually on the
-          // subdomain host.
-          onPushTap((linkPath) => {
-            let target = linkPath;
-            try {
-              const sub = window.location.hostname.split(".")[0];
-              const onSubdomain = sub === businessSlug;
-              if (!onSubdomain && (linkPath === "/app" || linkPath.startsWith("/app/"))) {
-                target = `/${businessSlug}${linkPath}`;
-              }
-            } catch { /* keep the raw path */ }
-            window.location.href = target;
-          });
+          // CP-223: tap handling moved to the top of this effect (it must
+          // also run on /join, where no business is known yet).
         } catch {
           /* push is best-effort, never break the app over it */
         }

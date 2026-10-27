@@ -91,7 +91,7 @@ export type FcmResult = "sent" | "dead" | "failed" | "disabled";
  */
 export async function sendFcm(
   deviceToken: string,
-  payload: { title: string; body?: string | null; link_path?: string | null; kind?: string | null },
+  payload: { title: string; body?: string | null; link_path?: string | null; kind?: string | null; slug?: string | null },
 ): Promise<FcmResult> {
   const acct = serviceAccount();
   if (!acct) return "disabled";
@@ -114,6 +114,7 @@ export async function sendFcm(
           data: {
             link_path: payload.link_path ?? "/",
             kind: payload.kind ?? "generic",
+            slug: payload.slug ?? "",   // CP-223: tap → /<slug>/app/...
           },
           android: { priority: "HIGH" },
           apns: { payload: { aps: { sound: "default" } } }, // CP-79 (iOS) ready

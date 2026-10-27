@@ -18,7 +18,7 @@
  * Mark-as-read happens on open (bulk RPC mark_all_notifications_read).
  */
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   X, Flame, Star, ClipboardCheck, Sparkles, MessageSquareHeart, Gift,
   Bell, Loader2, BellOff,
@@ -70,6 +70,8 @@ export function NotificationCenter({
   // (/<slug>/app). When the current URL carries a slug prefix, re-prefix
   // stored links with it so taps land inside the same app instance.
   const pathname = usePathname();
+  // CP-223: in-app navigation (a plain <a> reloaded the whole app — splash and all).
+  const router = useRouter();
   const slugBase = pathname?.match(/^(.+?)\/(?:app|manage)(\/|$)/)?.[1] ?? "";
   const resolveLink = (lp: string | null): string | null =>
     !lp ? null : (slugBase && lp.startsWith("/app") ? `${slugBase}${lp}` : lp);
@@ -169,7 +171,13 @@ export function NotificationCenter({
                   <a
                     key={n.id}
                     href={resolveLink(n.link_path) ?? "#"}
-                    onClick={(e) => { if (!n.link_path) e.preventDefault(); }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const to = resolveLink(n.link_path);
+                      if (!to) return;
+                      onClose();
+                      router.push(to);
+                    }}
                     className={"block px-5 py-3 hover:bg-zinc-50 " + (isUnread ? "bg-zinc-50/60" : "")}
                   >
                     <div className="flex items-start gap-3">
