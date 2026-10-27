@@ -35,7 +35,41 @@ export type MonthlyReport = {
   previous: ReportCore;
   top_members: { name: string; points: number; visits: number }[];
   top_treatments: { name: string; n: number }[];
+  /** CP-221: free weekly home spin (entertainment apps). Absent on older archived months. */
+  weekly_spin?: { enabled: boolean; current: WeeklySpinStats; previous: WeeklySpinStats } | null;
 };
+
+/** CP-221: the weekly home spin's month, from _weekly_spin_stats. */
+export type WeeklySpinStats = {
+  spins: number; spinners: number; checkin_spins: number; prizes_won: number; points_won: number;
+  visited_after: number; notified: number; members_reached: number; spun_after_push: number;
+};
+
+/**
+ * CP-221: the "Weekly home spin" block for the report, or null when the
+ * business doesn't use it (off and no spins this month or last).
+ */
+export function weeklySpinBlock(r: MonthlyReport): null | {
+  rows: { label: string; value: string; change: { text: string; dir: "up" | "down" | "flat" } | null; hint: string }[];
+  line: string;
+} {
+  const ws = r.weekly_spin;
+  if (!ws || !ws.current) return null;
+  const c = ws.current, p = ws.previous ?? ({} as WeeklySpinStats);
+  if (!ws.enabled && !c.spins && !(p.spins ?? 0)) return null;
+  const rate = c.spins ? Math.round((c.visited_after / c.spins) * 100) : 0;
+  const rows = [
+    { label: "Home spins", value: fmtNum(c.spins), change: changeText(c.spins, p.spins ?? 0, r.month), hint: "Free weekly spins taken from home" },
+    { label: "Members who spun", value: fmtNum(c.spinners), change: changeText(c.spinners, p.spinners ?? 0, r.month), hint: "Different people" },
+    { label: "Came in within 7 days", value: fmtNum(c.visited_after), change: changeText(c.visited_after, p.visited_after ?? 0, r.month), hint: "Home spins followed by a check-in within a week" },
+    { label: "Spin pushes sent", value: fmtNum(c.notified), change: null, hint: `${fmtNum(c.members_reached)} members reached` },
+    { label: "Prizes won from home", value: fmtNum(c.prizes_won), change: null, hint: `${fmtNum(c.points_won)} points won` },
+  ];
+  const line = c.spins
+    ? `${fmtNum(c.spinners)} member${c.spinners === 1 ? "" : "s"} took ${fmtNum(c.spins)} free home spin${c.spins === 1 ? "" : "s"}; ${fmtNum(c.visited_after)} (${rate}%) were followed by a visit within a week.`
+    : ws.enabled ? "No one took their free weekly spin yet this month." : "The weekly home spin is switched off.";
+  return { rows, line };
+}
 
 /* ─────────────────────────── branding ─────────────────────────── */
 
@@ -181,6 +215,19 @@ export function takeaways(r: MonthlyReport): { title: string; body: string; tone
     out.push({ tone: "do", title: `${fmtNum(c.inactive_60d)} ${who} haven't been in for 60+ days`, body: `Send them a "we miss you" with a bonus from Insights → Inactive. It's the cheapest revenue you have.` });
   }
 
+  // CP-221: weekly home spin — only when it ran this month.
+  const ws = r.weekly_spin;
+  if (!medspa && ws?.enabled && ws.current) {
+    const w = ws.current;
+    if (w.spins > 0) {
+      const rate = Math.round((w.visited_after / w.spins) * 100);
+      out.push({ tone: rate >= 25 ? "good" : "watch", title: `${rate}% of home spins turned into a visit`,
+        body: `${fmtNum(w.visited_after)} of ${fmtNum(w.spins)} free weekly spins were followed by a check-in within 7 days. ${rate >= 25 ? "Prizes they win at home are pulling them in." : "Try a prize that's only good in person (a free game or token) to give them a reason to come in."}` });
+    } else if (w.notified > 0) {
+      out.push({ tone: "watch", title: "Nobody took their free weekly spin", body: `${fmtNum(w.notified)} spin reminders went out. Mention it at the desk so members know it's there.` });
+    }
+  }
+
   if (c.new_members > 0 && c.reviews === 0) {
     out.push({ tone: "do", title: "No reviews came in this month", body: `${fmtNum(c.new_members)} new ${who} joined, but none left a review. Ask at checkout; the app gives them points for it.` });
   } else if (c.reviews > 0) {
@@ -208,6 +255,10 @@ export function reportText(r: MonthlyReport, dashboardUrl: string, firstName?: s
       const d = changeText(r.current[x.key], r.previous[x.key], r.month);
       return `${x.label}: ${fmtVal(x, r.current[x.key])}${d ? ` (${d.text})` : ""}`;
     }),
+    ...(() => {
+      const ws = weeklySpinBlock(r);
+      return ws ? ["", "Weekly home spin:", ws.line, ...ws.rows.map((x) => `${x.label}: ${x.value}${x.change ? ` (${x.change.text})` : ""}`)] : [];
+    })(),
     "",
     "Worth your attention:",
     ...takeaways(r).map((t, i) => `${i + 1}. ${t.title}. ${t.body}`),
@@ -236,6 +287,7 @@ export function reportHtml(r: MonthlyReport, dashboardUrl: string, firstName?: s
   const hero = abs(r.business.hero_url, dashboardUrl);
   const k = kpisFor(r.business.layout);
   const tk = takeaways(r);
+  const ws = weeklySpinBlock(r);
   const medspa = r.business.layout === "medspa";
   const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
   const serif = "Georgia,'Times New Roman',serif";
@@ -281,6 +333,16 @@ export function reportHtml(r: MonthlyReport, dashboardUrl: string, firstName?: s
   <tr><td style="padding:16px 28px 4px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ececec;border-radius:12px">${rows.join("")}</table>
   </td></tr>
+  ${ws ? `<tr><td style="padding:22px 28px 4px">
+    <div style="font-size:13px;font-weight:700;color:#18181b;letter-spacing:.02em">Weekly home spin</div>
+    <div style="font-size:13px;color:#52525b;margin-top:4px;line-height:1.5">${esc(ws.line)}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;border:1px solid #ececec;border-radius:12px">
+      ${ws.rows.map((x, i) => {
+        const color = !x.change ? "#a1a1aa" : x.change.dir === "up" ? "#15803d" : x.change.dir === "down" ? "#b91c1c" : "#71717a";
+        return `<tr><td style="padding:10px 14px;${i ? "border-top:1px solid #f0f0f0;" : ""}font-size:13px;color:#3f3f46">${esc(x.label)}<div style="font-size:11px;color:#a1a1aa">${esc(x.hint)}</div></td>
+          <td align="right" style="padding:10px 14px;${i ? "border-top:1px solid #f0f0f0;" : ""}white-space:nowrap"><span style="font-size:16px;font-weight:700;color:#18181b">${esc(x.value)}</span>${x.change ? `<div style="font-size:11px;color:${color}">${esc(x.change.text)}</div>` : ""}</td></tr>`;
+      }).join("")}
+    </table></td></tr>` : ""}
   ${tk.length ? `<tr><td style="padding:22px 28px 4px">
     <div style="font-size:13px;font-weight:700;color:#18181b;letter-spacing:.02em">Worth your attention</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px">

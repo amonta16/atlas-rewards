@@ -12,7 +12,8 @@ import { Mail, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/lib/types/database";
-import { brandOf, changeText, fmtNum, fmtVal, kpisFor, monthName, prevMonthName, summary, takeaways, type MonthlyReport as Report } from "@/lib/reports/monthly";
+import { brandOf, changeText, fmtNum, fmtVal, kpisFor, monthName, prevMonthName, summary, takeaways, weeklySpinBlock, type MonthlyReport as Report } from "@/lib/reports/monthly";
+import { ReportEmailSettings } from "@/components/manager/report-email-settings";
 
 type ArchiveRow = { month: string; data: Report; emailed_at: string | null; emailed_to: string[] | null };
 
@@ -73,8 +74,11 @@ export function MonthlyReport({ business, initialMonth, demo }: {
             {o.label}
           </button>
         ))}
-        <span className="ml-auto pb-2.5 text-xs text-zinc-400 hidden sm:inline">Emailed to your managers on the 1st</span>
+        <span className="ml-auto pb-2.5 text-xs text-zinc-400 hidden sm:inline">Emailed on the 1st</span>
       </div>
+
+      {/* CP-221: recipients + "Email me a test" (hidden in previews). */}
+      {!demo && <ReportEmailSettings business={business} month={report?.month ?? null} accent={brand.accent} />}
 
       {err && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Couldn&apos;t load the report: {err}</div>}
       {!report && !err && <div className="flex items-center gap-2 py-16 justify-center text-sm text-zinc-400"><Loader2 className="h-4 w-4 animate-spin" /> Building your report…</div>}
@@ -101,6 +105,7 @@ export function ReportView({ report: r, business, emailed }: { report: Report; b
   const hero = business.hero_image_url || r.business.hero_url || null;
   const k = kpisFor(r.business.layout);
   const tk = takeaways(r);
+  const ws = weeklySpinBlock(r);
   const medspa = r.business.layout === "medspa";
   const through = new Date(r.through);
   const serif = { fontFamily: "Georgia, 'Times New Roman', serif" };
@@ -168,6 +173,26 @@ export function ReportView({ report: r, business, emailed }: { report: Report; b
           })}
         </div>
 
+        {/* CP-221: weekly home spin */}
+        {ws && (
+          <section className="mt-8">
+            <h3 className="text-[13px] font-bold tracking-wide text-zinc-900">Weekly home spin</h3>
+            <p className="mt-1 max-w-3xl text-[14px] leading-relaxed text-zinc-600">{ws.line}</p>
+            <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-xl border border-zinc-200 sm:grid-cols-5">
+              {ws.rows.map((x, i) => (
+                <div key={x.label} title={x.hint}
+                  className={cn("px-4 py-3 border-zinc-200", i % 2 === 1 && "border-l sm:border-l-0", i > 0 && "sm:border-l", i >= 2 && "border-t sm:border-t-0")}>
+                  <div className="text-[12px] text-zinc-500">{x.label}</div>
+                  <div className="mt-0.5 text-[22px] font-bold tabular-nums text-zinc-900">{x.value}</div>
+                  <div className={cn("text-[12px]", !x.change ? "text-zinc-400" : x.change.dir === "up" ? "text-green-700" : x.change.dir === "down" ? "text-red-700" : "text-zinc-500")}>
+                    {x.change ? x.change.text : x.hint}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_300px]">
           {/* Worth your attention */}
           <section>
@@ -207,7 +232,7 @@ export function ReportView({ report: r, business, emailed }: { report: Report; b
           <Mail className="h-3.5 w-3.5" />
           {emailed.at
             ? <>Emailed {new Date(emailed.at).toLocaleDateString(undefined, { month: "short", day: "numeric" })} to {(emailed.to ?? []).join(", ") || "your managers"}</>
-            : "Saved, not emailed (no manager email on file)."}
+            : "Saved, not emailed (no report email on file)."}
         </footer>
       )}
     </article>

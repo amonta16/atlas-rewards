@@ -24,6 +24,7 @@ import { jitteredPollMs } from "@/lib/realtime-jitter";
 import { readableTextColor } from "@/lib/patterns";
 import { resolveStreakTheme, streakGradient } from "@/lib/streak-themes";
 import { DailyMysteryModal } from "./daily-mystery-modal";
+import { useSpinStatus } from "@/lib/use-spin-status";
 import type { Business, Membership } from "@/lib/types/database";
 
 type StreakSnap = {
@@ -61,6 +62,9 @@ export function HeaderActions({
   const router = useRouter();
   const [streak, setStreak] = useState<StreakSnap | null>(null);
   const [checkedInToday, setCheckedInToday] = useState(false);
+  // CP-221: weekly home spin (entertainment apps) — read only when the menu's wheel is opened.
+  const [wantSpinStatus, setWantSpinStatus] = useState(false);
+  const { status: spin, reload: reloadSpin } = useSpinStatus(business.id, wantSpinStatus ? membershipId : null);
   // CP-36: 12-hour cooldown countdown shown on the Check-in pill.
   // null means "no cooldown active" — pill renders the locked state.
   // CP-42: track absolute expiration time and force re-renders, so the
@@ -274,6 +278,7 @@ export function HeaderActions({
     try { window.localStorage.setItem(spinSeenKey, "1"); } catch { /* ignore */ }
     setSpinNudgeSeen(true);
     setMysteryOpen(true);
+    setWantSpinStatus(true);
   }
 
   // ─── render ──────────────────────────────────────────────────────────────
@@ -426,8 +431,10 @@ export function HeaderActions({
         <DailyMysteryModal
           business={business}
           membershipId={membershipId}
-          checkedInToday={checkedInToday}
-          onClose={() => setMysteryOpen(false)}
+          checkedInToday={spin?.checked_in_today ?? checkedInToday}
+          checkinAvailable={spin?.checkin_available}
+          homeSpin={spin ? { enabled: spin.home_enabled, available: spin.home_available, resetsAt: spin.home_resets_at } : null}
+          onClose={() => { setMysteryOpen(false); reloadSpin(); }}
         />
       )}
     </>

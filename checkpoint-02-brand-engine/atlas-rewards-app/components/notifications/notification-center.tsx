@@ -27,7 +27,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type NotifKind =
   | "streak" | "review" | "daily_check" | "automated_offer"
-  | "customer_offer" | "reward_expiration" | "generic";
+  | "customer_offer" | "reward_expiration" | "weekly_spin" | "generic";
 
 type Notif = {
   id: string;
@@ -47,6 +47,8 @@ const KIND_META: Record<NotifKind, { icon: typeof Flame; tone: string; label: st
   customer_offer:     { icon: MessageSquareHeart, tone: "bg-rose-100 text-rose-700",       label: "From the team" },
   // CP-161: expiring = urgent → red, not yellow.
   reward_expiration:  { icon: Gift,               tone: "bg-red-100 text-red-700",         label: "Expiring soon" },
+  // CP-221: the free weekly home spin.
+  weekly_spin:        { icon: Sparkles,           tone: "bg-yellow-100 text-yellow-800",   label: "Weekly spin" },
   generic:            { icon: Bell,               tone: "bg-zinc-100 text-zinc-700",       label: "Notification" },
 };
 

@@ -14,6 +14,11 @@
  * so it survives page refreshes but resets daily. The prize itself is picked
  * and awarded SERVER-side (spin_daily_reward) — the wheel is pure theater,
  * and it lands on the segment matching whatever the server awarded.
+ *
+ * CP-221: entertainment apps also get ONE free spin per week from home
+ * (no check-in, doesn't stack). The parent passes `homeSpin` (from
+ * my_spin_status); the server decides which spin is used — today's
+ * check-in spin first, otherwise the weekly home spin.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -111,11 +116,17 @@ export function DailyMysteryModal({
   business,
   membershipId,
   checkedInToday,
+  checkinAvailable,
+  homeSpin,
   onClose,
 }: {
   business: Business;
   membershipId: string | null;
   checkedInToday: boolean;
+  /** CP-221: server answer for "today's check-in spin is unused" (overrides localStorage). */
+  checkinAvailable?: boolean;
+  /** CP-221: weekly home spin state; omit on businesses/screens that don't use it. */
+  homeSpin?: { enabled: boolean; available: boolean; resetsAt: string | null } | null;
   onClose: () => void;
 }) {
   const todayKey   = `mystery_${business.id}_${new Date().toDateString()}`;
@@ -136,10 +147,23 @@ export function DailyMysteryModal({
     // cooldown gates for is_demo businesses (cp68 SQL), so the owner can
     // watch the reward moment as many times as the pitch needs.
     if (isDemo) return "ready";
-    if (!checkedInToday) return "locked";
+    // CP-221: today's check-in spin first, then the weekly home spin.
+    if (checkedInToday && (checkinAvailable ?? !alreadyClaimed)) return "ready";
+    if (homeSpin?.available) return "ready";
     if (alreadyClaimed) return "claimed";
-    return "ready";
+    if (!checkedInToday) return "locked";
+    return "claimed";
   });
+  // Which spin the READY button will use (copy only — the server decides).
+  const usingHome = !isDemo && !!homeSpin?.available && !(checkedInToday && (checkinAvailable ?? !alreadyClaimed));
+  const resetsLabel = homeSpin?.resetsAt
+    ? new Date(homeSpin.resetsAt).toLocaleDateString(undefined, { weekday: "long" })
+    : "Monday";
+  // Status can arrive after the modal opened — unlock if a spin became available.
+  useEffect(() => {
+    if (phase === "locked" && (homeSpin?.available || (checkedInToday && checkinAvailable))) setPhase("ready");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homeSpin?.available, checkinAvailable, checkedInToday]);
 
   const [prize, setPrize] = useState<Prize | null>(storedPrize);
   // White-flash overlay
@@ -396,7 +420,7 @@ export function DailyMysteryModal({
           </h2>
           <p className="text-[11px] mt-1 tracking-widest uppercase"
             style={{ color: `${primary}cc` }}>
-            {isDemo ? "Demo mode — unlimited plays" : "One spin per day"}
+            {isDemo ? "Demo mode — unlimited plays" : homeSpin?.enabled ? "A spin every visit + 1 free from home each week" : "One spin per day"}
           </p>
         </div>
 
@@ -511,8 +535,9 @@ export function DailyMysteryModal({
                 <span className="text-zinc-300 text-xs font-bold uppercase tracking-widest">Spin locked</span>
               </div>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                These prizes are up for grabs — visit the shop and get
-                checked in to take your spin!
+                {homeSpin?.enabled
+                  ? <>You&apos;ve used this week&apos;s free home spin — a new one unlocks {resetsLabel}. Visit and get checked in to spin again sooner!</>
+                  : <>These prizes are up for grabs — visit the shop and get checked in to take your spin!</>}
               </p>
               <div
                 className="mt-4 text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full"
@@ -530,6 +555,12 @@ export function DailyMysteryModal({
           {/* READY */}
           {phase === "ready" && (
             <>
+              {usingHome && (
+                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-widest"
+                  style={{ color: "#fde68a", background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.35)" }}>
+                  <Gift className="h-3.5 w-3.5" /> Free weekly spin · no visit needed
+                </div>
+              )}
               <button
                 onClick={handleSpin}
                 className="w-full h-16 rounded-2xl font-extrabold text-xl uppercase tracking-widest text-black transition-all active:scale-95 hover:brightness-110"
@@ -743,7 +774,11 @@ export function DailyMysteryModal({
               )}
 
               <p className="text-zinc-500 text-xs mb-5 mt-3">
-                Check in tomorrow for a fresh spin.
+                {checkedInToday || !homeSpin?.enabled
+                  ? "Check in tomorrow for a fresh spin."
+                  : homeSpin.available
+                    ? "Your free weekly spin is still ready — reopen the wheel to take it."
+                    : `Check in on your next visit for another spin. Next free home spin: ${resetsLabel}.`}
               </p>
               {/* CP-68: demo apps replay the reward moment endlessly. */}
               {isDemo && (

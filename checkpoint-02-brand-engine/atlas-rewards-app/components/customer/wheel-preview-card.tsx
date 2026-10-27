@@ -10,6 +10,8 @@
  * hiding.
  *
  * CP-175: every layout preset now uses this card (the compact spin+streak row is retired).
+ * CP-221: shows the free weekly home spin ("Free spin ready — no visit needed")
+ * and opens itself when the app is launched from a weekly-spin push (?spin=1).
  */
 import { useEffect, useMemo, useState } from "react";
 import { optimizedUrl } from "@/lib/img";
@@ -17,6 +19,7 @@ import { Sparkles, Clock, Lock, Coins, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { jitteredPollMs } from "@/lib/realtime-jitter";
 import { DailyMysteryModal } from "./daily-mystery-modal";
+import { useSpinStatus } from "@/lib/use-spin-status";
 import { rewardGameMeta } from "@/lib/reward-games";
 import type { Business } from "@/lib/types/database";
 
@@ -45,6 +48,20 @@ export function WheelPreviewCard({ business, membershipId }: { business: Busines
   const [status, setStatus] = useState<SpinStatus | null>(null);
   const [open, setOpen] = useState(false);
   const [, tick] = useState(0);
+  // CP-221: check-in spin + weekly home spin in one answer.
+  const { status: spin, reload: reloadSpin } = useSpinStatus(business.id, membershipId);
+
+  // CP-221: the weekly-spin push links to /app?spin=1 — open the wheel.
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get("spin") === "1") {
+        setOpen(true);
+        u.searchParams.delete("spin");
+        window.history.replaceState(null, "", u.pathname + (u.search ? u.search : "") + u.hash);
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,8 +101,12 @@ export function WheelPreviewCard({ business, membershipId }: { business: Busines
   const hasPrize = pool.some(s => s.kind === "reward");
 
   const knownNo = status !== null && status.is_available === false;
-  const cooldown = !isDemo && knownNo && checkedIn && !!status?.next_spin_at;
-  const ready = isDemo || (checkedIn && (status ? !!status.is_available : true));
+  const homeReady = !isDemo && !!spin?.home_available;
+  const visitReady = isDemo || (checkedIn && (status ? !!status.is_available : true));
+  const ready = visitReady || homeReady;
+  const cooldown = !isDemo && !ready && knownNo && checkedIn && !!status?.next_spin_at;
+  const homeOn = !!spin?.home_enabled;
+  const resetDay = spin?.home_resets_at ? new Date(spin.home_resets_at).toLocaleDateString(undefined, { weekday: "short" }) : "Mon";
   const leftMs = status?.next_spin_at ? new Date(status.next_spin_at).getTime() - Date.now() : 0;
 
   return (
@@ -136,12 +157,14 @@ export function WheelPreviewCard({ business, membershipId }: { business: Busines
                 {maxPts > 0 ? <>Win up to {maxPts.toLocaleString()} pts</> : "Win points & prizes"}
                 {hasPrize && <span className="text-yellow-300"> + prizes</span>}
               </div>
-              <div className="text-[11px] text-white/75 mt-0.5">One free spin every visit.</div>
+              <div className="text-[11px] text-white/75 mt-0.5">
+                {homeOn ? "A spin every visit + 1 free from home each week." : "One free spin every visit."}
+              </div>
 
               <div className="mt-3">
                 {ready ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full px-4 h-9 text-sm font-extrabold text-zinc-900 bg-yellow-300 shadow-[0_0_0_0_rgba(250,204,21,0.7)] animate-[pulsering_1.6s_ease-out_infinite]">
-                    <Sparkles className="h-4 w-4" /> Spin now
+                    <Sparkles className="h-4 w-4" /> {homeReady && !visitReady ? "Free weekly spin" : "Spin now"}
                   </span>
                 ) : cooldown ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full px-3.5 h-9 text-xs font-bold bg-white/10 ring-1 ring-white/20">
@@ -149,7 +172,7 @@ export function WheelPreviewCard({ business, membershipId }: { business: Busines
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full px-3.5 h-9 text-xs font-bold bg-white/10 ring-1 ring-white/20">
-                    <Lock className="h-3.5 w-3.5" /> Check in to unlock
+                    <Lock className="h-3.5 w-3.5" /> {homeOn ? `Check in to spin · free spin ${resetDay}` : "Check in to unlock"}
                   </span>
                 )}
               </div>
@@ -162,7 +185,14 @@ export function WheelPreviewCard({ business, membershipId }: { business: Busines
         </button>
       </div>
       {open && (
-        <DailyMysteryModal business={business} membershipId={membershipId} checkedInToday={checkedIn} onClose={() => setOpen(false)} />
+        <DailyMysteryModal
+          business={business}
+          membershipId={membershipId}
+          checkedInToday={spin?.checked_in_today ?? checkedIn}
+          checkinAvailable={spin?.checkin_available}
+          homeSpin={spin ? { enabled: spin.home_enabled, available: spin.home_available, resetsAt: spin.home_resets_at } : null}
+          onClose={() => { setOpen(false); reloadSpin(); }}
+        />
       )}
     </>
   );

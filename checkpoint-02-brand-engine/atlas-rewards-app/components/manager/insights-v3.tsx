@@ -32,6 +32,7 @@ import { createClient } from "@/lib/supabase/client";
 import { optimizedUrl } from "@/lib/img";
 import { cn } from "@/lib/utils";
 import type { Business } from "@/lib/types/database";
+import { WeeklySpinInsights } from "@/components/manager/weekly-spin-insights";
 
 type Pillar = { platform: "google" | "instagram" | "facebook"; verified_total: number; verified_30d: number; verified_prev_30d: number; pending: number; rejected: number };
 type V3 = {
@@ -257,6 +258,9 @@ export function InsightsV3({ business }: { business: Business }) {
           <Row icon={<Star className="h-4 w-4" />} label="Social verified" value={social30} sub={d.social_pending_total > 0 ? `${d.social_pending_total} waiting on the desk` : "nothing waiting"} tone={d.social_pending_total > 0 ? "warn" : undefined} />
         </Col>
       </div>
+
+      {/* ── 4b. CP-221: weekly home spin ─────────────────────────── */}
+      <WeeklySpinInsights business={business} />
 
       {/* ── 5. Most redeemed ────────────────────────────────────── */}
       {d.top_rewards.length > 0 && (

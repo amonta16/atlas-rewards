@@ -25,6 +25,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { NotificationBroadcast } from "@/components/notifications/notification-broadcast";
+import { WeeklySpinSetting } from "@/components/agency/weekly-spin-setting";
 import type { Business } from "@/lib/types/database";
 
 type Settings = {
@@ -189,6 +190,9 @@ export function NotificationSettingsPanel({ business }: { business: Business }) 
           })}
         </div>
       </div>
+
+      {/* CP-221 — free weekly home spin (entertainment apps default on). */}
+      <WeeklySpinSetting business={business} />
 
       {/* CP-37.10 — diagnostics panel. Surfaces every link in the
           push-notification chain so the failure mode is obvious instead of

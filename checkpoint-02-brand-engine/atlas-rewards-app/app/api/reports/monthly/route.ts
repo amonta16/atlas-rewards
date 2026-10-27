@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { reportHtml, reportSubject, reportText, type MonthlyReport } from "@/lib/reports/monthly";
+import { sendReportEmail } from "@/lib/reports/send";
 
 /**
  * GET /api/reports/monthly — CP-209 · Vercel Cron, 1st of the month at 16:00 UTC (9am PT).
@@ -19,12 +20,16 @@ import { reportHtml, reportSubject, reportText, type MonthlyReport } from "@/lib
  *   ?dry=1           build + store, send nothing; returns the subject + recipients
  *   ?force=1         resend even if already emailed
  *   ?to=<email>      send ONLY to this address (test a real email; doesn't stamp emailed_at)
+ *
+ * CP-221: recipients = businesses.report_recipients when set (Insights →
+ * Monthly reports → "Who gets this email"), otherwise every manager login.
+ * Signed-in managers can send themselves a test from the same panel
+ * (POST /api/reports/test).
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const FROM = process.env.REPORTS_FROM_EMAIL ?? process.env.LANDING_FROM_EMAIL ?? "Atlas Engine <hello@atlas-engine.app>";
 
 function lastMonth(): string {
   const d = new Date();
@@ -34,15 +39,7 @@ function lastMonth(): string {
 }
 
 async function send(to: string[], subject: string, html: string, text: string): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) { console.info(`[reports] RESEND_API_KEY not set — would have emailed ${to.join(", ")}: ${subject}`); return false; }
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: FROM, to, subject, html, text }),
-  });
-  if (!r.ok) console.error("[reports] resend failed", r.status, await r.text().catch(() => ""));
-  return r.ok;
+  return (await sendReportEmail(to, subject, html, text)).ok;
 }
 
 export async function GET(req: Request) {
