@@ -28,6 +28,44 @@ export type GiftData = {
   new_balance?: number;
 };
 
+/** CP-225: "2 days 14 hrs left" / "5 hrs 12 min left" / "12 min left". */
+function timeLeft(ms: number) {
+  if (ms <= 0) return "Expired";
+  const m = Math.floor(ms / 60_000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+  if (d >= 1) return `${d} day${d === 1 ? "" : "s"}${h % 24 ? ` ${h % 24} hr${h % 24 === 1 ? "" : "s"}` : ""} left`;
+  if (h >= 1) return `${h} hr${h === 1 ? "" : "s"} ${m % 60} min left`;
+  return `${Math.max(1, m)} min left`;
+}
+
+/**
+ * CP-225: once unwrapped, how long they have to use it — big and impossible
+ * to miss. Ticks every 30 s; turns amber under 2 days and red under 24 hours.
+ */
+function RedeemDeadline({ iso, hasCode }: { iso: string; hasCode: boolean }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30_000); return () => clearInterval(t); }, []);
+  const at = new Date(iso);
+  const ms = at.getTime() - Date.now();
+  const tone = ms <= 0 ? { bg: "#3f3f46", ring: "#71717a", fg: "#e4e4e7" }
+    : ms < 86_400_000 ? { bg: "#b91c1c", ring: "#fca5a5", fg: "#ffffff" }
+    : ms < 2 * 86_400_000 ? { bg: "#d97706", ring: "#fcd34d", fg: "#ffffff" }
+    : { bg: "#facc15", ring: "#fef08a", fg: "#18181b" };
+  const when = at.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return (
+    <div className="mt-3 rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-lg" style={{ background: tone.bg, color: tone.fg, boxShadow: `0 0 0 2px ${tone.ring}55` }}
+      role="status" aria-live="polite">
+      <span className="h-11 w-11 shrink-0 rounded-full grid place-items-center" style={{ background: "rgba(255,255,255,.22)" }}>
+        <Clock className="h-6 w-6" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-[11px] font-black uppercase tracking-[0.18em] opacity-90">{ms <= 0 ? "Time's up" : hasCode ? "Time left to redeem" : "Time left to use it"}</div>
+        <div className="text-[22px] font-black leading-tight tabular-nums">{timeLeft(ms)}</div>
+        <div className="text-[12.5px] font-semibold opacity-90">{ms <= 0 ? `Expired ${when}` : `Use by ${when}`}</div>
+      </div>
+    </div>
+  );
+}
+
 const CLEAR_AT = 0.45;
 const BRUSH = 28;
 type Phase = "covered" | "claiming" | "revealed";
@@ -216,8 +254,10 @@ export function GiftScratchScreen({ business, gift: initial, fullName }: { busin
 
             {phase === "revealed" && (
               <div className="mt-6 w-full max-w-sm" style={{ animation: "giftpop .45s cubic-bezier(.2,.9,.3,1.2) both" }}>
+                {/* CP-225: the deadline first — the one thing they must not miss. */}
+                {hasReward && gift.expires_at && <RedeemDeadline iso={gift.expires_at} hasCode={!!gift.code} />}
                 {pts > 0 && (
-                  <div className="rounded-2xl bg-white/10 ring-1 ring-white/15 px-4 py-3 flex items-center gap-3">
+                  <div className="mt-3 rounded-2xl bg-white/10 ring-1 ring-white/15 px-4 py-3 flex items-center gap-3">
                     <span className="h-9 w-9 rounded-full bg-yellow-300 grid place-items-center text-zinc-900"><Coins className="h-5 w-5" /></span>
                     <div className="min-w-0">
                       <div className="font-bold">+{pts.toLocaleString()} points added</div>
@@ -229,7 +269,7 @@ export function GiftScratchScreen({ business, gift: initial, fullName }: { busin
                   <div className="mt-3 rounded-2xl bg-white text-zinc-900 px-4 py-4 text-center">
                     <div className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-500">Show this at the front desk</div>
                     <div className="mt-1 text-[34px] font-black tracking-[0.18em] tabular-nums" style={{ color: primary }}>{gift.code}</div>
-                    <div className="text-xs text-zinc-500">{gift.reward_name}{expLabel ? ` · use by ${expLabel}` : ""}</div>
+                    <div className="text-xs text-zinc-500">{gift.reward_name}</div>
                   </div>
                 )}
                 <div className="mt-4 grid grid-cols-2 gap-2">
