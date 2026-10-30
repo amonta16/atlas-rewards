@@ -5,6 +5,10 @@ import { getPurchases, type Purchase } from "@/lib/orders";
 import { priceLabel } from "@/lib/plans";
 import { TopBar } from "@/components/chrome";
 import { IcBag, IcCheck, IcGift, IcSpark } from "@/components/icons";
+import { ActionButton } from "@/components/action-sheet";
+import { BookNext } from "@/components/book-next";
+import { bookFor } from "@/lib/booking";
+import type { BookingOptions } from "@/lib/medspa";
 
 /** My purchases: Shop orders at this clinic, gift card codes and package sessions left. */
 export default async function Orders({ params, searchParams }: {
@@ -17,12 +21,18 @@ export default async function Orders({ params, searchParams }: {
   const all = patient.signedIn ? await getPurchases(clinic) : [];
   // A pending order is a checkout the patient didn't finish, except the one they just paid for (the webhook may be a second behind).
   const list = all.filter((o) => o.status !== "pending" || (o.id === searchParams.order && searchParams.paid));
+  const just = list.find((o) => o.id === searchParams.order) ?? null;
+  const bookSession = (o: Purchase) => bookFor(clinic, o.treatment_id,
+    `Hi {practice}! I bought ${o.item_name} in the app and I'd like to book a session.`);
 
   return (
     <>
       <TopBar slug={clinic.slug} title="My purchases" />
       {searchParams.paid && (
         <Banner title="Thank you for your order!" body={searchParams.demo ? "Demo clinic: no card was charged." : `${clinic.name} has your order. Show this screen at the front desk.`} />
+      )}
+      {just && just.kind === "package" && (searchParams.paid || searchParams.reserved) && (
+        <BookNext title="Book your first session" body={`${just.item_name}: pick a time for session 1 with ${clinic.name}.`} options={bookSession(just)} />
       )}
       {searchParams.reserved && (
         <Banner title="Reserved" body={`${clinic.name} will have it ready. Pay at the front desk on your next visit.`} />
@@ -34,7 +44,7 @@ export default async function Orders({ params, searchParams }: {
         <Empty title="No purchases yet" body="Treatment packages, skincare and gift cards you buy show up here." href={`${base}/shop?tab=browse`} cta="Browse the shop" />
       ) : (
         <ul className="mx-4 mt-3 space-y-3 pb-4">
-          {list.map((o) => <OrderCard key={o.id} o={o} highlight={o.id === searchParams.order} />)}
+          {list.map((o) => <OrderCard key={o.id} o={o} highlight={o.id === searchParams.order} book={o.kind === "package" ? bookSession(o) : null} />)}
         </ul>
       )}
     </>
@@ -50,7 +60,7 @@ const STATUS: Record<Purchase["status"], { label: string; tone: string }> = {
   refunded: { label: "Refunded", tone: "bg-page text-sub" },
 };
 
-function OrderCard({ o, highlight }: { o: Purchase; highlight: boolean }) {
+function OrderCard({ o, highlight, book }: { o: Purchase; highlight: boolean; book: BookingOptions | null }) {
   const s = STATUS[o.status];
   const Icon = o.kind === "gift_card" ? IcGift : o.kind === "package" ? IcSpark : IcBag;
   const paid = o.status === "paid" || o.status === "fulfilled";
@@ -76,6 +86,10 @@ function OrderCard({ o, highlight }: { o: Purchase; highlight: boolean }) {
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
             <div className="h-full rounded-full bg-ink" style={{ width: `${((o.sessions_total - o.sessions_used) / o.sessions_total) * 100}%` }} />
           </div>
+          {book && o.sessions_total - o.sessions_used > 0 && (paid || o.status === "reserved") && (
+            <ActionButton label="Book a session" options={book} className="btn-ink mt-3 h-11 text-[15px]"
+              sheet={{ title: "Book a session", body: `${o.item_name} · ${o.sessions_total - o.sessions_used} left` }} />
+          )}
         </div>
       ) : null}
 

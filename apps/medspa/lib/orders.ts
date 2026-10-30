@@ -16,18 +16,18 @@ export type DemoOrder = {
 
 export type Purchase = Pick<ShopOrderRow,
   "id" | "item_name" | "kind" | "quantity" | "amount_cents" | "status" | "pay_method" | "sessions_total" | "sessions_used" |
-  "gift_code" | "gift_balance_cents" | "recipient_name" | "created_at">;
+  "gift_code" | "gift_balance_cents" | "recipient_name" | "created_at" | "treatment_id">;
 
 export async function getPurchases(clinic: Clinic): Promise<Purchase[]> {
   if (clinic.isExample && clinic.id === "example") {
     let list: DemoOrder[] = [];
     try { list = JSON.parse(decodeURIComponent(cookies().get(DEMO_ORDERS_COOKIE)?.value ?? "[]")); } catch { /* none */ }
-    return list.map((o) => ({ ...o, status: "paid", pay_method: "stripe", sessions_used: 0, gift_balance_cents: o.gift_code ? o.amount_cents : null }));
+    return list.map((o) => ({ ...o, status: "paid", pay_method: "stripe", sessions_used: 0, gift_balance_cents: o.gift_code ? o.amount_cents : null, treatment_id: null }));
   }
   const user = await getCachedUser();
   if (!user) return [];
   const { data } = await createClient().from("medspa_shop_orders")
-    .select("id, item_name, kind, quantity, amount_cents, status, pay_method, sessions_total, sessions_used, gift_code, gift_balance_cents, recipient_name, created_at")
+    .select("id, item_name, kind, quantity, amount_cents, status, pay_method, sessions_total, sessions_used, gift_code, gift_balance_cents, recipient_name, created_at, treatment_id")
     .eq("business_id", clinic.id).eq("user_id", user.id)
     .in("status", ["pending", "reserved", "paid", "fulfilled", "refunded"])
     .order("created_at", { ascending: false }).limit(40);

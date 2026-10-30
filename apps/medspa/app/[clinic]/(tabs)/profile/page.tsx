@@ -5,6 +5,8 @@ import { TopBar } from "@/components/chrome";
 import { formatPhone } from "@/lib/format";
 import { IcBag, IcCheck, IcNext, IcOut, IcPhone, IcSwap, IcUser } from "@/components/icons";
 import { ManageMembershipRow } from "@/components/subscribe-button";
+import { BookNext } from "@/components/book-next";
+import { bookFor, planFirstTreatment } from "@/lib/booking";
 
 const SITE = "https://www.atlas-engine.app";
 
@@ -31,6 +33,14 @@ export default async function Profile({ params, searchParams }: { params: { clin
             </p>
           </div>
         </section>
+      )}
+      {justJoined && (
+        <BookNext
+          title="Book your first visit"
+          body={`Your ${patient.planName ?? "membership"} benefits start now. Pick a time with ${clinic.name}.`}
+          options={bookFor(clinic, planFirstTreatment(clinic, patient.planName),
+            `Hi {practice}! I just joined the ${patient.planName ?? "membership"} in the app and I'd like to book my first visit.`)}
+        />
       )}
       {patient.signedIn ? (
         <section className="mx-4 mt-3 rounded-card bg-white p-5 shadow-card">

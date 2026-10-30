@@ -128,9 +128,20 @@ Not in 2b yet: shop/gift-card checkout in the med spa app, booking calendar, sta
 
 Test a real purchase the same way as memberships (test-mode clinic + test webhook), card `4242 4242 4242 4242`.
 
+## Phase 2b (part 3): booking after purchase (the Dermis way)
+
+Atlas doesn't run its own calendar (most clinics already book in Boulevard, Vagaro, Mangomint…, and a second calendar would double-book). Instead, right after a purchase the patient is sent to book in the clinic's own system:
+
+- **After joining a membership** (Profile): "Next step · Book your first visit", deep-linked to the booking page of the plan's first included treatment when it has one.
+- **After buying a package** (My purchases): "Book your first session", and every package with sessions left has a **Book a session** button.
+- Order of options everywhere: **Book online** (the treatment's own booking link, else the clinic-wide link) → **Text** → **WhatsApp** (new) → **Call**, each with a pre-filled message saying what they bought.
+- Clinics set these in the builder: Booking (clinic-wide link, phone, text on/off, WhatsApp number, message) and each treatment's booking link. Nothing new to set up.
+
+Not yet: the automated "you haven't booked yet" nudge. It needs push notifications in the med spa app (next), then a post-purchase template in the CP-217 automation suite (trigger: order paid / membership paid, goal: booking). Direct calendar integrations (Boulevard API etc.) are a later, per-system project.
+
 ## Next phases
 
-2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: membership + shop checkout done; next: booking, redeem, push
+2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: membership + shop checkout and post-purchase booking done; next: push, redeem
 3. Move Lotus and the med spa demos to the med spa app; redirects for old links
 4. Delete med spa code from `apps/venues`
 5. Admin: Venues | Med Spas switch; separate med spa builder and desk
