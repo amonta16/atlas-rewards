@@ -116,9 +116,21 @@ No new SQL. The payment is recorded by the existing Connect webhook in the venue
 
 Not in 2b yet: shop/gift-card checkout in the med spa app, booking calendar, staff-free redeem, push, scratch gift. A plan's "minimum commitment" is shown to patients but not enforced by Stripe.
 
+## Phase 2b (part 2): Shop checkout
+
+- Shop items (packages, skincare, gift cards) have a buy panel: quantity for skincare, amount + "who's it for" + note for gift cards, total on the button.
+- **Buy now** → Stripe Checkout on the clinic's account (card, Apple Pay, Google Pay). **Pay over time with Klarna / Affirm** shows when the clinic turned it on (Shop settings → financing, and in the clinic's own Stripe → Payment methods) and the total fits that lender's limits.
+- Clinics with Shop pay mode "in person" or no Stripe connected get **Reserve**: the order shows at the desk (Front desk → Shop) and the patient pays there.
+- Members get member prices automatically (checked on the server).
+- **My purchases** (Profile → My purchases, `/<clinic>/orders`): order status, gift card codes once paid, package sessions left.
+- Same rules and same `medspa_shop_orders` table as the venue app's CP-190/207 shop, so the front desk and the Connect webhook (which marks `atlas_kind = "shop"` orders paid) work unchanged. No new SQL.
+- `/demo`: purchases are kept in a cookie and show in My purchases with a gift code; no card is charged.
+
+Test a real purchase the same way as memberships (test-mode clinic + test webhook), card `4242 4242 4242 4242`.
+
 ## Next phases
 
-2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: membership checkout done; next: shop checkout, booking, redeem, push
+2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: membership + shop checkout done; next: booking, redeem, push
 3. Move Lotus and the med spa demos to the med spa app; redirects for old links
 4. Delete med spa code from `apps/venues`
 5. Admin: Venues | Med Spas switch; separate med spa builder and desk

@@ -21,3 +21,10 @@ export async function clinicTakesCards(clinic: Clinic): Promise<boolean> {
   if (clinic.isExample && clinic.id === "example") return true;
   return !!(await clinicStripeAccount(clinic));
 }
+
+/** Can the Shop take cards here? Needs pay_mode "stripe" AND a live connected account. Otherwise items are reserved and paid at the desk. */
+export async function shopTakesCards(clinic: Clinic): Promise<boolean> {
+  if (clinic.isExample && clinic.id === "example") return true;
+  if (clinic.cfg.shop.pay_mode !== "stripe") return false;
+  return !!(await clinicStripeAccount(clinic));
+}

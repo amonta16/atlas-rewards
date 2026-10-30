@@ -3,7 +3,7 @@ import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { TopBar } from "@/components/chrome";
 import { formatPhone } from "@/lib/format";
-import { IcCheck, IcNext, IcOut, IcPhone, IcSwap, IcUser } from "@/components/icons";
+import { IcBag, IcCheck, IcNext, IcOut, IcPhone, IcSwap, IcUser } from "@/components/icons";
 import { ManageMembershipRow } from "@/components/subscribe-button";
 
 const SITE = "https://www.atlas-engine.app";
@@ -65,6 +65,7 @@ export default async function Profile({ params, searchParams }: { params: { clin
             <IcNext className="h-4 w-4 text-faint" strokeWidth={2.2} />
           </ManageMembershipRow>
         )}
+        {patient.signedIn && clinic.cfg.shop.enabled && <Row href={`${base}/orders`} Icon={IcBag} label="My purchases" />}
         {clinic.phone && <Row href={`tel:${clinic.phone}`} Icon={IcPhone} label={`Call ${clinic.name}`} />}
         <Row href="/find?change=1" Icon={IcSwap} label="Change location" />
         {patient.signedIn && <Row href="/auth/signout" Icon={IcOut} label="Sign out" prefetch={false} />}
