@@ -1,8 +1,6 @@
 # packages/
 
-Empty until Phase 2. The plan:
+- `core/`: code both apps share. Today: Supabase clients (browser, server, middleware with the CP-84 refresh fixes, service role), the shared session cookie (`.atlas-engine.app`), membership reading, Supabase image URLs.
+  `apps/medspa` uses it now. `apps/venues` still has its own copies under `lib/` and moves onto `core` in Phase 4.
 
-- `core/`: Supabase clients (browser, server, service role), sign-in helpers, push sending, points ledger, shared types. Used by both `apps/venues` and `apps/medspa`.
-- `ui/`: only the truly generic pieces (buttons, sheets, toasts). Each app keeps its own look.
-
-Anything niche-specific stays inside its app.
+Rules: nothing niche-specific in here, and anything you change here must keep both apps building.

@@ -8,6 +8,12 @@
     "test": "npm --prefix apps/venues test",
     "venues:dev": "npm --prefix apps/venues run dev",
     "venues:build": "npm --prefix apps/venues run build",
-    "venues:install": "npm --prefix apps/venues ci"
-  }
+    "venues:install": "npm --prefix apps/venues ci",
+    "medspa:dev": "npm --workspace @atlas/medspa run dev",
+    "medspa:build": "npm --workspace @atlas/medspa run build"
+  },
+  "workspaces": [
+    "apps/medspa",
+    "packages/*"
+  ]
 }

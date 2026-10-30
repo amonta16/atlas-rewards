@@ -1,0 +1,17 @@
+{
+  "name": "@atlas/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Code both Atlas apps share: Supabase clients and session cookies, memberships, image URLs.",
+  "exports": {
+    "./supabase/*": "./src/supabase/*.ts",
+    "./membership": "./src/membership.ts",
+    "./img": "./src/img.ts"
+  },
+  "peerDependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.46.1",
+    "next": "^14.2.32",
+    "react": "^18.3.1"
+  }
+}

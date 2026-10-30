@@ -55,9 +55,43 @@ Run on the preview (step 4) and again on production (step 6).
 9. `/agency` loads for your admin account; the Flippo's builder opens.
 10. iOS app "Atlas Rewards" opens to `/join` and lands on Flippo's (no app update needed; it loads the live site).
 
+## Phase 2a: med spa app (`apps/medspa`)
+
+What's built: a separate Next.js app sharing the same Supabase database through `packages/core`.
+
+- `/find`: Find your location (search by name, Scan QR Code, "I have a referral code" = the clinic's join code).
+- `/<clinic>/login`: phone number, then texted 6-digit code, then name (first time only). New patients are enrolled with `enroll_member`, same as the venue app.
+- `/<clinic>`: Home (hero, points + membership status, membership promo, rewards, popular treatments, book, results, location).
+- `/<clinic>/shop`: Browse / Memberships / Treatments, plus membership, treatment and product detail screens.
+- `/<clinic>/rewards`, `/<clinic>/profile`.
+- Guests can browse everything; Subscribe / Book / Redeem show the sign-in prompt first.
+- `/demo` is a built-in example clinic (Glow Aesthetics) that needs no database: use it for sales demos. Any 6 digits sign in there.
+
+Not yet (Phase 2b): in-app checkout (Stripe) for memberships/shop, in-app booking calendar, redeem without staff, push notifications, scratch gift. Until then Subscribe / Book / Buy open a sheet to book online, text or call the clinic, and rewards are redeemed at the desk by phone lookup.
+
+Membership plans: the app reads `businesses.medspa_config.memberships` (a list of plans, see `apps/medspa/lib/plans.ts`). A clinic without plans shows its existing single membership as one plan. **Don't edit a med spa in the venue builder after adding plans by hand**: the old builder doesn't know about `memberships` yet (fixed in Phase 5).
+
+### Going live
+
+1. **Vercel → Add New → Project →** import `atlas-rewards` again, name it `atlas-medspa`.
+   - Root Directory: `apps/medspa` (framework: Next.js; leave install/build commands default).
+   - Environment variables (copy the values from the atlas-rewards project):
+     `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_ROOT_DOMAIN` (= `atlas-engine.app`), and `SESSION_HANDOFF_SECRET` if the venue project has one.
+2. **Domain:** in atlas-medspa → Settings → Domains add `med.atlas-engine.app`. (A domain attached to a project beats the venue app's wildcard, so business subdomains are unaffected.)
+3. **Text sign-in (Twilio Verify, ~15 min):**
+   1. Create a Twilio account → upgrade from trial (trial can only text verified numbers).
+   2. Twilio Console → Verify → Services → Create, name it after the clinic app (the name appears in the text). Copy the **Verify Service SID** (starts `VA…`).
+   3. Copy the **Account SID** and **Auth Token** from the Twilio Console home.
+   4. Supabase → Authentication → Sign In / Providers → **Phone** → enable → SMS provider **Twilio Verify** → paste the three values → Save.
+   5. Supabase → Authentication → Rate Limits: leave the defaults (one text per number per minute).
+   Why Verify instead of a normal Twilio number: US texting from a regular number needs A2P 10DLC brand registration (weeks); Verify is exempt for login codes.
+4. Open `https://med.atlas-engine.app/demo` and click around. Then search for Lotus at `/find`, sign in with your own phone, check your name, points and the desk lookup.
+
+The venue app is not affected by any of this: `apps/venues` has zero changes and still installs from its own lockfile. Check that its next production build stays green after this merge.
+
 ## Next phases
 
-2. `apps/medspa` + `packages/core`, phone-code sign-in (Twilio), Dermis-style patient app
+2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: checkout, booking, redeem, push
 3. Move Lotus and the med spa demos to the med spa app; redirects for old links
 4. Delete med spa code from `apps/venues`
 5. Admin: Venues | Med Spas switch; separate med spa builder and desk
