@@ -3,18 +3,35 @@ import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { TopBar } from "@/components/chrome";
 import { formatPhone } from "@/lib/format";
-import { IcNext, IcOut, IcPhone, IcSwap, IcUser } from "@/components/icons";
+import { IcCheck, IcNext, IcOut, IcPhone, IcSwap, IcUser } from "@/components/icons";
+import { ManageMembershipRow } from "@/components/subscribe-button";
 
 const SITE = "https://www.atlas-engine.app";
 
-export default async function Profile({ params }: { params: { clinic: string } }) {
+export default async function Profile({ params, searchParams }: { params: { clinic: string }; searchParams: { membership?: string; demo?: string } }) {
   const clinic = (await getClinic(params.clinic))!;
   const patient = await getPatient(clinic);
   const base = `/${clinic.slug}`;
+  const justJoined = searchParams.membership === "success";
 
   return (
     <>
       <TopBar slug={clinic.slug} title="Profile" />
+      {justJoined && (
+        <section className="mx-4 mt-3 flex gap-3 rounded-card bg-ink p-5 text-white shadow-card">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15"><IcCheck className="h-5 w-5" /></span>
+          <div>
+            <p className="text-[17px] font-semibold">Welcome to the membership!</p>
+            <p className="mt-1 text-[14px] leading-snug text-white/75">
+              {searchParams.demo
+                ? "Demo clinic: no card was charged."
+                : patient.isMember
+                  ? `Your payment went through. ${clinic.name} will see you're a member at your next visit.`
+                  : "Your payment went through. Your membership will show here in a minute; pull down to refresh."}
+            </p>
+          </div>
+        </section>
+      )}
       {patient.signedIn ? (
         <section className="mx-4 mt-3 rounded-card bg-white p-5 shadow-card">
           <div className="flex items-center gap-3.5">
@@ -28,7 +45,7 @@ export default async function Profile({ params }: { params: { clinic: string } }
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <Stat label="Points" value={patient.points.toLocaleString("en-US")} />
-            <Stat label="Membership" value={patient.isMember ? "Active" : "Not a member"} />
+            <Stat label="Membership" value={patient.isMember ? (patient.planName ?? "Active") : "Not a member"} />
           </div>
         </section>
       ) : (
@@ -41,6 +58,13 @@ export default async function Profile({ params }: { params: { clinic: string } }
 
       <ul className="mx-4 mt-4 divide-y divide-line overflow-hidden rounded-card bg-white shadow-card">
         {!patient.isMember && clinic.plans.length > 0 && <Row href={`${base}/shop?tab=memberships`} Icon={IcUser} label="Become a member" />}
+        {patient.isMember && !clinic.isExample && (
+          <ManageMembershipRow slug={clinic.slug} phone={clinic.phone}>
+            <IcUser className="h-5 w-5 text-sub" />
+            <span className="flex-1 text-[15.5px] font-medium">Manage membership</span>
+            <IcNext className="h-4 w-4 text-faint" strokeWidth={2.2} />
+          </ManageMembershipRow>
+        )}
         {clinic.phone && <Row href={`tel:${clinic.phone}`} Icon={IcPhone} label={`Call ${clinic.name}`} />}
         <Row href="/find?change=1" Icon={IcSwap} label="Change location" />
         {patient.signedIn && <Row href="/auth/signout" Icon={IcOut} label="Sign out" prefetch={false} />}

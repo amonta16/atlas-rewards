@@ -25,11 +25,13 @@ export type Patient = {
   membershipId: string | null;
   isMember: boolean;
   memberSince: string | null;
+  /** The plan they joined ("Glow Club"), stamped by the Stripe webhook. */
+  planName: string | null;
 };
 
 const GUEST: Patient = {
   signedIn: false, userId: null, firstName: null, fullName: null, phone: null,
-  points: 0, membershipId: null, isMember: false, memberSince: null,
+  points: 0, membershipId: null, isMember: false, memberSince: null, planName: null,
 };
 
 export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
@@ -37,9 +39,12 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
     const raw = cookies().get(DEMO_COOKIE)?.value;
     if (!raw) return GUEST;
     try {
-      const d = JSON.parse(decodeURIComponent(raw)) as { name?: string; phone?: string };
+      const d = JSON.parse(decodeURIComponent(raw)) as { name?: string; phone?: string; plan?: string };
       const full = d.name?.trim() || "Alex Rivera";
-      return { ...GUEST, signedIn: true, fullName: full, firstName: full.split(" ")[0], phone: d.phone ?? null, points: 240, membershipId: "demo" };
+      return {
+        ...GUEST, signedIn: true, fullName: full, firstName: full.split(" ")[0], phone: d.phone ?? null, points: 240, membershipId: "demo",
+        isMember: !!d.plan, planName: d.plan ?? null, memberSince: d.plan ? new Date().toISOString() : null,
+      };
     } catch { return GUEST; }
   }
 
@@ -56,9 +61,12 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
     mem = (Array.isArray(m) ? m[0] : m) as typeof mem;
   }
 
-  const [{ data: profile }, status] = await Promise.all([
+  const [{ data: profile }, status, { data: memRow }] = await Promise.all([
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
     supabase.rpc("member_membership_status", { p_business_id: clinic.id }),
+    mem?.id
+      ? supabase.from("business_memberships").select("membership_plan_label").eq("id", mem.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const s = ((Array.isArray(status.data) ? status.data[0] : status.data) ?? null) as { is_paid?: boolean; paid_at?: string | null } | null;
   const full = (profile as { full_name?: string | null } | null)?.full_name?.trim() || null;
@@ -72,5 +80,6 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
     membershipId: mem?.id ?? null,
     isMember: !status.error && !!s?.is_paid,
     memberSince: s?.paid_at ?? null,
+    planName: (memRow as { membership_plan_label?: string | null } | null)?.membership_plan_label ?? null,
   };
 });

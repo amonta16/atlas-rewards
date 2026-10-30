@@ -5,6 +5,9 @@ import { bookingOptions } from "@/lib/medspa";
 import { priceLabel } from "@/lib/plans";
 import { FloatingBack } from "@/components/chrome";
 import { IncludedCard } from "@/components/included-card";
+import { SubscribeButton } from "@/components/subscribe-button";
+import { getPatient } from "@/lib/patient";
+import { clinicTakesCards } from "@/lib/payments";
 import { ActionButton } from "@/components/action-sheet";
 import { IcCheck, IcGift } from "@/components/icons";
 
@@ -19,6 +22,8 @@ export default async function MembershipDetail({ params }: { params: { clinic: s
   const plan = clinic.plans.find((p) => p.id === params.id);
   if (!plan) notFound();
   const base = `/${clinic.slug}`;
+  const [patient, takesCards] = await Promise.all([getPatient(clinic), clinicTakesCards(clinic)]);
+  const onThisPlan = patient.isMember && (!patient.planName || patient.planName === plan.name);
   const options = bookingOptions(
     { ...clinic.cfg.booking, message: `Hi {practice}! I'd like to join the ${plan.name} membership.` },
     clinic.name, clinic.phone, null,
@@ -76,8 +81,18 @@ export default async function MembershipDetail({ params }: { params: { clinic: s
       )}
 
       <section className="sticky z-20 space-y-2.5 bg-gradient-to-t from-page via-page to-page/0 px-4 pb-4 pt-6" style={{ bottom: "calc(4.6rem + env(safe-area-inset-bottom, 0px))" }}>
-        <ActionButton label="Subscribe now!" options={options}
-          sheet={{ title: `Join ${plan.name}`, body: `${priceLabel(plan.price_cents)}/month. ${clinic.name} will set up your membership and your first visit.` }} />
+        {patient.isMember ? (
+          <a href={`${base}/profile`} className="btn-ghost">{onThisPlan ? "You're a member" : `You're on ${patient.planName}`}</a>
+        ) : takesCards ? (
+          <>
+            <SubscribeButton slug={clinic.slug} planId={plan.id} label="Subscribe now!" options={options}
+              fallbackSheet={{ title: `Join ${plan.name}`, body: `${priceLabel(plan.price_cents)}/month. ${clinic.name} will set up your membership and your first visit.` }} />
+            <p className="text-center text-[12.5px] text-faint">{priceLabel(plan.price_cents)} billed monthly · Secure checkout by Stripe</p>
+          </>
+        ) : (
+          <ActionButton label="Subscribe now!" options={options}
+            sheet={{ title: `Join ${plan.name}`, body: `${priceLabel(plan.price_cents)}/month. ${clinic.name} will set up your membership and your first visit.` }} />
+        )}
         {plan.join_bonus && (
           <div className="flex items-center gap-3 rounded-card bg-white px-4 py-3 shadow-card">
             <IcGift className="h-5 w-5 shrink-0" />

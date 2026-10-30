@@ -2,11 +2,12 @@
   "name": "@atlas/core",
   "version": "0.1.0",
   "private": true,
-  "description": "Code both Atlas apps share: Supabase clients and session cookies, memberships, image URLs.",
+  "description": "Code both Atlas apps share: Supabase clients and session cookies, memberships, image URLs, Stripe Connect.",
   "exports": {
     "./supabase/*": "./src/supabase/*.ts",
     "./membership": "./src/membership.ts",
-    "./img": "./src/img.ts"
+    "./img": "./src/img.ts",
+    "./payments/*": "./src/payments/*.ts"
   },
   "peerDependencies": {
     "@supabase/ssr": "^0.5.2",

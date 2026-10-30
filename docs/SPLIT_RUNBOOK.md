@@ -89,9 +89,36 @@ Membership plans: the app reads `businesses.medspa_config.memberships` (a list o
 
 The venue app is not affected by any of this: `apps/venues` has zero changes and still installs from its own lockfile. Check that its next production build stays green after this merge.
 
+## Phase 2b: membership checkout (Stripe Connect)
+
+What's built:
+
+- **Subscribe now!** on a plan opens Stripe Checkout on the **clinic's own** Stripe account (CP-149 Connect). The patient pays the clinic; Atlas never holds the money or the clinic's keys. Optional Atlas fee: `STRIPE_PLATFORM_FEE_PERCENT`.
+- The plan and price are re-read on the server (`/api/<clinic>/checkout`); the browser only sends the plan id. The signed-in patient comes from the session, not the request.
+- After paying, the patient lands on Profile with "Welcome to the membership!", and Profile shows the plan name (e.g. "Glow Club").
+- Members get **Manage membership** in Profile → Stripe's billing portal (card, receipts, cancel).
+- A clinic that hasn't connected Stripe still shows the book / text / call sheet, same as before.
+- `/demo` fakes a successful checkout (no card, no keys needed) so sales demos show the whole flow.
+- The demo now runs with **no Supabase keys at all** (middleware skips `/demo` and missing keys).
+
+No new SQL. The payment is recorded by the existing Connect webhook in the venue app (`/api/stripe/connect/webhook`, CP-149), which calls `apply_membership_event` and stores the plan name in `business_memberships.membership_plan_label`. Code shared with the venue app is in `packages/core/src/payments/` (copied from `apps/venues/lib/payments/`, plus `planLabel` and `extraMetadata`).
+
+### Environment (apps/medspa)
+
+`STRIPE_SECRET_KEY` = the **Atlas platform** key (same one the venue project uses), plus the Supabase variables. Locally use `sk_test_…`; on Vercel production, the live key. `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` isn't used yet (Checkout is hosted by Stripe), harmless to keep.
+
+### Testing a real card (test mode)
+
+1. The clinic must be connected to Stripe **in test mode**: a live-mode connection doesn't work with a `sk_test_` key. Easiest: run the venue app locally with the same test key, sign in as the clinic's manager, Billing → Connect Stripe, and finish Stripe's test onboarding (Stripe offers "use test data").
+2. The webhook: in Stripe (test mode) → Developers → Webhooks → add `https://www.atlas-engine.app/api/stripe/connect/webhook`, "Listen to events on Connected accounts", same events as CP-149. Or locally with the Stripe CLI: `stripe listen --forward-connect-to localhost:3000/api/stripe/connect/webhook` with the venue app running.
+3. In the med spa app: sign in, open a plan, Subscribe now!, pay with card `4242 4242 4242 4242`, any future date, any CVC.
+4. Check: Profile shows the plan; the clinic's Stripe dashboard (test) shows the subscription; the manager portal shows the member as paid.
+
+Not in 2b yet: shop/gift-card checkout in the med spa app, booking calendar, staff-free redeem, push, scratch gift. A plan's "minimum commitment" is shown to patients but not enforced by Stripe.
+
 ## Next phases
 
-2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: checkout, booking, redeem, push
+2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: membership checkout done; next: shop checkout, booking, redeem, push
 3. Move Lotus and the med spa demos to the med spa app; redirects for old links
 4. Delete med spa code from `apps/venues`
 5. Admin: Venues | Med Spas switch; separate med spa builder and desk
