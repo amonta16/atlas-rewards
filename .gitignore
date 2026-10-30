@@ -8,7 +8,7 @@
 *.p12
 *.keystore
 *.jks
-# NOTE: mobile-shell's google-services.json / GoogleService-Info.plist are
+# NOTE: native/venues-shell's google-services.json / GoogleService-Info.plist are
 # deliberately tracked. They are Firebase *client* config (no service-account
 # private key) and the native builds need them.
 
@@ -31,11 +31,11 @@ build/
 *.tsbuildinfo
 
 # ─── Native build artifacts ────────────────────────────────────────
-mobile-shell/android/build/
-mobile-shell/android/app/build/
-mobile-shell/android/.gradle/
-mobile-shell/ios/App/Pods/
-mobile-shell/ios/App/build/
+native/venues-shell/android/build/
+native/venues-shell/android/app/build/
+native/venues-shell/android/.gradle/
+native/venues-shell/ios/App/Pods/
+native/venues-shell/ios/App/build/
 
 # ─── OS / editor cruft ─────────────────────────────────────────────
 .DS_Store

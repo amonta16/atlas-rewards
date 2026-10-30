@@ -1,0 +1,13 @@
+{
+  "name": "atlas",
+  "private": true,
+  "description": "Atlas Engine monorepo: the venue rewards app today, the med spa app next.",
+  "scripts": {
+    "dev": "npm --prefix apps/venues run dev",
+    "build": "npm --prefix apps/venues run build",
+    "test": "npm --prefix apps/venues test",
+    "venues:dev": "npm --prefix apps/venues run dev",
+    "venues:build": "npm --prefix apps/venues run build",
+    "venues:install": "npm --prefix apps/venues ci"
+  }
+}
