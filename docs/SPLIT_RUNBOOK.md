@@ -139,9 +139,21 @@ Atlas doesn't run its own calendar (most clinics already book in Boulevard, Vaga
 
 Not yet: the automated "you haven't booked yet" nudge. It needs push notifications in the med spa app (next), then a post-purchase template in the CP-217 automation suite (trigger: order paid / membership paid, goal: booking). Direct calendar integrations (Boulevard API etc.) are a later, per-system project.
 
+## Phase 2b (part 4): push notifications
+
+- **Opt-in:** signed-in patients see "Never miss a reward · Turn on notifications" on Home (dismissible) and a Notifications switch in Profile. On iPhone in Safari it explains Add to Home Screen first (Apple only allows web push from an app on the Home Screen, iOS 16.4+). Each clinic now has its own install manifest (name, icon from the clinic's app icon / logo), so Add to Home Screen makes a real app.
+- **Sending is unchanged:** subscriptions go into the same `push_subscriptions` table, tagged with the clinic, so everything the venue app already sends (CP-217 automations, offers, broadcasts, reward alerts, crons) reaches med spa patients. Taps on venue-style links (`/app/book`, `/app/membership`, `/app/store?tab=mine`…) are translated to the med spa screens (`app/[clinic]/app/[[...rest]]`).
+- `/demo`: turning notifications on shows a real test notification; nothing is saved.
+- **Env:** add `VAPID_PUBLIC_KEY` (or `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, the same value as the venue project) to `apps/medspa/.env.local` and to the atlas-medspa Vercel project. The private key stays only in the venue project (it does the sending).
+- Known overlap until Phase 3: a patient who turned on push in BOTH the old venue-app Lotus page and the med spa app gets each push twice (two devices/origins). Moving Lotus fully to the med spa app (Phase 3) removes it.
+
+### "Book after purchase" automation (CP-228)
+
+New 15th journey in the med spa suite: day 1 and day 4 pushes after a membership becomes active or a **package** is paid, stopping when they book or come in. SQL in `db/history/checkpoint-228-medspa-book-nudge/` (run `01_entry_kind.sql` then `02_catalog.sql` in Supabase). Tested on a scratch Postgres; the live functions were checked first and match CP-217. Nothing sends until the journey is installed/turned on for a clinic in admin → Automations.
+
 ## Next phases
 
-2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: membership + shop checkout and post-purchase booking done; next: push, redeem
+2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: checkout, post-purchase booking, push done; next: in-app redeem, scratch gift
 3. Move Lotus and the med spa demos to the med spa app; redirects for old links
 4. Delete med spa code from `apps/venues`
 5. Admin: Venues | Med Spas switch; separate med spa builder and desk

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NotifyCard } from "@/components/notifications";
 import { optimizedUrl } from "@atlas/core/img";
 import { activeTreatments, getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
@@ -39,11 +40,13 @@ export default async function Home({ params }: { params: { clinic: string } }) {
           <span className="text-[17px] font-bold tabular-nums">{patient.points.toLocaleString("en-US")}</span>
           <span className="text-[12px] font-semibold uppercase tracking-[0.08em] text-sub">points</span>
           <span className={`ml-auto rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.08em] ${patient.isMember ? "bg-brand text-white" : "bg-page text-sub"}`}>
-            {patient.isMember ? "Member" : "Not a member"}
+            {patient.isMember ? (patient.planName ?? "Member") : "Not a member"}
           </span>
           <IcNext className="h-4 w-4 text-faint" strokeWidth={2.2} />
         </Link>
       </section>
+
+      {patient.signedIn && <NotifyCard clinicId={clinic.id} clinicName={clinic.name} slug={clinic.slug} demo={clinic.isExample && clinic.id === "example"} />}
 
       {/* Membership promo */}
       {clinic.plans.length > 0 && (
