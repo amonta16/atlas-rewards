@@ -26,8 +26,8 @@ import { Switch } from "@/components/ui/switch";
 import { ImageUploader } from "@/components/agency/image-uploader";
 import type { Business } from "@/lib/types/database";
 import {
-  FINANCING_LIMITS, cleanUrl, MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, RECALL_TOKENS, SHOP_KIND_LABEL, cents, fillTemplate, newId, weeksLabel,
-  type MedspaConfig, type MedspaGalleryItem, type MedspaProvider, type MedspaShopItem, type MedspaTreatment, type ShopKind,
+  BOOKING_METHOD_LABEL, FINANCING_LIMITS, cleanUrl, MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, RECALL_TOKENS, SHOP_KIND_LABEL, cents, fillTemplate, newId, weeksLabel,
+  type BookingMethod, type MedspaConfig, type MedspaGalleryItem, type MedspaProvider, type MedspaShopItem, type MedspaTreatment, type ShopKind,
 } from "@/lib/medspa";
 
 type EditorProps = { business: Business; cfg: MedspaConfig; onChange: (next: MedspaConfig) => void };
@@ -198,7 +198,7 @@ export function TreatmentsEditor({ business, cfg, onChange }: EditorProps) {
   );
 }
 
-/** CP-207: how "Book" works in the patient app (the Dermis model). */
+/** CP-207: how "Book" works in the patient app (the Dermis model). Med spa split: the clinic picks ONE method. */
 function BookingEditor({ business, cfg, onChange }: EditorProps) {
   const b = cfg.booking;
   const setB = (p: Partial<MedspaConfig["booking"]>) => onChange({ ...cfg, booking: { ...b, ...p } });
@@ -206,40 +206,91 @@ function BookingEditor({ business, cfg, onChange }: EditorProps) {
   const linked = active.filter((t) => cleanUrl(t.booking_url)).length;
   const fallbackPhone = business.contact_info?.phone ?? "";
   const general = cleanUrl(b.default_url);
+  const m = b.method ?? null;
+  const METHODS: { id: BookingMethod; hint: string }[] = [
+    { id: "online", hint: "Your booking system (Boulevard, Vagaro, Mangomint…)" },
+    { id: "text", hint: "Opens Messages to your booking phone" },
+    { id: "whatsapp", hint: "Opens WhatsApp to your number" },
+    { id: "call", hint: "Calls your booking phone" },
+  ];
+  const phoneField = (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />Phone for bookings</Label>
+      <Input inputMode="tel" value={b.phone} onChange={(e) => setB({ phone: e.target.value })} placeholder={fallbackPhone || "(555) 123-4567"} />
+      <p className="text-xs text-muted-foreground">{fallbackPhone ? `Blank = ${fallbackPhone} (Brand → Contact).` : "Also used if your chosen method isn't set up."}</p>
+    </div>
+  );
+  const messageField = (
+    <div className="space-y-1.5 sm:col-span-2">
+      <Label>Pre-filled message</Label>
+      <Input value={b.message} onChange={(e) => setB({ message: e.target.value })} />
+      <p className="text-xs text-muted-foreground">{"{treatment}"} and {"{practice}"} are filled in. Patients can edit it before sending.</p>
+    </div>
+  );
   return (
     <Card icon={<CalendarClock className="h-4 w-4" />} title="How patients book"
-      subtitle="Keep your booking system. Each treatment's Book button opens its page on it (Boulevard, Vagaro, Mangomint, Zenoti, Square, Acuity, Calendly…). No link? Patients call or text you instead."
+      subtitle="Pick one way. Every Book button in the patient app, and the booking step after a purchase, uses it."
       aside={<Status kind="live">Live in the patient app</Status>}>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {METHODS.map(({ id, hint }) => (
+          <button key={id} type="button" onClick={() => setB({ method: id })}
+            className={cn("rounded-xl border p-3 text-left transition", m === id ? "border-zinc-900 bg-zinc-900 text-white" : "hover:border-zinc-400")}>
+            <div className="text-sm font-semibold">{BOOKING_METHOD_LABEL[id]}</div>
+            <div className={cn("mt-0.5 text-xs", m === id ? "text-white/70" : "text-muted-foreground")}>{hint}</div>
+          </button>
+        ))}
+      </div>
+      {!m && <p className="text-xs text-amber-700">Not chosen yet: patients currently see every option you&apos;ve filled in. Pick one above.</p>}
+
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />General booking link</Label>
-          <Input inputMode="url" value={b.default_url} onChange={(e) => setB({ default_url: e.target.value })} placeholder="https://your-booking-site.com" />
-          {b.default_url && !general && <p className="text-xs text-red-600">That doesn&apos;t look like a web link.</p>}
-        </div>
-        <div className="space-y-1.5">
-          <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" />Phone for bookings</Label>
-          <Input inputMode="tel" value={b.phone} onChange={(e) => setB({ phone: e.target.value })} placeholder={fallbackPhone || "(555) 123-4567"} />
-          <p className="text-xs text-muted-foreground">{fallbackPhone ? `Blank = ${fallbackPhone} (Brand → Contact).` : "Shown as Call when a treatment has no link."}</p>
-        </div>
-        <div className="space-y-1.5">
-          <Label>WhatsApp number <span className="font-normal text-muted-foreground">(optional)</span></Label>
-          <Input inputMode="tel" value={b.whatsapp} onChange={(e) => setB({ whatsapp: e.target.value })} placeholder="15551234567" />
-          <p className="text-xs text-muted-foreground">Country code first, digits only.</p>
-        </div>
-        <div className="flex items-center justify-between rounded-xl border p-3 sm:col-span-2">
-          <div><div className="text-sm font-semibold">Offer &ldquo;Text us&rdquo;</div><div className="text-xs text-muted-foreground">Opens Messages with the note below, to the booking phone.</div></div>
-          <Switch checked={b.text} onCheckedChange={(v) => setB({ text: v })} />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label>Pre-filled message</Label>
-          <Input value={b.message} onChange={(e) => setB({ message: e.target.value })} />
-          <p className="text-xs text-muted-foreground">{"{treatment}"} and {"{practice}"} are filled in. Patients can edit it before sending.</p>
-        </div>
+        {m === "online" && (
+          <>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />General booking link</Label>
+              <Input inputMode="url" value={b.default_url} onChange={(e) => setB({ default_url: e.target.value })} placeholder="https://your-booking-site.com" />
+              {b.default_url && !general && <p className="text-xs text-red-600">That doesn&apos;t look like a web link.</p>}
+              {!general && linked === 0 && <p className="text-xs text-amber-700">Add a link here or on your treatments. Until then, patients get Call.</p>}
+            </div>
+            {phoneField}
+          </>
+        )}
+        {(m === "text" || m === "call") && (<>{phoneField}{m === "text" && messageField}</>)}
+        {m === "whatsapp" && (
+          <>
+            <div className="space-y-1.5">
+              <Label>WhatsApp number</Label>
+              <Input inputMode="tel" value={b.whatsapp} onChange={(e) => setB({ whatsapp: e.target.value })} placeholder="15551234567" />
+              <p className="text-xs text-muted-foreground">Country code first, digits only.</p>
+            </div>
+            {phoneField}
+            {messageField}
+          </>
+        )}
+        {!m && (
+          <>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />General booking link</Label>
+              <Input inputMode="url" value={b.default_url} onChange={(e) => setB({ default_url: e.target.value })} placeholder="https://your-booking-site.com" />
+            </div>
+            {phoneField}
+            <div className="space-y-1.5">
+              <Label>WhatsApp number <span className="font-normal text-muted-foreground">(optional)</span></Label>
+              <Input inputMode="tel" value={b.whatsapp} onChange={(e) => setB({ whatsapp: e.target.value })} placeholder="15551234567" />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border p-3 sm:col-span-2">
+              <div><div className="text-sm font-semibold">Offer &ldquo;Text us&rdquo;</div><div className="text-xs text-muted-foreground">Opens Messages with the note below, to the booking phone.</div></div>
+              <Switch checked={b.text} onCheckedChange={(v) => setB({ text: v })} />
+            </div>
+            {messageField}
+          </>
+        )}
       </div>
-      <div className="rounded-xl bg-zinc-50 p-3 text-xs leading-relaxed text-muted-foreground ring-1 ring-zinc-200">
-        <b className="text-zinc-800">{linked} of {active.length}</b> treatments have their own link{general ? "; the rest use your general link" : ""}.
-        For the smoothest booking, link straight to the treatment (not your home page), and don&apos;t require a deposit on that page if the patient already paid in the app.
-      </div>
+      {(m === "online" || !m) && (
+        <div className="rounded-xl bg-zinc-50 p-3 text-xs leading-relaxed text-muted-foreground ring-1 ring-zinc-200">
+          <b className="text-zinc-800">{linked} of {active.length}</b> treatments have their own link{general ? "; the rest use your general link" : ""}.
+          For the smoothest booking, link straight to the treatment (not your home page), and don&apos;t require a deposit on that page if the patient already paid in the app.
+        </div>
+      )}
     </Card>
   );
 }

@@ -135,7 +135,7 @@ Atlas doesn't run its own calendar (most clinics already book in Boulevard, Vaga
 - **After joining a membership** (Profile): "Next step · Book your first visit", deep-linked to the booking page of the plan's first included treatment when it has one.
 - **After buying a package** (My purchases): "Book your first session", and every package with sessions left has a **Book a session** button.
 - Order of options everywhere: **Book online** (the treatment's own booking link, else the clinic-wide link) → **Text** → **WhatsApp** (new) → **Call**, each with a pre-filled message saying what they bought.
-- Clinics set these in the builder: Booking (clinic-wide link, phone, text on/off, WhatsApp number, message) and each treatment's booking link. Nothing new to set up.
+- **One method per clinic:** in the builder (Med spa → How patients book) the clinic picks Booking link, Text, WhatsApp or Call, and the app shows only that one (`medspa_config.booking.method`). If the chosen method isn't filled in (no link, no WhatsApp number), patients get Call. Clinics that haven't picked yet still see every option they filled in. This is the one venue-app change in Phase 2b (builder card + `bookingOptions` in `apps/venues/lib/medspa.ts`); venue app build and tests re-checked.
 
 Not yet: the automated "you haven't booked yet" nudge. It needs push notifications in the med spa app (next), then a post-purchase template in the CP-217 automation suite (trigger: order paid / membership paid, goal: booking). Direct calendar integrations (Boulevard API etc.) are a later, per-system project.
 

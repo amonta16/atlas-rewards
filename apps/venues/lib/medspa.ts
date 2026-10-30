@@ -180,7 +180,15 @@ export type MedspaBooking = {
   whatsapp: string;
   /** Pre-filled text / WhatsApp message. {treatment} and {practice} are filled in. */
   message: string;
+  /**
+   * The ONE way patients book, chosen in the builder. Unset = older clinics:
+   * every configured option is shown (link → text → WhatsApp → call).
+   */
+  method?: BookingMethod;
 };
+
+export type BookingMethod = "online" | "text" | "whatsapp" | "call";
+export const BOOKING_METHOD_LABEL: Record<BookingMethod, string> = { online: "Booking link", text: "Text", whatsapp: "WhatsApp", call: "Call" };
 
 export const DEFAULT_MEDSPA_BOOKING: MedspaBooking = {
   default_url: "",
@@ -222,10 +230,21 @@ export function bookingOptions(booking: MedspaBooking, practice: string, contact
   const message = (booking.message || DEFAULT_MEDSPA_BOOKING.message)
     .replaceAll("{practice}", practice)
     .replaceAll("{treatment}", treatment?.name ? treatment.name : "an appointment");
+  const whatsapp = digits(booking.whatsapp)?.replace(/^\+/, "") ?? null;
+  const m = booking.method;
+  if (m) {
+    // One method only. If it isn't filled in (e.g. "Booking link" with no link), fall back to Call so nobody is stuck.
+    const only: BookingOptions = {
+      url: m === "online" ? url : null, deep: m === "online" && !!own,
+      phone: m === "call" ? phone : null, sms: m === "text" ? phone : null,
+      whatsapp: m === "whatsapp" ? whatsapp : null, message,
+    };
+    return only.url || only.phone || only.sms || only.whatsapp ? only : { ...only, phone };
+  }
   return {
     url, deep: !!own, phone,
     sms: booking.text ? phone : null,
-    whatsapp: digits(booking.whatsapp)?.replace(/^\+/, "") ?? null,
+    whatsapp,
     message,
   };
 }
