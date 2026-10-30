@@ -232,6 +232,25 @@ function Showcase({ onStart }: { onStart: () => void }) {
             <PhoneShell>
               {features.map((f, k) => <div key={f.id} className={cn("s-screen", k === i && "s-on")} aria-hidden={k !== i}>{f.screen}</div>)}
             </PhoneShell>
+            {/* Dermis-style floating pins near the phone */}
+            <HeroPin className="s-float-in absolute -left-6 top-[22%] hidden rotate-[-6deg] sm:block" aria-hidden>
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--s-ice)] text-[var(--s-ocean-deep)]">
+                <Check className="h-3.5 w-3.5" strokeWidth={3.2} />
+              </span>
+              <span>
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--s-ink-3)]">Due in</span>
+                <span className="block text-[14px] font-bold tabular-nums">2 weeks</span>
+              </span>
+            </HeroPin>
+            <HeroPin className="s-float-in-2 absolute -right-4 top-[48%] hidden rotate-[4deg] sm:block" aria-hidden>
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white" style={{ background: "linear-gradient(135deg,#2C93FF,#0B5FD6)" }}>
+                <Star className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
+              </span>
+              <span>
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--s-ink-3)]">Member</span>
+                <span className="block text-[14px] font-bold">Saves 15%</span>
+              </span>
+            </HeroPin>
           </div>
         </div>
 
@@ -258,6 +277,15 @@ function Guides({ light = false }: { light?: boolean }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-y-0 left-4 right-4 grid grid-cols-5 sm:left-8 sm:right-8">
       {[0, 1, 2, 3, 4].map((n) => <span key={n} className={cn("border-l", light ? "border-white/15" : "border-[var(--s-line)]/70", n === 4 && "border-r")} />)}
+    </div>
+  );
+}
+
+/** Small Dermis-style floating card near the hero phone (stat / member chip). */
+function HeroPin({ children, className, ...rest }: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div {...rest} className={cn("flex items-center gap-2.5 rounded-2xl bg-white/95 px-3 py-2 shadow-[0_18px_40px_-18px_rgba(6,49,143,.35)] ring-1 ring-black/[.04] backdrop-blur", className)}>
+      {children}
     </div>
   );
 }

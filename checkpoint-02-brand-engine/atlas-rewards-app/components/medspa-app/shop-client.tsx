@@ -27,7 +27,7 @@ import { ManageMembership } from "@/components/customer/manage-membership";
 import { MsTopBar } from "./chrome";
 import { track } from "@/lib/automations/track";
 import { BookButton } from "./book-button";
-import { IcBag, IcCard, IcCheck, IcClose, IcGift, IcSparkle } from "./icons";
+import { IcBag, IcCalendar, IcCard, IcCheck, IcClose, IcGift, IcLock, IcSparkle } from "./icons";
 
 type Tab = "browse" | "membership" | "treatments" | "mine";
 type Flash = "paid" | "cancelled" | null;
@@ -524,42 +524,64 @@ function Checkout({ business, shop, line, isMember, payOnline, demoPay = false, 
     );
   }
 
+  const subLine = item.kind === "package" ? (item.sessions ? `${item.sessions} session${item.sessions === 1 ? "" : "s"}` : "Package") : item.kind === "gift_card" ? "Gift card" : SHOP_KIND_LABEL[item.kind] ?? "Item";
   return (
     <div className="min-h-[85vh] bg-[var(--ms-bg)]">
       <MsTopBar slug={business.slug} title="Checkout" onBack={onBack} />
-      <div className="px-5 pt-6">
-        <div className="text-[17px]" style={{ color: "var(--ms-sub)" }}>Order total</div>
-        <div className="mt-1 text-[34px] font-semibold tracking-[-0.02em] tabular-nums" style={{ color: "var(--ms-ink)" }}>{cents(total)}</div>
+      <div className="px-5 pt-5">
+        {/* Dermis-style order preview: thumbnail on tinted gradient, item + total side-by-side */}
+        <section aria-label="Order" className="overflow-hidden rounded-[22px] bg-white ring-1 ring-[var(--ms-line)]">
+          <div className="relative flex items-center gap-4 p-4"
+            style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--ms-p) 10%, #fff) 0%, color-mix(in srgb, var(--ms-p) 3%, #fff) 100%)" }}>
+            <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl ring-1 ring-black/[.04]"
+              style={{ background: "color-mix(in srgb, var(--ms-p) 14%, #fff)" }}>
+              {item.image_url
+                /* eslint-disable-next-line @next/next/no-img-element */
+                ? <img src={optimizedUrl(item.image_url, 240)} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                : <span className="absolute inset-0 grid place-items-center" style={{ color: "var(--ms-p)" }}>{item.kind === "gift_card" ? <IcGift className="h-7 w-7" /> : <IcSparkle className="h-7 w-7" />}</span>}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-semibold uppercase tracking-[0.07em]" style={{ color: "var(--ms-p)" }}>{subLine}</div>
+              <div className="mt-0.5 truncate text-[17px] font-semibold leading-tight" style={{ color: "var(--ms-ink)" }}>{item.name}{item.kind === "product" && qty > 1 ? ` × ${qty}` : ""}{item.kind === "gift_card" && amount ? ` · ${cents(amount)}` : ""}</div>
+              {isMember && item.member_price_cents != null && item.kind !== "gift_card" && <div className="mt-0.5 text-[13px] font-medium" style={{ color: "var(--ms-p)" }}>Member price applied</div>}
+              {item.kind === "gift_card" && line.recipient && <div className="mt-0.5 text-[13px]" style={{ color: "var(--ms-sub)" }}>For {line.recipient}</div>}
+            </div>
+          </div>
+          <div className="flex items-baseline justify-between px-4 py-3.5 text-[15px]" style={{ color: "var(--ms-sub)" }}>
+            <span>Total</span>
+            <span className="text-[26px] font-semibold tracking-[-0.015em] tabular-nums" style={{ color: "var(--ms-ink)" }}>{cents(total)}</span>
+          </div>
+        </section>
 
         {payOnline && (
-          <div className="mt-6 grid gap-2.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
-            {tiles.map((t) => {
-              const on = method === t.id;
-              const lim = t.id === "klarna" || t.id === "affirm" ? FINANCING_LIMITS[t.id] : null;
-              return (
-                <button key={t.id} type="button" onClick={() => setMethod(t.id)} aria-pressed={on} disabled={t.off}
-                  className={`flex flex-col items-start justify-between rounded-2xl p-3.5 text-left transition disabled:opacity-45 ${cols === 2 ? "h-[88px]" : "h-[104px]"}`}
-                  style={{ background: on ? "color-mix(in srgb, var(--ms-p) 8%, #fff)" : "#fff", boxShadow: on ? "inset 0 0 0 2px var(--ms-p)" : "inset 0 0 0 1px #d9dce0", color: "var(--ms-ink)" }}>
-                  <span style={{ color: "var(--ms-ink)" }}>{t.mark}</span>
-                  <span className="text-[16px] leading-tight">{t.label}{t.off && lim ? <span className="block text-[12px]" style={{ color: "var(--ms-sub)" }}>{total < lim.min ? `From ${cents(lim.min)}` : `Up to ${cents(lim.max)}`}</span> : null}</span>
-                </button>
-              );
-            })}
+          <div className="mt-6">
+            <div className="mb-2.5 flex items-center justify-between">
+              <span className="text-[13px] font-bold uppercase tracking-[0.08em]" style={{ color: "var(--ms-sub)" }}>Pay with</span>
+              <span className="inline-flex items-center gap-1 text-[12px]" style={{ color: "var(--ms-sub)" }}><IcLock className="h-3.5 w-3.5" />Secure · Stripe</span>
+            </div>
+            <div className="grid gap-2.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
+              {tiles.map((t) => {
+                const on = method === t.id;
+                const lim = t.id === "klarna" || t.id === "affirm" ? FINANCING_LIMITS[t.id] : null;
+                return (
+                  <button key={t.id} type="button" onClick={() => setMethod(t.id)} aria-pressed={on} disabled={t.off}
+                    className={`relative flex flex-col items-start justify-between rounded-2xl p-3.5 text-left transition disabled:opacity-45 ${cols === 2 ? "h-[92px]" : "h-[108px]"}`}
+                    style={{ background: on ? "color-mix(in srgb, var(--ms-p) 7%, #fff)" : "#fff", boxShadow: on ? "inset 0 0 0 2px var(--ms-p), 0 10px 24px -14px color-mix(in srgb, var(--ms-p) 50%, transparent)" : "inset 0 0 0 1px #d9dce0", color: "var(--ms-ink)" }}>
+                    <span className="flex items-center" style={{ color: "var(--ms-ink)" }}>{t.mark}</span>
+                    <span className="text-[15.5px] font-semibold leading-tight">{t.label}{t.off && lim ? <span className="mt-0.5 block text-[12px] font-normal" style={{ color: "var(--ms-sub)" }}>{total < lim.min ? `From ${cents(lim.min)}` : `Up to ${cents(lim.max)}`}</span> : null}</span>
+                    {on && <span className="absolute right-2.5 top-2.5 grid h-5 w-5 place-items-center rounded-full text-white" style={{ background: "var(--ms-p)" }}><IcCheck className="h-3.5 w-3.5" strokeWidth={2.4} /></span>}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        <div className="mt-6 rounded-2xl bg-white p-4 ring-1 ring-[var(--ms-line)]">
-          <div className="flex items-start justify-between gap-3 text-[16px]" style={{ color: "var(--ms-ink)" }}>
-            <span className="min-w-0">{item.name}{item.kind === "product" && qty > 1 ? ` × ${qty}` : ""}{item.kind === "gift_card" && amount ? ` · ${cents(amount)}` : ""}</span>
-            <span className="shrink-0 tabular-nums">{cents(total)}</span>
-          </div>
-          {isMember && item.member_price_cents != null && item.kind !== "gift_card" && <div className="mt-1 text-[14px]" style={{ color: "var(--ms-p)" }}>Member price applied</div>}
-          {item.kind === "gift_card" && line.recipient && <div className="mt-1 text-[14px]" style={{ color: "var(--ms-sub)" }}>For {line.recipient}</div>}
-        </div>
-
-        <div className="mt-4 flex items-center gap-3 rounded-2xl bg-[#e9ebee] px-4 py-3.5">
-          <IcGift className="h-6 w-6 shrink-0" style={{ color: "var(--ms-ink)" }} />
-          <div className="text-[14.5px] leading-snug" style={{ color: "var(--ms-ink)" }}>
+        <div className="mt-5 flex items-center gap-3 rounded-2xl bg-white px-4 py-3.5 ring-1 ring-[var(--ms-line)]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: "color-mix(in srgb, var(--ms-p) 10%, #fff)", color: "var(--ms-p)" }}>
+            {item.kind === "gift_card" ? <IcGift className="h-[18px] w-[18px]" /> : item.kind === "package" ? <IcCalendar className="h-[18px] w-[18px]" /> : <IcBag className="h-[18px] w-[18px]" />}
+          </span>
+          <div className="text-[14px] leading-snug" style={{ color: "var(--ms-ink)" }}>
             {item.kind === "package" ? "Your sessions appear in the app as soon as you check out." : item.kind === "gift_card" ? "You'll get a gift code to share right after checkout." : item.pickup_note || "Ready at the front desk on your next visit."}
           </div>
         </div>
@@ -574,12 +596,13 @@ function Checkout({ business, shop, line, isMember, payOnline, demoPay = false, 
         {err && <p className="mt-3 text-[15px] text-rose-600" role="alert">{err}</p>}
 
         <button type="button" onClick={place} disabled={busy}
-          className="mt-8 h-14 w-full rounded-2xl text-[17px] font-semibold text-white transition active:scale-[.99]"
-          style={{ background: busy ? "color-mix(in srgb, var(--ms-p) 35%, #fff)" : "var(--ms-p)" }}>
-          {busy ? "One moment…" : payOnline ? "Place order" : "Reserve, pay at the desk"}
+          className="mt-7 h-14 w-full rounded-2xl text-[17px] font-semibold text-white transition active:scale-[.99]"
+          style={{ background: busy ? "color-mix(in srgb, var(--ms-p) 35%, #fff)" : "var(--ms-p)", boxShadow: busy ? "none" : "0 16px 32px -14px color-mix(in srgb, var(--ms-p) 60%, transparent)" }}>
+          {busy ? "One moment…" : payOnline ? `Pay ${cents(total)}` : "Reserve, pay at the desk"}
         </button>
-        <p className="mt-3 text-center text-[13px]" style={{ color: "var(--ms-icon)" }}>
-          {demoPay ? "Example checkout: nothing is charged." : payOnline ? `You'll pay on a secure Stripe page. ${business.name} receives the payment.` : "Nothing is charged now. The front desk will see your order."}
+        <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[12.5px]" style={{ color: "var(--ms-icon)" }}>
+          <IcLock className="h-3.5 w-3.5" />
+          {demoPay ? "Example checkout: nothing is charged." : payOnline ? `Secure Stripe checkout — ${business.name} receives the payment.` : "Nothing is charged now. The front desk will see your order."}
         </p>
       </div>
     </div>
