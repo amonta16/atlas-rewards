@@ -5,7 +5,7 @@ import { createClient } from "@atlas/core/supabase/client";
 import { Wordmark } from "../chrome";
 
 /** Staff sign-in: the same email + password as the manager portal. */
-export function StaffLogin({ slug, clinicName, logoUrl }: { slug: string; clinicName: string; logoUrl: string | null }) {
+export function StaffLogin({ slug, clinicName, logoUrl, view }: { slug: string; clinicName: string; logoUrl: string | null; view?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,7 +16,7 @@ export function StaffLogin({ slug, clinicName, logoUrl }: { slug: string; clinic
     e.preventDefault(); setBusy(true); setError(null);
     const { error } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
     if (error) { setBusy(false); setError(/invalid/i.test(error.message) ? "That email and password don't match." : error.message); return; }
-    router.replace(`/${slug}/desk`); router.refresh();
+    router.replace(`/${slug}/desk${view ? `?view=${view}` : ""}`); router.refresh();
   }
 
   return (

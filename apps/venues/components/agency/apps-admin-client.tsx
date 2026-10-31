@@ -23,9 +23,9 @@ import { resolvePreset } from "@/lib/layout-presets";
 type Product = "venues" | "medspa";
 const isMedspaBiz = (b: Pick<Business, "layout_preset">) => resolvePreset(b.layout_preset) === "medspa";
 const MEDSPA_HOST = (process.env.NEXT_PUBLIC_MEDSPA_HOST ?? "med.atlas-engine.app").replace(/^https?:\/\//, "");
-/** After med spa go-live (NEXT_PUBLIC_MEDSPA_LIVE=1) med spa tiles open the new desk + App builder; until then, the old builder. */
-const medspaNewBuilder = (b: Pick<Business, "layout_preset">) => isMedspaBiz(b) && process.env.NEXT_PUBLIC_MEDSPA_LIVE === "1";
-const builderHref = (b: Business) => (medspaNewBuilder(b) ? `https://${MEDSPA_HOST}/${b.slug}/desk` : `/agency/businesses/${b.id}`);
+/** The med spa app is live: med spa tiles open its App builder (desk → App builder). Set NEXT_PUBLIC_MEDSPA_LIVE=0 to fall back to the old builder. */
+const medspaNewBuilder = (b: Pick<Business, "layout_preset">) => isMedspaBiz(b) && process.env.NEXT_PUBLIC_MEDSPA_LIVE !== "0";
+const builderHref = (b: Business) => (medspaNewBuilder(b) ? `https://${MEDSPA_HOST}/${b.slug}/desk?view=builder` : `/agency/businesses/${b.id}`);
 
 // Drill target: the folders overview, "all apps", a real folder, or unfiled.
 type Drill = null | "ALL" | "UNFILED" | { folderId: string };

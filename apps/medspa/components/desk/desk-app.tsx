@@ -45,9 +45,13 @@ const rel = (iso: string) => {
 const initials = (n: string | null) => (n ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 const RULE: Record<string, string> = { visit: "Check-in", purchase: "Purchase", redemption: "Reward redeemed", manual_adjust: "Points removed", reversal: "Undo", referral_referrer: "Referral", birthday: "Birthday", review: "Review" };
 
-export function DeskApp({ clinic, staff, portalUrl, builder }: { clinic: DeskClinic; staff: Staff; portalUrl: string | null; builder: BuilderData | null }) {
+export function DeskApp({ clinic, staff, portalUrl, builder, initialView }: { clinic: DeskClinic; staff: Staff; portalUrl: string | null; builder: BuilderData | null; initialView?: View }) {
   const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
-  const [view, setView] = useState<View>(staff.isManager ? "overview" : "checkin");
+  const [view, setView] = useState<View>(() => {
+    const managerOnly: View[] = ["overview", "rewards", "team", "builder"];
+    if (initialView && (staff.isManager || !managerOnly.includes(initialView))) return initialView;
+    return staff.isManager ? "overview" : "checkin";
+  });
   const [selected, setSelected] = useState<DeskMember | null>(null);
   const [counts, setCounts] = useState<{ due: number; orders: number }>({ due: 0, orders: 0 });
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);

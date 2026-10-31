@@ -217,7 +217,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
   // CP-185: med spa config is one jsonb; editors get the parsed object and
   // hand back the whole thing. Persisted by save() like every other column.
   const medspa = isMedspaLayout(b);
-  const medspaLive = medspa && process.env.NEXT_PUBLIC_MEDSPA_LIVE === "1";
+  const medspaLive = medspa && process.env.NEXT_PUBLIC_MEDSPA_LIVE !== "0";
   const medspaCfg = readMedspaConfig(b.medspa_config);
   const setMedspa = (next: MedspaConfig) => update("medspa_config", next as unknown as Record<string, unknown>);
   // A tab that doesn't exist on the current layout (e.g. after switching
@@ -424,7 +424,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
       {medspaLive && (
         <div className="mx-6 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-900">
           <span>This med spa now has its own <b>App builder</b> in the new front desk: cleaner, and only what the med spa app uses.</span>
-          <a href={`https://${MEDSPA_HOST}/${b.slug}/desk`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-sky-600 px-4 py-1.5 font-semibold text-white">Open the new builder</a>
+          <a href={`https://${MEDSPA_HOST}/${b.slug}/desk?view=builder`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-sky-600 px-4 py-1.5 font-semibold text-white">Open the new builder</a>
         </div>
       )}
 

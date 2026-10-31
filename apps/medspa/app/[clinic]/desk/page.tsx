@@ -13,10 +13,13 @@ export const dynamic = "force-dynamic";
  * database functions as the manager portal, so the desk, the patient app and
  * the portal always show the same numbers.
  */
-export default async function Desk({ params }: { params: { clinic: string } }) {
+const VIEWS = ["checkin", "due", "orders", "activity", "overview", "rewards", "team", "builder"] as const;
+
+export default async function Desk({ params, searchParams }: { params: { clinic: string }; searchParams: { view?: string } }) {
   const clinic = (await getClinic(params.clinic))!;
   const staff = await getStaff(clinic);
-  if (staff === "signed-out") redirect(`/${clinic.slug}/desk/login`);
+  const wanted = VIEWS.find((v) => v === searchParams.view);
+  if (staff === "signed-out") redirect(`/${clinic.slug}/desk/login${wanted ? `?view=${wanted}` : ""}`);
   if (staff === "no-access") {
     return (
       <div className="grid min-h-[100dvh] place-items-center bg-[#F4F5F7] px-6 text-center">
@@ -41,6 +44,7 @@ export default async function Desk({ params }: { params: { clinic: string } }) {
       }}
       staff={staff}
       builder={builder}
+      initialView={wanted}
       portalUrl={demo ? null : `https://www.atlas-engine.app/${clinic.slug}/manage`}
     />
   );
