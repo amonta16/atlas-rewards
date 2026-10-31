@@ -69,7 +69,7 @@ What's built: a separate Next.js app sharing the same Supabase database through 
 
 Not yet (Phase 2b): in-app checkout (Stripe) for memberships/shop, in-app booking calendar, redeem without staff, push notifications, scratch gift. Until then Subscribe / Book / Buy open a sheet to book online, text or call the clinic, and rewards are redeemed at the desk by phone lookup.
 
-Membership plans: the app reads `businesses.medspa_config.memberships` (a list of plans, see `apps/medspa/lib/plans.ts`). A clinic without plans shows its existing single membership as one plan. **Don't edit a med spa in the venue builder after adding plans by hand**: the old builder doesn't know about `memberships` yet (fixed in Phase 5).
+Membership plans: the app reads `businesses.medspa_config.memberships` (a list of plans, see `apps/medspa/lib/plans.ts`). A clinic without plans shows its existing single membership as one plan. Plans are edited in the builder (Membership tab, Phase 5).
 
 ### Going live
 
@@ -159,6 +159,16 @@ New 15th journey in the med spa suite: day 1 and day 4 pushes after a membership
 - New packages: `react-qr-code`, `canvas-confetti`, `@fontsource/caveat` (run `npm install` once).
 
 Phase 2b is complete: the med spa app has everything planned for it. Next: go live (MANUAL_STEPS.md), then Phase 3.
+
+## Phase 5 (part 1): admin switch + plans editor
+
+- **Admin deck** (`/agency`): a **Venues | Med Spas** switch with counts. Folders, search, move and delete all work inside the chosen side; the choice is remembered per browser. Med spa tiles show their med spa app address (`med.atlas-engine.app/<slug>`). **Add Business** on the Med Spas side starts on the med spa layout.
+- **Builder → Membership** (med spas): new **Membership plans** editor writing `medspa_config.memberships` (name, tagline, monthly price, minimum commitment, description, black & white photo, benefits, included treatments picked from the menu or custom perks, join bonus, featured, on/off, reorder) + "Import current membership" + "View in app". Below it: banked credits, then **Payments & Stripe** (the existing studio, where clinics connect Stripe).
+- Saving in the builder keeps plans (the config reader passes unknown keys through), so the earlier warning about editing a med spa in the builder no longer applies.
+- Optional env: `NEXT_PUBLIC_MEDSPA_HOST` (default `med.atlas-engine.app`) on the atlas-rewards project, only if the med spa domain ever changes.
+- Venue app re-checked: build green, 109 routes, 12/12 tests.
+
+Next in Phase 5: a separate med spa front desk (today med spa clinics use the venue manager portal's med spa desk).
 
 ## Next phases
 

@@ -81,6 +81,8 @@ import type { PreviewBookingTag } from "@/components/customer-preview/customer-p
 // ones when layout_preset === "medspa". All edit businesses.medspa_config.
 import { TreatmentsEditor, CreditsEditor, ProvidersEditor, AftercareEditor, GalleryEditor, ShopEditor } from "@/components/medspa-builder/medspa-studio";
 import { readMedspaConfig, type MedspaConfig } from "@/lib/medspa";
+// Med spa split (Phase 5): plans the med spa app sells (medspa_config.memberships).
+import { PlansEditor } from "@/components/medspa-builder/plans-editor";
 import { Syringe, HeartHandshake, Images as ImagesIcon, Stethoscope, ShoppingBag } from "lucide-react";
 
 const WIDGET_LABELS: Record<string, string> = {
@@ -1678,7 +1680,14 @@ export function BrandEditor({ initial }: { initial: Business }) {
             // a live preview of the exact card customers see.
             // CP-185: med spas get the banked-credit rules above it.
             <div className="space-y-6">
+              {medspa && <PlansEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
               {medspa && <CreditsEditor business={b} cfg={medspaCfg} onChange={setMedspa} />}
+              {medspa && (
+                <div className="px-1 pt-2">
+                  <h3 className="text-sm font-semibold text-zinc-800">Payments &amp; Stripe</h3>
+                  <p className="text-xs text-muted-foreground">Connect Stripe here so patients can pay for plans and Shop items in the app. The single membership below is what the app shows only while you have no plans above.</p>
+                </div>
+              )}
               <MembershipStudio business={b} onSaved={() => setLiveReloadKey(k => k + 1)} />
             </div>
           )}

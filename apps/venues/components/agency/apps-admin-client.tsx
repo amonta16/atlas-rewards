@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +17,12 @@ import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Business, BusinessFolder } from "@/lib/types/database";
+// Med spa split (Phase 5): the deck shows Venues or Med Spas, never both mixed.
+import { resolvePreset } from "@/lib/layout-presets";
+
+type Product = "venues" | "medspa";
+const isMedspaBiz = (b: Pick<Business, "layout_preset">) => resolvePreset(b.layout_preset) === "medspa";
+const MEDSPA_HOST = (process.env.NEXT_PUBLIC_MEDSPA_HOST ?? "med.atlas-engine.app").replace(/^https?:\/\//, "");
 
 // Drill target: the folders overview, "all apps", a real folder, or unfiled.
 type Drill = null | "ALL" | "UNFILED" | { folderId: string };
@@ -43,6 +49,11 @@ export function AppsAdminClient({
   const { toast } = useToast();
   const isVa = role === "agency_va";
   const [list, setList] = useState<Business[]>(initialBusinesses);
+  const [product, setProduct] = useState<Product>("venues");
+  useEffect(() => { try { if (localStorage.getItem("atlas_admin_product") === "medspa") setProduct("medspa"); } catch { /* fine */ } }, []);
+  const pickProduct = (p: Product) => { setProduct(p); setDrill(null); try { localStorage.setItem("atlas_admin_product", p); } catch { /* fine */ } };
+  const shown = list.filter(b => isMedspaBiz(b) === (product === "medspa"));
+  const medspaCount = list.filter(isMedspaBiz).length;
   const [folders, setFolders] = useState<BusinessFolder[]>(initialFolders);
   const [requests, setRequests] = useState<DeleteRequest[]>(initialDeleteRequests);
   const [query, setQuery] = useState("");
@@ -63,9 +74,9 @@ export function AppsAdminClient({
   // modal instead.
   const onDeleteClick = (b: Business) => (isVa ? setPendingRequest(b) : setPendingDelete(b));
 
-  const unfiledCount = list.filter(b => !b.folder_id).length;
+  const unfiledCount = shown.filter(b => !b.folder_id).length;
 
-  function appsInFolder(folderId: string) { return list.filter(b => b.folder_id === folderId); }
+  function appsInFolder(folderId: string) { return shown.filter(b => b.folder_id === folderId); }
   function countFor(f: BusinessFolder) { return appsInFolder(f.id).length; }
 
   // CP-128.2: one level of nesting (location → niche).
@@ -84,9 +95,9 @@ export function AppsAdminClient({
   // Which apps are shown once drilled in.
   function drilledApps(): Business[] {
     let apps: Business[];
-    if (drill === "ALL") apps = list;
-    else if (drill === "UNFILED") apps = list.filter(b => !b.folder_id);
-    else if (drill && typeof drill === "object") apps = list.filter(b => b.folder_id === drill.folderId);
+    if (drill === "ALL") apps = shown;
+    else if (drill === "UNFILED") apps = shown.filter(b => !b.folder_id);
+    else if (drill && typeof drill === "object") apps = shown.filter(b => b.folder_id === drill.folderId);
     else apps = [];
     return apps.filter(searchMatch);
   }
@@ -201,9 +212,19 @@ export function AppsAdminClient({
           </div>
         </div>
 
-        <div className="relative mt-6 max-w-md">
+        {/* Phase 5: Venues | Med Spas. Med spas run in their own patient app (med.atlas-engine.app). */}
+        <div className="relative mt-6 inline-flex rounded-full bg-white/5 p-1 ring-1 ring-white/10" role="tablist" aria-label="Product">
+          {([["venues", "Venues", list.length - medspaCount], ["medspa", "Med Spas", medspaCount]] as const).map(([id, label, n]) => (
+            <button key={id} type="button" role="tab" aria-selected={product === id} onClick={() => pickProduct(id)}
+              className={cn("h-9 rounded-full px-5 text-sm font-semibold transition", product === id ? "bg-sky-400 text-slate-900" : "text-sky-100/70 hover:text-white")}>
+              {label} <span className={cn("ml-1 text-xs", product === id ? "text-slate-900/60" : "text-sky-200/40")}>{n}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="relative mt-4 max-w-md">
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-sky-200/40" />
-          <Input placeholder="Search all apps…" value={query} onChange={e => setQuery(e.target.value)}
+          <Input placeholder={product === "medspa" ? "Search med spas…" : "Search venues…"} value={query} onChange={e => setQuery(e.target.value)}
             className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-sky-200/30" />
         </div>
       </header>
@@ -218,7 +239,7 @@ export function AppsAdminClient({
         {query ? (
           <Section title={`Search · "${query}"`}>
             <AppGrid
-              apps={list.filter(searchMatch)}
+              apps={shown.filter(searchMatch)}
               folders={orderedFolders}
               rootDomain={rootDomain}
               isVa={isVa}
@@ -234,7 +255,7 @@ export function AppsAdminClient({
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               <FolderCard
                 label="All Apps"
-                count={list.length}
+                count={shown.length}
                 accent="linear-gradient(135deg,#0ea5e9,#22d3ee)"
                 icon={<LayoutGrid className="h-6 w-6" />}
                 onClick={() => setDrill("ALL")}
@@ -270,7 +291,7 @@ export function AppsAdminClient({
                 <span className="text-sm font-semibold">New folder</span>
               </button>
             </div>
-            {list.length === 0 && (
+            {shown.length === 0 && (
               <p className="text-center text-sky-200/50 mt-8">No apps yet. Click "Add Business" to create your first sub-account.</p>
             )}
           </Section>
@@ -343,7 +364,7 @@ export function AppsAdminClient({
         )}
       </div>
 
-      {newOpen && <NewBusinessModal onClose={() => setNewOpen(false)} />}
+      {newOpen && <NewBusinessModal onClose={() => setNewOpen(false)} defaultLayout={product === "medspa" ? "medspa" : undefined} />}
       {folderModal && (
         <FolderEditModal
           folder={folderModal.folder}
@@ -508,7 +529,7 @@ function AppTile({
         )}
         <div className="min-w-0 flex-1">
           <Link href={`/agency/businesses/${b.id}`} className="font-semibold text-white truncate block hover:text-sky-200">{b.name}</Link>
-          <div className="text-[11px] text-sky-200/40 truncate">{b.industry ?? "Uncategorized"} · <code className="text-sky-300/60">{b.slug}.{rootDomain}</code></div>
+          <div className="text-[11px] text-sky-200/40 truncate">{b.industry ?? "Uncategorized"} · <code className="text-sky-300/60">{isMedspaBiz(b) ? `${MEDSPA_HOST}/${b.slug}` : `${b.slug}.${rootDomain}`}</code></div>
         </div>
       </div>
 

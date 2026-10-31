@@ -30,7 +30,7 @@ const LAYOUT_EMOJI: Record<LayoutPreset, string> = {
 // snapshot before going live.
 type Step = "basics" | "template" | "baseline";
 
-export function NewBusinessModal({ onClose, initialName }: { onClose: () => void; initialName?: string }) {
+export function NewBusinessModal({ onClose, initialName, defaultLayout }: { onClose: () => void; initialName?: string; defaultLayout?: LayoutPreset }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("basics");
   const [name, setName] = useState(initialName ?? "");
@@ -45,7 +45,7 @@ export function NewBusinessModal({ onClose, initialName }: { onClose: () => void
   // closes and the app goes live for real customers.
   const [isDemo, setIsDemo] = useState(true);
   // CP-131.1: the layout chosen on step 2 (null = Classic).
-  const [layoutOverride, setLayoutOverride] = useState<LayoutPreset | null>(null);
+  const [layoutOverride, setLayoutOverride] = useState<LayoutPreset | null>(defaultLayout ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // CP-42 baseline fields
