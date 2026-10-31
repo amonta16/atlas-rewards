@@ -205,9 +205,19 @@ Manage → **App builder** inside the med spa desk, replacing the old crowded bu
 - **Booking:** the one booking method + its fields.
 - Floating "Unsaved changes · Discard · Save" bar; warns before leaving with unsaved edits.
 - Left out on purpose (venue-only): events, news, waivers, venue booking resources, venue themes/layouts, widget toggles.
-- Next part: Providers, Results gallery, Aftercare/recall messages, Offers & automations.
 
 **Admin hand-off:** after go-live set `NEXT_PUBLIC_MEDSPA_LIVE=1` on the atlas-rewards Vercel project. Then med spa tiles in `/agency` open the new desk/builder on `med.atlas-engine.app`, the old builder shows a banner linking to it, and its "Customer app" / "Front desk" buttons open the med spa app and new desk. Until then everything keeps using the old builder and portal.
+
+## Phase 5 (part 5): rest of the App builder
+
+New builder sections (desk → App builder):
+- **Providers** (`medspa_config.providers`, `pick_provider`): name, title, bio, photo, which treatments they do.
+- **Results** (`medspa_config.gallery`): before/after photos per treatment; hidden in the app until "patient consent on file" is checked (same rule as before).
+- **Care & recall** (`medspa_config.recall`, `credits`, `show_history`, `welcome_note`): reminder timing, channel, messages with a live preview, incentive; membership credits; My care.
+- **Gifts** (automated offers: welcome, birthday, anniversary, win-back): on/off, title, message, photo, and the gift (a reward, bonus points or message only). Same RPCs as the portal (`list_automated_offers_for_business`, `upsert_business_automated_offer`); saves immediately. These feed the scratch card on Home.
+- **Automations** (Atlas admins only; the database enforces it with `wf_assert_admin`): every CP-217 journey grouped by goal, with timing, channels, 30-day sent/converted and an on/off switch (`wf_suite`, `wf_suite_toggle`). This is where "Book after purchase" is turned on per clinic. Message wording is still edited in the admin automations screen.
+
+With this, everything a med spa needs is in the med spa app: patient app, front desk, manager tools and App builder. Still only in the old portal: billing/Stripe connection, waivers, monthly insight reports, front-desk PINs, message wording for automations.
 
 ## Next phases
 

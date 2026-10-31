@@ -62,6 +62,18 @@ export type TeamRow = {
 export type NewStaff = { email: string; full_name: string; role: "business_staff" | "business_manager"; password: string };
 export type CreatedStaff = { email: string; password: string | null; created_new: boolean };
 
+export type GiftOffer = {
+  template_id: string; slug: string; name: string; emoji: string | null; description: string | null; default_image_url: string | null;
+  trigger_type: "date" | "birthday" | "anniversary" | "signup" | "inactivity"; trigger_config: Record<string, unknown>;
+  config_id: string | null; is_active: boolean; custom_title: string | null; custom_description: string | null; custom_image_url: string | null;
+  discount_type: "none" | "percent" | "flat_cents" | "points_bonus" | "reward"; discount_value: number | null;
+  voice_message_url: string | null; gift_reward_id: string | null; custom_trigger_config: Record<string, unknown> | null;
+};
+export type Journey = {
+  key: string; grp: string; name: string; why: string; trigger_text: string; timing_text: string; channels: string[];
+  reward_text: string | null; engine: "workflow" | "legacy"; enabled: boolean; entered_30d: number; sent_30d: number; converted_30d: number;
+};
+
 export interface DeskApi {
   lookup(q: string): Promise<LookupResult>;
   patient(m: DeskMember): Promise<PatientDetail>;
@@ -86,6 +98,12 @@ export interface DeskApi {
   addStaff(n: NewStaff): Promise<CreatedStaff>;
   removeStaff(row: TeamRow): Promise<void>;
   revokeInvite(row: TeamRow): Promise<void>;
+  // ── gifts + automations ──
+  giftOffers(): Promise<GiftOffer[]>;
+  saveGiftOffer(g: GiftOffer): Promise<void>;
+  /** Atlas admins only (wf_assert_admin in the database). */
+  journeys(): Promise<Journey[]>;
+  toggleJourney(key: string, enabled: boolean): Promise<void>;
 }
 
 const first = <T,>(d: unknown): T | null => ((Array.isArray(d) ? d[0] : d) ?? null) as T | null;
@@ -305,6 +323,30 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
       const res = await fetch(`/api/${slug}/desk/team`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", token: row.token }) });
       if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't revoke.");
     },
+    async giftOffers() {
+      const { data, error } = await sb().rpc("list_automated_offers_for_business", { p_business_id: businessId });
+      fail(error);
+      return (data ?? []) as GiftOffer[];
+    },
+    async saveGiftOffer(g) {
+      // Same RPC and arguments as the portal's automated offers manager.
+      const { error } = await sb().rpc("upsert_business_automated_offer", {
+        p_id: g.config_id, p_business_id: businessId, p_template_id: g.template_id, p_is_active: g.is_active,
+        p_custom_title: g.custom_title, p_custom_description: g.custom_description, p_custom_image_url: g.custom_image_url,
+        p_discount_type: g.discount_type ?? "none", p_discount_value: g.discount_value, p_expires_after_days: 7,
+        p_voice_message_url: g.voice_message_url, p_gift_reward_id: g.gift_reward_id, p_custom_trigger_config: g.custom_trigger_config,
+      });
+      fail(error);
+    },
+    async journeys() {
+      const { data, error } = await sb().rpc("wf_suite", { p_business_id: businessId });
+      fail(error);
+      return (data ?? []) as Journey[];
+    },
+    async toggleJourney(key, enabled) {
+      const { error } = await sb().rpc("wf_suite_toggle", { p_business_id: businessId, p_key: key, p_enabled: enabled });
+      fail(error);
+    },
   };
 }
 
@@ -341,6 +383,25 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     { kind: "member", user_id: "s1", email: "jane@glowaesthetics.com", full_name: "Dr. Jane Preview", role: "business_manager", status: "active", token: null, created_at: ago(300) },
     { kind: "member", user_id: "s2", email: "frontdesk@glowaesthetics.com", full_name: "Kayla Ruiz", role: "business_staff", status: "active", token: null, created_at: ago(120) },
   ];
+  const tpl = (id: string, slug: string, name: string, trigger_type: GiftOffer["trigger_type"], description: string, on: boolean, rewardIdx: number | null): GiftOffer => ({
+    template_id: id, slug, name, emoji: null, description, default_image_url: null, trigger_type, trigger_config: {}, config_id: on ? `c_${id}` : null, is_active: on,
+    custom_title: null, custom_description: null, custom_image_url: null, discount_type: rewardIdx == null ? "none" : "reward", discount_value: null,
+    voice_message_url: null, gift_reward_id: rewardIdx == null ? null : rewards[rewardIdx]?.id ?? null, custom_trigger_config: null,
+  });
+  let gifts2: GiftOffer[] = [
+    tpl("t1", "welcome", "Welcome gift", "signup", "Sent when a patient joins the app.", true, 0),
+    tpl("t2", "birthday", "Birthday", "birthday", "Sent in their birthday week.", true, 3),
+    tpl("t3", "winback", "We miss you", "inactivity", "Sent after 90 days without a visit.", false, null),
+    tpl("t4", "anniversary", "Patient anniversary", "anniversary", "A year since they joined.", false, null),
+  ];
+  let journeys: Journey[] = [
+    ["ms.welcome", "get_in", "New patient welcome", "A patient joins the app", "Now · day 1 · day 3 · day 7", ["push", "email"], true, 34, 96, 11],
+    ["ms.cart_recovery", "convert", "Finish your order", "Checkout started, not paid", "2 hours · 24 hours · 72 hours", ["push", "email"], true, 9, 21, 4],
+    ["ms.book_after_purchase", "care", "Book after purchase", "Joined a membership or bought a package", "Day 1 · day 4", ["push"], false, 0, 0, 0],
+    ["ms.rebook", "care", "Time for your next treatment", "A treatment's recall comes due", "Before the due date · after", ["push"], true, 41, 63, 17],
+    ["ms.winback", "come_back", "We miss you", "No visit in 90 days", "Day 90 · day 120", ["push", "email"], false, 0, 0, 0],
+    ["ms.birthday", "celebrate", "Birthday", "Their birthday week", "On the day", ["push"], true, 6, 6, 2],
+  ].map(([key, grp, name, trigger_text, timing_text, channels, enabled, e, s2, c]) => ({ key, grp, name, why: "", trigger_text, timing_text, channels, reward_text: null, engine: "workflow", enabled, entered_30d: e, sent_30d: s2, converted_30d: c } as Journey));
   const wait = () => new Promise((r) => setTimeout(r, 180));
   const byId = (id: string) => people.find((p) => p.membership_id === id)!;
   const log = (m: DeskMember, delta: number, rule_type: string, notes: string | null) => {
@@ -421,5 +482,9 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     },
     async removeStaff(row) { await wait(); teamRows = teamRows.filter((t) => t.user_id !== row.user_id); },
     async revokeInvite(row) { await wait(); teamRows = teamRows.filter((t) => t.token !== row.token); },
+    async giftOffers() { await wait(); return gifts2.map((g) => ({ ...g })); },
+    async saveGiftOffer(g) { await wait(); gifts2 = gifts2.map((x) => (x.template_id === g.template_id ? { ...g, config_id: x.config_id ?? `c${Date.now()}` } : x)); },
+    async journeys() { await wait(); return journeys.map((j) => ({ ...j })); },
+    async toggleJourney(key, enabled) { await wait(); journeys = journeys.map((j) => (j.key === key ? { ...j, enabled } : j)); },
   };
 }

@@ -31,10 +31,10 @@ Check items off as you go.
 - [ ] Pay for a plan in the med spa app with card 4242 4242 4242 4242.
 
 ## Automations
-- [ ] Turn on "Book after purchase" for each med spa clinic you want it on: admin → Automations → the clinic → Book after purchase → turn on. (The SQL is already live; it's off everywhere until you do this, so no surprise texts or pushes.)
+- [ ] Turn on "Book after purchase" for each med spa clinic you want it on: desk → App builder → Automations (or admin → Automations). (The SQL is already live; it's off everywhere until you do this, so no surprise texts or pushes.)
 
 ## Gifts (scratch card on Home)
-- [ ] For each med spa clinic, set up at least one automated gift (admin → the clinic → Offers → automated / welcome gift, e.g. "$25 off your first purchase"). Offers and automations are already ON for spa-by-the-bay, divina-medical-spa and reveal-med, but none has an automated gift yet, so real patients won't see a scratch card until you add one.
+- [ ] For each med spa clinic, set up at least one automated gift (desk → App builder → Gifts, or admin → the clinic → Offers → automated / welcome gift, e.g. "$25 off your first purchase"). Offers and automations are already ON for spa-by-the-bay, divina-medical-spa and reveal-med, but none has an automated gift yet, so real patients won't see a scratch card until you add one.
 
 ## Front desk
 - [ ] Try the new desk locally: `npm run medspa:dev`, open http://localhost:3100/spa-by-the-bay/desk and sign in with your Atlas admin email + password. (http://localhost:3100/demo/desk works with no login.)

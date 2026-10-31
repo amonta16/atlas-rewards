@@ -124,7 +124,7 @@ export function DeskApp({ clinic, staff, portalUrl, builder }: { clinic: DeskCli
         {view === "activity" && <Activity api={api} />}
         {view === "overview" && staff.isManager && <OverviewView api={api} onOpen={setView} />}
         {view === "rewards" && staff.isManager && <RewardsView api={api} say={say} />}
-        {view === "builder" && builder && <BuilderView clinic={{ id: clinic.id, slug: clinic.slug, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} />}
+        {view === "builder" && builder && <BuilderView clinic={{ id: clinic.id, slug: clinic.slug, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} api={api} />}
         {view === "team" && staff.isManager && <TeamView api={api} say={say} deskUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}/desk` : `/${clinic.slug}/desk`} />}
       </main>
 

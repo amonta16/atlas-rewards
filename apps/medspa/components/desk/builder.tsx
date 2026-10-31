@@ -16,18 +16,19 @@ import { createClient } from "@atlas/core/supabase/client";
 import type { BuilderData } from "@/lib/builder-data";
 import { BOOKING_METHOD_LABEL, MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, cleanUrl, newId, readMedspaConfig, type BookingMethod, type MedspaConfig, type MedspaShopItem, type MedspaTreatment } from "@/lib/medspa";
 import type { MedspaPlan } from "@/lib/plans";
+import type { DeskApi, GiftOffer, Journey, RewardRow } from "@/lib/desk-api";
 import { Modal } from "./ui";
 import { IcBag, IcCalendar, IcGift, IcSpark, IcUser } from "../icons";
 
-type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking";
+type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "automations";
 type Cfg = MedspaConfig & { memberships?: MedspaPlan[] };
 const shadow = "shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]";
 const dollars = (c: number | null | undefined) => (c == null ? "" : String(c / 100));
 const toCents = (v: string) => { const n = parseFloat(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? Math.round(n * 100) : null; };
 const price = (c: number | null | undefined) => (c == null || c <= 0 ? "No price yet" : `$${(c / 100).toLocaleString("en-US")}`);
 
-export function BuilderView({ clinic, canBrand, initial, say }: {
-  clinic: { id: string; slug: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void;
+export function BuilderView({ clinic, canBrand, initial, say, api }: {
+  clinic: { id: string; slug: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void; api: DeskApi;
 }) {
   const [d, setD] = useState<BuilderData>(initial);
   const [cfg, setCfg] = useState<Cfg>(() => readMedspaConfig(initial.cfg) as Cfg);
@@ -79,6 +80,11 @@ export function BuilderView({ clinic, canBrand, initial, say }: {
     { id: "memberships", label: "Memberships", hint: `${(cfg.memberships ?? []).length} plans`, Icon: IcGift },
     { id: "shop", label: "Shop", hint: cfg.shop.enabled ? `${cfg.shop.items.length} items` : "Off", Icon: IcBag },
     { id: "booking", label: "Booking", hint: cfg.booking.method ? BOOKING_METHOD_LABEL[cfg.booking.method] : "Not chosen", Icon: IcCalendar },
+    { id: "providers", label: "Providers", hint: `${cfg.providers.length} on the team`, Icon: IcUser },
+    { id: "results", label: "Results", hint: `${cfg.gallery.length} before & afters`, Icon: IcSpark },
+    { id: "care", label: "Care & recall", hint: cfg.recall.enabled ? "Reminders on" : "Reminders off", Icon: IcCalendar },
+    { id: "gifts", label: "Gifts", hint: "Welcome, birthday, win-back", Icon: IcGift },
+    ...(canBrand ? [{ id: "automations" as const, label: "Automations", hint: "Atlas admins", Icon: IcSpark }] : []),
   ];
 
   return (
@@ -102,6 +108,11 @@ export function BuilderView({ clinic, canBrand, initial, say }: {
           {section === "memberships" && <PlansSection cfg={cfg} setCfg={setCfg} upload={upload} />}
           {section === "shop" && <ShopSection cfg={cfg} setCfg={setCfg} upload={upload} />}
           {section === "booking" && <BookingSection cfg={cfg} setCfg={setCfg} />}
+          {section === "providers" && <ProvidersSection cfg={cfg} setCfg={setCfg} upload={upload} />}
+          {section === "results" && <ResultsSection cfg={cfg} setCfg={setCfg} upload={upload} />}
+          {section === "care" && <CareSection cfg={cfg} setCfg={setCfg} />}
+          {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} />}
+          {section === "automations" && <AutomationsSection api={api} say={say} />}
         </div>
       </div>
 
@@ -455,6 +466,260 @@ function BookingSection({ cfg, setCfg }: { cfg: Cfg; setCfg: (c: Cfg) => void })
         <Field label="Booking phone" hint="Blank = the clinic phone. Also the fallback if your method isn't set up."><Text value={b.phone} onChange={(v) => setB({ phone: v })} inputMode="tel" /></Field>
         {(b.method === "whatsapp" || !b.method) && <Field label="WhatsApp number" hint="Country code first, digits only."><Text value={b.whatsapp} onChange={(v) => setB({ whatsapp: v })} inputMode="tel" placeholder="18055550142" /></Field>}
         {(b.method === "text" || b.method === "whatsapp" || !b.method) && <div className="md:col-span-2"><Field label="Pre-filled message" hint="{treatment} and {practice} are filled in."><Text value={b.message} onChange={(v) => setB({ message: v })} /></Field></div>}
+      </div>
+    </Panel>
+  );
+}
+
+/* ───────────────────────── Providers ───────────────────────── */
+
+type Provider = MedspaConfig["providers"][number];
+
+export function ProvidersSection({ cfg, setCfg, upload }: { cfg: Cfg; setCfg: (c: Cfg) => void; upload: Upload }) {
+  const [edit, setEdit] = useState<Provider | null>(null);
+  const list = cfg.providers;
+  const put = (p: Provider) => setCfg({ ...cfg, providers: list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? p : x)) : [...list, p] });
+  const name = (id: string) => cfg.treatments.find((t) => t.id === id)?.name;
+  return (
+    <Panel title="Providers" sub="Who performs treatments. Shown on treatment pages, and the desk picks one when it logs a visit."
+      action={<AddBtn onClick={() => setEdit({ id: newId("pr"), name: "", title: "", bio: "", photo_url: null, treatment_ids: [], is_active: true })}>Add provider</AddBtn>}>
+      <div className="mb-4"><Toggle on={cfg.pick_provider} onChange={(v) => setCfg({ ...cfg, pick_provider: v })} title="Let patients choose a provider" sub="Shown as a preference when they book" /></div>
+      {list.length === 0 ? <p className="rounded-[20px] border border-dashed border-line px-6 py-8 text-center text-[14px] text-sub">No providers yet.</p> : (
+        <ul className="divide-y divide-line overflow-hidden rounded-[20px] border border-line">
+          {list.map((p) => <Row key={p.id} img={p.photo_url} title={p.name} on={p.is_active} onClick={() => setEdit({ ...p })} onToggle={(v) => put({ ...p, is_active: v })}
+            meta={[p.title, p.treatment_ids.length ? p.treatment_ids.map(name).filter(Boolean).slice(0, 3).join(", ") + (p.treatment_ids.length > 3 ? "…" : "") : "All treatments"].filter(Boolean).join(" · ")} />)}
+        </ul>
+      )}
+      {edit && (
+        <Modal wide title={list.some((x) => x.id === edit.id) ? "Edit provider" : "New provider"} onClose={() => setEdit(null)}>
+          <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
+            <div className="space-y-4">
+              <Field label="Name"><Text value={edit.name} onChange={(v) => setEdit({ ...edit, name: v })} placeholder="Dr. Jane Smith" /></Field>
+              <Field label="Title"><Text value={edit.title} onChange={(v) => setEdit({ ...edit, title: v })} placeholder="Nurse injector, RN" /></Field>
+            </div>
+            <Field label="Photo"><Photo url={edit.photo_url} onChange={(u) => setEdit({ ...edit, photo_url: u })} upload={upload} folder="medspa/providers" aspect="aspect-square" /></Field>
+          </div>
+          <div className="mt-4 space-y-4">
+            <Field label="Short bio"><Text area value={edit.bio} onChange={(v) => setEdit({ ...edit, bio: v })} /></Field>
+            <Field label="Treatments they do" hint="None selected = all treatments.">
+              <div className="flex flex-wrap gap-2">
+                {cfg.treatments.map((t) => {
+                  const on = edit.treatment_ids.includes(t.id);
+                  return <button key={t.id} type="button" onClick={() => setEdit({ ...edit, treatment_ids: on ? edit.treatment_ids.filter((x) => x !== t.id) : [...edit.treatment_ids, t.id] })}
+                    className={`rounded-full px-3.5 py-2 text-[13.5px] font-medium ${on ? "bg-ink text-white" : "bg-page"}`}>{t.name}</button>;
+                })}
+              </div>
+            </Field>
+          </div>
+          <div className="mt-6 flex gap-2">
+            <button type="button" className="btn-ink" disabled={!edit.name.trim()} onClick={() => { put({ ...edit, name: edit.name.trim() }); setEdit(null); }}>Done</button>
+            {list.some((x) => x.id === edit.id) && <button type="button" onClick={() => { setCfg({ ...cfg, providers: list.filter((x) => x.id !== edit.id) }); setEdit(null); }} className="h-[52px] shrink-0 rounded-full px-5 text-[14px] font-semibold text-red-600">Delete</button>}
+          </div>
+        </Modal>
+      )}
+    </Panel>
+  );
+}
+
+/* ───────────────────────── Results ───────────────────────── */
+
+type Result = MedspaConfig["gallery"][number];
+
+export function ResultsSection({ cfg, setCfg, upload }: { cfg: Cfg; setCfg: (c: Cfg) => void; upload: Upload }) {
+  const [edit, setEdit] = useState<Result | null>(null);
+  const list = cfg.gallery;
+  const put = (g: Result) => setCfg({ ...cfg, gallery: list.some((x) => x.id === g.id) ? list.map((x) => (x.id === g.id ? g : x)) : [...list, g] });
+  const missing = list.filter((g) => !g.consent).length;
+  return (
+    <Panel title="Results" sub="Before & after photos on Home and treatment pages. Only photos with the patient's written consent are shown."
+      action={<AddBtn onClick={() => setEdit({ id: newId("ga"), title: "", treatment_id: cfg.treatments[0]?.id ?? null, before_url: null, after_url: null, caption: "", consent: false })}>Add result</AddBtn>}>
+      {missing > 0 && <p className="mb-4 rounded-[16px] bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">{missing} result{missing === 1 ? " is" : "s are"} hidden until consent is confirmed.</p>}
+      {list.length === 0 ? <p className="rounded-[20px] border border-dashed border-line px-6 py-8 text-center text-[14px] text-sub">No results yet.</p> : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((g) => (
+            <button key={g.id} type="button" onClick={() => setEdit({ ...g })} className={`overflow-hidden rounded-[20px] border border-line text-left transition hover:shadow-card ${g.consent ? "" : "opacity-60"}`}>
+              <div className="grid grid-cols-2 gap-px bg-line">
+                {[g.before_url, g.after_url].map((u, i) => (
+                  <div key={i} className="relative aspect-square bg-page">
+                    {u ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={u} alt="" className="h-full w-full object-cover" /> : null}
+                    <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold">{i ? "After" : "Before"}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="p-3.5"><p className="truncate text-[14.5px] font-semibold">{g.title || cfg.treatments.find((t) => t.id === g.treatment_id)?.name || "Untitled"}</p><p className="text-[12.5px] text-sub">{g.consent ? "Consent on file" : "Hidden: no consent"}</p></div>
+            </button>
+          ))}
+        </div>
+      )}
+      {edit && (
+        <Modal wide title={list.some((x) => x.id === edit.id) ? "Edit result" : "New result"} onClose={() => setEdit(null)}>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Before"><Photo url={edit.before_url} onChange={(u) => setEdit({ ...edit, before_url: u })} upload={upload} folder="medspa/gallery" aspect="aspect-square" /></Field>
+            <Field label="After"><Photo url={edit.after_url} onChange={(u) => setEdit({ ...edit, after_url: u })} upload={upload} folder="medspa/gallery" aspect="aspect-square" /></Field>
+          </div>
+          <div className="mt-4 space-y-4">
+            <Field label="Treatment">
+              <select className="field" value={edit.treatment_id ?? ""} onChange={(e) => setEdit({ ...edit, treatment_id: e.target.value || null })}>
+                <option value="">None</option>{cfg.treatments.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Title (optional)"><Text value={edit.title} onChange={(v) => setEdit({ ...edit, title: v })} placeholder="Lip filler, 1 syringe" /></Field>
+            <Field label="Caption (optional)"><Text value={edit.caption} onChange={(v) => setEdit({ ...edit, caption: v })} placeholder="Two weeks after" /></Field>
+            <Toggle on={edit.consent} onChange={(v) => setEdit({ ...edit, consent: v })} title="Patient consent on file" sub="Required before it shows in the app" />
+          </div>
+          <div className="mt-6 flex gap-2">
+            <button type="button" className="btn-ink" disabled={!edit.before_url || !edit.after_url} onClick={() => { put(edit); setEdit(null); }}>Done</button>
+            {list.some((x) => x.id === edit.id) && <button type="button" onClick={() => { setCfg({ ...cfg, gallery: list.filter((x) => x.id !== edit.id) }); setEdit(null); }} className="h-[52px] shrink-0 rounded-full px-5 text-[14px] font-semibold text-red-600">Delete</button>}
+          </div>
+        </Modal>
+      )}
+    </Panel>
+  );
+}
+
+/* ───────────────────────── Care (recall, credits, history) ───────────────────────── */
+
+export function CareSection({ cfg, setCfg }: { cfg: Cfg; setCfg: (c: Cfg) => void }) {
+  const r = cfg.recall, c = cfg.credits;
+  const setR = (p: Partial<MedspaConfig["recall"]>) => setCfg({ ...cfg, recall: { ...r, ...p } });
+  const setC = (p: Partial<MedspaConfig["credits"]>) => setCfg({ ...cfg, credits: { ...c, ...p } });
+  const sample = cfg.treatments.find((t) => t.recall_weeks)?.name ?? "Neurotoxin";
+  const fill = (t: string) => t.replaceAll("{first_name}", "Sofia").replaceAll("{treatment}", sample).replaceAll("{practice}", "your clinic").replaceAll("{due_date}", "Nov 12").replaceAll("{incentive}", r.incentive).trim();
+  return (
+    <>
+      <Panel title="Recall reminders" sub="When a treatment's results start to fade, patients get a nudge to book. Each treatment's 'due again' weeks decide when.">
+        <div className="space-y-4">
+          <Toggle on={r.enabled} onChange={(v) => setR({ enabled: v })} title="Send recall reminders" />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="First reminder (days before due)"><Text value={String(r.lead_days)} onChange={(v) => setR({ lead_days: parseInt(v.replace(/\D/g, "") || "0", 10) })} inputMode="numeric" /></Field>
+            <Field label="Follow-up (days after due)"><Text value={String(r.followup_days)} onChange={(v) => setR({ followup_days: parseInt(v.replace(/\D/g, "") || "0", 10) })} inputMode="numeric" /></Field>
+            <Field label="Send by" hint={r.channel !== "push" ? "Texts need SMS set up for this clinic." : undefined}>
+              <Segmented value={r.channel} options={[{ id: "push", label: "Push" }, { id: "sms", label: "Text" }, { id: "both", label: "Both" }]} onChange={(v) => setR({ channel: v })} />
+            </Field>
+          </div>
+          <Field label="Reminder message" hint="{first_name} {treatment} {due_date} {incentive} are filled in."><Text area value={r.message_due} onChange={(v) => setR({ message_due: v })} /></Field>
+          <Field label="Follow-up message"><Text area value={r.message_followup} onChange={(v) => setR({ message_followup: v })} /></Field>
+          <Field label="Incentive (optional)" hint="Added where {incentive} appears."><Text value={r.incentive} onChange={(v) => setR({ incentive: v })} placeholder="Book this week for 100 bonus points." /></Field>
+          <div className="rounded-[18px] bg-page p-4">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-faint">Preview</p>
+            <p className="mt-1.5 text-[14.5px]">{fill(r.message_due)}</p>
+          </div>
+        </div>
+      </Panel>
+      <Panel title="Membership credits" sub="Optional: members bank a monthly credit toward treatments. The balance shows in the app.">
+        <div className="space-y-4">
+          <Toggle on={c.enabled} onChange={(v) => setC({ enabled: v })} title="Bank monthly credits" />
+          {c.enabled && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Monthly credit ($)"><Text value={dollars(c.monthly_credit_cents)} onChange={(v) => setC({ monthly_credit_cents: toCents(v) ?? 0 })} inputMode="decimal" /></Field>
+              <Field label="Months that roll over" hint="0 = use it or lose it"><Text value={String(c.rollover_months)} onChange={(v) => setC({ rollover_months: parseInt(v.replace(/\D/g, "") || "0", 10) })} inputMode="numeric" /></Field>
+              <div className="md:col-span-2"><Field label="Note under the balance"><Text value={c.note} onChange={(v) => setC({ note: v })} /></Field></div>
+            </div>
+          )}
+        </div>
+      </Panel>
+      <Panel title="My care" sub="The patient's treatment history and aftercare in the app.">
+        <div className="space-y-4">
+          <Toggle on={cfg.show_history} onChange={(v) => setCfg({ ...cfg, show_history: v })} title="Show treatment history and aftercare" />
+          <Field label="Before their first visit"><Text value={cfg.welcome_note} onChange={(v) => setCfg({ ...cfg, welcome_note: v })} /></Field>
+        </div>
+      </Panel>
+    </>
+  );
+}
+
+/* ───────────────────────── Gifts (automated offers) ───────────────────────── */
+
+const WHEN: Record<GiftOffer["trigger_type"], string> = { signup: "When they join", birthday: "Birthday week", anniversary: "Yearly, from the day they joined", inactivity: "After time away", date: "On a date each year" };
+const giftLine = (g: GiftOffer, rewards: RewardRow[]) =>
+  g.discount_type === "reward" ? (rewards.find((r) => r.id === g.gift_reward_id)?.name ?? "A reward")
+  : g.discount_type === "points_bonus" ? `+${g.discount_value ?? 0} points`
+  : g.discount_type === "percent" ? `${g.discount_value ?? 0}% off` : g.discount_type === "flat_cents" ? `$${(g.discount_value ?? 0) / 100} off` : "A message, no gift";
+
+export function GiftsSection({ api, say, upload }: { api: DeskApi; say: (t: string) => void; upload: Upload }) {
+  const [rows, setRows] = useState<GiftOffer[] | null>(null);
+  const [rewards, setRewards] = useState<RewardRow[]>([]);
+  const [edit, setEdit] = useState<GiftOffer | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () => { api.giftOffers().then(setRows).catch((e) => { say((e as Error).message); setRows([]); }); };
+  useEffect(() => { load(); api.rewardsList().then((r) => setRewards(r.filter((x) => x.is_active))).catch(() => {}); }, [api]); // eslint-disable-line react-hooks/exhaustive-deps
+  const save = async (g: GiftOffer, msg: string) => { setBusy(true); try { await api.saveGiftOffer(g); say(msg); setEdit(null); load(); } catch (e) { say((e as Error).message); } setBusy(false); };
+  return (
+    <Panel title="Gifts" sub="Automatic gifts patients scratch open on Home: a welcome gift, birthdays, anniversaries and win-backs. Changes here save right away.">
+      {!rows ? <div className="h-40 animate-pulse rounded-[20px] bg-page" /> : (
+        <ul className="divide-y divide-line overflow-hidden rounded-[20px] border border-line">
+          {rows.map((g) => <Row key={g.template_id} img={g.custom_image_url ?? g.default_image_url} title={g.custom_title || g.name} on={g.is_active}
+            onClick={() => setEdit({ ...g })} onToggle={(v) => save({ ...g, is_active: v }, v ? `${g.custom_title || g.name} is on` : `${g.custom_title || g.name} is off`)}
+            meta={`${WHEN[g.trigger_type] ?? g.trigger_type} · ${giftLine(g, rewards)}`} />)}
+          {rows.length === 0 && <li className="px-5 py-8 text-center text-[14px] text-sub">No gift templates available.</li>}
+        </ul>
+      )}
+      {edit && (
+        <Modal wide title={edit.custom_title || edit.name} onClose={() => setEdit(null)}>
+          <p className="mb-4 text-[14px] text-sub">{WHEN[edit.trigger_type]}. {edit.description}</p>
+          <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+            <div className="space-y-4">
+              <Field label="Title patients see"><Text value={edit.custom_title ?? ""} onChange={(v) => setEdit({ ...edit, custom_title: v || null })} placeholder={edit.name} /></Field>
+              <Field label="Message"><Text area value={edit.custom_description ?? ""} onChange={(v) => setEdit({ ...edit, custom_description: v || null })} placeholder="Our thank-you for joining. Use it on any treatment." /></Field>
+            </div>
+            <Field label="Photo"><Photo url={edit.custom_image_url ?? edit.default_image_url} onChange={(u) => setEdit({ ...edit, custom_image_url: u })} upload={upload} folder="medspa/gifts" aspect="aspect-square" /></Field>
+          </div>
+          <div className="mt-4 space-y-4">
+            <Field label="The gift">
+              <Segmented value={edit.discount_type === "reward" || edit.discount_type === "points_bonus" ? edit.discount_type : "none"}
+                options={[{ id: "reward", label: "A reward" }, { id: "points_bonus", label: "Bonus points" }, { id: "none", label: "Message only" }]}
+                onChange={(v) => setEdit({ ...edit, discount_type: v, discount_value: v === "points_bonus" ? edit.discount_value ?? 100 : null, gift_reward_id: v === "reward" ? edit.gift_reward_id ?? rewards[0]?.id ?? null : null })} />
+            </Field>
+            {edit.discount_type === "reward" && (
+              <Field label="Which reward" hint="Patients scratch to reveal it, then show the code at the desk.">
+                <select className="field" value={edit.gift_reward_id ?? ""} onChange={(e) => setEdit({ ...edit, gift_reward_id: e.target.value || null })}>
+                  {rewards.map((r) => <option key={r.id ?? r.name} value={r.id ?? ""}>{r.name}</option>)}
+                </select>
+              </Field>
+            )}
+            {edit.discount_type === "points_bonus" && <Field label="Bonus points"><Text value={String(edit.discount_value ?? "")} onChange={(v) => setEdit({ ...edit, discount_value: parseInt(v.replace(/\D/g, "") || "0", 10) })} inputMode="numeric" /></Field>}
+            <Toggle on={edit.is_active} onChange={(v) => setEdit({ ...edit, is_active: v })} title="On" sub="Sends automatically when it's due" />
+          </div>
+          <button type="button" className="btn-ink mt-6" disabled={busy || (edit.discount_type === "reward" && !edit.gift_reward_id)} onClick={() => save(edit, `${edit.custom_title || edit.name} saved`)}>{busy ? "Saving…" : "Save gift"}</button>
+        </Modal>
+      )}
+    </Panel>
+  );
+}
+
+/* ───────────────────────── Automations (Atlas admins) ───────────────────────── */
+
+const GROUP: Record<string, string> = { get_in: "New patients", convert: "Turn interest into sales", care: "Care & rebooking", come_back: "Bring them back", celebrate: "Celebrate" };
+
+export function AutomationsSection({ api, say }: { api: DeskApi; say: (t: string) => void }) {
+  const [rows, setRows] = useState<Journey[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const load = () => { api.journeys().then(setRows).catch((e) => setErr((e as Error).message)); };
+  useEffect(load, [api]); // eslint-disable-line react-hooks/exhaustive-deps
+  const toggle = async (j: Journey) => { try { await api.toggleJourney(j.key, !j.enabled); say(j.enabled ? `${j.name} paused` : `${j.name} is on`); load(); } catch (e) { say((e as Error).message); } };
+  const groups = rows ? Object.keys(GROUP).map((g) => ({ g, items: rows.filter((r) => r.grp === g) })).filter((x) => x.items.length) : [];
+  return (
+    <Panel title="Automations" sub="Messages Atlas sends for the clinic: welcome series, cart recovery, rebooking, win-backs and birthdays. Only Atlas admins see this. Changes save right away.">
+      {err && <p className="rounded-[16px] bg-red-50 px-4 py-3 text-[14px] text-red-700">{err}</p>}
+      {!rows && !err && <div className="h-48 animate-pulse rounded-[20px] bg-page" />}
+      <div className="space-y-5">
+        {groups.map(({ g, items }) => (
+          <div key={g}>
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-faint">{GROUP[g]}</p>
+            <ul className="divide-y divide-line overflow-hidden rounded-[20px] border border-line">
+              {items.map((j) => (
+                <li key={j.key} className={`flex items-center gap-4 px-4 py-3.5 ${j.enabled ? "" : "opacity-60"}`}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold">{j.name}</span>
+                    <span className="block text-[13px] text-sub">{j.trigger_text} · {j.timing_text} · {j.channels.join(" + ")}</span>
+                  </span>
+                  {j.engine === "workflow" && <span className="hidden text-right text-[12.5px] text-sub sm:block"><b className="text-ink">{j.sent_30d}</b> sent · <b className="text-ink">{j.converted_30d}</b> converted<br /><span className="text-faint">last 30 days</span></span>}
+                  <Switch on={j.enabled} onChange={() => toggle(j)} label={j.name} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </Panel>
   );
