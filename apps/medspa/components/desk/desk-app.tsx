@@ -19,6 +19,8 @@ import { formatPhone } from "@/lib/format";
 import { Wordmark } from "../chrome";
 import { IcBag, IcCalendar, IcCheck, IcClock, IcClose, IcGift, IcNext, IcOut, IcPhone, IcQr, IcSearch, IcSpark, IcUser } from "../icons";
 import type { Staff } from "@/lib/staff";
+import { Card, Empty, Modal } from "./ui";
+import { OverviewView, RewardsView, TeamView } from "./manager-views";
 
 const Scanner = dynamic(() => import("@yudiel/react-qr-scanner").then((m) => m.Scanner), { ssr: false });
 
@@ -28,7 +30,7 @@ type DeskClinic = {
   treatments: Treatment[]; providers: Provider[];
   rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[];
 };
-type View = "checkin" | "due" | "orders" | "activity";
+type View = "checkin" | "due" | "orders" | "activity" | "overview" | "rewards" | "team";
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -43,7 +45,7 @@ const RULE: Record<string, string> = { visit: "Check-in", purchase: "Purchase", 
 
 export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staff: Staff; portalUrl: string | null }) {
   const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
-  const [view, setView] = useState<View>("checkin");
+  const [view, setView] = useState<View>(staff.isManager ? "overview" : "checkin");
   const [selected, setSelected] = useState<DeskMember | null>(null);
   const [counts, setCounts] = useState<{ due: number; orders: number }>({ due: 0, orders: 0 });
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
@@ -67,6 +69,12 @@ export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staf
     { id: "orders", label: "Shop orders", Icon: IcBag, badge: counts.orders },
     { id: "activity", label: "Activity", Icon: IcSpark },
   ];
+  const MANAGE: { id: View; label: string; Icon: typeof IcUser; badge?: number }[] = staff.isManager ? [
+    { id: "overview", label: "Overview", Icon: IcCalendar },
+    { id: "rewards", label: "Rewards", Icon: IcGift },
+    { id: "team", label: "Team", Icon: IcUser },
+  ] : [];
+  const ALL = [...NAV, ...MANAGE];
 
   return (
     <div className="min-h-[100dvh] bg-[#F4F5F7] text-ink lg:flex">
@@ -77,20 +85,21 @@ export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staf
           <p className="mt-1 hidden text-[12px] font-semibold uppercase tracking-[0.14em] text-faint lg:block">Front desk</p>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-4 lg:flex-col lg:px-4">
-          {NAV.map(({ id, label, Icon, badge }) => (
-            <button key={id} type="button" onClick={() => setView(id)}
+          {ALL.map(({ id, label, Icon, badge }, i) => (<div key={id} className="contents">
+            {MANAGE.length > 0 && i === NAV.length && <p className="hidden px-3.5 pb-1 pt-5 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-faint lg:block">Manage</p>}
+            <button type="button" onClick={() => setView(id)}
               className={`flex shrink-0 items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-[14.5px] font-medium transition ${view === id ? "bg-tint text-brand" : "text-sub hover:bg-page hover:text-ink"}`}>
               <Icon className="h-[19px] w-[19px]" />
               <span className="flex-1 text-left">{label}</span>
               {!!badge && <span className={`min-w-[22px] rounded-full px-1.5 py-0.5 text-center text-[11.5px] font-bold ${view === id ? "bg-brand text-white" : "bg-page text-sub"}`}>{badge}</span>}
             </button>
-          ))}
+          </div>))}
         </nav>
         <div className="mt-auto hidden border-t border-line px-6 py-5 lg:block">
           <p className="truncate text-[14px] font-semibold">{staff.name}</p>
           <p className="text-[12.5px] text-faint">{staff.role === "business_staff" ? "Front desk" : staff.role === "agency_admin" ? "Atlas admin" : "Manager"}{clinic.demo ? " · demo" : ""}</p>
           {portalUrl && staff.isManager && (
-            <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-sub hover:text-ink">Manager settings <IcNext className="h-3.5 w-3.5" /></a>
+            <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-sub hover:text-ink">More settings <IcNext className="h-3.5 w-3.5" /></a>
           )}
           {!clinic.demo && <Link href="/auth/signout" prefetch={false} className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-sub hover:text-ink"><IcOut className="h-3.5 w-3.5" />Sign out</Link>}
         </div>
@@ -101,7 +110,7 @@ export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staf
         <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-[13px] font-medium text-faint">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-            <h1 className="mt-0.5 text-[28px] font-semibold tracking-[-0.025em]">{NAV.find((n) => n.id === view)!.label}</h1>
+            <h1 className="mt-0.5 text-[28px] font-semibold tracking-[-0.025em]">{ALL.find((n) => n.id === view)?.label}</h1>
           </div>
           {clinic.demo && <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[12.5px] font-semibold text-amber-800">Demo clinic: sample patients, nothing is saved</span>}
         </header>
@@ -110,6 +119,9 @@ export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staf
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}
         {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} />}
         {view === "activity" && <Activity api={api} />}
+        {view === "overview" && staff.isManager && <OverviewView api={api} onOpen={setView} />}
+        {view === "rewards" && staff.isManager && <RewardsView api={api} say={say} />}
+        {view === "team" && staff.isManager && <TeamView api={api} say={say} deskUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}/desk` : `/${clinic.slug}/desk`} />}
       </main>
 
       {toast && (
@@ -394,31 +406,7 @@ function ActionBtn({ children, onClick, primary, busy, disabled }: { children: R
     </button>
   );
 }
-function Card({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-[24px] bg-white p-5 shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)] ${className}`}>
-      <h3 className="mb-3.5 text-[16px] font-semibold">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
 /* ───────────────────────── Modals ───────────────────────── */
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-[60] grid animate-fade place-items-center bg-black/35 px-4" onClick={onClose}>
-      <div role="dialog" aria-modal className="max-h-[calc(100dvh-2rem)] w-full max-w-[420px] animate-rise overflow-y-auto rounded-[26px] bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between"><h3 className="text-[19px] font-semibold">{title}</h3><button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full bg-page"><IcClose className="h-4 w-4" /></button></div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function PurchaseModal({ rate, onClose, onSave }: { rate: number; onClose: () => void; onSave: (dollars: number) => void }) {
   const [v, setV] = useState("");
@@ -598,8 +586,4 @@ function Activity({ api }: { api: DeskApi }) {
       ))}
     </ul>
   );
-}
-
-function Empty({ text }: { text: string }) {
-  return <div className="rounded-[24px] bg-white px-6 py-10 text-center text-[15px] text-sub shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]"><IcCalendar className="mx-auto mb-3 h-7 w-7 text-faint" />{text}</div>;
 }

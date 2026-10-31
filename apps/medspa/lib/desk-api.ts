@@ -45,6 +45,23 @@ export type ActivityRow = { id: string; delta: number; rule_type: string; notes:
 export type Treatment = { id: string; name: string; recall_weeks: number | null };
 export type Provider = { id: string; name: string; treatment_ids: string[] };
 
+export type Overview = {
+  patients: number; members_paid: number; visits_total: number; visits_30d: number;
+  sales_cents_total: number; sales_cents_30d: number; auto_offers_active: number;
+  monthly: { month: string; visits: number; sales_cents: number; joins: number }[];
+  activity: { at: string; kind: "signup" | "treatment" | "order"; who: string; detail: string | null; amount_cents: number | null }[];
+};
+export type RewardRow = {
+  id: string | null; name: string; description: string | null; point_cost: number; image_url: string | null;
+  is_active: boolean; show_in_store: boolean; reward_type: string; sort_order: number; category: string | null; terms: string | null;
+};
+export type TeamRow = {
+  kind: "member" | "invitation"; user_id: string | null; email: string; full_name: string | null;
+  role: "agency_admin" | "agency_va" | "business_manager" | "business_staff"; status: "active" | "pending" | "revoked" | "expired"; token: string | null; created_at: string;
+};
+export type NewStaff = { email: string; full_name: string; role: "business_staff" | "business_manager"; password: string };
+export type CreatedStaff = { email: string; password: string | null; created_new: boolean };
+
 export interface DeskApi {
   lookup(q: string): Promise<LookupResult>;
   patient(m: DeskMember): Promise<PatientDetail>;
@@ -59,6 +76,16 @@ export interface DeskApi {
   orders(): Promise<OrderRow[]>;
   updateOrder(id: string, status: "paid" | "fulfilled" | "cancelled"): Promise<void>;
   activity(): Promise<ActivityRow[]>;
+  // ── manager tools ──
+  overview(): Promise<Overview>;
+  rewardsList(): Promise<RewardRow[]>;
+  saveReward(r: RewardRow): Promise<void>;
+  deleteReward(id: string): Promise<void>;
+  uploadImage(file: File): Promise<string>;
+  team(): Promise<TeamRow[]>;
+  addStaff(n: NewStaff): Promise<CreatedStaff>;
+  removeStaff(row: TeamRow): Promise<void>;
+  revokeInvite(row: TeamRow): Promise<void>;
 }
 
 const first = <T,>(d: unknown): T | null => ((Array.isArray(d) ? d[0] : d) ?? null) as T | null;
@@ -216,6 +243,68 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
       fail(error);
       return (data ?? []) as ActivityRow[];
     },
+
+    async overview() {
+      const { data, error } = await sb().rpc("medspa_overview", { p_business_id: businessId });
+      fail(error);
+      return data as Overview;
+    },
+    async rewardsList() {
+      const { data, error } = await sb().from("rewards")
+        .select("id,name,description,point_cost,image_url,is_active,show_in_store,reward_type,sort_order,category,terms")
+        .eq("business_id", businessId).order("sort_order", { ascending: true }).order("point_cost", { ascending: true });
+      fail(error);
+      return (data ?? []) as RewardRow[];
+    },
+    async saveReward(r) {
+      // Same RPC as the builder / portal rewards manager (12-arg signature); fine print is written separately.
+      const s = sb();
+      const { data, error } = await s.rpc("upsert_reward", {
+        p_id: r.id, p_business_id: businessId, p_name: r.name.trim(), p_description: r.description?.trim() || null,
+        p_reward_type: r.reward_type || "discount", p_point_cost: r.point_cost, p_image_url: r.image_url, p_is_active: r.is_active,
+        p_sort_order: r.sort_order ?? 0, p_category: r.category?.trim() || null, p_show_in_store: r.show_in_store, p_images: null,
+      });
+      fail(error);
+      const id = r.id ?? (typeof data === "string" ? data : first<{ id?: string }>(data)?.id ?? null);
+      const terms = r.terms?.trim() || null;
+      if (id) await s.from("rewards").update({ terms }).eq("id", id).eq("business_id", businessId);
+      else {
+        const { data: row } = await s.from("rewards").select("id").eq("business_id", businessId).eq("name", r.name.trim()).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if ((row as { id?: string } | null)?.id) await s.from("rewards").update({ terms }).eq("id", (row as { id: string }).id);
+      }
+    },
+    async deleteReward(id) {
+      const { error } = await sb().rpc("delete_reward", { p_id: id, p_business_id: businessId });
+      fail(error);
+    },
+    async uploadImage(file) {
+      const s = sb();
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${businessId}/${Date.now()}.${ext}`;
+      const { error } = await s.storage.from("reward-images").upload(path, file, { upsert: true, cacheControl: "31536000", contentType: file.type || undefined });
+      fail(error);
+      return s.storage.from("reward-images").getPublicUrl(path).data.publicUrl;
+    },
+    async team() {
+      const { data, error } = await sb().rpc("list_team_members", { p_business_id: businessId });
+      fail(error);
+      return ((data ?? []) as TeamRow[]).filter((r) => r.role === "business_manager" || r.role === "business_staff");
+    },
+    async addStaff(n) {
+      const res = await fetch(`/api/${slug}/desk/team`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "create-account", email: n.email.trim(), role: n.role, business_id: businessId, full_name: n.full_name.trim() || undefined, password: n.password.trim() || undefined }) });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Couldn't add that person.");
+      return { email: json.email ?? n.email, password: json.password ?? null, created_new: !!json.created_new };
+    },
+    async removeStaff(row) {
+      const { error } = await sb().rpc("remove_team_member", { p_user_id: row.user_id, p_business_id: businessId, p_role: row.role });
+      fail(error);
+    },
+    async revokeInvite(row) {
+      const res = await fetch(`/api/${slug}/desk/team`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "revoke", token: row.token }) });
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't revoke.");
+    },
   };
 }
 
@@ -246,6 +335,11 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     { id: "a1", delta: 50, rule_type: "visit", notes: null, created_at: ago(0.05), customer_name: "Sofia Martinez" },
     { id: "a2", delta: 182, rule_type: "purchase", notes: "$182.00 purchase", created_at: ago(0.2), customer_name: "Mia Johnson" },
     { id: "a3", delta: -180, rule_type: "redemption", notes: rewards[1]?.name ?? null, created_at: ago(1), customer_name: "Olivia Brooks" },
+  ];
+  let rewardRows: RewardRow[] = rewards.map((r, i) => ({ id: r.id, name: r.name, description: r.description, point_cost: r.point_cost, image_url: r.image_url, is_active: true, show_in_store: true, reward_type: "discount", sort_order: i, category: null, terms: null }));
+  let teamRows: TeamRow[] = [
+    { kind: "member", user_id: "s1", email: "jane@glowaesthetics.com", full_name: "Dr. Jane Preview", role: "business_manager", status: "active", token: null, created_at: ago(300) },
+    { kind: "member", user_id: "s2", email: "frontdesk@glowaesthetics.com", full_name: "Kayla Ruiz", role: "business_staff", status: "active", token: null, created_at: ago(120) },
   ];
   const wait = () => new Promise((r) => setTimeout(r, 180));
   const byId = (id: string) => people.find((p) => p.membership_id === id)!;
@@ -301,5 +395,31 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     async orders() { await wait(); return orders.map((o) => ({ ...o })); },
     async updateOrder(id, status) { await wait(); orders = orders.map((o) => (o.id === id ? { ...o, status } : o)); },
     async activity() { await wait(); return act.map((a) => ({ ...a })); },
+
+    async overview() {
+      await wait();
+      const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
+      return {
+        patients: 214, members_paid: 38, visits_total: 1260, visits_30d: 142, sales_cents_total: 4_830_000, sales_cents_30d: 612_000, auto_offers_active: 3,
+        monthly: months.map((m, i) => ({ month: m, visits: [96, 104, 118, 121, 133, 142][i], sales_cents: [380_000, 410_000, 455_000, 520_000, 560_000, 612_000][i], joins: [18, 22, 19, 27, 31, 34][i] })),
+        activity: [
+          { at: ago(0.04), kind: "treatment", who: "Sofia Martinez", detail: "HydraFacial", amount_cents: null },
+          { at: ago(0.3), kind: "order", who: "Mia Johnson", detail: "SkinCeuticals C E Ferulic®", amount_cents: 18200 },
+          { at: ago(0.8), kind: "signup", who: "Ava Patel", detail: null, amount_cents: null },
+        ],
+      };
+    },
+    async rewardsList() { await wait(); return rewardRows.map((r) => ({ ...r })); },
+    async saveReward(r) { await wait(); if (r.id) rewardRows = rewardRows.map((x) => (x.id === r.id ? { ...r } : x)); else rewardRows = [...rewardRows, { ...r, id: `rw${Date.now()}` }]; },
+    async deleteReward(id) { await wait(); rewardRows = rewardRows.filter((x) => x.id !== id); },
+    async uploadImage(file) { await wait(); return URL.createObjectURL(file); },
+    async team() { await wait(); return teamRows.map((t) => ({ ...t })); },
+    async addStaff(n) {
+      await wait();
+      teamRows = [...teamRows, { kind: "member", user_id: `s${Date.now()}`, email: n.email, full_name: n.full_name || null, role: n.role, status: "active", token: null, created_at: new Date().toISOString() }];
+      return { email: n.email, password: n.password || "Glow-" + Math.random().toString(36).slice(2, 8), created_new: true };
+    },
+    async removeStaff(row) { await wait(); teamRows = teamRows.filter((t) => t.user_id !== row.user_id); },
+    async revokeInvite(row) { await wait(); teamRows = teamRows.filter((t) => t.token !== row.token); },
   };
 }

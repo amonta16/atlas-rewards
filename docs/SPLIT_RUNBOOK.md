@@ -185,6 +185,14 @@ A new Dermis-style desk inside the med spa app (soft light layout, works on a la
 - Patient screens are now phone-width via their own layouts; the clinic layout is full width so the desk can use the whole screen.
 - New package: `@yudiel/react-qr-scanner` (run `npm install`).
 
+## Phase 5 (part 3): manager tools in the desk
+
+Managers (and Atlas admins) get a **Manage** section in the desk sidebar and open on Overview; front desk staff don't see it.
+- **Overview:** patients, paying members, visits and app sales (30 days + all time), 6-month chart (visits / app sales / new patients), latest activity (`medspa_overview`, same data as the portal).
+- **Rewards:** add / edit / switch off / delete, photo upload (`reward-images` bucket), fine print, "show in the app" vs desk-only (`upsert_reward`, `delete_reward`, same as the builder and portal, so changes show in the patient app immediately).
+- **Team:** front desk + managers, pending invites, Add staff (creates the account with a password and shows the desk link + login to send), Remove, Revoke. Account creation goes through the venue app's `/api/team/create-account` and `/api/team/revoke` (forwarded with the manager's session by `/api/<clinic>/desk/team`), so their permission checks apply. The desk can only add front desk staff or managers.
+- Still in the manager portal ("More settings" in the sidebar): offers/automations, marketing, billing/Stripe, waivers, insights reports, front-desk PINs.
+
 ## Next phases
 
 2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b done (checkout, booking after purchase, push, in-app redeem, scratch gift)
