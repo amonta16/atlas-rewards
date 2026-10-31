@@ -51,12 +51,7 @@
 .s-ocean .s-small { color: #DCEBFF; }
 /* CP-194: blue-lines artwork on every ocean band (desktop showcase, desk, reviews, closing) */
 .s-ocean-img { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6,49,143,.28), rgba(6,49,143,.12) 45%, rgba(6,49,143,.3)), url("/landing/blue-lines.jpg") center / cover no-repeat; }
-/* CP-230: animated version of the same artwork (components/site/ocean-background.tsx). Same center/cover crop and tint as .s-ocean-img;
-   the poster sits on the container so there's no blank flash, and reduced-motion visitors only get the poster. */
-.s-ocean-vid { position: absolute; inset: 0; overflow: hidden; background: url("/landing/atlas-bg-loop-poster.jpg") center / cover no-repeat; }
-.s-ocean-vid > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; }
-.s-ocean-vid-tint::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6,49,143,.28), rgba(6,49,143,.12) 45%, rgba(6,49,143,.3)); }
-@media (prefers-reduced-motion: reduce) { .s-ocean-vid > video { display: none; } }
+/* CP-230: the animated background's styles (.s-ocean-vid) live in app/globals.css so every page can use it. */
 .s-rule { height: 1px; background: linear-gradient(90deg, var(--s-ocean), transparent); }
 
 /* Motion */

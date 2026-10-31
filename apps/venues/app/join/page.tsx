@@ -1,4 +1,5 @@
 "use client";
+import { OceanBackground } from "@/components/site/ocean-background";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { QrCode, ArrowRight, Loader2, Camera, Check, ChevronRight, Store } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -472,12 +473,11 @@ export default function JoinPage() {
 }
 
 
-/** CP-160: backdrop behind the Atlas blue shell. CP-194: the brand's blue-lines artwork. */
+/** CP-160: backdrop behind the Atlas blue shell. CP-230: the brand's animated ocean background. */
 function AtlasBackdrop() {
   return (
     <div aria-hidden className="absolute inset-0 pointer-events-none">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/landing/blue-lines.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <OceanBackground eager tint={false} />
       <div className="absolute inset-0 bg-gradient-to-b from-[#06318F]/25 via-transparent to-[#06318F]/35" />
     </div>
   );

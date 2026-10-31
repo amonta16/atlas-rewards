@@ -480,8 +480,7 @@ export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "ge
     <section className="s-section !pt-0" aria-labelledby="reviews-title">
       <div className="s-wrap">
         <div className="s-ocean relative overflow-hidden rounded-[36px] pb-10 pt-16 sm:pt-24">
-          {/* The med spa site gets the animated loop; the all-business home page keeps the static artwork. */}
-          {audience === "medspa" ? <OceanBackground /> : <div className="s-ocean-img" aria-hidden />}
+          <OceanBackground />
           <div className="relative px-5 text-center">
             <h2 id="reviews-title" className="s-h2 mx-auto max-w-[16ch] text-[clamp(2.2rem,1.4rem+3.2vw,4.2rem)]">See what owners say about Atlas.</h2>
             <div className="mt-8 flex flex-wrap justify-center gap-3">

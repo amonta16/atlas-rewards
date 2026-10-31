@@ -13,6 +13,7 @@
  * we don't measure, no invented reviews (the reviews band shows real videos and
  * clearly labeled empty slots).
  */
+import { OceanBackground } from "@/components/site/ocean-background";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, BarChart3, BellRing, Check, CreditCard, Gift, HeartHandshake, Play, QrCode, RotateCcw, ScanLine, Smartphone, Star } from "lucide-react";
@@ -94,7 +95,7 @@ function Nav({ onBook }: { onBook: () => void }) {
 function Hero({ onBook, onBookEnd }: { onBook: () => void; onBookEnd: () => void }) {
   return (
     <section className="s-ocean relative -mt-[68px] overflow-hidden pb-16 pt-[96px] sm:pb-20 sm:pt-[108px]" aria-labelledby="hero-title">
-      <div className="s-ocean-img" aria-hidden />
+      <OceanBackground eager />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#06318F]/50" />
       <div className="s-wrap relative text-center">
         <p className="s-load-1 mx-auto inline-flex items-center gap-2.5 rounded-full bg-white/12 py-1.5 pl-2 pr-4 text-[13.5px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
@@ -215,7 +216,7 @@ function Features({ onBook }: { onBook: () => void }) {
         <ul data-gs="stagger" className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
             <li key={f.t} data-gs-item className={cn("group relative flex flex-col overflow-hidden rounded-[24px] p-6 transition-shadow", i === 0 ? "s-ocean text-white shadow-[0_30px_60px_-30px_rgba(11,95,214,.7)]" : "bg-white ring-1 ring-[var(--s-line)] hover:shadow-[0_20px_40px_-28px_rgba(6,24,58,.35)]")}>
-              {i === 0 && <span className="s-ocean-img opacity-60" aria-hidden />}
+              {i === 0 && <OceanBackground className="opacity-60" />}
               <span className={cn("relative grid h-11 w-11 place-items-center rounded-2xl", i === 0 ? "bg-white text-[var(--s-ocean)]" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}><f.icon className="h-5 w-5" aria-hidden /></span>
               <h3 className={cn("relative mt-5 text-[1.12rem] font-bold leading-snug tracking-[-0.01em]", i === 0 ? "text-white" : "text-[var(--s-ink)]")}>{f.t}</h3>
               <p className={cn("relative mt-1.5 text-[14.5px] leading-relaxed", i === 0 ? "text-white/85" : "text-[var(--s-ink-3)]")}>{f.d}</p>
@@ -260,7 +261,7 @@ function Closing({ onBook }: { onBook: () => void }) {
     <section className="s-section !pt-0" aria-labelledby="close-title">
       <div className="s-wrap">
         <div className="s-ocean relative overflow-hidden rounded-[36px] px-6 py-16 text-center sm:py-24">
-          <div className="s-ocean-img" aria-hidden />
+          <OceanBackground />
           <div className="relative">
             <h2 id="close-title" className="s-h2 mx-auto max-w-[16ch] text-white">Your regulars deserve your app.</h2>
             <p className="s-lead mx-auto mt-4 max-w-[32rem]">20 minutes on video. You&apos;ll see your own app and exactly what it costs. Month to month, no contract.</p>

@@ -20,6 +20,7 @@
  *     invite or forgot your password, tap below" instead of a
  *     dead-end "Invalid login credentials".
  */
+import { OceanBackground } from "@/components/site/ocean-background";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Lock, Mail, MailCheck } from "lucide-react";
@@ -187,12 +188,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   // CP-194: blue + white two-tone. The left panel (top strip on phones) is the
-  // brand's blue-lines artwork; the form sits on plain white.
+  // brand's animated ocean background (CP-230); the form sits on plain white.
   return (
     <main className={`${interClass} min-h-[100dvh] bg-white antialiased lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]`}>
       <aside className="relative isolate overflow-hidden bg-[#0B5FD6] lg:flex">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/landing/blue-lines.jpg" alt="" className="absolute inset-0 -z-10 h-full w-full object-cover" />
+        <OceanBackground eager tint={false} className="-z-10" />
         <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-[#06318F]/45 via-transparent to-transparent" />
         {/* Phones: a short blue strip with the mark */}
         <div className="flex h-36 items-center justify-center gap-3 lg:hidden">
