@@ -7,17 +7,13 @@ Check items off as you go.
 - [ ] Paste the push commands Claude gives at the end of each build (PowerShell, from `C:\Users\andre\code\atlas`).
 - [ ] If the build added a package (Claude will say so), run `npm install` once before `npm run medspa:dev`.
 
-## Go live: med spa app (one time, ~20 min)
-- [ ] Vercel → Add New → Project → import `atlas-rewards` again, name `atlas-medspa`, Root Directory `apps/medspa`.
-- [ ] atlas-medspa → Settings → Environment Variables. Copy these from the atlas-rewards project (same values):
-      `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_ROOT_DOMAIN`,
-      `SESSION_HANDOFF_SECRET` (if it exists), `STRIPE_SECRET_KEY`, `STRIPE_PLATFORM_FEE_PERCENT` (if it exists),
-      `VAPID_PUBLIC_KEY` or `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (whichever atlas-rewards has).
-      Do NOT copy `VAPID_PRIVATE_KEY`; only the venue app sends pushes.
-- [ ] atlas-medspa → Settings → Domains → add `med.atlas-engine.app`.
-- [ ] Local testing of push: copy the same VAPID public key line from Vercel (atlas-rewards → Environment Variables) into `apps\medspa\.env.local`.
-
-- [ ] After the med spa app is live: Vercel → atlas-rewards → Settings → Environment Variables → add `NEXT_PUBLIC_MEDSPA_LIVE` = `1` → Redeploy. Med spa tiles in admin then open the new desk + App builder.
+## Go live: med spa app
+Claude already did: created the Vercel project `atlas-medspa`, set it to `apps/medspa`, added the public env vars
+(Supabase URL + anon key, root domain, VAPID public key, venue origin), added `med.atlas-engine.app`, and deployed.
+Left for you (secrets Claude shouldn't handle):
+- [ ] Vercel → atlas-medspa → Settings → Environment Variables → add `SUPABASE_SERVICE_ROLE_KEY` (copy from Supabase → Project Settings → API Keys → service_role, or from your `apps\medspa\.env.local`). Sensitive, all environments → Save → Deployments → ⋯ → Redeploy.
+- [ ] Later, for real card payments: add `STRIPE_SECRET_KEY` the same way (the live `sk_live_…` key from Stripe). Until then, the buy buttons fall back to book / text / call.
+- [ ] After Claude confirms the app works live: Vercel → atlas-rewards → Settings → Environment Variables → add `NEXT_PUBLIC_MEDSPA_LIVE` = `1` → Redeploy. Med spa tiles in admin then open the new desk + App builder.
 
 ## Text-message sign-in (Twilio)
 - [ ] Finish Twilio compliance / upgrade from trial.
@@ -41,4 +37,5 @@ Check items off as you go.
 - [ ] After go-live, give each clinic its desk link: `https://med.atlas-engine.app/<clinic-slug>/desk`. Staff sign in with the same email + password they use for the manager portal. Add front-desk staff in the manager portal → Team, as before.
 
 ## Done by Claude (no action needed)
+- 2026-10-30 · Vercel project `atlas-medspa` created, env vars (public ones) set, domain `med.atlas-engine.app` added, first production deploy.
 - 2026-10-30 · CP-228 SQL applied to Supabase: `wf_cond_run` + `c.entry_kind`, "Book after purchase" journey in the catalog (15 journeys). Verified live.
