@@ -7,6 +7,7 @@ import { RedeemButton, VoucherRow } from "@/components/redeem-button";
 import { getVouchers } from "@/lib/vouchers";
 import { getSavedGifts } from "@/lib/gifts";
 import { GiftRow } from "@/components/gift-code";
+import { CheckinCode } from "@/components/checkin-code";
 
 export default async function Rewards({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -21,8 +22,13 @@ export default async function Rewards({ params }: { params: { clinic: string } }
       <section className="relative mx-4 mt-3 overflow-hidden rounded-[22px] bg-ink p-5 text-white shadow-card">
         <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-brand/40 blur-3xl" />
         <Wordmark name={clinic.name} logoUrl={null} invert />
-        <p className="mt-6 text-[44px] font-semibold leading-none tracking-[-0.03em] tabular-nums">{patient.points.toLocaleString("en-US")}</p>
-        <p className="mt-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/60">Points</p>
+        <div className="relative mt-6 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[44px] font-semibold leading-none tracking-[-0.03em] tabular-nums">{patient.points.toLocaleString("en-US")}</p>
+            <p className="mt-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/60">Points</p>
+          </div>
+          {patient.signedIn && patient.memberCode && <CheckinCode code={patient.memberCode} name={patient.fullName} clinic={clinic.name} />}
+        </div>
         {patient.signedIn ? (
           next && (
             <div className="mt-5">

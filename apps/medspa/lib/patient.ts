@@ -28,11 +28,13 @@ export type Patient = {
   memberSince: string | null;
   /** The plan they joined ("Glow Club"), stamped by the Stripe webhook. */
   planName: string | null;
+  /** The patient's check-in code at this clinic (business_memberships.referral_code); the desk scans it. */
+  memberCode: string | null;
 };
 
 const GUEST: Patient = {
   signedIn: false, userId: null, firstName: null, fullName: null, phone: null,
-  points: 0, membershipId: null, isMember: false, memberSince: null, planName: null,
+  points: 0, membershipId: null, isMember: false, memberSince: null, planName: null, memberCode: null,
 };
 
 export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
@@ -44,7 +46,7 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
       const full = d.name?.trim() || "Alex Rivera";
       return {
         ...GUEST, signedIn: true, fullName: full, firstName: full.split(" ")[0], phone: d.phone ?? null, points: Math.max(0, 240 - readDemoVouchers().reduce((n, v) => n + v.point_cost, 0)), membershipId: "demo",
-        isMember: !!d.plan, planName: d.plan ?? null, memberSince: d.plan ? new Date().toISOString() : null,
+        isMember: !!d.plan, planName: d.plan ?? null, memberCode: "ALEX24", memberSince: d.plan ? new Date().toISOString() : null,
       };
     } catch { return GUEST; }
   }
@@ -54,7 +56,7 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
   const supabase = createClient();
 
   let { data: m } = await supabase.rpc("my_membership", { p_business_id: clinic.id });
-  let mem = (Array.isArray(m) ? m[0] : m) as { id?: string; points_balance?: number; joined_at?: string } | null;
+  let mem = (Array.isArray(m) ? m[0] : m) as { id?: string; points_balance?: number; joined_at?: string; referral_code?: string | null } | null;
   if (!mem?.id) {
     // First visit to this clinic: enroll (a write, so only when needed).
     await supabase.rpc("enroll_member", { p_user_id: user.id, p_business_id: clinic.id });
@@ -81,6 +83,7 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
     membershipId: mem?.id ?? null,
     isMember: !status.error && !!s?.is_paid,
     memberSince: s?.paid_at ?? null,
+    memberCode: mem?.referral_code ?? null,
     planName: (memRow as { membership_plan_label?: string | null } | null)?.membership_plan_label ?? null,
   };
 });

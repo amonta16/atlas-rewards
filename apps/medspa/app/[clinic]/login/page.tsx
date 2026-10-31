@@ -8,5 +8,5 @@ export default async function Login({ params, searchParams }: { params: { clinic
   const home = `/${clinic.slug}`;
   // Only same-clinic paths: never bounce to another site after sign-in.
   const next = searchParams.next && searchParams.next.startsWith(`${home}`) && !searchParams.next.startsWith("//") ? searchParams.next : home;
-  return <PhoneLogin slug={clinic.slug} clinicName={clinic.name} logoUrl={clinic.logoUrl} next={next} demo={clinic.isExample && clinic.id === "example"} />;
+  return <div className="relative mx-auto min-h-[100dvh] max-w-md bg-page"><PhoneLogin slug={clinic.slug} clinicName={clinic.name} logoUrl={clinic.logoUrl} next={next} demo={clinic.isExample && clinic.id === "example"} /></div>;
 }

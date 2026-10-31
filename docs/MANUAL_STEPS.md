@@ -34,5 +34,9 @@ Check items off as you go.
 ## Gifts (scratch card on Home)
 - [ ] For each med spa clinic, set up at least one automated gift (admin → the clinic → Offers → automated / welcome gift, e.g. "$25 off your first purchase"). Offers and automations are already ON for spa-by-the-bay, divina-medical-spa and reveal-med, but none has an automated gift yet, so real patients won't see a scratch card until you add one.
 
+## Front desk
+- [ ] Try the new desk locally: `npm run medspa:dev`, open http://localhost:3100/spa-by-the-bay/desk and sign in with your Atlas admin email + password. (http://localhost:3100/demo/desk works with no login.)
+- [ ] After go-live, give each clinic its desk link: `https://med.atlas-engine.app/<clinic-slug>/desk`. Staff sign in with the same email + password they use for the manager portal. Add front-desk staff in the manager portal → Team, as before.
+
 ## Done by Claude (no action needed)
 - 2026-10-30 · CP-228 SQL applied to Supabase: `wf_cond_run` + `c.entry_kind`, "Book after purchase" journey in the catalog (15 journeys). Verified live.

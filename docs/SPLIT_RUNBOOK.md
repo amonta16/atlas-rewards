@@ -168,7 +168,22 @@ Phase 2b is complete: the med spa app has everything planned for it. Next: go li
 - Optional env: `NEXT_PUBLIC_MEDSPA_HOST` (default `med.atlas-engine.app`) on the atlas-rewards project, only if the med spa domain ever changes.
 - Venue app re-checked: build green, 109 routes, 12/12 tests.
 
-Next in Phase 5: a separate med spa front desk (today med spa clinics use the venue manager portal's med spa desk).
+
+
+## Phase 5 (part 2): the med spa front desk (`/<clinic>/desk`)
+
+A new Dermis-style desk inside the med spa app (soft light layout, works on a laptop or an iPad at the desk).
+
+- **Sign in:** `/<clinic>/desk` → staff email + password (the same accounts as the manager portal). Allowed: agency admin, business manager, front desk (`current_app_role`, same rule as the portal). Anyone else sees "No desk access".
+- **Check in:** search by phone, name or code, or **Scan QR** (camera). One box understands the patient's check-in code (`business_memberships.referral_code`), a reward voucher and a gift code, exactly like the old desk.
+- **Patient panel:** Check in (+visit points, `quick_award`), Add purchase ($ → points at the clinic's rate, `award_points` + purchase event), Log treatment (provider, uses a package session, sets the recall), Remove points (reason required), Undo (2 min), rewards to redeem (`desk_redeem_reward`, handed over in one step), vouchers/gifts already claimed in the app to hand over, packages with sessions left, recent treatments, points history.
+- **Patients due** (`medspa_due_patients`: overdue / due soon / booked, one-tap pre-filled text), **Shop orders** (mark paid, handed over, cancel), **Activity**.
+- The "reward unlocked" push after an award goes through the venue app (`/api/<clinic>/desk/award-event` forwards the staff session to `/api/notifications/award-event`). Optional env `VENUE_APP_ORIGIN` (default `https://www.atlas-engine.app`).
+- **Patient app:** new **Check-in code** (QR) on the Rewards card and in Profile, so the desk can scan patients in.
+- `/demo/desk` runs on sample patients (nothing saved), for sales demos.
+- Settings, marketing, insights and team still live in the manager portal ("Manager settings" link in the desk sidebar). They move in a later part.
+- Patient screens are now phone-width via their own layouts; the clinic layout is full width so the desk can use the whole screen.
+- New package: `@yudiel/react-qr-scanner` (run `npm install`).
 
 ## Next phases
 

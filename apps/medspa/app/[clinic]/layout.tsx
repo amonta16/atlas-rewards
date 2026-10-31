@@ -16,12 +16,12 @@ export async function generateMetadata({ params }: { params: { clinic: string } 
   };
 }
 
-/** Every clinic screen: sets the clinic's brand color for the whole subtree. */
+/** Every clinic screen: sets the clinic's brand color for the whole subtree. Patient screens are phone-width (PatientFrame); the desk is full width. */
 export default async function ClinicLayout({ children, params }: { children: React.ReactNode; params: { clinic: string } }) {
   const clinic = await getClinic(params.clinic);
   if (!clinic) notFound();
   return (
-    <div className="relative mx-auto min-h-[100dvh] max-w-md bg-page" style={{ ["--p" as string]: clinic.primary, ["--p-rgb" as string]: clinic.primaryRgb }}>
+    <div style={{ ["--p" as string]: clinic.primary, ["--p-rgb" as string]: clinic.primaryRgb }}>
       {children}
     </div>
   );
