@@ -16,7 +16,8 @@
     "@yudiel/react-qr-scanner": "^2.0.8",
     "next": "^14.2.32",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-qr-code": "^2.0.15"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

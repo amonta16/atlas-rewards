@@ -3,11 +3,13 @@ import { optimizedUrl } from "@atlas/core/img";
 import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { TopBar, Wordmark } from "@/components/chrome";
-import { RedeemButton } from "@/components/redeem-button";
+import { RedeemButton, VoucherRow } from "@/components/redeem-button";
+import { getVouchers } from "@/lib/vouchers";
 
 export default async function Rewards({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
   const patient = await getPatient(clinic);
+  const vouchers = patient.signedIn ? await getVouchers(clinic) : [];
   const next = clinic.rewards.find((r) => r.point_cost > patient.points) ?? null;
   const pct = next ? Math.min(100, Math.round((patient.points / next.point_cost) * 100)) : 100;
 
@@ -31,6 +33,15 @@ export default async function Rewards({ params }: { params: { clinic: string } }
         )}
       </section>
 
+      {vouchers.length > 0 && (
+        <section className="mt-6 px-4">
+          <h2 className="px-1 text-[19px] font-semibold tracking-[-0.01em]">Ready to use</h2>
+          <div className="mt-3 space-y-3">
+            {vouchers.map((v) => <VoucherRow key={v.id} reward={v.reward_name} code={v.code} expiresAt={v.expires_at} />)}
+          </div>
+        </section>
+      )}
+
       <p className="mx-5 mt-6 text-[14px] text-sub">Earn points every visit, purchase and review. Spend them here.</p>
 
       <div className="mt-3 space-y-3 px-4">
@@ -48,7 +59,7 @@ export default async function Rewards({ params }: { params: { clinic: string } }
                 <p className="line-clamp-2 text-[15px] font-semibold leading-snug">{r.name}</p>
                 <p className="mt-1 text-[13px] text-sub">{r.point_cost.toLocaleString("en-US")} pts</p>
               </div>
-              <RedeemButton reward={r.name} ready={ready || !patient.signedIn} phone={patient.phone} clinic={clinic.name} />
+              <RedeemButton slug={clinic.slug} rewardId={r.id} reward={r.name} cost={r.point_cost} points={patient.points} ready={ready || !patient.signedIn} />
             </div>
           );
         })}
