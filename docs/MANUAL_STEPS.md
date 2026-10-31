@@ -31,5 +31,8 @@ Check items off as you go.
 ## Automations
 - [ ] Turn on "Book after purchase" for each med spa clinic you want it on: admin → Automations → the clinic → Book after purchase → turn on. (The SQL is already live; it's off everywhere until you do this, so no surprise texts or pushes.)
 
+## Gifts (scratch card on Home)
+- [ ] For each med spa clinic, set up at least one automated gift (admin → the clinic → Offers → automated / welcome gift, e.g. "$25 off your first purchase"). Offers and automations are already ON for spa-by-the-bay, divina-medical-spa and reveal-med, but none has an automated gift yet, so real patients won't see a scratch card until you add one.
+
 ## Done by Claude (no action needed)
 - 2026-10-30 · CP-228 SQL applied to Supabase: `wf_cond_run` + `c.entry_kind`, "Book after purchase" journey in the catalog (15 journeys). Verified live.

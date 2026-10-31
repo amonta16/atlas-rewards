@@ -151,9 +151,18 @@ Not yet: the automated "you haven't booked yet" nudge. It needs push notificatio
 
 New 15th journey in the med spa suite: day 1 and day 4 pushes after a membership becomes active or a **package** is paid, stopping when they book or come in. SQL in `db/history/checkpoint-228-medspa-book-nudge/` (run `01_entry_kind.sql` then `02_catalog.sql` in Supabase). Tested on a scratch Postgres; the live functions were checked first and match CP-217. Nothing sends until the journey is installed/turned on for a clinic in admin → Automations.
 
+## Phase 2b (part 5): in-app redeem + scratch gift
+
+- **Redeem:** Rewards → Redeem → confirm → `redeem_reward` takes the points and returns a code, shown as a QR voucher. Saved under "Ready to use". The desk scans it / types it exactly as with the venue app (`resolve_redemption_by_code`, `fulfill_redemption`).
+- **Scratch gift** (ported from the venue app, CP-212/213/224): Home shows "A gift for you", a parcel in the clinic's brand colour with the patient's name on the tag; scratch to unwrap, confetti, Claim. Member gifts (welcome / birthday / anniversary / win-back) use `my_unrevealed_welcome_gift` + `mark_welcome_gift_revealed`; holiday offers use `save_offer`. Claimed gifts appear under Rewards → Ready to use with their desk code (QR = `redeem_code`, desk: `resolve_saved_offer_by_code`).
+- Shows only when the clinic has offers on (`widget_config.offers`) and an automated gift for that patient. `/demo` always shows the example gift (never saved).
+- New packages: `react-qr-code`, `canvas-confetti`, `@fontsource/caveat` (run `npm install` once).
+
+Phase 2b is complete: the med spa app has everything planned for it. Next: go live (MANUAL_STEPS.md), then Phase 3.
+
 ## Next phases
 
-2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b: checkout, post-purchase booking, push done; next: in-app redeem, scratch gift
+2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b done (checkout, booking after purchase, push, in-app redeem, scratch gift)
 3. Move Lotus and the med spa demos to the med spa app; redirects for old links
 4. Delete med spa code from `apps/venues`
 5. Admin: Venues | Med Spas switch; separate med spa builder and desk

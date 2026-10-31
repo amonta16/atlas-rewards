@@ -5,11 +5,13 @@ import { getPatient } from "@/lib/patient";
 import { TopBar, Wordmark } from "@/components/chrome";
 import { RedeemButton, VoucherRow } from "@/components/redeem-button";
 import { getVouchers } from "@/lib/vouchers";
+import { getSavedGifts } from "@/lib/gifts";
+import { GiftRow } from "@/components/gift-code";
 
 export default async function Rewards({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
   const patient = await getPatient(clinic);
-  const vouchers = patient.signedIn ? await getVouchers(clinic) : [];
+  const [vouchers, gifts] = patient.signedIn ? await Promise.all([getVouchers(clinic), getSavedGifts(clinic)]) : [[], []];
   const next = clinic.rewards.find((r) => r.point_cost > patient.points) ?? null;
   const pct = next ? Math.min(100, Math.round((patient.points / next.point_cost) * 100)) : 100;
 
@@ -33,10 +35,11 @@ export default async function Rewards({ params }: { params: { clinic: string } }
         )}
       </section>
 
-      {vouchers.length > 0 && (
+      {vouchers.length + gifts.length > 0 && (
         <section className="mt-6 px-4">
           <h2 className="px-1 text-[19px] font-semibold tracking-[-0.01em]">Ready to use</h2>
           <div className="mt-3 space-y-3">
+            {gifts.map((g) => <GiftRow key={g.saved_id} title={g.gift_reward_name ?? g.title} code={g.redeem_code} expiresAt={g.expires_at} />)}
             {vouchers.map((v) => <VoucherRow key={v.id} reward={v.reward_name} code={v.code} expiresAt={v.expires_at} />)}
           </div>
         </section>

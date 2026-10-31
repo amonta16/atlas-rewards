@@ -27,3 +27,12 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
   /* Dermis-style black-and-white photography for plan cards. */
   .photo-bw { filter: grayscale(1) contrast(1.05); }
 }
+
+/* Scratch gift (ported from the venue app's med spa theme). */
+:root {
+  --ms-p: var(--p);
+  --ms-ink: #171B26;
+  --ms-sub: #6E7380;
+  --ms-line: #E6E8EA;
+}
+@keyframes ms-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }

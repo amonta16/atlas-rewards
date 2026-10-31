@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { NotifyCard } from "@/components/notifications";
+import { ScratchGift } from "@/components/scratch-gift";
+import { getScratchGift } from "@/lib/gifts";
+import "@fontsource/caveat/600.css";
 import { optimizedUrl } from "@atlas/core/img";
 import { activeTreatments, getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
@@ -12,6 +15,7 @@ import { IcCalendar, IcNext, IcPin } from "@/components/icons";
 export default async function Home({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
   const patient = await getPatient(clinic);
+  const gift = patient.signedIn || (clinic.isExample && clinic.id === "example") ? await getScratchGift(clinic, patient.membershipId) : null;
   const base = `/${clinic.slug}`;
   const treatments = activeTreatments(clinic).slice(0, 8);
   const gallery = clinic.cfg.gallery.filter((g) => g.consent && g.before_url && g.after_url).slice(0, 6);
@@ -45,6 +49,8 @@ export default async function Home({ params }: { params: { clinic: string } }) {
           <IcNext className="h-4 w-4 text-faint" strokeWidth={2.2} />
         </Link>
       </section>
+
+      {gift && <ScratchGift key={gift.savedId ?? gift.offerId} gift={gift} slug={clinic.slug} primary={clinic.primary} pointsLabel="points" fullName={patient.fullName ?? undefined} />}
 
       {patient.signedIn && <NotifyCard clinicId={clinic.id} clinicName={clinic.name} slug={clinic.slug} demo={clinic.isExample && clinic.id === "example"} />}
 
