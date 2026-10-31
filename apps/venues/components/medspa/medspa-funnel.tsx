@@ -25,6 +25,7 @@ import { CYCLE_SOURCE, RECALL, REBOOK, SCENARIOS, VALUE_BANDS, VISIT_BANDS, esti
 import { BOOKING_SYSTEMS, BOOKING_WINDOW_DAYS, DEFAULT_RECALL_ID, GUARANTEES, HOLD, MONTHLY_PRICE, OFFER_NAME, ROLES, SETUP_STACK, STAGES, TERRITORY, TREATMENT_OPTIONS } from "@/lib/landing/medspa-funnel";
 import { CALL_MINUTES, COMMON_TZS, HOST_TZ, tzLabel } from "@/lib/landing/availability";
 import { track } from "@/lib/landing/analytics";
+import { OceanBackground } from "@/components/site/ocean-background";
 
 const QUIZ = ["zip", "visits", "value", "rebook"] as const;
 type QuizId = (typeof QUIZ)[number];
@@ -323,7 +324,7 @@ export function MedspaFunnel({ source, firstFieldRef, variant }: { source: strin
             <h3 ref={headRef} tabIndex={-1} className="text-[1.6rem] font-bold leading-tight tracking-[-0.025em] text-[var(--s-ink)] outline-none sm:text-[1.85rem]">{contact.first ? `${contact.first}, here's` : "Here's"} what patient recall could win back{contact.business ? ` for ${contact.business}` : ""}.</h3>
 
             <div className="s-ocean relative mt-5 overflow-hidden rounded-[24px] p-6 shadow-[0_26px_50px_-22px_rgba(11,95,214,.6)] sm:p-7">
-              <div className="s-ocean-img opacity-60" aria-hidden />
+              <OceanBackground className="opacity-60" />
               <div className="relative">
                 <div className="text-[13px] font-semibold text-white/80">Estimated recovered revenue, year one</div>
                 <div className="mt-1 flex flex-wrap items-baseline gap-x-3">

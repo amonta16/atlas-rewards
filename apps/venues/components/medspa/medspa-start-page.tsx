@@ -1,7 +1,7 @@
 "use client";
 /**
  * components/medspa/medspa-start-page.tsx — CP-202 · the funnel on its own page, in the brand ocean.
- * Blue-lines ocean background (public/landing/blue-lines.jpg, the same artwork as
+ * Animated ocean background (components/site/ocean-background.tsx: the atlas-bg-loop video of the same artwork as
  * atlas-engine.app's bands), white logo, one white card holding the funnel.
  *
  * A/B: the arm is saved on the lead —
@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { track } from "@/lib/landing/analytics";
 import { MedspaFunnel } from "./medspa-funnel";
+import { OceanBackground } from "@/components/site/ocean-background";
 
 export function MedspaStartPage() {
   const [ctx, setCtx] = useState<{ source: string; variant: string } | null>(null);
@@ -27,7 +28,7 @@ export function MedspaStartPage() {
 
   return (
     <div className="site s-ocean relative min-h-screen overflow-x-clip">
-      <div className="s-ocean-img" style={{ position: "fixed" }} aria-hidden />
+      <OceanBackground eager style={{ position: "fixed" }} />
       <div aria-hidden className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent via-transparent to-[#06318F]/40" />
       <header className="relative z-10">
         <div className="s-wrap flex h-[68px] items-center justify-between">

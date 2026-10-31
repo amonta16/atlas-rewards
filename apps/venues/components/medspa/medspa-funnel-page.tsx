@@ -33,6 +33,7 @@ import { useSiteMotion } from "@/components/site/motion";
 import { FOUNDING, GUARANTEES, HOLD, LANDING_VSL, MONTHLY_PRICE, OFFER_NAME, SETUP_STACK, TERRITORY } from "@/lib/landing/medspa-funnel";
 import { withQuery } from "@/lib/landing/ab";
 import { IntroVideo, INTRO_VIDEO } from "@/components/medspa/intro-video"; // CP-205
+import { OceanBackground } from "@/components/site/ocean-background";
 
 
 export function MedspaFunnelPage() {
@@ -91,7 +92,7 @@ function Header({ onStart, onDark = false }: { onStart: () => void; onDark?: boo
 function HeroVideo({ onStart }: { onStart: () => void }) {
   return (
     <section className="s-ocean relative -mt-[68px] overflow-hidden pb-20 pt-[104px] sm:pt-[124px] lg:pb-24" aria-labelledby="hero-title">
-      <div className="s-ocean-img" aria-hidden />
+      <OceanBackground eager />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent to-[#06318F]/45" />
       <div className="s-wrap relative text-center">
         <p className="s-load-1 mx-auto inline-flex items-center gap-2.5 rounded-full bg-white/12 py-1.5 pl-2 pr-4 text-[14px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
@@ -276,7 +277,7 @@ function Calculator({ onStart }: { onStart: () => void }) {
   const touch = () => { if (!touched.current) { touched.current = true; track("interactive_demo_used", { demo: "medspa_calculator" }); } };
   return (
     <section className="s-ocean relative overflow-hidden" aria-labelledby="calc-title">
-      <div className="s-ocean-img opacity-70" aria-hidden />
+      <OceanBackground className="opacity-70" />
       <div className="s-wrap relative py-24 lg:py-32">
         <div className="max-w-2xl">
           <h2 id="calc-title" className="s-h2">Put your own numbers on it.</h2>
@@ -389,7 +390,7 @@ function Offer({ onStart }: { onStart: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <section id="offer" className="s-ocean relative overflow-hidden scroll-mt-16" aria-labelledby="offer-title">
-      <div className="s-ocean-img" aria-hidden />
+      <OceanBackground />
       <div className="s-wrap relative py-24 lg:py-32">
         <div className="mx-auto max-w-[44rem] text-center">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3.5 py-1.5 text-[13.5px] font-semibold text-white ring-1 ring-white/30"><MapPin className="h-4 w-4" aria-hidden />One med spa per {TERRITORY.radiusMiles}-mile area</p>
@@ -507,7 +508,7 @@ function Faq() {
 function Closing({ onStart }: { onStart: () => void }) {
   return (
     <section className="s-ocean relative overflow-hidden" aria-labelledby="close-title">
-      <div className="s-ocean-img" aria-hidden />
+      <OceanBackground />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#06318F]/60 to-transparent" />
       <div className="s-wrap relative py-28 text-center sm:py-40">
         <h2 id="close-title" className="s-display mx-auto max-w-[14ch] text-[clamp(2.4rem,1.5rem+4vw,5rem)] text-white">Some of your patients are due this week.</h2>

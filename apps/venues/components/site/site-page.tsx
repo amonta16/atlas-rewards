@@ -32,6 +32,7 @@ import { ClientResults } from "./client-results";
 // CP-196: GSAP scroll motion, wired from data-gs attributes (components/site/motion.ts).
 import { useSiteMotion } from "./motion";
 import { IconDesk, IconFinancing, IconMembership, IconRecall, IconRewards } from "./feature-icons";
+import { OceanBackground } from "@/components/site/ocean-background";
 
 
 export function SitePage() {
@@ -167,7 +168,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
 
         {/* Ocean band: full-bleed, the phone hangs into it */}
         <div className="s-ocean relative">
-          <div className="s-ocean-img opacity-80" aria-hidden />
+          <OceanBackground className="opacity-80" />
           <div className="s-wrap relative grid min-h-[560px] grid-cols-[1fr_380px_1fr] gap-10 py-20">
             <Guides light />
             <div key={`t-${i}`} className="s-load-1 relative z-[1] self-center pr-6">
@@ -308,7 +309,7 @@ function Desk() {
   const v = useInView<HTMLDivElement>({ threshold: 0.3 });
   return (
     <section id="desk" className="s-ocean relative overflow-hidden scroll-mt-16" aria-labelledby="desk-title">
-      <div className="s-ocean-img opacity-70" aria-hidden />
+      <OceanBackground className="opacity-70" />
       <div ref={v.ref} className={cn("s-wrap relative grid items-center gap-14 py-24 lg:grid-cols-[0.9fr_1.1fr] lg:gap-20 lg:py-36", v.inView && "s-in")}>
         <div>
           <h2 id="desk-title" className="s-h2 s-reveal max-w-[16ch]">Your front desk gets a list, not a dashboard.</h2>
@@ -430,7 +431,7 @@ export function Compare() {
             {/* The Atlas column: one raised blue card behind the second column, header to last row */}
             <div aria-hidden className="relative z-0 col-start-2 -my-4 overflow-hidden rounded-[24px] shadow-[0_26px_50px_-22px_rgba(11,95,214,.75)]"
               style={{ gridRow: `1 / span ${rows + 1}`, background: "linear-gradient(170deg, #2C93FF 0%, #0B5FD6 55%, #06318F 100%)" }}>
-              <div className="absolute inset-0 bg-[url('/landing/blue-lines.jpg')] bg-cover bg-center opacity-40 mix-blend-screen" />
+              <OceanBackground tint={false} className="opacity-40 mix-blend-screen" />
             </div>
             <div role="row" className="contents">
               <div role="columnheader" className="row-start-1 col-start-1 p-6" />
@@ -479,7 +480,8 @@ export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "ge
     <section className="s-section !pt-0" aria-labelledby="reviews-title">
       <div className="s-wrap">
         <div className="s-ocean relative overflow-hidden rounded-[36px] pb-10 pt-16 sm:pt-24">
-          <div className="s-ocean-img" aria-hidden />
+          {/* The med spa site gets the animated loop; the all-business home page keeps the static artwork. */}
+          {audience === "medspa" ? <OceanBackground /> : <div className="s-ocean-img" aria-hidden />}
           <div className="relative px-5 text-center">
             <h2 id="reviews-title" className="s-h2 mx-auto max-w-[16ch] text-[clamp(2.2rem,1.4rem+3.2vw,4.2rem)]">See what owners say about Atlas.</h2>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -573,7 +575,7 @@ function Team() {
 function Closing({ onStart }: { onStart: () => void }) {
   return (
     <section className="s-ocean relative overflow-hidden" aria-labelledby="close-title">
-      <div className="s-ocean-img" aria-hidden />
+      <OceanBackground />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#06318F]/60 to-transparent" />
       <div className="s-wrap relative py-28 text-center sm:py-40">
         <h2 id="close-title" className="s-display mx-auto max-w-[14ch] text-[clamp(2.4rem,1.5rem+4vw,5rem)] text-white">Some of your patients are due this week.</h2>

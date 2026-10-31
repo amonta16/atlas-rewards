@@ -16,6 +16,7 @@ import { GUARANTEES } from "@/lib/landing/medspa-funnel";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { CALL_MINUTES } from "@/lib/landing/availability";
+import { OceanBackground } from "@/components/site/ocean-background";
 
 type Props = {
   token: string; firstName: string; business: string; slotStart: string; timezone: string | null; meetUrl: string | null;
@@ -49,9 +50,9 @@ export function PrecallPage(p: Props) {
 
   return (
     <div className="site min-h-screen overflow-x-clip bg-[var(--s-paper)]">
-      {/* CP-202: brand ocean band (blue-lines) behind the logo and the headline */}
+      {/* CP-202: brand ocean band (CP-230: animated loop) behind the logo and the headline */}
       <div className="s-ocean relative overflow-hidden pb-40">
-        <div className="s-ocean-img" aria-hidden />
+        <OceanBackground eager />
         <header className="relative">
           <div className="s-wrap flex h-16 items-center justify-between">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -155,7 +156,7 @@ export function PrecallPage(p: Props) {
 
               {/* CP-204: the three promises, so they arrive at the call already knowing the risk is on us */}
               <section className="s-ocean relative mt-10 overflow-hidden rounded-[28px] p-6 sm:p-8" aria-labelledby="promise-title">
-                <div className="s-ocean-img opacity-80" aria-hidden />
+                <OceanBackground className="opacity-80" />
                 <div className="relative">
                   <h2 id="promise-title" className="s-h3 text-white">Three promises that come with Atlas</h2>
                   <ul className="mt-4 grid gap-3">
