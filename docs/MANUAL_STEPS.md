@@ -13,7 +13,6 @@ Claude already did: created the Vercel project `atlas-medspa`, set it to `apps/m
 Left for you (secrets Claude shouldn't handle):
 - [ ] Vercel → atlas-medspa → Settings → Environment Variables → add `SUPABASE_SERVICE_ROLE_KEY` (copy from Supabase → Project Settings → API Keys → service_role, or from your `apps\medspa\.env.local`). Sensitive, all environments → Save → Deployments → ⋯ → Redeploy.
 - [ ] Later, for real card payments: add `STRIPE_SECRET_KEY` the same way (the live `sk_live_…` key from Stripe). Until then, the buy buttons fall back to book / text / call.
-- [ ] After Claude confirms the app works live: Vercel → atlas-rewards → Settings → Environment Variables → add `NEXT_PUBLIC_MEDSPA_LIVE` = `1` → Redeploy. Med spa tiles in admin then open the new desk + App builder.
 
 ## Text-message sign-in (Twilio)
 - [ ] Finish Twilio compliance / upgrade from trial.
@@ -36,6 +35,17 @@ Left for you (secrets Claude shouldn't handle):
 - [ ] Try the new desk locally: `npm run medspa:dev`, open http://localhost:3100/spa-by-the-bay/desk and sign in with your Atlas admin email + password. (http://localhost:3100/demo/desk works with no login.)
 - [ ] After go-live, give each clinic its desk link: `https://med.atlas-engine.app/<clinic-slug>/desk`. Staff sign in with the same email + password they use for the manager portal. Add front-desk staff in the manager portal → Team, as before.
 
+## Ship the med spa app to the App Store / Google Play (Phase 6, not built yet)
+Accounts and setup only you can do (start these now, some take days):
+- [ ] Apple Developer Program, enrolled as the business (Atlas Engine LLC). Needs a free D-U-N-S number first (can take 1–2 weeks). $99/yr.
+- [ ] Google Play Console. If your existing account is a *personal* one, new apps need a closed test with 12+ testers for 14 days before production. An *organization* account (same D-U-N-S) skips that.
+- [ ] A way to build iOS: Xcode only runs on a Mac. Either borrow/buy a Mac, or use a cloud Mac build service (e.g. Codemagic; Claude can set up the config).
+- [ ] Decide: one "Atlas Med Spa" app where patients pick their clinic (one listing under Atlas's account), or a branded app per clinic (Apple requires those to be published from each clinic's own developer account).
+- [ ] Clinic content per clinic: real treatments, prices, photos, booking method, at least one gift.
+- [ ] Privacy policy + support URL for the store listing, and store screenshots (Claude can make these).
+
 ## Done by Claude (no action needed)
+- 2026-10-30 · CP-229: admin folders split by tab (Venues | Med Spas), med spa folders moved to Med Spas; the missing subfolder column added (creating/editing folders was failing before). Automations business picker grouped by Venues / Med Spas.
 - 2026-10-30 · Vercel project `atlas-medspa` created, env vars (public ones) set, domain `med.atlas-engine.app` added, first production deploy.
+- 2026-10-30 · Admin med spa tiles now open the new App builder by default (no env switch needed).
 - 2026-10-30 · CP-228 SQL applied to Supabase: `wf_cond_run` + `c.entry_kind`, "Book after purchase" journey in the catalog (15 journeys). Verified live.

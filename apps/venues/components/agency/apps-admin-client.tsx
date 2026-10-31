@@ -77,14 +77,18 @@ export function AppsAdminClient({
   // modal instead.
   const onDeleteClick = (b: Business) => (isVa ? setPendingRequest(b) : setPendingDelete(b));
 
-  const unfiledCount = shown.filter(b => !b.folder_id).length;
+  // CP-229: each folder lives on one tab. An app filed in the other tab's folder counts as Unfiled here.
+  const tabFolders = folders.filter(f => (f.product ?? "venues") === (product === "medspa" ? "medspa" : "venues"));
+  const tabFolderIds = new Set(tabFolders.map(f => f.id));
+  const isFiled = (b: Business) => !!b.folder_id && tabFolderIds.has(b.folder_id);
+  const unfiledCount = shown.filter(b => !isFiled(b)).length;
 
   function appsInFolder(folderId: string) { return shown.filter(b => b.folder_id === folderId); }
   function countFor(f: BusinessFolder) { return appsInFolder(f.id).length; }
 
   // CP-128.2: one level of nesting (location → niche).
-  const topFolders = folders.filter(f => !f.parent_folder_id);
-  function childrenOf(folderId: string) { return folders.filter(f => f.parent_folder_id === folderId); }
+  const topFolders = tabFolders.filter(f => !f.parent_folder_id);
+  function childrenOf(folderId: string) { return tabFolders.filter(f => f.parent_folder_id === folderId); }
   /** A parent card counts its own apps plus its children's. */
   function rollupCount(f: BusinessFolder) {
     return countFor(f) + childrenOf(f.id).reduce((n, c) => n + countFor(c), 0);
@@ -99,7 +103,7 @@ export function AppsAdminClient({
   function drilledApps(): Business[] {
     let apps: Business[];
     if (drill === "ALL") apps = shown;
-    else if (drill === "UNFILED") apps = shown.filter(b => !b.folder_id);
+    else if (drill === "UNFILED") apps = shown.filter(b => !isFiled(b));
     else if (drill && typeof drill === "object") apps = shown.filter(b => b.folder_id === drill.folderId);
     else apps = [];
     return apps.filter(searchMatch);
@@ -371,7 +375,8 @@ export function AppsAdminClient({
       {folderModal && (
         <FolderEditModal
           folder={folderModal.folder}
-          allFolders={folders}
+          allFolders={tabFolders}
+          product={product === "medspa" ? "medspa" : "venues"}
           onClose={() => setFolderModal(null)}
           onSaved={onFolderSaved}
           onDeleted={onFolderDeleted}
@@ -503,6 +508,8 @@ function AppTile({
   onNewFolder: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // CP-229: only this tab's folders count; a folder from the other tab shows as Unfiled.
+  const curFolder = folders.find(f => f.id === b.folder_id) ?? null;
   const primary = b.brand_colors?.primary ?? "#1d6fa5";
 
   return (
@@ -541,9 +548,9 @@ function AppTile({
         <div className="relative">
           <button onClick={() => setMenuOpen(o => !o)}
             className={cn("h-8 px-2.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors",
-              b.folder_id ? "bg-sky-400/15 text-sky-200 hover:bg-sky-400/25" : "bg-white/5 text-sky-200/60 hover:bg-white/10")}>
+              curFolder ? "bg-sky-400/15 text-sky-200 hover:bg-sky-400/25" : "bg-white/5 text-sky-200/60 hover:bg-white/10")}>
             <FolderInput className="h-3.5 w-3.5" />
-            {b.folder_id ? (folders.find(f => f.id === b.folder_id)?.name ?? "Folder") : "Move"}
+            {curFolder ? curFolder.name : "Move"}
           </button>
           {menuOpen && (
             <>
@@ -562,7 +569,7 @@ function AppTile({
                   ))}
                   <button onClick={() => { onMove(b, null); setMenuOpen(false); }}
                     className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-sky-200/60 hover:bg-white/5">
-                    <span>Unfiled</span>{!b.folder_id && <Check className="h-3.5 w-3.5 text-sky-300" />}
+                    <span>Unfiled</span>{!curFolder && <Check className="h-3.5 w-3.5 text-sky-300" />}
                   </button>
                 </div>
                 <button onClick={() => { onNewFolder(); setMenuOpen(false); }}

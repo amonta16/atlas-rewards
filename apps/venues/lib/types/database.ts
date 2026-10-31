@@ -278,6 +278,8 @@ export type BusinessFolder = {
   cover_image_url: string | null;
   /** CP-128.2: one level of nesting (location → niche); null = top level. */
   parent_folder_id?: string | null;
+  /** CP-229: which admin tab the folder lives on. */
+  product?: "venues" | "medspa";
   sort: number;
   created_at?: string;
   updated_at?: string;

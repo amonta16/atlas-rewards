@@ -203,7 +203,7 @@ export function FieldDemoModal({
           try { await applyExampleClinic(supabase, { id: bizId }); } catch { /* best-effort */ }
         }
         const city = cityFromAddress(foundMeta.address);
-        if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[niche].label);
+        if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[niche].label, niche);
       }
       onCreated?.();
     } catch (e: any) {

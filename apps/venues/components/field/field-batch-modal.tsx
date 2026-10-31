@@ -137,7 +137,7 @@ export function FieldBatchModal({
             try { await applyExampleClinic(supabase, { id: bizId }); } catch { /* best-effort */ }
           }
           const city = cityFromAddress(info?.address);
-          if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[row.niche].label);
+          if (city) await fileDemoIntoFolders(supabase, bizId, city, NICHE_META[row.niche].label, row.niche);
         }
       } catch (e: any) {
         acc.push({ name: row.name, niche: row.niche, ok: false, error: e?.message ?? "failed" });

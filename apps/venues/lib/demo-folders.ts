@@ -26,8 +26,10 @@ async function ensureFolder(
   supabase: Supa,
   name: string,
   parentId: string | null,
+  product: "venues" | "medspa",
 ): Promise<string | null> {
-  let query = supabase.from("business_folders").select("id").ilike("name", name).limit(1);
+  // CP-229: folders live on one admin tab, so med spa demos get their own city folder.
+  let query = supabase.from("business_folders").select("id").ilike("name", name).eq("product", product).limit(1);
   query = parentId === null
     ? query.is("parent_folder_id", null)
     : query.eq("parent_folder_id", parentId);
@@ -35,7 +37,7 @@ async function ensureFolder(
   if (found?.length) return found[0].id as string;
   const { data: created, error } = await supabase
     .from("business_folders")
-    .insert({ name, parent_folder_id: parentId })
+    .insert({ name, parent_folder_id: parentId, product })
     .select("id")
     .single();
   if (error || !created) return null;
@@ -48,11 +50,13 @@ export async function fileDemoIntoFolders(
   businessId: string,
   city: string,
   nicheLabel: string,
+  niche?: string,
 ): Promise<void> {
+  const product = niche === "medspa" ? "medspa" : "venues";
   try {
-    const parentId = await ensureFolder(supabase, city, null);
+    const parentId = await ensureFolder(supabase, city, null, product);
     if (!parentId) return;
-    const childId = await ensureFolder(supabase, nicheLabel, parentId);
+    const childId = await ensureFolder(supabase, nicheLabel, parentId, product);
     if (!childId) return;
     await supabase.from("businesses").update({ folder_id: childId }).eq("id", businessId);
   } catch {

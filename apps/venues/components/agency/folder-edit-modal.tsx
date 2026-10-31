@@ -15,7 +15,7 @@ import type { BusinessFolder } from "@/lib/types/database";
  * FK's ON DELETE SET NULL), it never touches the businesses themselves.
  */
 export function FolderEditModal({
-  folder, onClose, onSaved, onDeleted, allFolders,
+  folder, onClose, onSaved, onDeleted, allFolders, product = "venues",
 }: {
   folder: BusinessFolder | null; // null = create
   onClose: () => void;
@@ -23,6 +23,8 @@ export function FolderEditModal({
   onDeleted: (id: string) => void;
   /** CP-128.2: the full folder list, for the parent-folder picker. */
   allFolders?: BusinessFolder[];
+  /** CP-229: the admin tab a new folder is created on. */
+  product?: "venues" | "medspa";
 }) {
   const { toast } = useToast();
   const [name, setName] = useState(folder?.name ?? "");
@@ -53,7 +55,7 @@ export function FolderEditModal({
     } else {
       const { data, error } = await supabase
         .from("business_folders")
-        .insert({ name: trimmed, cover_image_url: cover, parent_folder_id: parentId })
+        .insert({ name: trimmed, cover_image_url: cover, parent_folder_id: parentId, product })
         .select("*").single();
       setSaving(false);
       if (error) { toast.error("Create failed: " + error.message); return; }
