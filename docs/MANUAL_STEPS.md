@@ -17,6 +17,8 @@ Check items off as you go.
 - [ ] atlas-medspa → Settings → Domains → add `med.atlas-engine.app`.
 - [ ] Local testing of push: copy the same VAPID public key line from Vercel (atlas-rewards → Environment Variables) into `apps\medspa\.env.local`.
 
+- [ ] After the med spa app is live: Vercel → atlas-rewards → Settings → Environment Variables → add `NEXT_PUBLIC_MEDSPA_LIVE` = `1` → Redeploy. Med spa tiles in admin then open the new desk + App builder.
+
 ## Text-message sign-in (Twilio)
 - [ ] Finish Twilio compliance / upgrade from trial.
 - [ ] Twilio Console → Verify → Services → Create (name it like the app; it appears in the text). Copy the Verify Service SID (`VA…`), Account SID, Auth Token.

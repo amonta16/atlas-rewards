@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getClinic, activeTreatments } from "@/lib/clinic";
 import { getStaff } from "@/lib/staff";
 import { DeskApp } from "@/components/desk/desk-app";
+import { getBuilderData } from "@/lib/builder-data";
 
 export const metadata = { title: "Front desk" };
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export default async function Desk({ params }: { params: { clinic: string } }) {
     );
   }
   const demo = clinic.isExample && clinic.id === "example";
+  const builder = staff.isManager ? await getBuilderData(clinic) : null;
   return (
     <DeskApp
       clinic={{
@@ -38,6 +40,7 @@ export default async function Desk({ params }: { params: { clinic: string } }) {
         rewards: clinic.rewards.map((r) => ({ id: r.id, name: r.name, point_cost: r.point_cost, image_url: r.image_url, description: r.description })),
       }}
       staff={staff}
+      builder={builder}
       portalUrl={demo ? null : `https://www.atlas-engine.app/${clinic.slug}/manage`}
     />
   );

@@ -21,6 +21,8 @@ import { IcBag, IcCalendar, IcCheck, IcClock, IcClose, IcGift, IcNext, IcOut, Ic
 import type { Staff } from "@/lib/staff";
 import { Card, Empty, Modal } from "./ui";
 import { OverviewView, RewardsView, TeamView } from "./manager-views";
+import { BuilderView } from "./builder";
+import type { BuilderData } from "@/lib/builder-data";
 
 const Scanner = dynamic(() => import("@yudiel/react-qr-scanner").then((m) => m.Scanner), { ssr: false });
 
@@ -30,7 +32,7 @@ type DeskClinic = {
   treatments: Treatment[]; providers: Provider[];
   rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[];
 };
-type View = "checkin" | "due" | "orders" | "activity" | "overview" | "rewards" | "team";
+type View = "checkin" | "due" | "orders" | "activity" | "overview" | "rewards" | "team" | "builder";
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -43,7 +45,7 @@ const rel = (iso: string) => {
 const initials = (n: string | null) => (n ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 const RULE: Record<string, string> = { visit: "Check-in", purchase: "Purchase", redemption: "Reward redeemed", manual_adjust: "Points removed", reversal: "Undo", referral_referrer: "Referral", birthday: "Birthday", review: "Review" };
 
-export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staff: Staff; portalUrl: string | null }) {
+export function DeskApp({ clinic, staff, portalUrl, builder }: { clinic: DeskClinic; staff: Staff; portalUrl: string | null; builder: BuilderData | null }) {
   const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
   const [view, setView] = useState<View>(staff.isManager ? "overview" : "checkin");
   const [selected, setSelected] = useState<DeskMember | null>(null);
@@ -73,6 +75,7 @@ export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staf
     { id: "overview", label: "Overview", Icon: IcCalendar },
     { id: "rewards", label: "Rewards", Icon: IcGift },
     { id: "team", label: "Team", Icon: IcUser },
+    ...(builder ? [{ id: "builder" as View, label: "App builder", Icon: IcSpark }] : []),
   ] : [];
   const ALL = [...NAV, ...MANAGE];
 
@@ -121,6 +124,7 @@ export function DeskApp({ clinic, staff, portalUrl }: { clinic: DeskClinic; staf
         {view === "activity" && <Activity api={api} />}
         {view === "overview" && staff.isManager && <OverviewView api={api} onOpen={setView} />}
         {view === "rewards" && staff.isManager && <RewardsView api={api} say={say} />}
+        {view === "builder" && builder && <BuilderView clinic={{ id: clinic.id, slug: clinic.slug, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} />}
         {view === "team" && staff.isManager && <TeamView api={api} say={say} deskUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}/desk` : `/${clinic.slug}/desk`} />}
       </main>
 

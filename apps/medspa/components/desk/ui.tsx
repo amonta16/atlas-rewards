@@ -3,14 +3,14 @@
 import { useEffect } from "react";
 import { IcCalendar, IcClose } from "../icons";
 
-export function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+export function Modal({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-[60] grid animate-fade place-items-center bg-black/35 px-4" onClick={onClose}>
-      <div role="dialog" aria-modal className="max-h-[calc(100dvh-2rem)] w-full max-w-[420px] animate-rise overflow-y-auto rounded-[26px] bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal className={`max-h-[calc(100dvh-2rem)] w-full ${wide ? "max-w-[640px]" : "max-w-[420px]"} animate-rise overflow-y-auto rounded-[26px] bg-white p-6 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between"><h3 className="text-[19px] font-semibold">{title}</h3><button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full bg-page"><IcClose className="h-4 w-4" /></button></div>
         {children}
       </div>

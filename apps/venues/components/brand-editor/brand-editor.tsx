@@ -83,6 +83,7 @@ import { TreatmentsEditor, CreditsEditor, ProvidersEditor, AftercareEditor, Gall
 import { readMedspaConfig, type MedspaConfig } from "@/lib/medspa";
 // Med spa split (Phase 5): plans the med spa app sells (medspa_config.memberships).
 import { PlansEditor } from "@/components/medspa-builder/plans-editor";
+const MEDSPA_HOST = (process.env.NEXT_PUBLIC_MEDSPA_HOST ?? "med.atlas-engine.app").replace(/^https?:\/\//, "");
 import { Syringe, HeartHandshake, Images as ImagesIcon, Stethoscope, ShoppingBag } from "lucide-react";
 
 const WIDGET_LABELS: Record<string, string> = {
@@ -216,6 +217,7 @@ export function BrandEditor({ initial }: { initial: Business }) {
   // CP-185: med spa config is one jsonb; editors get the parsed object and
   // hand back the whole thing. Persisted by save() like every other column.
   const medspa = isMedspaLayout(b);
+  const medspaLive = medspa && process.env.NEXT_PUBLIC_MEDSPA_LIVE === "1";
   const medspaCfg = readMedspaConfig(b.medspa_config);
   const setMedspa = (next: MedspaConfig) => update("medspa_config", next as unknown as Record<string, unknown>);
   // A tab that doesn't exist on the current layout (e.g. after switching
@@ -404,10 +406,12 @@ export function BrandEditor({ initial }: { initial: Business }) {
               <Sparkles className="h-4 w-4 mr-1"/>{exampleBusy ? "Loading example…" : "Load example clinic"}
             </Button>
           )}
-          <a href={`/${b.slug}/app`} target="_blank">
-            <Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1"/>Customer app</Button>
+          {/* Med spa split: once the med spa app is live (NEXT_PUBLIC_MEDSPA_LIVE=1), med spas open the
+              patient app and the new desk (with its App builder) on med.atlas-engine.app. */}
+          <a href={medspaLive ? `https://${MEDSPA_HOST}/${b.slug}` : `/${b.slug}/app`} target="_blank">
+            <Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1"/>{medspaLive ? "Patient app" : "Customer app"}</Button>
           </a>
-          <a href={`/${b.slug}/manage`} target="_blank">
+          <a href={medspaLive ? `https://${MEDSPA_HOST}/${b.slug}/desk` : `/${b.slug}/manage`} target="_blank">
             <Button variant="outline" size="sm" className="border-sky-300 text-sky-700 hover:bg-sky-50">
               <User className="h-4 w-4 mr-1"/>Front desk
             </Button>
@@ -417,6 +421,12 @@ export function BrandEditor({ initial }: { initial: Business }) {
           </Button>
         </div>
       </header>
+      {medspaLive && (
+        <div className="mx-6 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-900">
+          <span>This med spa now has its own <b>App builder</b> in the new front desk: cleaner, and only what the med spa app uses.</span>
+          <a href={`https://${MEDSPA_HOST}/${b.slug}/desk`} target="_blank" rel="noopener noreferrer" className="rounded-full bg-sky-600 px-4 py-1.5 font-semibold text-white">Open the new builder</a>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="px-8 border-b">

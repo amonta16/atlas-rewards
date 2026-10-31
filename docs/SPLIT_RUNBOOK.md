@@ -193,6 +193,22 @@ Managers (and Atlas admins) get a **Manage** section in the desk sidebar and ope
 - **Team:** front desk + managers, pending invites, Add staff (creates the account with a password and shows the desk link + login to send), Remove, Revoke. Account creation goes through the venue app's `/api/team/create-account` and `/api/team/revoke` (forwarded with the manager's session by `/api/<clinic>/desk/team`), so their permission checks apply. The desk can only add front desk staff or managers.
 - Still in the manager portal ("More settings" in the sidebar): offers/automations, marketing, billing/Stripe, waivers, insights reports, front-desk PINs.
 
+## Phase 5 (part 4): the new App builder (in the desk)
+
+Manage → **App builder** inside the med spa desk, replacing the old crowded builder for med spas. Only what the med spa app and desk use; it writes the same columns (`medspa_config`, `contact_info`, `google_review_url`, `welcome_message`, and for Atlas admins `name`, `logo_url`, `app_icon_url`, `hero_image_url`, `brand_colors.primary`), so the patient app, the desk and the old builder stay in sync. Untouched keys in `medspa_config`, `brand_colors` and `contact_info` are preserved.
+
+- **Brand** (Atlas admins only, same rule as before): name, colour, logo, app icon, home photo.
+- **Clinic details:** phone, address, Google review link, welcome line.
+- **Treatments:** menu list with on/off; edit window with category, photo, price, member price, minutes, recall weeks, description, aftercare, per-treatment booking link. Starter menu for empty clinics.
+- **Memberships:** plans (same shape as `medspa_config.memberships`).
+- **Shop:** on/off, pay in the app vs at the desk, pay over time (Klarna/Affirm), intro line, items (package with sessions + linked treatment, skincare with pickup note, gift cards with amounts), starter items.
+- **Booking:** the one booking method + its fields.
+- Floating "Unsaved changes · Discard · Save" bar; warns before leaving with unsaved edits.
+- Left out on purpose (venue-only): events, news, waivers, venue booking resources, venue themes/layouts, widget toggles.
+- Next part: Providers, Results gallery, Aftercare/recall messages, Offers & automations.
+
+**Admin hand-off:** after go-live set `NEXT_PUBLIC_MEDSPA_LIVE=1` on the atlas-rewards Vercel project. Then med spa tiles in `/agency` open the new desk/builder on `med.atlas-engine.app`, the old builder shows a banner linking to it, and its "Customer app" / "Front desk" buttons open the med spa app and new desk. Until then everything keeps using the old builder and portal.
+
 ## Next phases
 
 2. ~~`apps/medspa` + `packages/core`, phone sign-in, Dermis-style patient app~~ (2a done); 2b done (checkout, booking after purchase, push, in-app redeem, scratch gift)

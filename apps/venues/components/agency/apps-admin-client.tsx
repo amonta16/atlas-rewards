@@ -23,6 +23,9 @@ import { resolvePreset } from "@/lib/layout-presets";
 type Product = "venues" | "medspa";
 const isMedspaBiz = (b: Pick<Business, "layout_preset">) => resolvePreset(b.layout_preset) === "medspa";
 const MEDSPA_HOST = (process.env.NEXT_PUBLIC_MEDSPA_HOST ?? "med.atlas-engine.app").replace(/^https?:\/\//, "");
+/** After med spa go-live (NEXT_PUBLIC_MEDSPA_LIVE=1) med spa tiles open the new desk + App builder; until then, the old builder. */
+const medspaNewBuilder = (b: Pick<Business, "layout_preset">) => isMedspaBiz(b) && process.env.NEXT_PUBLIC_MEDSPA_LIVE === "1";
+const builderHref = (b: Business) => (medspaNewBuilder(b) ? `https://${MEDSPA_HOST}/${b.slug}/desk` : `/agency/businesses/${b.id}`);
 
 // Drill target: the folders overview, "all apps", a real folder, or unfiled.
 type Drill = null | "ALL" | "UNFILED" | { folderId: string };
@@ -506,7 +509,7 @@ function AppTile({
     <div className="group relative rounded-2xl overflow-hidden ring-1 ring-white/10 hover:ring-sky-400/50 transition-all hover:-translate-y-0.5"
       style={{ background: "rgba(255,255,255,0.03)", boxShadow: "0 10px 30px -14px rgba(0,0,0,0.6)" }}>
       {/* cover strip */}
-      <Link href={`/agency/businesses/${b.id}`} className="block">
+      <Link href={builderHref(b)} target={medspaNewBuilder(b) ? "_blank" : undefined} className="block">
         <div className="h-24 bg-cover bg-center relative"
           style={b.hero_image_url ? { backgroundImage: `url("${b.hero_image_url}")` } : { background: `linear-gradient(135deg, ${primary}, ${b.brand_colors?.secondary ?? primary})` }}>
           <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(2,10,25,0) 0%, rgba(2,10,25,0.55) 100%)" }} />
@@ -528,7 +531,7 @@ function AppTile({
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <Link href={`/agency/businesses/${b.id}`} className="font-semibold text-white truncate block hover:text-sky-200">{b.name}</Link>
+          <Link href={builderHref(b)} target={medspaNewBuilder(b) ? "_blank" : undefined} className="font-semibold text-white truncate block hover:text-sky-200">{b.name}</Link>
           <div className="text-[11px] text-sky-200/40 truncate">{b.industry ?? "Uncategorized"} · <code className="text-sky-300/60">{isMedspaBiz(b) ? `${MEDSPA_HOST}/${b.slug}` : `${b.slug}.${rootDomain}`}</code></div>
         </div>
       </div>
@@ -570,7 +573,7 @@ function AppTile({
             </>
           )}
         </div>
-        <Link href={`/agency/businesses/${b.id}`}
+        <Link href={builderHref(b)} target={medspaNewBuilder(b) ? "_blank" : undefined}
           className="h-8 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-sky-100 flex items-center gap-1.5 text-[11px] font-medium">
           <ArrowUpRight className="h-3.5 w-3.5" /> Open
         </Link>
