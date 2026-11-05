@@ -1,5 +1,5 @@
--- CP-231: Shop orders earn points when they're paid.
--- NOT APPLIED YET as of 2026-11-05: run once in the Supabase SQL Editor, BEFORE pushing the app change.
+-- CP-231: Shop orders earn points when they're paid (record of applied SQL).
+-- Applied to production 2026-11-05 as migration cp231_medspa_order_points.
 --
 -- Fires on the order's move to 'paid', so it covers both ways an order gets
 -- paid: the Stripe webhook (no signed-in user, so award_points would refuse it)
