@@ -15,7 +15,7 @@ export function readDemoEarned(clinic: Pick<Clinic, "pointsPerDollar" | "reviewP
   const jar = cookies();
   let list: DemoOrder[] = [];
   try { list = JSON.parse(decodeURIComponent(jar.get(DEMO_ORDERS_COOKIE)?.value ?? "[]")); } catch { /* none */ }
-  const spent = list.reduce((n, o) => n + o.amount_cents, 0);
+  const spent = list.reduce((n, o) => n + (o.kind === "gift_card" ? 0 : o.amount_cents), 0);
   return Math.floor((spent / 100) * clinic.pointsPerDollar) + (jar.get(DEMO_REVIEW_COOKIE)?.value ? clinic.reviewPoints : 0);
 }
 
@@ -27,6 +27,12 @@ export type DemoOrder = {
 export type Purchase = Pick<ShopOrderRow,
   "id" | "item_name" | "kind" | "quantity" | "amount_cents" | "status" | "pay_method" | "sessions_total" | "sessions_used" |
   "gift_code" | "gift_balance_cents" | "recipient_name" | "created_at" | "treatment_id">;
+
+/** Points this order actually added (the ledger row from the paid-order trigger, CP-231). Patients can read their own ledger. */
+export async function getOrderPoints(orderId: string): Promise<number> {
+  const { data } = await createClient().from("points_ledger").select("delta").eq("idempotency_key", `shop_order_${orderId}`).maybeSingle();
+  return (data as { delta?: number } | null)?.delta ?? 0;
+}
 
 export async function getPurchases(clinic: Clinic): Promise<Purchase[]> {
   if (clinic.isExample && clinic.id === "example") {

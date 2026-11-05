@@ -20,7 +20,6 @@ export default async function ShopItem({ params }: { params: { clinic: string; i
   const [patient, takesCards] = await Promise.all([getPatient(clinic), shopTakesCards(clinic)]);
   const forSale = item.kind === "gift_card" ? item.amounts.length > 0 : (item.price_cents ?? 0) > 0;
   const options = bookingOptions({ ...clinic.cfg.booking, message: `Hi {practice}! I'd like to buy ${item.name}.` }, clinic.name, clinic.phone, null);
-  const demo = clinic.isExample && clinic.id === "example";
 
   return (
     <article>
@@ -45,7 +44,7 @@ export default async function ShopItem({ params }: { params: { clinic: string; i
       {forSale ? (
         <BuyPanel slug={clinic.slug} isMember={patient.isMember} takesCards={takesCards} financing={clinic.cfg.shop.financing}
           itemName={item.name} image={item.image_url} pickupNote={item.pickup_note}
-          points={patient.points} earnRate={demo ? clinic.pointsPerDollar : 0} rewards={clinic.rewards}
+          points={patient.points} earnRate={clinic.pointsPerDollar} rewards={clinic.rewards}
           item={{ id: item.id, kind: item.kind, amounts: item.amounts, price_cents: item.price_cents, member_price_cents: item.member_price_cents }} />
       ) : (
         <section className="sticky z-20 bg-gradient-to-t from-white via-white to-white/0 px-4 pb-4 pt-6" style={{ bottom: "calc(4.2rem + env(safe-area-inset-bottom, 0px))" }}>

@@ -25,7 +25,7 @@ type Props = {
   takesCards: boolean;
   financing: { klarna: boolean; affirm: boolean };
   points: number;
-  /** Points per $1 this purchase adds straight away. 0 = nothing promised (points are added at the desk). */
+  /** Points per $1 once the order is paid (the paid-order trigger, CP-231). Gift cards earn when they're spent. */
   earnRate: number;
   rewards: ClinicReward[];
 };
@@ -47,7 +47,7 @@ export function BuyPanel({ slug, item, itemName, image, pickupNote, isMember, ta
   const payLater = takesCards && total != null
     ? (["klarna", "affirm"] as FinancingMethod[]).filter((m) => financing[m] && financingFits(m, total))
     : [];
-  const earn = total != null ? Math.floor((total / 100) * earnRate) : 0;
+  const earn = total != null && !isGift ? Math.floor((total / 100) * earnRate) : 0;
   const unlocks = earn > 0 ? rewards.find((r) => r.point_cost > points && r.point_cost <= points + earn) ?? null : null;
 
   async function buy(method: "card" | FinancingMethod) {
@@ -67,7 +67,7 @@ export function BuyPanel({ slug, item, itemName, image, pickupNote, isMember, ta
   }
 
   const bannerTitle = unlocks ? "This purchase unlocks a new reward!" : earn > 0 ? `Earn ${earn.toLocaleString("en-US")} points with this purchase` : null;
-  const bannerSub = unlocks ? unlocks.name : earn > 0 ? "They land in your Rewards right after you pay." : pickupNote || null;
+  const bannerSub = unlocks ? unlocks.name : earn > 0 ? (takesCards ? "They land in your Rewards right after you pay." : "They land in your Rewards when you pay at the desk.") : pickupNote || null;
 
   return (
     <>

@@ -5,8 +5,17 @@ import { useEffect, useState } from "react";
 import confetti from "canvas-confetti";
 import { Portal } from "./portal";
 
-export function EarnedOverlay({ points, clinic, href, onDone }: { points: number; clinic: string; href?: string; onDone?: () => void }) {
-  const [open, setOpen] = useState(true);
+export function EarnedOverlay({ points, clinic, href, onDone, onceKey }: { points: number; clinic: string; href?: string; onDone?: () => void; /** Only celebrate this once on this device (a reload or Back won't replay it). */ onceKey?: string }) {
+  const [open, setOpen] = useState(!onceKey);
+  useEffect(() => {
+    if (!onceKey) return;
+    const key = `ms_earned_${onceKey}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch { /* storage blocked: show it anyway */ }
+    setOpen(true);
+  }, [onceKey]);
   useEffect(() => {
     if (!open || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     confetti({ particleCount: 120, spread: 110, startVelocity: 34, origin: { y: 0.24 }, zIndex: 90 });

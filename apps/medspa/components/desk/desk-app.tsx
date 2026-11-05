@@ -157,7 +157,7 @@ export function DeskApp({ clinic, staff, portalUrl, builder, initialView }: { cl
         {view === "checkin" && <CheckIn api={api} clinic={clinic} selected={selected} onSelect={setSelected} say={say} onChanged={refreshCounts} scanTick={scanTick} />}
         {view === "patients" && <PatientsView api={api} onOpen={open} />}
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}
-        {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} />}
+        {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} rate={clinic.pointsPerDollar} />}
         {view === "activity" && <Activity api={api} />}
         {view === "memberships" && staff.isManager && <MembershipsView api={api} say={say} plans={((builder?.cfg as { memberships?: MedspaPlan[] } | undefined)?.memberships) ?? []} onEdit={builder ? () => setView("builder") : undefined} />}
         {view === "payouts" && staff.isManager && <PayoutsView api={api} slug={clinic.slug} demo={clinic.demo} />}
@@ -461,7 +461,7 @@ function PurchaseModal({ rate, onClose, onSave }: { rate: number; onClose: () =>
       <label className="flex h-[64px] items-center gap-2 rounded-[18px] bg-page px-5"><span className="text-[26px] text-faint">$</span>
         <input autoFocus inputMode="decimal" value={v} onChange={(e) => setV(e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1"))} placeholder="0.00" className="h-full w-full bg-transparent text-[28px] font-semibold tabular-nums outline-none" />
       </label>
-      <p className="mt-3 text-[14px] text-sub">{rate ? <>Earns <b className="text-ink">{pts.toLocaleString("en-US")} pts</b> at {rate} pt per $1.</> : "This clinic doesn't award points for purchases."}</p>
+      <p className="mt-3 text-[14px] text-sub">{rate ? <>Earns <b className="text-ink">{pts.toLocaleString("en-US")} pts</b> at {rate} pt per $1.</> : "This clinic doesn't award points for purchases."} Shop orders earn their points on their own, so this is only for sales made at the desk.</p>
       <button type="button" className="btn-ink mt-5" disabled={dollars <= 0} onClick={() => onSave(dollars)}>Add purchase</button>
     </Modal>
   );
@@ -568,7 +568,7 @@ const ORDER_STATUS: Record<string, { label: string; tone: string }> = {
   refunded: { label: "Refunded", tone: "bg-page text-faint" },
 };
 
-function Orders({ api, say, onChanged }: { api: DeskApi; say: (t: string) => void; onChanged: () => void }) {
+function Orders({ api, say, onChanged, rate }: { api: DeskApi; say: (t: string) => void; onChanged: () => void; rate: number }) {
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [tab, setTab] = useState<"open" | "done">("open");
@@ -600,7 +600,7 @@ function Orders({ api, say, onChanged }: { api: DeskApi; say: (t: string) => voi
                 </span>
                 <span className={`rounded-full px-3 py-1 text-[12.5px] font-semibold ${s.tone}`}>{s.label}</span>
                 <span className="flex gap-2">
-                  {o.status === "reserved" && <button type="button" disabled={busy === o.id} onClick={() => set(o, "paid", `Payment taken · ${o.item_name}`)} className="h-9 rounded-full bg-ink px-4 text-[13.5px] font-semibold text-white">Mark paid</button>}
+                  {o.status === "reserved" && <button type="button" disabled={busy === o.id} onClick={() => { const pts = o.kind === "gift_card" ? 0 : Math.floor((o.amount_cents / 100) * rate); set(o, "paid", `Payment taken · ${o.item_name}${pts ? ` · +${pts.toLocaleString("en-US")} pts` : ""}`); }} className="h-9 rounded-full bg-ink px-4 text-[13.5px] font-semibold text-white">Mark paid</button>}
                   {o.status === "paid" && o.kind !== "package" && <button type="button" disabled={busy === o.id} onClick={() => set(o, "fulfilled", `Handed over · ${o.item_name}`)} className="h-9 rounded-full bg-ink px-4 text-[13.5px] font-semibold text-white">Handed over</button>}
                   {o.status === "reserved" && <button type="button" disabled={busy === o.id} onClick={() => set(o, "cancelled", "Order cancelled")} className="h-9 rounded-full bg-page px-4 text-[13.5px] font-semibold">Cancel</button>}
                 </span>

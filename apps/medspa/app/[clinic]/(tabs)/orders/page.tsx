@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
-import { getPurchases, type Purchase } from "@/lib/orders";
+import { getOrderPoints, getPurchases, type Purchase } from "@/lib/orders";
 import { EarnedOverlay } from "@/components/earned-overlay";
+import { OrderWatcher } from "@/components/order-watcher";
 import { priceLabel } from "@/lib/plans";
 import { TopBar } from "@/components/chrome";
 import { IcBag, IcCheck, IcGift, IcSpark } from "@/components/icons";
@@ -23,16 +24,19 @@ export default async function Orders({ params, searchParams }: {
   // A pending order is a checkout the patient didn't finish, except the one they just paid for (the webhook may be a second behind).
   const list = all.filter((o) => o.status !== "pending" || (o.id === searchParams.order && searchParams.paid));
   const just = list.find((o) => o.id === searchParams.order) ?? null;
+  // Points come from the ledger, never from the URL, so this only celebrates what was really added.
+  // On a real clinic the webhook can be a second behind the patient: OrderWatcher re-checks until it lands.
+  const demo = clinic.isExample && clinic.id === "example";
+  const earned = !searchParams.paid || !just ? 0 : demo ? Math.floor(Number(searchParams.earned)) || 0 : await getOrderPoints(just.id);
+  const waiting = !demo && !!searchParams.paid && !!just && earned === 0 && (just.status === "pending" || (just.kind !== "gift_card" && clinic.pointsPerDollar > 0));
   const bookSession = (o: Purchase) => bookFor(clinic, o.treatment_id,
     `Hi {practice}! I bought ${o.item_name} in the app and I'd like to book a session.`);
 
   return (
     <>
       <TopBar slug={clinic.slug} title="My purchases" />
-      {/* Example clinic only: on real clinics points are added at the desk for now. */}
-      {searchParams.paid && clinic.isExample && clinic.id === "example" && Number(searchParams.earned) > 0 && (
-        <EarnedOverlay points={Math.floor(Number(searchParams.earned))} clinic={clinic.name} href={`${base}/rewards`} />
-      )}
+      {earned > 0 && just && <EarnedOverlay points={earned} clinic={clinic.name} href={`${base}/rewards`} onceKey={demo ? undefined : just.id} />}
+      {waiting && <OrderWatcher />}
       {searchParams.paid && (
         <Banner title="Thank you for your order!" body={searchParams.demo ? "Demo clinic: no card was charged." : `${clinic.name} has your order. Show this screen at the front desk.`} />
       )}

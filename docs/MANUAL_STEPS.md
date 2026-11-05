@@ -3,6 +3,9 @@
 Kept up to date by Claude. Everything else (code, Supabase SQL) is done for you.
 Check items off as you go.
 
+## Waiting on you
+- [ ] CP-231: run `db/history/checkpoint-231-medspa-order-points/01_order_points.sql` once in the Supabase SQL Editor, then push the app change. Until then, paid Shop orders on real clinics do not add points.
+
 ## Every build
 - [ ] Paste the push commands Claude gives at the end of each build (PowerShell, from `C:\Users\andre\code\atlas`).
 - [ ] If the build added a package (Claude will say so), run `npm install` once before `npm run medspa:dev`.

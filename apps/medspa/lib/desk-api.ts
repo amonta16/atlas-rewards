@@ -498,7 +498,15 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
       ] as DueRow[];
     },
     async orders() { await wait(); return orders.map((o) => ({ ...o })); },
-    async updateOrder(id, status) { await wait(); orders = orders.map((o) => (o.id === id ? { ...o, status } : o)); },
+    async updateOrder(id, status) {
+      await wait();
+      const before = orders.find((o) => o.id === id);
+      if (before && status === "paid" && before.status !== "paid" && before.kind !== "gift_card") {
+        const m = people.find((p) => p.user_id === before.user_id);
+        if (m) log(m, Math.floor(before.amount_cents / 100), "purchase", before.item_name);
+      }
+      orders = orders.map((o) => (o.id === id ? { ...o, status } : o));
+    },
     async activity() { await wait(); return act.map((a) => ({ ...a })); },
     async members() { await wait(); return people.map((m) => ({ ...m })); },
     async pendingReviews() { await wait(); return demoReviews.map((r) => ({ ...r })); },
