@@ -1,13 +1,41 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ManagerDashboard } from "@/components/manager/manager-dashboard";
+import { isMedspaApp } from "@/lib/medspa-app/route";
 import type { Business } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
 
-export default async function ManagerHome({ params }: { params: { business: string } }) {
+/**
+ * One med spa front desk: the soft desk in the med spa app (/<slug>/desk).
+ * Everyone who lands here for a med spa (PIN sign-in, old bookmarks, installed
+ * desk app) is sent there. The only thing left on this portal for a med spa is
+ * the managers' back office the new desk doesn't have yet (Insights + monthly
+ * reports, Offers, Atlas Engine, Billing, Membership setup, Bookings), reached
+ * with ?settings=1 ("More settings" on the desk) or a deep link to one of them.
+ */
+const MEDSPA_HOST = (process.env.NEXT_PUBLIC_MEDSPA_HOST ?? "med.atlas-engine.app").replace(/^https?:\/\//, "");
+const MEDSPA_ORIGIN = `${MEDSPA_HOST.startsWith("localhost") ? "http" : "https"}://${MEDSPA_HOST}`;
+const BACK_OFFICE_TABS = ["reports", "insights", "offers", "campaigns", "billing", "membership", "bookings"];
+const DESK_VIEW_FOR_TAB: Record<string, string> = { overview: "overview", desk: "checkin", patients: "patients", shop: "orders", builder: "builder", team: "team" };
+
+export default async function ManagerHome({ params, searchParams }: { params: { business: string }; searchParams: { tab?: string; view?: string; settings?: string } }) {
   const supabase = createClient();
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
+
+  let medspaDeskUrl: string | null = null;
+  if (biz && isMedspaApp(biz as Business) && process.env.NEXT_PUBLIC_MEDSPA_LIVE !== "0") {
+    medspaDeskUrl = `${MEDSPA_ORIGIN}/${params.business}/desk`;
+    const { data: roleRaw } = await supabase.rpc("current_app_role", { p_business_id: (biz as Business).id });
+    const role = typeof roleRaw === "string" ? roleRaw : Array.isArray(roleRaw) ? roleRaw[0] : null;
+    const canSeeBackOffice = role === "business_manager" || role === "agency_admin";
+    const wantsBackOffice = !!searchParams.settings || BACK_OFFICE_TABS.includes(searchParams.tab ?? "");
+    if (!canSeeBackOffice || !wantsBackOffice) {
+      const view = (/^[a-z]+$/.test(searchParams.view ?? "") ? searchParams.view : null) ?? DESK_VIEW_FOR_TAB[searchParams.tab ?? ""];
+      redirect(view ? `${medspaDeskUrl}?view=${view}` : medspaDeskUrl);
+    }
+  }
   // CP-110 (security): ManagerDashboard is a client component, so drop the
   // server-only per-business credentials before the row is serialized to
   // the browser (front-desk staff render this surface too). Nothing on the
@@ -39,5 +67,5 @@ export default async function ManagerHome({ params }: { params: { business: stri
     customer_name: r.customer_name ?? null,
   }));
 
-  return <ManagerDashboard business={business} recent={recent} />;
+  return <ManagerDashboard business={business} recent={recent} medspaDeskUrl={medspaDeskUrl} />;
 }

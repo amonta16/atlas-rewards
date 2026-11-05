@@ -13,6 +13,7 @@ import { cookies } from "next/headers";
 import { createClient, getCachedUser } from "@atlas/core/supabase/server";
 import type { Clinic } from "./clinic";
 import { readDemoVouchers } from "./vouchers";
+import { readDemoEarned } from "./orders";
 
 export const DEMO_COOKIE = "ms_demo_patient";
 
@@ -45,7 +46,7 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
       const d = JSON.parse(decodeURIComponent(raw)) as { name?: string; phone?: string; plan?: string };
       const full = d.name?.trim() || "Alex Rivera";
       return {
-        ...GUEST, signedIn: true, fullName: full, firstName: full.split(" ")[0], phone: d.phone ?? null, points: Math.max(0, 240 - readDemoVouchers().reduce((n, v) => n + v.point_cost, 0)), membershipId: "demo",
+        ...GUEST, signedIn: true, fullName: full, firstName: full.split(" ")[0], phone: d.phone ?? null, points: Math.max(0, 240 + readDemoEarned(clinic) - readDemoVouchers().reduce((n, v) => n + v.point_cost, 0)), membershipId: "demo",
         isMember: !!d.plan, planName: d.plan ?? null, memberCode: "ALEX24", memberSince: d.plan ? new Date().toISOString() : null,
       };
     } catch { return GUEST; }

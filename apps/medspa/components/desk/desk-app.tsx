@@ -1,12 +1,15 @@
 "use client";
 /**
- * Med spa front desk, Dermis-style: a soft, light dashboard.
+ * THE med spa front desk (the only one: /<slug>/manage on the venue app sends
+ * med spas here). A soft, light dashboard:
  *
- *   Check in  · find a patient by phone / name / code, or scan their QR
- *               (patient check-in code, reward voucher or gift) → patient panel
- *   Due       · patients due for their next treatment (recall)
- *   Orders    · Shop orders to take payment for / hand over
- *   Activity  · the latest points activity at the clinic
+ *   Home           · managers: the clinic's numbers + live activity feed
+ *   Check in       · find a patient by phone / name / code, or scan their QR
+ *                    (patient check-in code, reward voucher or gift) → patient panel
+ *   Client profiles· every patient
+ *   Patients due   · who's due for their next treatment (recall)
+ *   Shop summary   · Shop orders to take payment for / hand over
+ *   Memberships · App Builder · Payouts · Team: managers
  *
  * All reads and writes go through lib/desk-api.ts (the same database
  * functions as the patient app and the manager portal).
@@ -17,10 +20,13 @@ import Link from "next/link";
 import { demoDeskApi, liveDeskApi, type ActivityRow, type DeskApi, type DeskGift, type DeskMember, type DeskVoucher, type DueRow, type LookupResult, type OrderRow, type PatientDetail, type Provider, type Treatment } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
 import { Wordmark } from "../chrome";
-import { IcBag, IcCalendar, IcCheck, IcClock, IcClose, IcGift, IcNext, IcOut, IcPhone, IcQr, IcSearch, IcSpark, IcUser } from "../icons";
+import { IcBag, IcBank, IcBell, IcCheck, IcClock, IcClose, IcEye, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
 import type { Staff } from "@/lib/staff";
 import { Card, Empty, Modal } from "./ui";
-import { OverviewView, RewardsView, TeamView } from "./manager-views";
+import { RewardsView, TeamView } from "./manager-views";
+import { HomeView } from "./home-view";
+import { MembershipsView, PatientsView, PayoutsView, ReviewsCard } from "./people-views";
+import type { MedspaPlan } from "@/lib/plans";
 import { BuilderView } from "./builder";
 import type { BuilderData } from "@/lib/builder-data";
 
@@ -32,7 +38,7 @@ type DeskClinic = {
   treatments: Treatment[]; providers: Provider[];
   rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[];
 };
-type View = "checkin" | "due" | "orders" | "activity" | "overview" | "rewards" | "team" | "builder";
+type View = "checkin" | "patients" | "due" | "orders" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder";
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -48,12 +54,13 @@ const RULE: Record<string, string> = { visit: "Check-in", purchase: "Purchase", 
 export function DeskApp({ clinic, staff, portalUrl, builder, initialView }: { clinic: DeskClinic; staff: Staff; portalUrl: string | null; builder: BuilderData | null; initialView?: View }) {
   const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
   const [view, setView] = useState<View>(() => {
-    const managerOnly: View[] = ["overview", "rewards", "team", "builder"];
+    const managerOnly: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts"];
     if (initialView && (staff.isManager || !managerOnly.includes(initialView))) return initialView;
     return staff.isManager ? "overview" : "checkin";
   });
   const [selected, setSelected] = useState<DeskMember | null>(null);
-  const [counts, setCounts] = useState<{ due: number; orders: number }>({ due: 0, orders: 0 });
+  const [counts, setCounts] = useState<{ due: number; orders: number; reviews: number }>({ due: 0, orders: 0, reviews: 0 });
+  const [scanTick, setScanTick] = useState(0);
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>();
   const say = useCallback((text: string, undo?: () => void) => {
@@ -61,74 +68,101 @@ export function DeskApp({ clinic, staff, portalUrl, builder, initialView }: { cl
   }, []);
 
   const refreshCounts = useCallback(() => {
-    Promise.all([api.due().catch(() => []), api.orders().catch(() => [])]).then(([d, o]) => setCounts({
-      due: d.filter((r) => !r.has_upcoming_booking && new Date(r.due_at).getTime() <= Date.now() + 7 * 864e5).length,
-      orders: o.filter((r) => r.status === "reserved" || r.status === "paid").length,
+    Promise.all([api.due().catch(() => []), api.orders().catch(() => []), api.pendingReviews().catch(() => [])]).then(([d, o, r]) => setCounts({
+      due: d.filter((x) => !x.has_upcoming_booking && new Date(x.due_at).getTime() <= Date.now() + 7 * 864e5).length,
+      orders: o.filter((x) => x.status === "reserved" || x.status === "paid").length,
+      reviews: r.length,
     }));
   }, [api]);
   useEffect(() => { refreshCounts(); }, [refreshCounts]);
 
   const open = (m: DeskMember) => { setSelected(m); setView("checkin"); };
+  const scanNow = () => { setView("checkin"); setScanTick((n) => n + 1); };
   const NAV: { id: View; label: string; Icon: typeof IcUser; badge?: number }[] = [
-    { id: "checkin", label: "Check in", Icon: IcQr },
+    ...(staff.isManager ? [{ id: "overview" as View, label: "Home", Icon: IcHome }] : []),
+    { id: "checkin", label: "Check in", Icon: IcQr, badge: counts.reviews },
+    { id: "patients", label: "Client profiles", Icon: IcUser },
     { id: "due", label: "Patients due", Icon: IcClock, badge: counts.due },
-    { id: "orders", label: "Shop orders", Icon: IcBag, badge: counts.orders },
-    { id: "activity", label: "Activity", Icon: IcSpark },
+    { id: "orders", label: "Shop summary", Icon: IcBag, badge: counts.orders },
+    ...(staff.isManager ? [
+      { id: "memberships" as View, label: "Memberships", Icon: IcRefresh },
+      ...(builder ? [{ id: "builder" as View, label: "App Builder", Icon: IcSpark }] : []),
+      { id: "payouts" as View, label: "Payouts", Icon: IcBank },
+      { id: "team" as View, label: "Team", Icon: IcPeople },
+    ] : [{ id: "activity" as View, label: "Activity", Icon: IcSpark }]),
   ];
-  const MANAGE: { id: View; label: string; Icon: typeof IcUser; badge?: number }[] = staff.isManager ? [
-    { id: "overview", label: "Overview", Icon: IcCalendar },
-    { id: "rewards", label: "Rewards", Icon: IcGift },
-    { id: "team", label: "Team", Icon: IcUser },
-    ...(builder ? [{ id: "builder" as View, label: "App builder", Icon: IcSpark }] : []),
-  ] : [];
-  const ALL = [...NAV, ...MANAGE];
+  const hour = new Date().getHours();
+  const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"} 👋`;
+  const title = view === "overview" ? greeting : view === "rewards" ? "Rewards" : NAV.find((n) => n.id === view)?.label;
+  const alerts = counts.due + counts.orders + counts.reviews;
 
   return (
-    <div className="min-h-[100dvh] bg-[#F4F5F7] text-ink lg:flex">
+    <div className="min-h-[100dvh] bg-[#F6F7F7] text-ink lg:flex">
       {/* Sidebar */}
-      <aside className="border-b border-line bg-white lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[248px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
-        <div className="flex items-center justify-between px-5 py-4 lg:block lg:px-6 lg:pt-7">
-          <Wordmark name={clinic.name} logoUrl={clinic.logoUrl} />
-          <p className="mt-1 hidden text-[12px] font-semibold uppercase tracking-[0.14em] text-faint lg:block">Front desk</p>
+      <aside className="border-b border-line bg-[#FBFBFB] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[236px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-2 px-5 py-4 lg:px-6 lg:pt-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/atlas-icon-512.png" alt="" className="h-8 w-8 rounded-[9px]" />
+          <span className="text-[17px] font-bold tracking-[-0.01em]">Atlas</span>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-4 lg:flex-col lg:px-4">
-          {ALL.map(({ id, label, Icon, badge }, i) => (<div key={id} className="contents">
-            {MANAGE.length > 0 && i === NAV.length && <p className="hidden px-3.5 pb-1 pt-5 text-[11.5px] font-semibold uppercase tracking-[0.14em] text-faint lg:block">Manage</p>}
-            <button type="button" onClick={() => setView(id)}
-              className={`flex shrink-0 items-center gap-3 rounded-[14px] px-3.5 py-2.5 text-[14.5px] font-medium transition ${view === id ? "bg-tint text-brand" : "text-sub hover:bg-page hover:text-ink"}`}>
-              <Icon className="h-[19px] w-[19px]" />
-              <span className="flex-1 text-left">{label}</span>
-              {!!badge && <span className={`min-w-[22px] rounded-full px-1.5 py-0.5 text-center text-[11.5px] font-bold ${view === id ? "bg-brand text-white" : "bg-page text-sub"}`}>{badge}</span>}
-            </button>
-          </div>))}
+        <nav aria-label="Desk" className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-3 lg:flex-col lg:gap-0.5 lg:overflow-y-auto lg:px-4">
+          {NAV.map(({ id, label, Icon, badge }) => {
+            const on = view === id || (id === "builder" && view === "rewards");
+            return (
+              <button key={id} type="button" onClick={() => setView(id)} aria-current={on ? "page" : undefined}
+                className={`flex shrink-0 items-center gap-2.5 rounded-[10px] border px-3 py-2 text-[13.5px] font-medium transition ${on ? "border-brand/25 bg-brand/[.07] text-brand" : "border-transparent text-[#4A4F5C] hover:bg-page hover:text-ink"}`}>
+                <Icon className="h-[17px] w-[17px]" strokeWidth={1.6} />
+                <span className="flex-1 whitespace-nowrap text-left">{label}</span>
+                {!!badge && <span className={`min-w-[20px] rounded-full px-1.5 py-px text-center text-[11px] font-bold ${on ? "bg-brand text-white" : "bg-[#E9EBED] text-sub"}`}>{badge}</span>}
+                {on && !badge && <IcNext className="hidden h-3.5 w-3.5 lg:block" strokeWidth={2.2} />}
+              </button>
+            );
+          })}
         </nav>
-        <div className="mt-auto hidden border-t border-line px-6 py-5 lg:block">
-          <p className="truncate text-[14px] font-semibold">{staff.name}</p>
-          <p className="text-[12.5px] text-faint">{staff.role === "business_staff" ? "Front desk" : staff.role === "agency_admin" ? "Atlas admin" : "Manager"}{clinic.demo ? " · demo" : ""}</p>
-          {portalUrl && staff.isManager && (
-            <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center gap-1.5 text-[13px] font-medium text-sub hover:text-ink">More settings <IcNext className="h-3.5 w-3.5" /></a>
-          )}
-          {!clinic.demo && <Link href="/auth/signout" prefetch={false} className="mt-2 flex items-center gap-1.5 text-[13px] font-medium text-sub hover:text-ink"><IcOut className="h-3.5 w-3.5" />Sign out</Link>}
+        <div className="mt-auto hidden space-y-3 px-4 pb-5 pt-3 lg:block">
+          <div className="truncate rounded-[10px] border border-line bg-white px-3 py-2 text-[12.5px] font-semibold italic">{clinic.name}</div>
+          <div className="rounded-[12px] bg-brand/[.07] p-3.5">
+            <p className="text-[13px] font-semibold italic">Need support?</p>
+            <p className="mt-1 text-[12px] leading-snug text-sub">Check our support page for tutorials or help.</p>
+            <a href="https://www.atlas-engine.app/support" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-semibold italic text-brand">View more <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
+          </div>
+          <div className="px-1">
+            <p className="truncate text-[13px] font-semibold">{staff.name}</p>
+            <p className="text-[12px] text-faint">{staff.role === "business_staff" ? "Front desk" : staff.role === "agency_admin" ? "Atlas admin" : "Manager"}{clinic.demo ? " · demo, nothing is saved" : ""}</p>
+            {portalUrl && staff.isManager && (
+              <a href={portalUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-1 text-[12.5px] font-medium text-sub hover:text-ink">More settings <IcNext className="h-3 w-3" /></a>
+            )}
+            {!clinic.demo && <Link href="/auth/signout" prefetch={false} className="mt-1.5 flex items-center gap-1 text-[12.5px] font-medium text-sub hover:text-ink"><IcOut className="h-3.5 w-3.5" />Sign out</Link>}
+          </div>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
-        <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[13px] font-medium text-faint">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</p>
-            <h1 className="mt-0.5 text-[28px] font-semibold tracking-[-0.025em]">{ALL.find((n) => n.id === view)?.label}</h1>
+      <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{title}</h1>
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2.5">
+              <button type="button" onClick={() => setView(counts.reviews ? "checkin" : counts.due ? "due" : "orders")} aria-label={`${alerts} things need attention`} className="relative grid h-9 w-9 place-items-center rounded-full bg-white text-sub ring-1 ring-line hover:text-ink">
+                <IcBell className="h-[18px] w-[18px]" strokeWidth={1.6} />
+                {alerts > 0 && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-brand ring-2 ring-[#F6F7F7]" />}
+              </button>
+              <button type="button" onClick={scanNow} className="flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-[13px] font-semibold text-white"><IcQr className="h-4 w-4" />Scan QR</button>
+            </div>
+            <a href={`/${clinic.slug}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[12.5px] font-medium text-brand"><IcEye className="h-3.5 w-3.5" />View app</a>
           </div>
-          {clinic.demo && <span className="rounded-full bg-amber-50 px-3 py-1.5 text-[12.5px] font-semibold text-amber-800">Demo clinic: sample patients, nothing is saved</span>}
         </header>
 
-        {view === "checkin" && <CheckIn api={api} clinic={clinic} selected={selected} onSelect={setSelected} say={say} onChanged={refreshCounts} />}
+        {view === "overview" && staff.isManager && <HomeView api={api} demo={clinic.demo} />}
+        {view === "checkin" && <CheckIn api={api} clinic={clinic} selected={selected} onSelect={setSelected} say={say} onChanged={refreshCounts} scanTick={scanTick} />}
+        {view === "patients" && <PatientsView api={api} onOpen={open} />}
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}
         {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} />}
         {view === "activity" && <Activity api={api} />}
-        {view === "overview" && staff.isManager && <OverviewView api={api} onOpen={setView} />}
+        {view === "memberships" && staff.isManager && <MembershipsView api={api} say={say} plans={((builder?.cfg as { memberships?: MedspaPlan[] } | undefined)?.memberships) ?? []} onEdit={builder ? () => setView("builder") : undefined} />}
+        {view === "payouts" && staff.isManager && <PayoutsView api={api} slug={clinic.slug} demo={clinic.demo} />}
         {view === "rewards" && staff.isManager && <RewardsView api={api} say={say} />}
-        {view === "builder" && builder && <BuilderView clinic={{ id: clinic.id, slug: clinic.slug, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} api={api} />}
+        {view === "builder" && builder && <BuilderView clinic={{ id: clinic.id, slug: clinic.slug, name: clinic.name, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} api={api} />}
         {view === "team" && staff.isManager && <TeamView api={api} say={say} deskUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}/desk` : `/${clinic.slug}/desk`} />}
       </main>
 
@@ -147,9 +181,9 @@ export function DeskApp({ clinic, staff, portalUrl, builder, initialView }: { cl
 
 /* ───────────────────────── Check in ───────────────────────── */
 
-function CheckIn({ api, clinic, selected, onSelect, say, onChanged }: {
+function CheckIn({ api, clinic, selected, onSelect, say, onChanged, scanTick }: {
   api: DeskApi; clinic: DeskClinic; selected: DeskMember | null; onSelect: (m: DeskMember | null) => void;
-  say: (t: string, undo?: () => void) => void; onChanged: () => void;
+  say: (t: string, undo?: () => void) => void; onChanged: () => void; scanTick: number;
 }) {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -157,6 +191,7 @@ function CheckIn({ api, clinic, selected, onSelect, say, onChanged }: {
   const [scan, setScan] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => { if (scanTick > 0) setScan(true); }, [scanTick]);
 
   async function run(value: string) {
     if (!value.trim()) return;
@@ -172,6 +207,7 @@ function CheckIn({ api, clinic, selected, onSelect, say, onChanged }: {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(320px,400px)_1fr]">
       <div className="space-y-4">
+        <ReviewsCard api={api} say={say} onChanged={onChanged} />
         <form onSubmit={(e) => { e.preventDefault(); run(q); }} className="rounded-[22px] bg-white p-4 shadow-[0_10px_30px_-22px_rgba(23,27,38,.4)]">
           <label className="flex h-[54px] items-center gap-3 rounded-[16px] bg-page px-4 focus-within:ring-2 focus-within:ring-brand/40">
             <IcSearch className="h-5 w-5 text-faint" />

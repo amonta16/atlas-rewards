@@ -13,7 +13,7 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
 @layer components {
   /* Black pill, the one primary button style. */
   .btn-ink {
-    @apply flex h-[54px] w-full items-center justify-center rounded-[16px] bg-black text-[17px] font-semibold text-white transition active:scale-[0.99] disabled:bg-[#B4B8C2] disabled:text-white/90;
+    @apply flex h-[52px] w-full items-center justify-center rounded-[14px] bg-black text-[16px] font-semibold text-white transition active:scale-[0.99] disabled:bg-[#B4B8C2] disabled:text-white/90;
   }
   .btn-ghost {
     @apply flex h-[54px] w-full items-center justify-center rounded-[16px] bg-white text-[16px] font-semibold text-ink ring-1 ring-line transition active:scale-[0.99];
@@ -24,6 +24,13 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
   .eyebrow { @apply text-[11px] font-bold uppercase tracking-[0.12em] text-sub; }
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
+  /* Small black "+30 points" pill. */
+  .pill-ink { @apply inline-flex h-[26px] shrink-0 items-center rounded-full bg-black px-3 text-[12px] font-semibold text-white; }
+  /* Soft grey pill on treatment cards ("TREATMENT", "SESSION"). */
+  .pill-soft { @apply inline-block rounded-full bg-[#E9EBED] px-2.5 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.08em] text-sub; }
+  /* The loyalty card and the pay-later banner. */
+  .card-metal { background: linear-gradient(118deg, #cdbcad 0%, #94806f 36%, #bba897 58%, #7d6a5a 100%); }
+  .card-sheen { background: linear-gradient(115deg, #0b0b0d 0%, #2c2d31 34%, #6d6e73 50%, #2a2b2f 64%, #09090b 100%); }
   /* Dermis-style black-and-white photography for plan cards. */
   .photo-bw { filter: grayscale(1) contrast(1.05); }
 }

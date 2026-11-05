@@ -31,6 +31,12 @@ export type Clinic = {
   /** Point rules the desk shows (businesses.point_rules): points per $1 and per visit. */
   pointsPerDollar: number;
   visitPoints: number;
+  /** Points for a Google review / a friend joining (businesses.point_rules). 0 hides the row. */
+  reviewPoints: number;
+  referralPoints: number;
+  googleReviewUrl: string | null;
+  /** "About us" on Home (businesses.welcome_message). */
+  about: string | null;
   heroUrl: string | null;
   /** Brand accent as hex and as "r g b" for Tailwind's rgb(var(--p-rgb)). */
   primary: string;
@@ -49,10 +55,10 @@ type BusinessRow = {
   id: string; slug: string; name: string; logo_url: string | null; hero_image_url: string | null;
   brand_colors: { primary?: string } | null; contact_info: { phone?: string; address?: string } | null;
   medspa_config: unknown; layout_preset: string | null; is_demo: boolean | null; join_code: string | null;
-  membership_image_url: string | null; status: string | null; app_icon_url: string | null; widget_config: { offers?: boolean } | null; point_rules: { purchase_per_dollar?: number; visit?: number } | null;
+  membership_image_url: string | null; status: string | null; app_icon_url: string | null; widget_config: { offers?: boolean } | null; point_rules: { purchase_per_dollar?: number; visit?: number; review?: number; referral_referrer?: number } | null; google_review_url: string | null; welcome_message: string | null;
 };
 
-const COLUMNS = "id, slug, name, logo_url, hero_image_url, brand_colors, contact_info, medspa_config, layout_preset, is_demo, join_code, membership_image_url, status, app_icon_url, widget_config, point_rules";
+const COLUMNS = "id, slug, name, logo_url, hero_image_url, brand_colors, contact_info, medspa_config, layout_preset, is_demo, join_code, membership_image_url, status, app_icon_url, widget_config, point_rules, google_review_url, welcome_message";
 
 export const getClinic = cache(async (slug: string): Promise<Clinic | null> => {
   const clean = slug.toLowerCase();
@@ -74,7 +80,7 @@ export const getClinic = cache(async (slug: string): Promise<Clinic | null> => {
   const cfg = readMedspaConfig(b.medspa_config);
   const primary = b.brand_colors?.primary || "#1E5BD8";
   return {
-    id: b.id, slug: b.slug, name: b.name, logoUrl: b.logo_url, appIconUrl: b.app_icon_url ?? b.logo_url, offersOn: !!b.widget_config?.offers, pointsPerDollar: Number(b.point_rules?.purchase_per_dollar ?? 1) || 0, visitPoints: Number(b.point_rules?.visit ?? 0) || 0, heroUrl: b.hero_image_url,
+    id: b.id, slug: b.slug, name: b.name, logoUrl: b.logo_url, appIconUrl: b.app_icon_url ?? b.logo_url, offersOn: !!b.widget_config?.offers, pointsPerDollar: Number(b.point_rules?.purchase_per_dollar ?? 1) || 0, visitPoints: Number(b.point_rules?.visit ?? 0) || 0, reviewPoints: Number(b.point_rules?.review ?? 0) || 0, referralPoints: Number(b.point_rules?.referral_referrer ?? 0) || 0, googleReviewUrl: b.google_review_url, about: b.welcome_message, heroUrl: b.hero_image_url,
     primary, primaryRgb: hexToRgb(primary),
     phone: b.contact_info?.phone ?? null, address: b.contact_info?.address ?? null, joinCode: b.join_code,
     cfg, membership,
@@ -91,7 +97,7 @@ function exampleClinic(): Clinic {
   cfg.shop.items = cfg.shop.items.map((s, i) => ({ ...s, id: `sh_${i}`, treatment_id: null }));
   const primary = "#1E5BD8";
   return {
-    id: "example", slug: DEMO_SLUG, name: "Glow Aesthetics", logoUrl: null, appIconUrl: null, offersOn: true, pointsPerDollar: 1, visitPoints: 50, heroUrl: EXAMPLE_IMG.hero,
+    id: "example", slug: DEMO_SLUG, name: "Glow Aesthetics", logoUrl: null, appIconUrl: null, offersOn: true, pointsPerDollar: 1, visitPoints: 50, reviewPoints: 20, referralPoints: 30, googleReviewUrl: "https://www.google.com/maps", about: "Glow Aesthetics is a physician-led med spa in San Luis Obispo. Natural results, honest advice, and a plan built around your skin.", heroUrl: EXAMPLE_IMG.hero,
     primary, primaryRgb: hexToRgb(primary), phone: "(805) 555-0142", address: "1200 Marsh St, San Luis Obispo, CA",
     joinCode: "GLOW", cfg, plans: examplePlans(cfg.treatments),
     rewards: EXAMPLE_REWARDS.map((r, i) => ({ ...r, id: `rw_${i}`, terms: null })),

@@ -63,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: { clinic: str
       quantity, amount_cents: unit * quantity, sessions_total: item.kind === "package" ? item.sessions : null,
       gift_code: isGift ? giftCode() : null, recipient_name: recipientName, created_at: new Date().toISOString(),
     };
-    const res = NextResponse.json({ url: `${base}/orders?order=${order.id}&paid=1&demo=1` });
+    const res = NextResponse.json({ url: `${base}/orders?order=${order.id}&paid=1&demo=1&earned=${Math.floor((order.amount_cents / 100) * clinic.pointsPerDollar)}` });
     res.cookies.set(DEMO_ORDERS_COOKIE, encodeURIComponent(JSON.stringify([order, ...prev].slice(0, 6))), { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax", httpOnly: true });
     return res;
   }

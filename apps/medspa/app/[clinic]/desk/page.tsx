@@ -9,11 +9,11 @@ export const metadata = { title: "Front desk" };
 export const dynamic = "force-dynamic";
 
 /**
- * The med spa front desk (Dermis-style). Same staff accounts and the same
+ * The one med spa front desk. Same staff accounts and the same
  * database functions as the manager portal, so the desk, the patient app and
  * the portal always show the same numbers.
  */
-const VIEWS = ["checkin", "due", "orders", "activity", "overview", "rewards", "team", "builder"] as const;
+const VIEWS = ["checkin", "patients", "due", "orders", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder"] as const;
 
 export default async function Desk({ params, searchParams }: { params: { clinic: string }; searchParams: { view?: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -45,7 +45,7 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
       staff={staff}
       builder={builder}
       initialView={wanted}
-      portalUrl={demo ? null : `https://www.atlas-engine.app/${clinic.slug}/manage`}
+      portalUrl={demo ? null : `https://www.atlas-engine.app/${clinic.slug}/manage?settings=1`}
     />
   );
 }

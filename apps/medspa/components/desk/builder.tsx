@@ -18,9 +18,11 @@ import { BOOKING_METHOD_LABEL, MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_ST
 import type { MedspaPlan } from "@/lib/plans";
 import type { DeskApi, GiftOffer, Journey, RewardRow } from "@/lib/desk-api";
 import { Modal } from "./ui";
-import { IcBag, IcCalendar, IcGift, IcSpark, IcUser } from "../icons";
+import { RewardsView } from "./manager-views";
+import { IcCheck, IcGift, IcMore } from "../icons";
 
-type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "automations";
+type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "automations" | "rewards";
+type Tab = "offers" | "products" | "membership" | "rewards" | "settings";
 type Cfg = MedspaConfig & { memberships?: MedspaPlan[] };
 const shadow = "shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]";
 const dollars = (c: number | null | undefined) => (c == null ? "" : String(c / 100));
@@ -28,12 +30,12 @@ const toCents = (v: string) => { const n = parseFloat(v.replace(/[^0-9.]/g, ""))
 const price = (c: number | null | undefined) => (c == null || c <= 0 ? "No price yet" : `$${(c / 100).toLocaleString("en-US")}`);
 
 export function BuilderView({ clinic, canBrand, initial, say, api }: {
-  clinic: { id: string; slug: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void; api: DeskApi;
+  clinic: { id: string; slug: string; name: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void; api: DeskApi;
 }) {
   const [d, setD] = useState<BuilderData>(initial);
   const [cfg, setCfg] = useState<Cfg>(() => readMedspaConfig(initial.cfg) as Cfg);
   const [base, setBase] = useState(() => JSON.stringify([initial, readMedspaConfig(initial.cfg)]));
-  const [section, setSection] = useState<Section>(canBrand ? "brand" : "clinic");
+  const [section, setSection] = useState<Section>("gifts");
   const [saving, setSaving] = useState(false);
   const dirty = useMemo(() => JSON.stringify([d, cfg]) !== base, [d, cfg, base]);
 
@@ -73,34 +75,32 @@ export function BuilderView({ clinic, canBrand, initial, say, api }: {
     setSaving(false);
   }
 
-  const SECTIONS: { id: Section; label: string; hint: string; Icon: typeof IcUser }[] = [
-    ...(canBrand ? [{ id: "brand" as const, label: "Brand", hint: "Name, logo, colour", Icon: IcSpark }] : []),
-    { id: "clinic", label: "Clinic details", hint: "Phone, address, reviews", Icon: IcUser },
-    { id: "treatments", label: "Treatments", hint: `${cfg.treatments.length} on the menu`, Icon: IcSpark },
-    { id: "memberships", label: "Memberships", hint: `${(cfg.memberships ?? []).length} plans`, Icon: IcGift },
-    { id: "shop", label: "Shop", hint: cfg.shop.enabled ? `${cfg.shop.items.length} items` : "Off", Icon: IcBag },
-    { id: "booking", label: "Booking", hint: cfg.booking.method ? BOOKING_METHOD_LABEL[cfg.booking.method] : "Not chosen", Icon: IcCalendar },
-    { id: "providers", label: "Providers", hint: `${cfg.providers.length} on the team`, Icon: IcUser },
-    { id: "results", label: "Results", hint: `${cfg.gallery.length} before & afters`, Icon: IcSpark },
-    { id: "care", label: "Care & recall", hint: cfg.recall.enabled ? "Reminders on" : "Reminders off", Icon: IcCalendar },
-    { id: "gifts", label: "Gifts", hint: "Welcome, birthday, win-back", Icon: IcGift },
-    ...(canBrand ? [{ id: "automations" as const, label: "Automations", hint: "Atlas admins", Icon: IcSpark }] : []),
+  const TABS: { id: Tab; label: string; subs: { id: Section; label: string }[] }[] = [
+    { id: "offers", label: "Offers", subs: [{ id: "gifts", label: "Automated Offers" }, ...(canBrand ? [{ id: "automations" as Section, label: "Journeys" }] : [])] },
+    { id: "products", label: "Products", subs: [{ id: "treatments", label: "Treatments" }, { id: "shop", label: "Shop" }, { id: "results", label: "Results" }] },
+    { id: "membership", label: "Membership", subs: [{ id: "memberships", label: "Plans" }] },
+    { id: "rewards", label: "Rewards", subs: [{ id: "rewards", label: "Rewards" }] },
+    { id: "settings", label: "Settings", subs: [...(canBrand ? [{ id: "brand" as Section, label: "Brand" }] : []), { id: "clinic", label: "Clinic details" }, { id: "booking", label: "Booking" }, { id: "providers", label: "Providers" }, { id: "care", label: "Care & recall" }] },
   ];
+  const tab = TABS.find((t) => t.subs.some((x) => x.id === section)) ?? TABS[0];
 
   return (
     <div className="pb-28">
-      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-        <nav className="flex gap-2 overflow-x-auto lg:flex-col">
-          {SECTIONS.map(({ id, label, hint, Icon }) => (
-            <button key={id} type="button" onClick={() => setSection(id)}
-              className={`flex shrink-0 items-center gap-3 rounded-[18px] px-4 py-3 text-left transition ${section === id ? `bg-white ${shadow}` : "hover:bg-white/60"}`}>
-              <span className={`grid h-9 w-9 place-items-center rounded-full ${section === id ? "bg-tint text-brand" : "bg-white text-sub"}`}><Icon className="h-[18px] w-[18px]" /></span>
-              <span><span className="block text-[14.5px] font-semibold">{label}</span><span className="block text-[12.5px] text-faint">{hint}</span></span>
-            </button>
+      <nav aria-label="App builder" className="no-scrollbar -mt-2 flex gap-6 overflow-x-auto border-b border-line">
+        {TABS.map((t) => (
+          <button key={t.id} type="button" onClick={() => setSection(t.subs[0].id)} className={`relative shrink-0 pb-2.5 text-[13.5px] ${tab.id === t.id ? "font-semibold text-brand" : "text-sub hover:text-ink"}`}>
+            {t.label}{tab.id === t.id && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] rounded-full bg-brand" />}
+          </button>
+        ))}
+      </nav>
+      {tab.subs.length > 1 && (
+        <div className="no-scrollbar mt-3 inline-flex max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#ECEEEF] p-1">
+          {tab.subs.map((x) => (
+            <button key={x.id} type="button" onClick={() => setSection(x.id)} className={`shrink-0 rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium ${section === x.id ? "bg-white text-ink shadow-card" : "text-sub"}`}>{x.label}</button>
           ))}
-          <a href={`/${clinic.slug}`} target="_blank" rel="noopener noreferrer" className="mt-2 hidden rounded-[18px] border border-dashed border-line px-4 py-3 text-[13.5px] font-medium text-sub hover:text-ink lg:block">Open the patient app ↗</a>
-        </nav>
-
+        </div>
+      )}
+      <div className="mt-4">
         <div className="min-w-0 space-y-5">
           {section === "brand" && canBrand && <BrandSection d={d} set={(p) => setD({ ...d, ...p })} upload={upload} />}
           {section === "clinic" && <ClinicSection d={d} set={(p) => setD({ ...d, ...p })} />}
@@ -111,8 +111,9 @@ export function BuilderView({ clinic, canBrand, initial, say, api }: {
           {section === "providers" && <ProvidersSection cfg={cfg} setCfg={setCfg} upload={upload} />}
           {section === "results" && <ResultsSection cfg={cfg} setCfg={setCfg} upload={upload} />}
           {section === "care" && <CareSection cfg={cfg} setCfg={setCfg} />}
-          {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} />}
+          {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} clinicName={clinic.name} />}
           {section === "automations" && <AutomationsSection api={api} say={say} />}
+          {section === "rewards" && <RewardsView api={api} say={say} />}
         </div>
       </div>
 
@@ -636,24 +637,77 @@ const giftLine = (g: GiftOffer, rewards: RewardRow[]) =>
   : g.discount_type === "points_bonus" ? `+${g.discount_value ?? 0} points`
   : g.discount_type === "percent" ? `${g.discount_value ?? 0}% off` : g.discount_type === "flat_cents" ? `$${(g.discount_value ?? 0) / 100} off` : "A message, no gift";
 
-export function GiftsSection({ api, say, upload }: { api: DeskApi; say: (t: string) => void; upload: Upload }) {
+export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; say: (t: string) => void; upload: Upload; clinicName: string }) {
   const [rows, setRows] = useState<GiftOffer[] | null>(null);
   const [rewards, setRewards] = useState<RewardRow[]>([]);
   const [edit, setEdit] = useState<GiftOffer | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const load = () => { api.giftOffers().then(setRows).catch((e) => { say((e as Error).message); setRows([]); }); };
   useEffect(() => { load(); api.rewardsList().then((r) => setRewards(r.filter((x) => x.is_active))).catch(() => {}); }, [api]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async (g: GiftOffer, msg: string) => { setBusy(true); try { await api.saveGiftOffer(g); say(msg); setEdit(null); load(); } catch (e) { say((e as Error).message); } setBusy(false); };
+  const current = rows?.find((g) => g.template_id === picked) ?? rows?.find((g) => g.is_active) ?? rows?.[0] ?? null;
+  const img = (g: GiftOffer) => g.custom_image_url ?? g.default_image_url;
+  // "Happy Valentine's Day!" reads right for dates and birthdays, not for "Welcome gift".
+  const festive = (g: GiftOffer) => g.trigger_type === "date" || g.trigger_type === "birthday";
   return (
-    <Panel title="Gifts" sub="Automatic gifts patients scratch open on Home: a welcome gift, birthdays, anniversaries and win-backs. Changes here save right away.">
-      {!rows ? <div className="h-40 animate-pulse rounded-[20px] bg-page" /> : (
-        <ul className="divide-y divide-line overflow-hidden rounded-[20px] border border-line">
-          {rows.map((g) => <Row key={g.template_id} img={g.custom_image_url ?? g.default_image_url} title={g.custom_title || g.name} on={g.is_active}
-            onClick={() => setEdit({ ...g })} onToggle={(v) => save({ ...g, is_active: v }, v ? `${g.custom_title || g.name} is on` : `${g.custom_title || g.name} is off`)}
-            meta={`${WHEN[g.trigger_type] ?? g.trigger_type} · ${giftLine(g, rewards)}`} />)}
-          {rows.length === 0 && <li className="px-5 py-8 text-center text-[14px] text-sub">No gift templates available.</li>}
-        </ul>
-      )}
+    <div className="grid gap-4 xl:grid-cols-[minmax(300px,380px)_1fr]">
+      {/* Preview */}
+      <section className={`rounded-[16px] bg-white p-4 ${shadow}`}>
+        {current ? <>
+          <div className="flex items-center gap-3 rounded-[12px] bg-[#F4F5F6] px-3.5 py-3">
+            <span className="w-[62px] shrink-0 truncate text-[8px] font-bold uppercase tracking-[0.14em]">{clinicName}</span>
+            <span className="min-w-0"><span className="block truncate text-[13px] font-semibold">{current.custom_title || (festive(current) ? `It's your ${current.name} gift!` : current.name)}</span><span className="block truncate text-[12.5px] text-sub">We&apos;ve made you a special gift... Tap to open!</span></span>
+          </div>
+          <p className="mt-3 text-center text-[12px] text-faint">Preview</p>
+          <div className="mx-auto mt-2 w-[250px] overflow-hidden rounded-t-[32px] border-[7px] border-b-0 border-[#1E2530] bg-white">
+            <div className="mx-auto h-[18px] w-[92px] rounded-b-[11px] bg-[#1E2530]" />
+            <div className="px-4 pb-5 pt-5 text-center">
+              <h3 className="text-[17px] font-semibold leading-tight tracking-[-0.01em]">{current.custom_title || (festive(current) ? `Happy ${current.name}!` : current.name)}</h3>
+              <p className="mt-1 text-[12.5px] text-sub">{current.custom_description || "We made you a special offer..."}</p>
+              <div className="mt-3 aspect-square overflow-hidden rounded-[12px] bg-page">
+                {img(current)
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={img(current)!} alt="" className="h-full w-full object-cover" />
+                  : <div className="grid h-full place-items-center"><IcGift className="h-10 w-10 text-faint" /></div>}
+              </div>
+              <p className="mt-3 text-[13px] font-semibold">{giftLine(current, rewards)}</p>
+            </div>
+          </div>
+        </> : <div className="h-72 animate-pulse rounded-[12px] bg-page" />}
+      </section>
+
+      {/* Occasions */}
+      <section className={`min-w-0 rounded-[16px] bg-white p-3 ${shadow}`}>
+        <div className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto_28px] gap-3 px-3 pb-1.5 pt-1 text-[11.5px] text-faint"><span>Occasion</span><span>Content</span><span className="w-[74px]" /><span /></div>
+        {!rows ? <div className="h-64 animate-pulse rounded-[12px] bg-page" /> : (
+          <ul className="space-y-1">
+            {rows.map((g) => {
+              const on = current?.template_id === g.template_id;
+              return (
+                <li key={g.template_id} onClick={() => setPicked(g.template_id)} className={`grid cursor-pointer grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto_28px] items-center gap-3 rounded-[10px] border px-3 py-2 transition ${on ? "border-brand/30 bg-brand/[.06]" : "border-transparent bg-[#F7F8F8] hover:bg-page"}`}>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="h-8 w-11 shrink-0 overflow-hidden rounded-[6px] bg-[#E4E6E8]">
+                      {img(g) && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img(g)!} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      )}
+                    </span>
+                    <span className={`truncate text-[13px] font-medium ${on ? "text-brand" : ""}`}>{g.custom_title || g.name}</span>
+                  </span>
+                  <span className={`truncate text-[13px] ${on ? "font-medium text-brand" : "text-sub"}`} title={`${WHEN[g.trigger_type] ?? g.trigger_type}`}>{giftLine(g, rewards)}</span>
+                  <button type="button" disabled={busy} onClick={(e) => { e.stopPropagation(); save({ ...g, is_active: !g.is_active }, g.is_active ? `${g.custom_title || g.name} is off` : `${g.custom_title || g.name} is on`); }}
+                    className={`inline-flex h-6 w-[74px] items-center justify-center gap-1 rounded-full text-[11.5px] font-semibold ring-1 ${g.is_active ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-white text-faint ring-line"}`}>
+                    {g.is_active ? <><IcCheck className="h-3.5 w-3.5" />Active</> : "Off"}
+                  </button>
+                  <button type="button" aria-label={`Edit ${g.name}`} onClick={(e) => { e.stopPropagation(); setEdit({ ...g }); }} className="grid h-7 w-7 place-items-center rounded-full text-sub hover:bg-white"><IcMore className="h-4 w-4" /></button>
+                </li>
+              );
+            })}
+            {rows.length === 0 && <li className="px-5 py-8 text-center text-[14px] text-sub">No gift templates available.</li>}
+          </ul>
+        )}
+      </section>
       {edit && (
         <Modal wide title={edit.custom_title || edit.name} onClose={() => setEdit(null)}>
           <p className="mb-4 text-[14px] text-sub">{WHEN[edit.trigger_type]}. {edit.description}</p>
@@ -683,7 +737,7 @@ export function GiftsSection({ api, say, upload }: { api: DeskApi; say: (t: stri
           <button type="button" className="btn-ink mt-6" disabled={busy || (edit.discount_type === "reward" && !edit.gift_reward_id)} onClick={() => save(edit, `${edit.custom_title || edit.name} saved`)}>{busy ? "Saving…" : "Save gift"}</button>
         </Modal>
       )}
-    </Panel>
+    </div>
   );
 }
 

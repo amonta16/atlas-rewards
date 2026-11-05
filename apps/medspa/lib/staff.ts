@@ -1,7 +1,7 @@
 /**
- * Who may use the front desk: the same rule as the venue manager portal
- * (current_app_role → agency_admin / business_manager / business_staff).
- * Staff sign in with the same email + password they use there.
+ * Who may use the front desk: current_app_role → agency_admin /
+ * business_manager / business_staff. Staff sign in with email + password, or
+ * with their 4-digit PIN on /<slug>/frontdesk (the session cookie is shared).
  */
 import { createClient, getCachedUser } from "@atlas/core/supabase/server";
 import type { Clinic } from "./clinic";
@@ -11,7 +11,7 @@ export type Staff = { userId: string; role: StaffRole; name: string; isManager: 
 const ROLES: StaffRole[] = ["agency_admin", "business_manager", "business_staff"];
 
 export async function getStaff(clinic: Clinic): Promise<Staff | "signed-out" | "no-access"> {
-  if (clinic.isExample && clinic.id === "example") return { userId: "demo", role: "business_manager", name: "Front desk", isManager: true };
+  if (clinic.isExample && clinic.id === "example") return { userId: "demo", role: "business_manager", name: "Dr. Jane Preview", isManager: true };
   const user = await getCachedUser().catch(() => null);
   if (!user) return "signed-out";
   const supabase = createClient();

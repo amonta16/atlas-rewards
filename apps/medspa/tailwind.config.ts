@@ -22,7 +22,8 @@ export default {
       borderRadius: { card: "18px" },
       boxShadow: {
         card: "0 1px 2px rgba(23,27,38,0.04), 0 8px 24px -16px rgba(23,27,38,0.18)",
-        bar: "0 -10px 30px -18px rgba(23,27,38,0.25)",
+        bar: "0 -8px 28px -14px rgba(23,27,38,0.22)",
+        soft: "0 1px 2px rgba(23,27,38,0.03), 0 10px 30px -24px rgba(23,27,38,0.28)",
       },
       keyframes: {
         rise: { from: { opacity: "0", transform: "translateY(8px)" }, to: { opacity: "1", transform: "none" } },

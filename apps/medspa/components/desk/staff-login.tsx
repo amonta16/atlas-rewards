@@ -29,7 +29,7 @@ export function StaffLogin({ slug, clinicName, logoUrl, view }: { slug: string; 
         <input className="field mt-3" type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {error && <p className="mt-3 text-center text-[14px] text-red-600">{error}</p>}
         <button type="submit" className="btn-ink mt-5" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-        <p className="mt-5 text-center text-[13px] text-sub">Use the same login as your manager portal.</p>
+        <a href={`https://www.atlas-engine.app/${slug}/frontdesk`} className="mt-5 block text-center text-[13.5px] font-semibold text-brand">Sign in with your 4-digit PIN instead</a>
       </form>
     </div>
   );

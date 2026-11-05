@@ -1,49 +1,54 @@
 import Link from "next/link";
-import { optimizedUrl } from "@atlas/core/img";
+import { cookies } from "next/headers";
 import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { TopBar, Wordmark } from "@/components/chrome";
-import { RedeemButton, VoucherRow } from "@/components/redeem-button";
+import { VoucherRow } from "@/components/redeem-button";
 import { getVouchers } from "@/lib/vouchers";
 import { getSavedGifts } from "@/lib/gifts";
 import { GiftRow } from "@/components/gift-code";
-import { CheckinCode } from "@/components/checkin-code";
+import { NeedMorePoints, RewardsBoard } from "@/components/rewards-board";
+import { DEMO_REVIEW_COOKIE } from "@/lib/orders";
 
 export default async function Rewards({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
   const patient = await getPatient(clinic);
+  const demo = clinic.isExample && clinic.id === "example";
   const [vouchers, gifts] = patient.signedIn ? await Promise.all([getVouchers(clinic), getSavedGifts(clinic)]) : [[], []];
   const next = clinic.rewards.find((r) => r.point_cost > patient.points) ?? null;
-  const pct = next ? Math.min(100, Math.round((patient.points / next.point_cost) * 100)) : 100;
 
   return (
     <>
       <TopBar slug={clinic.slug} title="Rewards" />
-      <section className="relative mx-4 mt-3 overflow-hidden rounded-[22px] bg-ink p-5 text-white shadow-card">
-        <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-brand/40 blur-3xl" />
-        <Wordmark name={clinic.name} logoUrl={null} invert />
-        <div className="relative mt-6 flex items-end justify-between gap-3">
-          <div>
-            <p className="text-[44px] font-semibold leading-none tracking-[-0.03em] tabular-nums">{patient.points.toLocaleString("en-US")}</p>
-            <p className="mt-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/60">Points</p>
-          </div>
-          {patient.signedIn && patient.memberCode && <CheckinCode code={patient.memberCode} name={patient.fullName} clinic={clinic.name} />}
-        </div>
-        {patient.signedIn ? (
-          next && (
-            <div className="mt-5">
-              <div className="h-1.5 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-white" style={{ width: `${pct}%` }} /></div>
-              <p className="mt-2 text-[13.5px] text-white/75">{(next.point_cost - patient.points).toLocaleString("en-US")} points to {next.name}</p>
+
+      {/* Loyalty card */}
+      <section className="px-4 pt-1">
+        <div className="card-metal relative aspect-[1.72] overflow-hidden rounded-[16px] p-5 text-white shadow-[0_18px_34px_-22px_rgba(70,50,30,.9)]">
+          <div className="absolute inset-0 bg-[radial-gradient(90%_70%_at_18%_8%,rgba(255,255,255,.28),transparent_60%)]" />
+          <div className="relative flex h-full flex-col justify-between">
+            <div>
+              <p className="text-[38px] font-semibold leading-none tracking-[-0.02em] tabular-nums">{patient.points.toLocaleString("en-US")}</p>
+              <p className="mt-1 text-[12.5px] font-medium text-white/85">{clinic.name} points</p>
             </div>
-          )
-        ) : (
-          <Link href={`/${clinic.slug}/login?next=/${clinic.slug}/rewards`} className="mt-5 inline-flex h-10 items-center rounded-full bg-white px-5 text-[14px] font-semibold text-ink">Sign in to start earning</Link>
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-[14px] font-semibold">{patient.signedIn ? (patient.fullName ?? "Member") : "Guest"}</p>
+                <div className="mt-1"><Wordmark name={clinic.name} logoUrl={null} size="sm" invert /></div>
+              </div>
+              {patient.isMember
+                ? <span className="shrink-0 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-ink">{patient.planName ?? "Member"}</span>
+                : !patient.signedIn && <Link href={`/${clinic.slug}/login?next=/${clinic.slug}/rewards`} className="shrink-0 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-ink">Sign in</Link>}
+            </div>
+          </div>
+        </div>
+        {patient.signedIn && next && (
+          <p className="mt-2.5 px-1 text-center text-[13px] text-sub">{(next.point_cost - patient.points).toLocaleString("en-US")} points to {next.name}</p>
         )}
       </section>
 
       {vouchers.length + gifts.length > 0 && (
         <section className="mt-6 px-4">
-          <h2 className="px-1 text-[19px] font-semibold tracking-[-0.01em]">Ready to use</h2>
+          <h2 className="px-1 text-[19px] font-semibold tracking-[-0.015em]">Ready to use</h2>
           <div className="mt-3 space-y-3">
             {gifts.map((g) => <GiftRow key={g.saved_id} title={g.gift_reward_name ?? g.title} code={g.redeem_code} expiresAt={g.expires_at} />)}
             {vouchers.map((v) => <VoucherRow key={v.id} reward={v.reward_name} code={v.code} expiresAt={v.expires_at} />)}
@@ -51,29 +56,13 @@ export default async function Rewards({ params }: { params: { clinic: string } }
         </section>
       )}
 
-      <p className="mx-5 mt-6 text-[14px] text-sub">Earn points every visit, purchase and review. Spend them here.</p>
+      <RewardsBoard slug={clinic.slug} rewards={clinic.rewards} points={patient.points} signedIn={patient.signedIn} />
 
-      <div className="mt-3 space-y-3 px-4">
-        {clinic.rewards.map((r) => {
-          const ready = patient.signedIn && patient.points >= r.point_cost;
-          return (
-            <div key={r.id} id={r.id} className="flex scroll-mt-24 items-center gap-3.5 rounded-card bg-white p-3 shadow-card">
-              <div className="h-[76px] w-[76px] shrink-0 overflow-hidden rounded-[14px] bg-page">
-                {r.image_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={optimizedUrl(r.image_url, 160)} alt="" className="h-full w-full object-cover" loading="lazy" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-[15px] font-semibold leading-snug">{r.name}</p>
-                <p className="mt-1 text-[13px] text-sub">{r.point_cost.toLocaleString("en-US")} pts</p>
-              </div>
-              <RedeemButton slug={clinic.slug} rewardId={r.id} reward={r.name} cost={r.point_cost} points={patient.points} ready={ready || !patient.signedIn} />
-            </div>
-          );
-        })}
-        {clinic.rewards.length === 0 && <p className="py-14 text-center text-[15px] text-sub">Rewards are coming soon.</p>}
-      </div>
+      <NeedMorePoints
+        slug={clinic.slug} clinicName={clinic.name} rate={clinic.pointsPerDollar} visit={clinic.visitPoints}
+        review={clinic.reviewPoints} referral={clinic.referralPoints} reviewUrl={clinic.googleReviewUrl}
+        memberCode={patient.memberCode} demo={demo} reviewDone={demo && !!cookies().get(DEMO_REVIEW_COOKIE)?.value}
+      />
     </>
   );
 }

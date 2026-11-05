@@ -1,12 +1,11 @@
 "use client";
 /**
  * Manager tools inside the desk (managers + Atlas admins only):
- *   Overview · the clinic's numbers (medspa_overview, same as the portal)
  *   Rewards  · create / edit / switch off / delete (upsert_reward, delete_reward)
  *   Team     · front desk + managers (list_team_members, create-account, remove)
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { CreatedStaff, DeskApi, NewStaff, Overview, RewardRow, TeamRow } from "@/lib/desk-api";
+import type { CreatedStaff, DeskApi, NewStaff, RewardRow, TeamRow } from "@/lib/desk-api";
 import { Card, Empty, Modal } from "./ui";
 import { IcBag, IcGift, IcSpark, IcUser } from "../icons";
 
@@ -17,87 +16,6 @@ const rel = (iso: string) => {
   const h = Math.round(m / 60); return h < 24 ? `${h} hr ago` : new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 const shadow = "shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]";
-
-/* ───────────────────────── Overview ───────────────────────── */
-
-type Metric = "visits" | "sales" | "joins";
-
-export function OverviewView({ api, onOpen }: { api: DeskApi; onOpen: (v: "due" | "orders" | "rewards") => void }) {
-  const [d, setD] = useState<Overview | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [metric, setMetric] = useState<Metric>("visits");
-  useEffect(() => { api.overview().then(setD).catch((e) => setErr((e as Error).message)); }, [api]);
-  if (err) return <p className="rounded-[18px] bg-white px-5 py-4 text-[14.5px] text-red-600">{err}</p>;
-  if (!d) return <div className="h-72 animate-pulse rounded-[24px] bg-white/70" />;
-  const val = (m: Overview["monthly"][number]) => (metric === "visits" ? m.visits : metric === "sales" ? m.sales_cents / 100 : m.joins);
-  const max = Math.max(1, ...d.monthly.map(val));
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi label="Patients" value={d.patients.toLocaleString("en-US")} />
-        <Kpi label="Paying members" value={d.members_paid.toLocaleString("en-US")} />
-        <Kpi label="Visits · 30 days" value={d.visits_30d.toLocaleString("en-US")} sub={`${d.visits_total.toLocaleString("en-US")} all time`} />
-        <Kpi label="App sales · 30 days" value={money(d.sales_cents_30d)} sub={`${money(d.sales_cents_total)} all time`} />
-      </div>
-      <div className="grid gap-5 xl:grid-cols-[1.6fr_1fr]">
-        <div className={`rounded-[24px] bg-white p-6 ${shadow}`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-[16px] font-semibold">Last 6 months</h3>
-            <div className="inline-flex rounded-full bg-page p-1">
-              {([["visits", "Visits"], ["sales", "App sales"], ["joins", "New patients"]] as const).map(([id, label]) => (
-                <button key={id} type="button" onClick={() => setMetric(id)} className={`h-8 rounded-full px-3.5 text-[13px] font-semibold ${metric === id ? "bg-white text-ink shadow-card" : "text-sub"}`}>{label}</button>
-              ))}
-            </div>
-          </div>
-          <div className="mt-6 flex h-[200px] items-end gap-3">
-            {d.monthly.map((m) => (
-              <div key={m.month} className="flex flex-1 flex-col items-center gap-2">
-                <span className="text-[12px] font-semibold tabular-nums text-sub">{metric === "sales" ? money(m.sales_cents) : val(m).toLocaleString("en-US")}</span>
-                <div className="w-full max-w-[56px] rounded-t-[12px] bg-brand/85" style={{ height: `${Math.max(6, (val(m) / max) * 150)}px` }} />
-                <span className="text-[12px] text-faint">{new Date(`${m.month}-15T12:00:00`).toLocaleDateString("en-US", { month: "short" })}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <Card title="Latest">
-          {d.activity.length === 0 ? <p className="text-[14px] text-sub">Nothing yet.</p> : (
-            <ul className="space-y-3">
-              {d.activity.slice(0, 7).map((a, i) => (
-                <li key={i} className="flex items-center gap-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-page">{a.kind === "order" ? <IcBag className="h-4 w-4" /> : a.kind === "treatment" ? <IcSpark className="h-4 w-4" /> : <IcUser className="h-4 w-4" />}</span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-[14.5px] font-semibold">{a.who}</span><span className="block truncate text-[12.5px] text-sub">{a.kind === "signup" ? "Joined the app" : a.detail}{a.amount_cents ? ` · ${money(a.amount_cents)}` : ""}</span></span>
-                  <span className="shrink-0 text-[12px] text-faint">{rel(a.at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Jump title="Patients due" body="Who's due for their next treatment" onClick={() => onOpen("due")} />
-        <Jump title="Shop orders" body="Payments to take and items to hand over" onClick={() => onOpen("orders")} />
-        <Jump title="Rewards" body={`${d.auto_offers_active} automated offers running`} onClick={() => onOpen("rewards")} />
-      </div>
-    </div>
-  );
-}
-
-function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className={`rounded-[22px] bg-white p-5 ${shadow}`}>
-      <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-faint">{label}</p>
-      <p className="mt-1 text-[28px] font-semibold tabular-nums tracking-[-0.02em]">{value}</p>
-      {sub && <p className="text-[12.5px] text-sub">{sub}</p>}
-    </div>
-  );
-}
-function Jump({ title, body, onClick }: { title: string; body: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className={`rounded-[22px] bg-white p-5 text-left transition hover:-translate-y-0.5 ${shadow}`}>
-      <p className="text-[15.5px] font-semibold">{title} →</p><p className="mt-1 text-[13.5px] text-sub">{body}</p>
-    </button>
-  );
-}
 
 /* ───────────────────────── Rewards ───────────────────────── */
 

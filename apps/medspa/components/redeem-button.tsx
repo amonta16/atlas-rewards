@@ -13,8 +13,8 @@ import { Portal } from "./portal";
 
 type Stage = "confirm" | "busy" | "done";
 
-export function RedeemButton({ slug, rewardId, reward, cost, points, ready }: {
-  slug: string; rewardId: string; reward: string; cost: number; points: number; ready: boolean;
+export function RedeemButton({ slug, rewardId, reward, cost, points, ready, label = "Redeem", className }: {
+  slug: string; rewardId: string; reward: string; cost: number; points: number; ready: boolean; label?: string; className?: string;
 }) {
   const { require } = useGate();
   const router = useRouter();
@@ -35,8 +35,8 @@ export function RedeemButton({ slug, rewardId, reward, cost, points, ready }: {
   return (
     <>
       <button type="button" disabled={!ready} onClick={() => require(() => setOpen(true))}
-        className={`h-9 rounded-full px-4 text-[13.5px] font-semibold ${ready ? "bg-black text-white" : "bg-page text-faint"}`}>
-        Redeem
+        className={className ?? `h-9 rounded-full px-4 text-[13.5px] font-semibold ${ready ? "bg-black text-white" : "bg-page text-faint"}`}>
+        {label}
       </button>
       {open && (
         <Portal><div className="fixed inset-0 z-[60] grid animate-fade place-items-center bg-black/45 px-6" onClick={close}>

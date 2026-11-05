@@ -8,6 +8,16 @@ import type { ShopKind, ShopOrderRow } from "./medspa";
 import type { Clinic } from "./clinic";
 
 export const DEMO_ORDERS_COOKIE = "ms_demo_orders";
+export const DEMO_REVIEW_COOKIE = "ms_demo_review";
+
+/** Example clinic only: points from demo purchases and the demo Google review. */
+export function readDemoEarned(clinic: Pick<Clinic, "pointsPerDollar" | "reviewPoints">): number {
+  const jar = cookies();
+  let list: DemoOrder[] = [];
+  try { list = JSON.parse(decodeURIComponent(jar.get(DEMO_ORDERS_COOKIE)?.value ?? "[]")); } catch { /* none */ }
+  const spent = list.reduce((n, o) => n + o.amount_cents, 0);
+  return Math.floor((spent / 100) * clinic.pointsPerDollar) + (jar.get(DEMO_REVIEW_COOKIE)?.value ? clinic.reviewPoints : 0);
+}
 
 export type DemoOrder = {
   id: string; item_name: string; kind: ShopKind; quantity: number; amount_cents: number;

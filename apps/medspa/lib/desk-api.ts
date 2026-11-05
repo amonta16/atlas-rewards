@@ -42,6 +42,9 @@ export type PatientDetail = {
 export type DueRow = { membership_id: string; full_name: string | null; phone: string | null; points_balance: number; treatment_name: string; performed_at: string; due_at: string; has_upcoming_booking: boolean; visit_count: number | null; user_id: string; email: string | null; tier: string | null; joined_at: string | null };
 export type OrderRow = { id: string; user_id: string; full_name: string | null; phone: string | null; item_name: string; kind: string; quantity: number; amount_cents: number; status: string; pay_method: string; sessions_total: number | null; sessions_used: number; gift_code: string | null; recipient_name: string | null; created_at: string };
 export type ActivityRow = { id: string; delta: number; rule_type: string; notes: string | null; created_at: string; customer_name: string | null };
+export type PendingReview = { id: string; member_name: string | null; member_email: string | null; submitted_at: string; platform?: string | null; verification_data?: { review_link?: string } | null };
+export type PendingMember = { membership_id: string; full_name: string | null; email: string | null; phone: string | null; requested_at: string; pending_plan?: { kind: string; label?: string; price_cents?: number } | null };
+export type PayoutStatus = { connected: boolean; charges_enabled: boolean; payouts_enabled: boolean; details_submitted: boolean } | null;
 export type Treatment = { id: string; name: string; recall_weeks: number | null };
 export type Provider = { id: string; name: string; treatment_ids: string[] };
 
@@ -88,7 +91,13 @@ export interface DeskApi {
   orders(): Promise<OrderRow[]>;
   updateOrder(id: string, status: "paid" | "fulfilled" | "cancelled"): Promise<void>;
   activity(): Promise<ActivityRow[]>;
+  members(): Promise<DeskMember[]>;
+  pendingReviews(): Promise<PendingReview[]>;
+  decideReview(id: string, approve: boolean): Promise<void>;
   // ── manager tools ──
+  pendingMemberships(): Promise<PendingMember[]>;
+  decideMembership(id: string, activate: boolean): Promise<void>;
+  payoutStatus(): Promise<PayoutStatus>;
   overview(): Promise<Overview>;
   rewardsList(): Promise<RewardRow[]>;
   saveReward(r: RewardRow): Promise<void>;
@@ -262,6 +271,35 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
       return (data ?? []) as ActivityRow[];
     },
 
+    async members() {
+      const { data, error } = await sb().rpc("list_business_members", { p_business_id: businessId, p_limit: 500, p_offset: 0 });
+      fail(error);
+      return (data ?? []) as DeskMember[];
+    },
+    async pendingReviews() {
+      const { data, error } = await sb().rpc("pending_reviews_for_business", { p_business_id: businessId });
+      fail(error);
+      return ((data ?? []) as PendingReview[]).filter((r) => !r.platform || r.platform === "google");
+    },
+    async decideReview(id, approve) {
+      const { error } = approve ? await sb().rpc("approve_review", { p_review_id: id }) : await sb().rpc("reject_review", { p_review_id: id, p_reason: null });
+      fail(error);
+    },
+    async pendingMemberships() {
+      const { data, error } = await sb().rpc("list_pending_memberships", { p_business_id: businessId });
+      fail(error);
+      return (data ?? []) as PendingMember[];
+    },
+    async decideMembership(id, activate) {
+      const { error } = activate ? await sb().rpc("activate_pending_membership", { p_membership_id: id, p_note: null }) : await sb().rpc("reject_pending_membership", { p_membership_id: id });
+      fail(error);
+    },
+    async payoutStatus() {
+      const { data, error } = await sb().rpc("payment_account_public", { p_business_id: businessId });
+      fail(error);
+      return ((data ?? []) as (NonNullable<PayoutStatus> & { provider: string })[]).find((r) => r.provider === "stripe") ?? null;
+    },
+
     async overview() {
       const { data, error } = await sb().rpc("medspa_overview", { p_business_id: businessId });
       fail(error);
@@ -383,16 +421,20 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     { kind: "member", user_id: "s1", email: "jane@glowaesthetics.com", full_name: "Dr. Jane Preview", role: "business_manager", status: "active", token: null, created_at: ago(300) },
     { kind: "member", user_id: "s2", email: "frontdesk@glowaesthetics.com", full_name: "Kayla Ruiz", role: "business_staff", status: "active", token: null, created_at: ago(120) },
   ];
-  const tpl = (id: string, slug: string, name: string, trigger_type: GiftOffer["trigger_type"], description: string, on: boolean, rewardIdx: number | null): GiftOffer => ({
-    template_id: id, slug, name, emoji: null, description, default_image_url: null, trigger_type, trigger_config: {}, config_id: on ? `c_${id}` : null, is_active: on,
-    custom_title: null, custom_description: null, custom_image_url: null, discount_type: rewardIdx == null ? "none" : "reward", discount_value: null,
+  const tpl = (id: string, slug: string, name: string, trigger_type: GiftOffer["trigger_type"], description: string, on: boolean, rewardIdx: number | null, image: string, percent?: number): GiftOffer => ({
+    template_id: id, slug, name, emoji: null, description, default_image_url: `/medspa-example/${image}.jpg`, trigger_type, trigger_config: {}, config_id: on ? `c_${id}` : null, is_active: on,
+    custom_title: null, custom_description: null, custom_image_url: null, discount_type: percent ? "percent" : rewardIdx == null ? "none" : "reward", discount_value: percent ?? null,
     voice_message_url: null, gift_reward_id: rewardIdx == null ? null : rewards[rewardIdx]?.id ?? null, custom_trigger_config: null,
   });
   let gifts2: GiftOffer[] = [
-    tpl("t1", "welcome", "Welcome gift", "signup", "Sent when a patient joins the app.", true, 0),
-    tpl("t2", "birthday", "Birthday", "birthday", "Sent in their birthday week.", true, 3),
-    tpl("t3", "winback", "We miss you", "inactivity", "Sent after 90 days without a visit.", false, null),
-    tpl("t4", "anniversary", "Patient anniversary", "anniversary", "A year since they joined.", false, null),
+    tpl("t1", "welcome", "Welcome gift", "signup", "Sent when a patient joins the app.", true, 0, "t-ce-ferulic"),
+    tpl("t2", "birthday", "Birthday", "birthday", "Sent in their birthday week.", true, 3, "t-hydrafacial"),
+    tpl("t3", "winback", "We miss you", "inactivity", "Sent after 90 days without a visit.", true, null, "t-botox", 20),
+    tpl("t4", "anniversary", "Patient anniversary", "anniversary", "A year since they joined.", true, null, "t-morpheus8", 15),
+    tpl("t5", "valentines", "Valentine's Day", "date", "Sent on February 14.", true, null, "t-juvederm", 15),
+    tpl("t6", "mothers-day", "Mother's Day", "date", "Sent on Mother's Day.", true, null, "t-alma-harmony", 20),
+    tpl("t7", "black-friday", "Black Friday", "date", "Sent on Black Friday.", true, null, "t-sofwave", 25),
+    tpl("t8", "christmas", "Christmas", "date", "Sent on December 24.", false, null, "t-emface", 10),
   ];
   let journeys: Journey[] = [
     ["ms.welcome", "get_in", "New patient welcome", "A patient joins the app", "Now · day 1 · day 3 · day 7", ["push", "email"], true, 34, 96, 11],
@@ -402,6 +444,8 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     ["ms.winback", "come_back", "We miss you", "No visit in 90 days", "Day 90 · day 120", ["push", "email"], false, 0, 0, 0],
     ["ms.birthday", "celebrate", "Birthday", "Their birthday week", "On the day", ["push"], true, 6, 6, 2],
   ].map(([key, grp, name, trigger_text, timing_text, channels, enabled, e, s2, c]) => ({ key, grp, name, why: "", trigger_text, timing_text, channels, reward_text: null, engine: "workflow", enabled, entered_30d: e, sent_30d: s2, converted_30d: c } as Journey));
+  let demoReviews: PendingReview[] = [{ id: "rv1", member_name: "Emma Chen", member_email: null, submitted_at: ago(0.1), platform: "google" }];
+  let demoPending: PendingMember[] = [{ membership_id: "m3", full_name: "Ava Patel", email: null, phone: "8055550177", requested_at: ago(0.5), pending_plan: { kind: "monthly", label: "Glow Club", price_cents: 9900 } }];
   const wait = () => new Promise((r) => setTimeout(r, 180));
   const byId = (id: string) => people.find((p) => p.membership_id === id)!;
   const log = (m: DeskMember, delta: number, rule_type: string, notes: string | null) => {
@@ -456,17 +500,29 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     async orders() { await wait(); return orders.map((o) => ({ ...o })); },
     async updateOrder(id, status) { await wait(); orders = orders.map((o) => (o.id === id ? { ...o, status } : o)); },
     async activity() { await wait(); return act.map((a) => ({ ...a })); },
+    async members() { await wait(); return people.map((m) => ({ ...m })); },
+    async pendingReviews() { await wait(); return demoReviews.map((r) => ({ ...r })); },
+    async decideReview(id, approve) { await wait(); const r = demoReviews.find((x) => x.id === id); demoReviews = demoReviews.filter((x) => x.id !== id); if (approve && r) { const m = people.find((p) => p.full_name === r.member_name); if (m) log(m, 20, "review", "Google review"); } },
+    async pendingMemberships() { await wait(); return demoPending.map((r) => ({ ...r })); },
+    async decideMembership(id) { await wait(); demoPending = demoPending.filter((x) => x.membership_id !== id); },
+    async payoutStatus() { await wait(); return { connected: true, charges_enabled: true, payouts_enabled: true, details_submitted: true }; },
 
     async overview() {
       await wait();
-      const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
+      const months = Array.from({ length: 12 }, (_, i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (11 - i)); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; });
+      const visits = [58, 74, 69, 88, 92, 86, 104, 118, 109, 133, 151, 168];
+      const sales = [152, 188, 176, 241, 263, 248, 310, 355, 332, 428, 512, 612];
+      const joins = [9, 14, 11, 18, 22, 19, 25, 27, 24, 31, 34, 38];
       return {
-        patients: 214, members_paid: 38, visits_total: 1260, visits_30d: 142, sales_cents_total: 4_830_000, sales_cents_30d: 612_000, auto_offers_active: 3,
-        monthly: months.map((m, i) => ({ month: m, visits: [96, 104, 118, 121, 133, 142][i], sales_cents: [380_000, 410_000, 455_000, 520_000, 560_000, 612_000][i], joins: [18, 22, 19, 27, 31, 34][i] })),
+        patients: 412, members_paid: 186, visits_total: 1536, visits_30d: 168, sales_cents_total: 4_830_000, sales_cents_30d: 612_000, auto_offers_active: 7,
+        monthly: months.map((m, i) => ({ month: m, visits: visits[i], sales_cents: sales[i] * 1000, joins: joins[i] })),
         activity: [
-          { at: ago(0.04), kind: "treatment", who: "Sofia Martinez", detail: "HydraFacial", amount_cents: null },
-          { at: ago(0.3), kind: "order", who: "Mia Johnson", detail: "SkinCeuticals C E Ferulic®", amount_cents: 18200 },
-          { at: ago(0.8), kind: "signup", who: "Ava Patel", detail: null, amount_cents: null },
+          { at: ago(0.002), kind: "order", who: "Sofia", detail: "Morpheus8, 3 sessions", amount_cents: 300000 },
+          { at: ago(0.004), kind: "signup", who: "Harper", detail: null, amount_cents: null },
+          { at: ago(0.006), kind: "treatment", who: "Mia", detail: "HydraFacial", amount_cents: null },
+          { at: ago(0.008), kind: "order", who: "Olivia", detail: "SkinCeuticals C E Ferulic®", amount_cents: 18200 },
+          { at: ago(0.011), kind: "signup", who: "Ava", detail: null, amount_cents: null },
+          { at: ago(0.014), kind: "order", who: "Isabella", detail: "Glow Club membership", amount_cents: 9900 },
         ],
       };
     },

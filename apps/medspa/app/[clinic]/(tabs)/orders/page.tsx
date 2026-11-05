@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { getPurchases, type Purchase } from "@/lib/orders";
+import { EarnedOverlay } from "@/components/earned-overlay";
 import { priceLabel } from "@/lib/plans";
 import { TopBar } from "@/components/chrome";
 import { IcBag, IcCheck, IcGift, IcSpark } from "@/components/icons";
@@ -13,7 +14,7 @@ import type { BookingOptions } from "@/lib/medspa";
 /** My purchases: Shop orders at this clinic, gift card codes and package sessions left. */
 export default async function Orders({ params, searchParams }: {
   params: { clinic: string };
-  searchParams: { order?: string; paid?: string; reserved?: string; demo?: string };
+  searchParams: { order?: string; paid?: string; reserved?: string; demo?: string; earned?: string };
 }) {
   const clinic = (await getClinic(params.clinic))!;
   const base = `/${clinic.slug}`;
@@ -28,6 +29,10 @@ export default async function Orders({ params, searchParams }: {
   return (
     <>
       <TopBar slug={clinic.slug} title="My purchases" />
+      {/* Example clinic only: on real clinics points are added at the desk for now. */}
+      {searchParams.paid && clinic.isExample && clinic.id === "example" && Number(searchParams.earned) > 0 && (
+        <EarnedOverlay points={Math.floor(Number(searchParams.earned))} clinic={clinic.name} href={`${base}/rewards`} />
+      )}
       {searchParams.paid && (
         <Banner title="Thank you for your order!" body={searchParams.demo ? "Demo clinic: no card was charged." : `${clinic.name} has your order. Show this screen at the front desk.`} />
       )}

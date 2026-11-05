@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { optimizedUrl } from "@atlas/core/img";
 import type { MedspaTreatment } from "@/lib/medspa";
-import { fromPrice } from "@/lib/plans";
+import { fromPrice, priceLabel } from "@/lib/plans";
 import { IcDown, IcFilter, IcSearch, IcClose } from "./icons";
 
 const SORTS = { featured: "Featured", low: "Price: low to high", high: "Price: high to low", az: "A to Z" } as const;
@@ -69,24 +69,27 @@ export function TreatmentList({ slug, treatments, initialCategory, autoFocus }: 
         </div>
       )}
 
-      <div className="space-y-3.5 px-4 pt-3">
+      <div className="space-y-6 px-4 pt-3">
         {shown.map((t, i) => (
-          <Link key={t.id} href={`/${slug}/shop/treatment/${t.id}`} className="block animate-rise overflow-hidden rounded-card bg-white shadow-card" style={{ animationDelay: `${Math.min(i, 6) * 35}ms` }}>
-            <div className="aspect-[16/9] bg-tint">
+          <Link key={t.id} href={`/${slug}/shop/treatment/${t.id}`} className="block animate-rise" style={{ animationDelay: `${Math.min(i, 6) * 35}ms` }}>
+            <div className="aspect-[16/9] overflow-hidden rounded-[12px] bg-tint">
               {t.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={optimizedUrl(t.image_url, 720)} alt="" className="h-full w-full object-cover" loading={i < 2 ? "eager" : "lazy"} />
               )}
             </div>
-            <div className="p-4">
-              <span className="rounded-[6px] bg-page px-2 py-1 text-[10.5px] font-bold uppercase tracking-[0.1em] text-sub">Treatment</span>
-              <h3 className="mt-2.5 text-[19px] font-semibold tracking-[-0.01em]">{t.name}</h3>
-              <p className="mt-1 line-clamp-2 text-[14px] leading-snug text-sub">{t.description}</p>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="rounded-full bg-page px-2.5 py-1 text-[12.5px] font-medium">{t.category}</span>
-                <span className="rounded-full bg-page px-2.5 py-1 text-[12.5px] font-medium">{t.duration_minutes} min</span>
+            <div className="px-1 pt-3">
+              <span className="pill-soft">Treatment</span>
+              <h3 className="mt-2 text-[17px] font-semibold tracking-[-0.01em]">{t.name}</h3>
+              <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-sub">{t.description}</p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] font-medium">
+                <span>{t.category}</span>
+                <span>{t.duration_minutes} min</span>
               </div>
-              <p className="mt-3 text-[15px] text-sub">{fromPrice(t)}</p>
+              <p className="mt-2.5 flex items-center gap-2.5 text-[13.5px]">
+                <span className="text-sub">{fromPrice(t)}</span>
+                {t.member_price_cents ? <><span className="h-3.5 w-px bg-line" /><span className="font-semibold">{priceLabel(t.member_price_cents)} for Members</span></> : null}
+              </p>
             </div>
           </Link>
         ))}
