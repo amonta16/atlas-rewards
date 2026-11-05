@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { Business } from "@/lib/types/database";
 import { SwitchBusinessLink } from "@/components/customer/switch-business-link";
 import { CampaignRemember } from "@/components/customer/campaign-remember";
+import { medspaAppUrl } from "@/lib/medspa-app/route";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,11 @@ export default async function BusinessRootPage({ params, searchParams }: { param
   const supabase = createClient();
   // CP-211: middleware's verified session (signed handoff) — no second Auth call.
   const user = await getCachedUser();
+
+  // One med spa guest app: QR codes and old links land on the med spa app.
+  const { data: preset } = await supabase.from("businesses").select("layout_preset").eq("slug", params.business).maybeSingle();
+  const medspaApp = preset ? medspaAppUrl(preset as Pick<Business, "layout_preset">, params.business) : null;
+  if (medspaApp) redirect(medspaApp);
 
   // If signed in, jump straight into the app.
   // CP-45: slug-prefixed so path-based access (/<slug>) doesn't lose the

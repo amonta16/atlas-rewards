@@ -3,12 +3,14 @@ import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { TopBar } from "@/components/chrome";
 import { formatPhone } from "@/lib/format";
-import { IcBag, IcCheck, IcNext, IcOut, IcPhone, IcSwap, IcUser } from "@/components/icons";
+import { IcBag, IcCheck, IcNext, IcOut, IcPhone, IcQr, IcSwap, IcUser } from "@/components/icons";
 import { ManageMembershipRow } from "@/components/subscribe-button";
 import { BookNext } from "@/components/book-next";
 import { NotifyRow } from "@/components/notifications";
 import { CheckinCode } from "@/components/checkin-code";
 import { bookFor, planFirstTreatment } from "@/lib/booking";
+import { InstallRow } from "@/components/install-app";
+import { getStaff } from "@/lib/staff";
 
 const SITE = "https://www.atlas-engine.app";
 
@@ -17,6 +19,8 @@ export default async function Profile({ params, searchParams }: { params: { clin
   const patient = await getPatient(clinic);
   const base = `/${clinic.slug}`;
   const justJoined = searchParams.membership === "success";
+  const staff = patient.signedIn ? await getStaff(clinic).catch(() => null) : null;
+  const isStaff = !!staff && typeof staff === "object";
 
   return (
     <>
@@ -80,6 +84,8 @@ export default async function Profile({ params, searchParams }: { params: { clin
         {patient.signedIn && patient.memberCode && <li><CheckinCode variant="row" code={patient.memberCode} name={patient.fullName} clinic={clinic.name} /></li>}
         {patient.signedIn && clinic.cfg.shop.enabled && <Row href={`${base}/orders`} Icon={IcBag} label="My purchases" />}
         {patient.signedIn && <NotifyRow clinicId={clinic.id} clinicName={clinic.name} demo={clinic.isExample && clinic.id === "example"} />}
+        <InstallRow clinicName={clinic.name} slug={clinic.slug} />
+        {isStaff && <Row href={`${base}/desk`} Icon={IcQr} label="Open the front desk" />}
         {clinic.phone && <Row href={`tel:${clinic.phone}`} Icon={IcPhone} label={`Call ${clinic.name}`} />}
         <Row href="/find?change=1" Icon={IcSwap} label="Change location" />
         {patient.signedIn && <Row href="/auth/signout" Icon={IcOut} label="Sign out" prefetch={false} />}

@@ -25,7 +25,8 @@ export async function GET(_req: Request, { params }: { params: { clinic: string 
     background_color: "#ffffff",
     theme_color: "#ffffff",
     icons: [
-      { src: icon, sizes: "192x192", type: "image/png", purpose: "any" },
+      // Chrome only offers Install when the sizes it's told match the real file; a clinic's own icon is declared as 512.
+      ...(c.appIconUrl ? [] : [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" }]),
       { src: icon, sizes: "512x512", type: "image/png", purpose: "any" },
       { src: icon, sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],

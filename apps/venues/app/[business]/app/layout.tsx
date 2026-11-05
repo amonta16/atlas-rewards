@@ -24,7 +24,7 @@ import { buildHousePromos, type HousePromoFacts } from "@/lib/house-promos";
 import { bookingEnabled } from "@/lib/booking";
 import { presetSpec } from "@/lib/layout-presets";
 // CP-193: med spas branch to their own frame right after enrollment.
-import { isMedspaApp } from "@/lib/medspa-app/route";
+import { isMedspaApp, medspaAppUrl } from "@/lib/medspa-app/route";
 import { MedspaFrame } from "@/components/medspa-app/frame";
 import { getMsProfile, getMsRewards } from "@/lib/medspa-app/data";
 import { timed } from "@/lib/perf/launch";
@@ -47,6 +47,9 @@ export default async function CustomerAppLayout({
     timed("layout:getUser", getCachedUser()),
     timed("layout:business", getBusinessBySlug(params.business)),
   ]);
+  // One med spa guest app: guests and members alike go to the med spa app.
+  const medspaApp = business ? medspaAppUrl(business, params.business) : null;
+  if (medspaApp) redirect(medspaApp);
   // CP-45: slug-prefixed so path-based access (/<slug>/app, used by the
   // agency live preview + "Customer app" button) lands on this business's
   // login instead of 404ing. Subdomain access also resolves correctly.

@@ -15,6 +15,7 @@ Left for you (secrets Claude shouldn't handle):
 - [ ] Later, for real card payments: add `STRIPE_SECRET_KEY` the same way (the live `sk_live_…` key from Stripe). Until then, the buy buttons fall back to book / text / call.
 
 ## Text-message sign-in (Twilio)
+Until this is on, the app's sign-in screen uses email + password by itself. It switches to phone numbers within a minute of you turning this on; email stays as a second option so existing accounts keep their points.
 - [ ] Finish Twilio compliance / upgrade from trial.
 - [ ] Twilio Console → Verify → Services → Create (name it like the app; it appears in the text). Copy the Verify Service SID (`VA…`), Account SID, Auth Token.
 - [ ] Supabase → Authentication → Sign In / Providers → Phone → enable → SMS provider **Twilio Verify** → paste the three values → Save.

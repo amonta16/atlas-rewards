@@ -11,6 +11,7 @@ import { fromPrice, priceLabel } from "@/lib/plans";
 import { TopBar, Wordmark } from "@/components/chrome";
 import { ActionButton } from "@/components/action-sheet";
 import { RecentlyViewed, type CatalogItem } from "@/components/recently-viewed";
+import { InstallCard } from "@/components/install-app";
 import { IcCalendar, IcLock, IcNext, IcPin } from "@/components/icons";
 
 export default async function Home({ params }: { params: { clinic: string } }) {
@@ -64,6 +65,8 @@ export default async function Home({ params }: { params: { clinic: string } }) {
       </section>
 
       {gift && <ScratchGift key={gift.savedId ?? gift.offerId} gift={gift} slug={clinic.slug} primary={clinic.primary} pointsLabel="points" fullName={patient.fullName ?? undefined} />}
+
+      <InstallCard clinicName={clinic.name} slug={clinic.slug} />
 
       {patient.signedIn && <NotifyCard clinicId={clinic.id} clinicName={clinic.name} slug={clinic.slug} demo={clinic.isExample && clinic.id === "example"} />}
 

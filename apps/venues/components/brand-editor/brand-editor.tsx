@@ -1754,7 +1754,8 @@ export function BrandEditor({ initial }: { initial: Business }) {
               </div>
             </div>
             <PhoneFrame>
-              {previewMode === "live" ? (
+              {/* A live med spa's app is on its own domain and can't be framed here. */}
+              {previewMode === "live" && !medspaLive ? (
                 <iframe
                   key={liveReloadKey}
                   src={`/${b.slug}/app`}

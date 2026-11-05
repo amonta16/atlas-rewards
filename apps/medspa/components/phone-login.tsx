@@ -5,6 +5,10 @@
  *   2. the code      →  verifyOtp signs the patient in
  *   3. their name    →  only the first time (profiles.full_name is empty)
  * The example clinic fakes steps 1–2 so a sales demo works without SMS.
+ *
+ * Email + password is the other door: it's the only one until text sign-in is
+ * switched on (textOn), and it stays available afterwards, because a patient
+ * who joined with email keeps their points only on that same account.
  */
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -12,12 +16,15 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@atlas/core/supabase/client";
 import { Wordmark } from "./chrome";
 
-type Step = "phone" | "code" | "name";
+type Step = "phone" | "code" | "name" | "email";
 const RESEND_SECONDS = 60; // Supabase allows one code per number per minute.
 
-export function PhoneLogin({ slug, clinicName, logoUrl, next, demo }: { slug: string; clinicName: string; logoUrl: string | null; next: string; demo: boolean }) {
+export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { slug: string; clinicName: string; logoUrl: string | null; next: string; demo: boolean; textOn: boolean }) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("phone");
+  const [step, setStep] = useState<Step>(textOn ? "phone" : "email");
+  const [isNew, setIsNew] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [digits, setDigits] = useState("");
   const [code, setCode] = useState("");
   const [first, setFirst] = useState("");
@@ -68,6 +75,25 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo }: { slug: st
     done();
   }
 
+  async function emailSubmit() {
+    setBusy(true); setError(null);
+    const supabase = createClient();
+    const address = email.trim().toLowerCase();
+    if (!isNew) {
+      const { error } = await supabase.auth.signInWithPassword({ email: address, password });
+      if (error) { setBusy(false); setError(/invalid/i.test(error.message) ? "That email and password don't match. New here? Tap Create an account." : error.message); return; }
+      return done();
+    }
+    const full = `${first.trim()} ${last.trim()}`.trim();
+    const { data, error } = await supabase.auth.signUp({ email: address, password, options: { data: { full_name: full } } });
+    if (error) { setBusy(false); setError(/already/i.test(error.message) ? "That email already has an account. Log in instead." : error.message); return; }
+    // Supabase answers a repeat signup with a user that has no identities instead of an error.
+    if (data.user && (data.user.identities?.length ?? 0) === 0) { setBusy(false); setIsNew(false); setError("That email already has an account. Log in instead."); return; }
+    if (!data.session) { setBusy(false); setError("Check your email to confirm your account, then log in here."); setIsNew(false); return; }
+    if (data.user) await supabase.from("profiles").upsert({ id: data.user.id, full_name: full });
+    done();
+  }
+
   function done() {
     router.replace(next);
     router.refresh();
@@ -94,7 +120,31 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo }: { slug: st
             <button type="submit" disabled={digits.length !== 10 || busy} className="btn-ink mt-4">{busy ? "Sending…" : "Continue"}</button>
           </form>
           <Terms />
+          <button type="button" onClick={() => { setStep("email"); setError(null); }} className="mt-5 text-center text-[15px] font-medium text-brand">Use email instead</button>
           <Link href={`/${slug}`} className="mt-auto pt-10 text-center text-[16px] underline underline-offset-4">Continue as guest</Link>
+        </div>
+      )}
+
+      {step === "email" && (
+        <div className="flex flex-1 flex-col animate-rise">
+          <div className="mt-[10vh] text-center"><Wordmark name={clinicName} logoUrl={logoUrl} size="lg" /></div>
+          <p className="mt-7 text-center text-[16px] text-faint">Welcome to {clinicName}</p>
+          <h1 className="mt-1.5 text-center text-[30px] font-semibold leading-[1.15] tracking-[-0.02em]">{isNew ? "Create your account" : "Log in with your email"}</h1>
+          <form className="mt-7" onSubmit={(e) => { e.preventDefault(); emailSubmit(); }}>
+            {isNew && <>
+              <input className="field" placeholder="First name" autoComplete="given-name" value={first} onChange={(e) => setFirst(e.target.value)} required />
+              <input className="field mt-3" placeholder="Last name" autoComplete="family-name" value={last} onChange={(e) => setLast(e.target.value)} />
+            </>}
+            <input className={`field ${isNew ? "mt-3" : ""}`} type="email" inputMode="email" autoCapitalize="none" placeholder="Email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input className="field mt-3" type="password" placeholder={isNew ? "Choose a password (8+ characters)" : "Password"} autoComplete={isNew ? "new-password" : "current-password"} minLength={isNew ? 8 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required />
+            {error && <p className="mt-3 text-center text-[14px] text-red-600">{error}</p>}
+            <button type="submit" disabled={busy} className="btn-ink mt-4">{busy ? "One moment…" : isNew ? "Create account" : "Log in"}</button>
+          </form>
+          <Terms />
+          <button type="button" onClick={() => { setIsNew((v) => !v); setError(null); }} className="mt-5 text-center text-[15px] font-medium text-brand">{isNew ? "I already have an account" : "New here? Create an account"}</button>
+          {!isNew && <a href={`https://www.atlas-engine.app/${slug}/forgot-password`} className="mt-3 text-center text-[14.5px] text-sub">Forgot your password?</a>}
+          {textOn && <button type="button" onClick={() => { setStep("phone"); setError(null); }} className="mt-3 text-center text-[14.5px] text-sub">Use my phone number instead</button>}
+          <Link href={`/${slug}`} className="mt-auto pt-8 text-center text-[16px] underline underline-offset-4">Continue as guest</Link>
         </div>
       )}
 
