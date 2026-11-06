@@ -11,6 +11,7 @@
  * desk can be demoed (and screenshotted) without a database.
  */
 import { createClient } from "@atlas/core/supabase/client";
+import type { MonthlyReport } from "@atlas/core/reports/monthly";
 
 export type DeskMember = {
   membership_id: string; user_id: string; full_name: string | null; email: string | null; phone: string | null;
@@ -77,6 +78,41 @@ export type Journey = {
   reward_text: string | null; engine: "workflow" | "legacy"; enabled: boolean; entered_30d: number; sent_30d: number; converted_30d: number;
 };
 
+export type SocialPillar = { platform: "google" | "instagram" | "facebook"; verified_total: number; verified_30d: number; verified_prev_30d: number; pending: number; rejected: number };
+export type InsightsV3 = {
+  members_total: number; new_members_30d: number; new_members_prev_30d: number; active_30d: number; repeat_members: number;
+  visited_ever: number; lapsed_60d: number; paid_members: number; birthdays_on_file: number; push_opted_in: number;
+  visits_30d: number; visits_prev_30d: number; unique_visitors_30d: number;
+  revenue_30d_cents: number; revenue_prev_30d_cents: number; purchases_30d: number; avg_ticket_cents: number;
+  points_awarded_30d: number; points_redeemed_30d: number; redemptions_30d: number; redemptions_prev_30d: number; points_outstanding: number;
+  spins_30d: number; spins_prev_30d: number; spin_points_30d: number;
+  gifts_issued_30d: number; gifts_revealed_30d: number; gifts_redeemed_30d: number; gifts_waiting: number;
+  bookings_30d: number; bookings_prev_30d: number; bookings_upcoming: number; bookings_pending: number; bookings_noshow_30d: number;
+  waivers_total: number; waivers_30d: number;
+  social: SocialPillar[]; social_pending_total: number; weekday_visits: number[];
+  top_rewards: { name: string; image_url: string | null; n: number }[];
+};
+export type InsightsWeek = { week_start: string; visits: number; new_members: number; redemptions: number; bookings: number };
+export type SpinStats = { spins: number; spinners: number; checkin_spins: number; prizes_won: number; points_won: number; visited_after: number; notified: number; members_reached: number; spun_after_push: number };
+export type WeeklySpin = { enabled: boolean; members: number; week_start: string; this_week: SpinStats; d30: SpinStats; prev30: SpinStats; weeks: { week_start: string; spins: number }[] };
+export type TopPatient = { membership_id: string; full_name: string | null; email: string | null; lifetime_points: number; points_balance: number; visit_count: number; last_visit_at: string | null; total_spent_cents?: number };
+export type InactivePatient = { membership_id: string; full_name: string | null; email: string | null; phone: string | null; last_visit_at: string | null; days_since_last: number | null; visit_count: number; joined_at?: string | null };
+export type WinbackReward = { id: string; name: string; point_cost: number; image_url: string | null };
+export type Winback = { message: string; bonusPoints: number; rewardId: string | null; expiresDays: number };
+export type ReportArchiveRow = { month: string; data: MonthlyReport; emailed_at: string | null; emailed_to: string[] | null };
+export type ReportRecipients = { custom: string[] | null; effective: { email: string; name: string }[]; managers: string[]; me: string | null };
+export type DeskOffer = { id: string | null; title: string; description: string | null; image_url: string | null; expires_at: string | null; is_active: boolean; is_featured: boolean };
+/** The clinic's single membership (business_membership_billing). Every column is sent back on save, so nothing is wiped. */
+export type MembershipSetup = {
+  is_enabled: boolean; membership_name: string; image_url: string | null; perks: string[]; points_multiplier: number; has_priority_booking: boolean;
+  monthly_cash_balance_cents: number; offer_monthly: boolean; price_cents: number; pass_options: { id: string; label: string; months: number; price_cents: number }[];
+  payment_mode: "stripe" | "external_link" | "in_person"; external_payment_url: string | null; payment_instructions: string | null;
+};
+export type AtlasBilling = {
+  plan_name: string; monthly_cents: number; status: string; current_period_end: string | null; started_at: string | null; setup_fees_outstanding_cents: number;
+  recent_payments: { amount_cents: number; type: string; status: string; description: string | null; paid_at: string | null }[];
+};
+
 export interface DeskApi {
   lookup(q: string): Promise<LookupResult>;
   patient(m: DeskMember): Promise<PatientDetail>;
@@ -102,7 +138,7 @@ export interface DeskApi {
   rewardsList(): Promise<RewardRow[]>;
   saveReward(r: RewardRow): Promise<void>;
   deleteReward(id: string): Promise<void>;
-  uploadImage(file: File): Promise<string>;
+  uploadImage(file: File, bucket?: "reward-images" | "offer-images" | "membership-images"): Promise<string>;
   team(): Promise<TeamRow[]>;
   addStaff(n: NewStaff): Promise<CreatedStaff>;
   removeStaff(row: TeamRow): Promise<void>;
@@ -113,6 +149,29 @@ export interface DeskApi {
   /** Atlas admins only (wf_assert_admin in the database). */
   journeys(): Promise<Journey[]>;
   toggleJourney(key: string, enabled: boolean): Promise<void>;
+  // ── insights + monthly reports ──
+  insights(): Promise<{ data: InsightsV3; weeks: InsightsWeek[] }>;
+  weeklySpin(): Promise<WeeklySpin | null>;
+  topPatients(): Promise<TopPatient[]>;
+  inactivePatients(minDays: number): Promise<InactivePatient[]>;
+  winbackRewards(): Promise<WinbackReward[]>;
+  sendWinback(membershipIds: string[], w: Winback): Promise<void>;
+  reportLive(): Promise<MonthlyReport>;
+  reportArchive(): Promise<ReportArchiveRow[]>;
+  /** null when this account can't see them (the database checks the role). */
+  reportRecipients(): Promise<ReportRecipients | null>;
+  setReportRecipients(emails: string[]): Promise<void>;
+  sendReportTest(month: string | null, to: string | null): Promise<{ to: string }>;
+  // ── one-time offers ──
+  offers(): Promise<DeskOffer[]>;
+  saveOffer(o: DeskOffer): Promise<string | null>;
+  deleteOffer(id: string): Promise<void>;
+  /** Tells patients about a newly featured offer (best effort; the offer is saved either way). */
+  announceOffer(o: DeskOffer, id: string | null): void;
+  // ── the single membership + what the clinic pays Atlas ──
+  membershipSetup(): Promise<MembershipSetup | null>;
+  saveMembershipSetup(m: MembershipSetup): Promise<void>;
+  billing(): Promise<AtlasBilling | null>;
 }
 
 const first = <T,>(d: unknown): T | null => ((Array.isArray(d) ? d[0] : d) ?? null) as T | null;
@@ -333,13 +392,13 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
       const { error } = await sb().rpc("delete_reward", { p_id: id, p_business_id: businessId });
       fail(error);
     },
-    async uploadImage(file) {
+    async uploadImage(file, bucket = "reward-images") {
       const s = sb();
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${businessId}/${Date.now()}.${ext}`;
-      const { error } = await s.storage.from("reward-images").upload(path, file, { upsert: true, cacheControl: "31536000", contentType: file.type || undefined });
+      const { error } = await s.storage.from(bucket).upload(path, file, { upsert: true, cacheControl: "31536000", contentType: file.type || undefined });
       fail(error);
-      return s.storage.from("reward-images").getPublicUrl(path).data.publicUrl;
+      return s.storage.from(bucket).getPublicUrl(path).data.publicUrl;
     },
     async team() {
       const { data, error } = await sb().rpc("list_team_members", { p_business_id: businessId });
@@ -384,6 +443,123 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
     async toggleJourney(key, enabled) {
       const { error } = await sb().rpc("wf_suite_toggle", { p_business_id: businessId, p_key: key, p_enabled: enabled });
       fail(error);
+    },
+
+    async insights() {
+      const s = sb();
+      const [a, b] = await Promise.all([
+        s.rpc("atlas_insights_v3", { p_business_id: businessId }),
+        s.rpc("atlas_weekly_trend", { p_business_id: businessId }),
+      ]);
+      fail(a.error);
+      return { data: a.data as InsightsV3, weeks: b.error ? [] : ((b.data ?? []) as InsightsWeek[]) };
+    },
+    async weeklySpin() {
+      const { data, error } = await sb().rpc("weekly_spin_insights", { p_business_id: businessId });
+      return error ? null : ((data as WeeklySpin | null) ?? null);
+    },
+    async topPatients() {
+      const { data, error } = await sb().rpc("top_loyal_members", { p_business_id: businessId, p_limit: 5 });
+      fail(error);
+      return (data ?? []) as TopPatient[];
+    },
+    async inactivePatients(minDays) {
+      const { data, error } = await sb().rpc("inactive_members", { p_business_id: businessId, p_min_days: minDays, p_limit: 50 });
+      fail(error);
+      return (data ?? []) as InactivePatient[];
+    },
+    async winbackRewards() {
+      const { data, error } = await sb().from("rewards").select("id,name,point_cost,image_url")
+        .eq("business_id", businessId).eq("is_active", true).is("archived_at", null).order("point_cost").limit(30);
+      fail(error);
+      return (data ?? []) as WinbackReward[];
+    },
+    async sendWinback(membershipIds, w) {
+      // send_winback_v2 writes the notification itself; the push fan-out trigger delivers it.
+      const s = sb();
+      const results = await Promise.all(membershipIds.map((id) => s.rpc("send_winback_v2", {
+        p_business_id: businessId, p_membership_id: id, p_title: "We miss you ✨", p_body: w.message,
+        p_bonus_points: w.bonusPoints > 0 ? w.bonusPoints : null, p_reward_id: w.rewardId, p_expires_days: w.expiresDays,
+      })));
+      fail(results.find((r) => r.error)?.error ?? null);
+    },
+    async reportLive() {
+      const { data, error } = await sb().rpc("business_monthly_report", { p_business_id: businessId });
+      fail(error);
+      return data as MonthlyReport;
+    },
+    async reportArchive() {
+      const { data, error } = await sb().from("business_monthly_reports").select("month, data, emailed_at, emailed_to")
+        .eq("business_id", businessId).order("month", { ascending: false }).limit(24);
+      fail(error);
+      return ((data ?? []) as ReportArchiveRow[]).map((r) => ({ ...r, month: String(r.month).slice(0, 7) }));
+    },
+    async reportRecipients() {
+      const { data, error } = await sb().rpc("get_report_recipients", { p_business_id: businessId });
+      return error ? null : ((data as ReportRecipients | null) ?? null);
+    },
+    async setReportRecipients(emails) {
+      const { error } = await sb().rpc("set_report_recipients", { p_business_id: businessId, p_emails: emails });
+      fail(error);
+    },
+    async sendReportTest(month, to) {
+      // The venue app holds the email keys; its route checks the signed-in manager.
+      const res = await fetch(`/api/${slug}/desk/report-test`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ month, to }) });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; to?: string; error?: string };
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "Couldn't send the test.");
+      return { to: json.to ?? to ?? "you" };
+    },
+    async offers() {
+      const { data, error } = await sb().from("offers").select("id,title,description,image_url,expires_at,is_active,is_featured,is_automated,welcome_config_id")
+        .eq("business_id", businessId).order("is_featured", { ascending: false }).order("created_at", { ascending: false });
+      fail(error);
+      // Automated and welcome gifts have their own home: App Builder → Automated Offers.
+      return ((data ?? []) as (DeskOffer & { is_automated: boolean | null; welcome_config_id: string | null })[])
+        .filter((o) => !o.is_automated && !o.welcome_config_id)
+        .map((o) => ({ id: o.id, title: o.title, description: o.description, image_url: o.image_url, expires_at: o.expires_at, is_active: o.is_active, is_featured: o.is_featured }));
+    },
+    async saveOffer(o) {
+      const { data, error } = await sb().rpc("upsert_offer", {
+        p_id: o.id, p_business_id: businessId, p_title: o.title.trim(), p_description: o.description?.trim() || null,
+        p_image_url: o.image_url, p_expires_at: o.expires_at, p_is_active: o.is_active, p_is_featured: o.is_featured,
+      });
+      fail(error);
+      return typeof data === "string" ? data : o.id;
+    },
+    async deleteOffer(id) {
+      const { error } = await sb().rpc("delete_offer", { p_id: id, p_business_id: businessId });
+      fail(error);
+    },
+    announceOffer(o, id) {
+      fetch(`/api/${slug}/desk/announce-offer`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ offer_id: id, title: o.title, description: o.description }) }).catch(() => {});
+    },
+    async membershipSetup() {
+      const { data, error } = await sb().rpc("membership_billing_public", { p_business_id: businessId });
+      fail(error);
+      const r = first<Partial<MembershipSetup>>(data);
+      if (!r) return null;
+      return {
+        is_enabled: !!r.is_enabled, membership_name: r.membership_name ?? "", image_url: r.image_url ?? null, perks: (r.perks ?? []).filter(Boolean),
+        points_multiplier: Number(r.points_multiplier ?? 1) || 1, has_priority_booking: !!r.has_priority_booking,
+        monthly_cash_balance_cents: r.monthly_cash_balance_cents ?? 0, offer_monthly: r.offer_monthly ?? true, price_cents: r.price_cents ?? 0,
+        pass_options: r.pass_options ?? [], payment_mode: r.payment_mode ?? "in_person",
+        external_payment_url: r.external_payment_url ?? null, payment_instructions: r.payment_instructions ?? null,
+      };
+    },
+    async saveMembershipSetup(m) {
+      const { error } = await sb().rpc("upsert_membership_billing_v3", {
+        p_business_id: businessId, p_is_enabled: m.is_enabled, p_membership_name: m.membership_name.trim() || "Membership", p_price_cents: m.price_cents,
+        p_perks: m.perks.map((p) => p.trim()).filter(Boolean), p_monthly_cash_balance_cents: m.monthly_cash_balance_cents, p_points_multiplier: m.points_multiplier,
+        p_has_priority_booking: m.has_priority_booking, p_image_url: m.image_url, p_payment_mode: m.payment_mode, p_external_payment_url: m.external_payment_url,
+        p_payment_instructions: m.payment_instructions, p_pass_options: m.pass_options, p_offer_monthly: m.offer_monthly,
+      });
+      fail(error);
+    },
+    async billing() {
+      const { data, error } = await sb().rpc("my_business_billing", { p_business_id: businessId });
+      fail(error);
+      return first<AtlasBilling>(data);
     },
   };
 }
@@ -446,6 +622,28 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
   ].map(([key, grp, name, trigger_text, timing_text, channels, enabled, e, s2, c]) => ({ key, grp, name, why: "", trigger_text, timing_text, channels, reward_text: null, engine: "workflow", enabled, entered_30d: e, sent_30d: s2, converted_30d: c } as Journey));
   let demoReviews: PendingReview[] = [{ id: "rv1", member_name: "Emma Chen", member_email: null, submitted_at: ago(0.1), platform: "google" }];
   let demoPending: PendingMember[] = [{ membership_id: "m3", full_name: "Ava Patel", email: null, phone: "8055550177", requested_at: ago(0.5), pending_plan: { kind: "monthly", label: "Glow Club", price_cents: 9900 } }];
+  let demoOffers: DeskOffer[] = [{ id: "of1", title: "20% off your next HydraFacial", description: "Show this at the desk. This month only.", image_url: "/medspa-example/t-hydrafacial.jpg", expires_at: ahead(14), is_active: true, is_featured: true }];
+  let demoMembership: MembershipSetup = {
+    is_enabled: true, membership_name: "Glow Club", image_url: null, perks: ["A facial every month", "10% off skincare", "Member-only pricing on injectables"], points_multiplier: 2, has_priority_booking: false,
+    monthly_cash_balance_cents: 0, offer_monthly: true, price_cents: 9900, pass_options: [], payment_mode: "in_person", external_payment_url: null, payment_instructions: null,
+  };
+  let demoRecipients: string[] = [];
+  const monthAgo = (n: number) => { const d = new Date(); d.setDate(15); d.setMonth(d.getMonth() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const demoReport = (n: number): MonthlyReport => {
+    const k = 1 - n * 0.09;
+    const core = (f: number): MonthlyReport["current"] => ({
+      new_members: Math.round(38 * f), total_members: Math.round(412 * f), visits: Math.round(168 * f), active_members: Math.round(131 * f), returning_members: Math.round(74 * f),
+      points_earned: Math.round(21400 * f), points_redeemed: Math.round(8600 * f), rewards_redeemed: Math.round(47 * f), reviews: Math.round(12 * f), referrals: Math.round(9 * f),
+      membership_revenue_cents: Math.round(1841400 * f), paid_members: Math.round(186 * f), treatments: Math.round(152 * f), shop_sales_cents: Math.round(612000 * f), shop_orders: Math.round(41 * f), inactive_60d: Math.round(58 * f),
+    });
+    return {
+      business: { id: "example", name: "Glow Aesthetics", slug: "demo", layout: "medspa" }, month: monthAgo(n), partial: n === 0, through: new Date().toISOString(),
+      current: core(k), previous: core(k * 0.91),
+      top_members: [{ name: "Isabella Nguyen", points: 1210, visits: 21 }, { name: "Olivia Brooks", points: 960, visits: 14 }, { name: "Sofia Martinez", points: 420, visits: 9 }],
+      top_treatments: [{ name: "BOTOX® Cosmetic", n: 64 }, { name: "HydraFacial", n: 41 }, { name: "Morpheus8", n: 23 }, { name: "Juvéderm®", n: 17 }],
+      weekly_spin: null,
+    };
+  };
   const wait = () => new Promise((r) => setTimeout(r, 180));
   const byId = (id: string) => people.find((p) => p.membership_id === id)!;
   const log = (m: DeskMember, delta: number, rule_type: string, notes: string | null) => {
@@ -550,5 +748,67 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     async saveGiftOffer(g) { await wait(); gifts2 = gifts2.map((x) => (x.template_id === g.template_id ? { ...g, config_id: x.config_id ?? `c${Date.now()}` } : x)); },
     async journeys() { await wait(); return journeys.map((j) => ({ ...j })); },
     async toggleJourney(key, enabled) { await wait(); journeys = journeys.map((j) => (j.key === key ? { ...j, enabled } : j)); },
+
+    async insights() {
+      await wait();
+      const data: InsightsV3 = {
+        members_total: 412, new_members_30d: 38, new_members_prev_30d: 31, active_30d: 131, repeat_members: 212, visited_ever: 340, lapsed_60d: 58, paid_members: 186, birthdays_on_file: 267, push_opted_in: 298,
+        visits_30d: 168, visits_prev_30d: 151, unique_visitors_30d: 131, revenue_30d_cents: 612000, revenue_prev_30d_cents: 512000, purchases_30d: 41, avg_ticket_cents: 14900,
+        points_awarded_30d: 21400, points_redeemed_30d: 8600, redemptions_30d: 47, redemptions_prev_30d: 52, points_outstanding: 96400,
+        spins_30d: 0, spins_prev_30d: 0, spin_points_30d: 0, gifts_issued_30d: 64, gifts_revealed_30d: 51, gifts_redeemed_30d: 29, gifts_waiting: 12,
+        bookings_30d: 0, bookings_prev_30d: 0, bookings_upcoming: 0, bookings_pending: 0, bookings_noshow_30d: 0, waivers_total: 0, waivers_30d: 0,
+        social: [{ platform: "google", verified_total: 86, verified_30d: 12, verified_prev_30d: 9, pending: 1, rejected: 2 }], social_pending_total: 1,
+        weekday_visits: [31, 44, 52, 58, 67, 49, 12],
+        top_rewards: rewards.slice(0, 4).map((r, i) => ({ name: r.name, image_url: r.image_url, n: 22 - i * 5 })),
+      };
+      const weeks = Array.from({ length: 12 }, (_, i) => ({ week_start: ago((11 - i) * 7), visits: 24 + i * 2 + (i % 3), new_members: 4 + (i % 5), redemptions: 7 + (i % 4), bookings: 0 }));
+      return { data, weeks };
+    },
+    async weeklySpin() { await wait(); return null; },
+    async topPatients() {
+      await wait();
+      return [...people].sort((a, b) => b.points_balance - a.points_balance).slice(0, 5).map((m) => ({ membership_id: m.membership_id, full_name: m.full_name, email: null, lifetime_points: m.points_balance + 300, points_balance: m.points_balance, visit_count: m.visit_count ?? 0, last_visit_at: ago(12), total_spent_cents: (m.visit_count ?? 0) * 18000 }));
+    },
+    async inactivePatients(minDays) {
+      await wait();
+      return [
+        { membership_id: "m3", full_name: "Ava Patel", email: null, phone: "8055550177", last_visit_at: ago(96), days_since_last: 96, visit_count: 1 },
+        { membership_id: "m1", full_name: "Emma Chen", email: null, phone: "8055550188", last_visit_at: ago(64), days_since_last: 64, visit_count: 3 },
+        { membership_id: "m4", full_name: "Mia Johnson", email: null, phone: "8055550111", last_visit_at: ago(35), days_since_last: 35, visit_count: 5 },
+      ].filter((m) => m.days_since_last >= minDays);
+    },
+    async winbackRewards() { await wait(); return rewards.map((r) => ({ id: r.id, name: r.name, point_cost: r.point_cost, image_url: r.image_url })); },
+    async sendWinback() { await wait(); },
+    async reportLive() { await wait(); return demoReport(0); },
+    async reportArchive() {
+      await wait();
+      return [1, 2, 3].map((n) => ({ month: monthAgo(n), data: { ...demoReport(n), partial: false }, emailed_at: ago(n * 30), emailed_to: ["jane@glowaesthetics.com"] }));
+    },
+    async reportRecipients() {
+      await wait();
+      const managers = ["jane@glowaesthetics.com"];
+      return { custom: demoRecipients.length ? demoRecipients : null, effective: (demoRecipients.length ? demoRecipients : managers).map((email) => ({ email, name: "" })), managers, me: managers[0] };
+    },
+    async setReportRecipients(emails) { await wait(); demoRecipients = emails; },
+    async sendReportTest(_month, to) { await wait(); return { to: to ?? "jane@glowaesthetics.com" }; },
+    async offers() { await wait(); return demoOffers.map((o) => ({ ...o })); },
+    async saveOffer(o) {
+      await wait();
+      const id = o.id ?? `of${Date.now()}`;
+      const others = o.is_featured ? demoOffers.map((x) => ({ ...x, is_featured: false })) : demoOffers;
+      demoOffers = o.id ? others.map((x) => (x.id === o.id ? { ...o } : x)) : [{ ...o, id }, ...others];
+      return id;
+    },
+    async deleteOffer(id) { await wait(); demoOffers = demoOffers.filter((o) => o.id !== id); },
+    announceOffer() {},
+    async membershipSetup() { await wait(); return { ...demoMembership, perks: [...demoMembership.perks] }; },
+    async saveMembershipSetup(m) { await wait(); demoMembership = { ...m, perks: m.perks.map((p) => p.trim()).filter(Boolean) }; },
+    async billing() {
+      await wait();
+      return {
+        plan_name: "Sample plan", monthly_cents: 19900, status: "active", current_period_end: ahead(18), started_at: ago(210), setup_fees_outstanding_cents: 0,
+        recent_payments: [1, 2, 3].map((n) => ({ amount_cents: 19900, type: "subscription", status: "paid", description: "Monthly plan", paid_at: ago(n * 30 - 18) })),
+      };
+    },
   };
 }

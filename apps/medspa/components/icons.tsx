@@ -31,6 +31,12 @@ export const IcPeople = (p: P) => base(<><circle cx="9.5" cy="8.5" r="3.2" /><pa
 export const IcBell = (p: P) => base(<><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z" /><path d="M10 20.5a2.2 2.2 0 0 0 4 0" /></>, p);
 export const IcEye = (p: P) => base(<><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.8" /></>, p);
 export const IcBank = (p: P) => base(<path d="M4 9.5 12 4l8 5.5M5 9.5h14M6.5 9.5V17M10.2 9.5V17M13.8 9.5V17M17.5 9.5V17M4.5 20h15M5.5 17h13" />, p);
+export const IcChart = (p: P) => base(<path d="M4 20h16M7 16.5v-5M12 16.5V6M17 16.5V9.5" />, p);
+export const IcCard = (p: P) => base(<><rect x="3.5" y="6" width="17" height="12.5" rx="2" /><path d="M3.5 10.5h17M7 15h3" /></>, p);
+export const IcMail = (p: P) => base(<><rect x="3.5" y="5.5" width="17" height="13" rx="2" /><path d="m4 7.5 8 6 8-6" /></>, p);
+export const IcHeart = (p: P) => base(<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.500 15.400 12 20 12 20Z" />, p);
+/** Atlas Engine's own mark: the hexagon with a triangle cut out (same shape as the old portal's icon). */
+export const IcEngine = (p: P) => base(<><path d="M8.6 4.5h6.8a1.6 1.6 0 0 1 1.4.8l3.4 5.900a1.6 1.6 0 0 1 0 1.600l-3.400 5.900a1.600 1.600 0 0 1-1.400.800H8.600a1.600 1.600 0 0 1-1.400-.800l-3.400-5.900a1.600 1.600 0 0 1 0-1.600l3.400-5.900a1.600 1.600 0 0 1 1.400-.800z" /><path d="m12 9.200-2.600 4.600h5.200z" /></>, p);
 export const IcCrown = (p: P) => base(<path d="M4 8l4 4 4-7 4 7 4-4-1.5 10.5h-13z" />, p);
 export const IcRefresh = (p: P) => base(<path d="M19.5 8.5A8 8 0 0 0 5 8M4.5 15.5A8 8 0 0 0 19 16M5 4v4h4M19 20v-4h-4" />, p);
 export const IcStar = (p: P) => base(<path d="m12 4 2.4 5 5.6.8-4 3.9.9 5.5L12 16.6 7.1 19.2 8 13.7 4 9.8 9.6 9z" />, p);

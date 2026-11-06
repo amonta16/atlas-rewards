@@ -1,6 +1,7 @@
 /**
- * Automated gifts (welcome, birthday, anniversary, win-back, holiday offers),
- * same data as the venue app's med spa Home (CP-212/224):
+ * Gifts: automated (welcome, birthday, anniversary, win-back, holiday) and the
+ * one-time offers a manager adds at Desk → Offers. Same data as the venue app's
+ * med spa Home (CP-212/224):
  *  · getScratchGift: the ONE gift the Home scratch card shows, or null.
  *  · getSavedGifts: claimed, unused gifts with their desk codes (Rewards).
  */
@@ -50,12 +51,12 @@ export const getScratchGift = cache(async (clinic: Clinic, membershipId: string 
       discountValue: gift.discount_value, rewardName: gift.gift_reward_name, expiresAt: gift.expires_at,
     };
   }
-  // Holiday / dated automated offers the patient hasn't claimed. Points-only ones can't be claimed (save_offer refuses them).
+  // Holiday / dated automated offers and one-time offers the patient hasn't claimed, featured first. Points-only ones can't be claimed (save_offer refuses them).
   const now = new Date().toISOString();
   const { data: offers } = await supabase.from("offers")
     .select("id, title, description, image_url, voice_message_url, discount_type, discount_value, gift_reward_id, expires_at")
-    .eq("business_id", clinic.id).eq("is_active", true).eq("is_automated", true).is("welcome_config_id", null)
-    .or(`expires_at.is.null,expires_at.gt.${now}`).order("created_at", { ascending: false }).limit(5);
+    .eq("business_id", clinic.id).eq("is_active", true).is("welcome_config_id", null)
+    .or(`expires_at.is.null,expires_at.gt.${now}`).order("is_featured", { ascending: false }).order("created_at", { ascending: false }).limit(5);
   type O = { id: string; title: string; description: string | null; image_url: string | null; voice_message_url: string | null; discount_type: string | null; discount_value: number | null; gift_reward_id: string | null; expires_at: string | null };
   const open = ((offers ?? []) as O[]).filter((o) => (o.discount_type ?? "none") !== "points_bonus");
   if (!open.length) return null;

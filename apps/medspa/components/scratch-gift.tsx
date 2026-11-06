@@ -9,7 +9,7 @@
  *   kind "member" (welcome / birthday / anniversary / win-back): the gift is
  *     already saved for them; Claim marks it revealed (mark_welcome_gift_revealed)
  *     so it shows up under Rewards → Your gifts with its desk code.
- *   kind "offer" (holiday / dated automated offer): Claim saves it (save_offer).
+ *   kind "offer" (holiday / dated automated offer, or a one-time offer from Desk → Offers): Claim saves it (save_offer).
  *
  * Scratch progress is remembered on the device so a reload doesn't make
  * them scratch again before claiming. Keyboard / screen-reader users get a

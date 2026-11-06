@@ -107,20 +107,8 @@ function formatPhone(digits: string): string {
 // CP-22: front-desk (business_staff) is locked out of Billing + Insights —
 // they don't see the tabs, and the underlying RPCs are RLS-gated on
 // is_business_manager() too so a direct API call also returns nothing.
-function managerTabsFor(business: Business, role: AppRole, medspaBackOffice = false): { id: ManagerTab; label: string; icon: React.ReactNode }[] {
+function managerTabsFor(business: Business, role: AppRole): { id: ManagerTab; label: string; icon: React.ReactNode }[] {
   const isManager = role === "business_manager" || role === "agency_admin";
-  // One med spa desk: the front desk itself lives in the med spa app. This
-  // portal only keeps the manager tools that app doesn't have yet.
-  if (medspaBackOffice) {
-    return [
-      { id: "insights",   label: "Insights",     icon: <BarChart3 className="h-4 w-4" /> },
-      { id: "offers",     label: "Offers",       icon: <Tag className="h-4 w-4" /> },
-      { id: "campaigns",  label: "Atlas Engine", icon: <AtlasEngineIcon className="h-4 w-4" /> },
-      { id: "membership", label: "Membership",   icon: <Crown className="h-4 w-4" /> },
-      { id: "bookings",   label: "Bookings",     icon: <CalendarClock className="h-4 w-4" /> },
-      { id: "billing",    label: "Billing",      icon: <CreditCard className="h-4 w-4" /> },
-    ];
-  }
   // CP-186: a med spa desk is a practice desk — Patients (recall list +
   // directory) instead of Users, Consents instead of Waivers, no News.
   if (business.layout_preset === "medspa") {
@@ -196,7 +184,7 @@ type LedgerRow = {
   customer_name?: string | null;
 };
 
-export function ManagerDashboard(props: { business: Business; recent: LedgerRow[]; medspaDeskUrl?: string | null }) {
+export function ManagerDashboard(props: { business: Business; recent: LedgerRow[] }) {
   // CP-167: the live feed wraps the whole dashboard so every panel (and the
   // dashboard's own Recent activity / Needs-action) shares one channel.
   return (
@@ -206,19 +194,18 @@ export function ManagerDashboard(props: { business: Business; recent: LedgerRow[
   );
 }
 
-function ManagerDashboardInner({ business: initialBusiness, recent: initialRecent, medspaDeskUrl = null }: { business: Business; recent: LedgerRow[]; medspaDeskUrl?: string | null }) {
+function ManagerDashboardInner({ business: initialBusiness, recent: initialRecent }: { business: Business; recent: LedgerRow[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const [business, setBusiness] = useState<Business>(initialBusiness);
-  const medspaBackOffice = !!medspaDeskUrl;
-  const [tab, setTab] = useState<ManagerTab>(medspaBackOffice ? "insights" : "desk");
+  const [tab, setTab] = useState<ManagerTab>("desk");
   // CP-212: tabs stay mounted once opened (hidden when inactive). Switching
   // used to unmount the panel you left and mount the next from scratch —
   // every switch re-ran all of that tab's queries and re-joined its realtime
   // channels, so Flippo's desk sat on spinners going back and forth. Now a
   // tab you've already visited shows instantly with its data, and keeps
   // itself fresh through the desk's live feed.
-  const [seen, setSeen] = useState<Set<ManagerTab>>(() => new Set<ManagerTab>([medspaBackOffice ? "insights" : "desk"]));
+  const [seen, setSeen] = useState<Set<ManagerTab>>(() => new Set<ManagerTab>(["desk"]));
   useEffect(() => {
     setSeen((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)));
   }, [tab]);
@@ -280,7 +267,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       setRole(r);
       // CP-208: med spa managers open on the Overview (Dermis-style home).
       // Only if they haven't already clicked somewhere while the role loaded.
-      if (business.layout_preset === "medspa" && !medspaBackOffice && (r === "business_manager" || r === "agency_admin")) {
+      if (business.layout_preset === "medspa" && (r === "business_manager" || r === "agency_admin")) {
         setTab((prev) => (prev === "desk" ? "overview" : prev));
       }
       const { data: nm } = await supabase.rpc("my_display_name");
@@ -288,7 +275,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
     })();
   }, [business.id]);
 
-  const visibleTabs = managerTabsFor(business, role, medspaBackOffice);
+  const visibleTabs = managerTabsFor(business, role);
   const isMedspa = business.layout_preset === "medspa";
   // CP-148: what needs a human right now — drives the badges on the nav.
   const actions = useDeskActions(business.id);
@@ -336,7 +323,7 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
   // manager tabs existed.
   useEffect(() => {
     if (role === null) return;
-    if (!visibleTabs.some(t => t.id === tab)) setTab(medspaBackOffice ? "insights" : "desk");
+    if (!visibleTabs.some(t => t.id === tab)) setTab("desk");
   }, [visibleTabs, tab, role]);
 
   // CP-209: deep links — /manage?tab=reports&month=2026-09 from the email.
@@ -618,11 +605,6 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
 
         {/* CP-165: compact nav — 36px rows, 13px labels, tighter groups. */}
         <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-px">
-          {medspaDeskUrl && (
-            <a href={medspaDeskUrl} className="mb-3 flex items-center gap-2 rounded-lg bg-white px-2.5 h-9 text-[13px] font-bold text-zinc-900 hover:bg-zinc-100">
-              <Home className="h-4 w-4" /> Back to front desk
-            </a>
-          )}
           <div className="px-2.5 pb-1 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500">{isMedspa ? "Practice" : "Front desk"}</div>
           {visibleTabs.filter(t => ["overview", "desk", "patients", "users", "bookings", "shop", "waivers"].includes(t.id)).map(t => <SideItem key={t.id} t={t} active={tab === t.id} badge={badgeFor(t.id)} primary={business.brand_colors.primary} onClick={() => setTab(t.id)} />)}
           {visibleTabs.some(t => ["builder", "offers", "news", "campaigns", "membership"].includes(t.id)) && (
@@ -755,11 +737,6 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       </div>
 
       <main className="max-w-2xl lg:max-w-none mx-auto p-4 lg:p-6 space-y-4">
-        {medspaDeskUrl && (
-          <a href={medspaDeskUrl} className="lg:hidden flex items-center gap-2 rounded-xl bg-white px-3 py-2.5 text-sm font-bold text-zinc-900 ring-1 ring-black/5">
-            <Home className="h-4 w-4" /> Back to front desk
-          </a>
-        )}
         {/* CP-209: phones/tablets get the same "you are here" title. */}
         {tab !== "overview" && (
           <div className="lg:hidden flex items-center gap-2.5">

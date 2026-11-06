@@ -1,6 +1,6 @@
 "use client";
 /**
- * Client profiles · Memberships · Payouts, plus the Google review queue the
+ * Client profiles · Memberships · Payouts (Stripe Connect), plus the Google review queue the
  * front desk confirms. Everything here used to live on the old portal desk;
  * same database functions, so nothing about the data changes.
  */
@@ -10,6 +10,7 @@ import type { DeskApi, DeskMember, OrderRow, PayoutStatus, PendingMember, Pendin
 import { formatPhone } from "@/lib/format";
 import { priceLabel, type MedspaPlan } from "@/lib/plans";
 import { IcCheck, IcGoogle, IcNext, IcSearch } from "../icons";
+import { MembershipSetupCard } from "./membership-setup";
 
 const card = "rounded-[16px] bg-white shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]";
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -94,7 +95,7 @@ export function ReviewsCard({ api, say, onChanged }: { api: DeskApi; say: (t: st
 
 /* ───────────── Memberships ───────────── */
 
-export function MembershipsView({ api, say, plans, onEdit }: { api: DeskApi; say: (t: string) => void; plans: MedspaPlan[]; onEdit?: () => void }) {
+export function MembershipsView({ api, say, plans, onEdit, onOpenPayouts }: { api: DeskApi; say: (t: string) => void; plans: MedspaPlan[]; onEdit?: () => void; onOpenPayouts: () => void }) {
   const [paying, setPaying] = useState<number | null>(null);
   const [pending, setPending] = useState<PendingMember[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -110,7 +111,7 @@ export function MembershipsView({ api, say, plans, onEdit }: { api: DeskApi; say
     <div className="space-y-3.5">
       <div className="grid gap-3.5 sm:grid-cols-2">
         <div className={`${card} p-4`}><p className="text-[24px] font-bold tabular-nums tracking-[-0.02em]">{paying?.toLocaleString("en-US") ?? "—"}</p><p className="text-[12.5px] text-sub">Active memberships</p></div>
-        <div className={`${card} p-4`}><p className="text-[24px] font-bold tabular-nums tracking-[-0.02em]">{live.length}</p><p className="text-[12.5px] text-sub">Plans in the app</p></div>
+        <div className={`${card} p-4`}><p className="text-[24px] font-bold tabular-nums tracking-[-0.02em]">{live.length}</p><p className="text-[12.5px] text-sub">App Builder plans</p></div>
       </div>
 
       {!!pending?.length && (
@@ -128,9 +129,11 @@ export function MembershipsView({ api, say, plans, onEdit }: { api: DeskApi; say
         </section>
       )}
 
+      <MembershipSetupCard api={api} say={say} plansInBuilder={live.length} onOpenPayouts={onOpenPayouts} />
+
       <section className={`${card} p-4`}>
         <div className="flex items-center justify-between gap-3"><h2 className="text-[13.5px] font-semibold">Plans</h2>{onEdit && <button type="button" onClick={onEdit} className="text-[12.5px] font-semibold text-brand">Edit in App Builder</button>}</div>
-        {live.length === 0 ? <p className="py-8 text-center text-[14px] text-sub">No plans yet. Add one in App Builder → Membership.</p> : (
+        {live.length === 0 ? <p className="py-8 text-center text-[14px] text-sub">No plans yet. Add several in App Builder → Membership; they replace your single membership in the app.</p> : (
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {live.map((p) => (
               <div key={p.id} className="flex items-center gap-3 rounded-[12px] bg-[#F7F8F8] p-2.5">
@@ -157,6 +160,9 @@ export function PayoutsView({ api, slug, demo }: { api: DeskApi; slug: string; d
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Stripe sends the manager back here with ?stripe=connected|incomplete|error.
+  const [flash, setFlash] = useState<string | null>(null);
+  useEffect(() => { setFlash(new URLSearchParams(window.location.search).get("stripe")); }, []);
   useEffect(() => {
     api.payoutStatus().then(setStatus).catch(() => setStatus(null));
     api.orders().then((o) => setRows(o.filter((x) => x.pay_method === "stripe" && (x.status === "paid" || x.status === "fulfilled")))).catch(() => setRows([]));
@@ -177,11 +183,24 @@ export function PayoutsView({ api, slug, demo }: { api: DeskApi; slug: string; d
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold">{status === undefined ? "Checking Stripe…" : ready ? "Payouts are on" : status ? "Finish setting up Stripe" : "Connect Stripe to get paid"}</span>
           <span className="mt-0.5 block text-[13px] text-sub">{ready ? "Patients pay you directly. Stripe sends the money to your bank." : "Patients pay you directly through your own Stripe account. Atlas never holds the money."}</span>
+          {status && (
+            <span className="mt-2 flex flex-wrap gap-1.5">
+              {([["Details", status.details_submitted], ["Charges", status.charges_enabled], ["Payouts", status.payouts_enabled]] as const).map(([label, ok]) => (
+                <span key={label} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${ok ? "bg-emerald-50 text-emerald-700" : "bg-[#F4F5F6] text-sub"}`}>{ok && <IcCheck className="h-3 w-3" />}{label}</span>
+              ))}
+            </span>
+          )}
+          {flash === "connected" && <span className="mt-1 block text-[13px] font-medium text-emerald-700">Connected. Patients can pay by card now.</span>}
+          {flash === "incomplete" && <span className="mt-1 block text-[13px] font-medium text-amber-800">Stripe still needs a few details. Tap Continue setup.</span>}
+          {flash && flash !== "connected" && flash !== "incomplete" && <span className="mt-1 block text-[13px] font-medium text-red-600">Something went wrong coming back from Stripe. Please try again.</span>}
           {err && <span className="mt-1 block text-[13px] text-red-600">{err}</span>}
         </span>
-        {ready
-          ? <a href="https://dashboard.stripe.com/payouts" target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1 rounded-full bg-ink px-4 text-[13px] font-semibold text-white">Open Stripe <IcNext className="h-3.5 w-3.5" strokeWidth={2.2} /></a>
-          : status !== undefined && !demo && <button type="button" disabled={busy} onClick={connect} className="h-9 rounded-full bg-brand px-4 text-[13px] font-semibold text-white disabled:opacity-60">{busy ? "Opening…" : status ? "Continue setup" : "Connect Stripe"}</button>}
+        <span className="flex flex-wrap items-center gap-2">
+          {ready && !demo && <button type="button" disabled={busy} onClick={connect} className="h-9 rounded-full bg-white px-4 text-[13px] font-semibold ring-1 ring-line disabled:opacity-60">{busy ? "Opening…" : "Update details"}</button>}
+          {ready
+            ? <a href="https://dashboard.stripe.com/payouts" target="_blank" rel="noopener noreferrer" className="inline-flex h-9 items-center gap-1 rounded-full bg-ink px-4 text-[13px] font-semibold text-white">Open Stripe <IcNext className="h-3.5 w-3.5" strokeWidth={2.2} /></a>
+            : status !== undefined && !demo && <button type="button" disabled={busy} onClick={connect} className="h-9 rounded-full bg-brand px-4 text-[13px] font-semibold text-white disabled:opacity-60">{busy ? "Opening…" : status ? "Continue setup" : "Connect Stripe"}</button>}
+        </span>
       </section>
 
       <section className={`${card} p-4`}>

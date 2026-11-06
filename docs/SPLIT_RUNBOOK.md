@@ -191,7 +191,7 @@ Managers (and Atlas admins) get a **Manage** section in the desk sidebar and ope
 - **Overview:** patients, paying members, visits and app sales (30 days + all time), 6-month chart (visits / app sales / new patients), latest activity (`medspa_overview`, same data as the portal).
 - **Rewards:** add / edit / switch off / delete, photo upload (`reward-images` bucket), fine print, "show in the app" vs desk-only (`upsert_reward`, `delete_reward`, same as the builder and portal, so changes show in the patient app immediately).
 - **Team:** front desk + managers, pending invites, Add staff (creates the account with a password and shows the desk link + login to send), Remove, Revoke. Account creation goes through the venue app's `/api/team/create-account` and `/api/team/revoke` (forwarded with the manager's session by `/api/<clinic>/desk/team`), so their permission checks apply. The desk can only add front desk staff or managers.
-- Still in the manager portal ("More settings" in the sidebar): offers/automations, marketing, billing/Stripe, waivers, insights reports, front-desk PINs.
+- Also in the desk now: Insights + monthly reports, one-time Offers, Atlas Engine, the single membership (Memberships), Billing, Stripe Connect (Payouts). `/<slug>/manage` always redirects a med spa to the desk (`?tab=reports&month=` from the report email opens that report; `apps/venues/app/[business]/manage/page.tsx` has the map). Not moved: in-app Bookings (the med spa app has no calendar; it sends patients to the clinic's own booking page), raffles (the patient app doesn't show them), and front-desk PIN management (still needed in the desk).
 
 ## Phase 5 (part 4): the new App builder (in the desk)
 

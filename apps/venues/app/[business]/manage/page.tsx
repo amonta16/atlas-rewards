@@ -7,34 +7,31 @@ import type { Business } from "@/lib/types/database";
 export const dynamic = "force-dynamic";
 
 /**
- * One med spa front desk: the soft desk in the med spa app (/<slug>/desk).
- * Everyone who lands here for a med spa (PIN sign-in, old bookmarks, installed
- * desk app) is sent there. The only thing left on this portal for a med spa is
- * the managers' back office the new desk doesn't have yet (Insights + monthly
- * reports, Offers, Atlas Engine, Billing, Membership setup, Bookings), reached
- * with ?settings=1 ("More settings" on the desk) or a deep link to one of them.
+ * One med spa front desk: the soft desk in the med spa app (/<slug>/desk). A med
+ * spa never renders this portal. Everyone who lands here (PIN sign-in, old
+ * bookmarks, installed desk app, the monthly report email, Stripe coming back)
+ * goes to the desk screen they were after; the desk handles sign-in and roles.
  */
 const MEDSPA_HOST = (process.env.NEXT_PUBLIC_MEDSPA_HOST ?? "med.atlas-engine.app").replace(/^https?:\/\//, "");
 const MEDSPA_ORIGIN = `${MEDSPA_HOST.startsWith("localhost") ? "http" : "https"}://${MEDSPA_HOST}`;
-const BACK_OFFICE_TABS = ["reports", "insights", "offers", "campaigns", "billing", "membership", "bookings"];
-const DESK_VIEW_FOR_TAB: Record<string, string> = { overview: "overview", desk: "checkin", patients: "patients", shop: "orders", builder: "builder", team: "team" };
+const DESK_VIEW_FOR_TAB: Record<string, string> = {
+  overview: "overview", desk: "checkin", patients: "patients", shop: "orders", builder: "builder", team: "team",
+  insights: "insights", reports: "reports", offers: "offers", campaigns: "marketing", billing: "billing", membership: "memberships",
+};
 
-export default async function ManagerHome({ params, searchParams }: { params: { business: string }; searchParams: { tab?: string; view?: string; settings?: string } }) {
+export default async function ManagerHome({ params, searchParams }: { params: { business: string }; searchParams: { tab?: string; view?: string; month?: string; stripe?: string } }) {
   const supabase = createClient();
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
 
-  let medspaDeskUrl: string | null = null;
-  if (biz && isMedspaApp(biz as Business) && process.env.NEXT_PUBLIC_MEDSPA_LIVE !== "0") {
-    medspaDeskUrl = `${MEDSPA_ORIGIN}/${params.business}/desk`;
-    const { data: roleRaw } = await supabase.rpc("current_app_role", { p_business_id: (biz as Business).id });
-    const role = typeof roleRaw === "string" ? roleRaw : Array.isArray(roleRaw) ? roleRaw[0] : null;
-    const canSeeBackOffice = role === "business_manager" || role === "agency_admin";
-    const wantsBackOffice = !!searchParams.settings || BACK_OFFICE_TABS.includes(searchParams.tab ?? "");
-    if (!canSeeBackOffice || !wantsBackOffice) {
-      const view = (/^[a-z]+$/.test(searchParams.view ?? "") ? searchParams.view : null) ?? DESK_VIEW_FOR_TAB[searchParams.tab ?? ""];
-      redirect(view ? `${medspaDeskUrl}?view=${view}` : medspaDeskUrl);
-    }
+  if (biz && isMedspaApp(biz as Business)) {
+    const view = (/^[a-z]+$/.test(searchParams.view ?? "") ? searchParams.view : null) ?? DESK_VIEW_FOR_TAB[searchParams.tab ?? ""];
+    const q = new URLSearchParams();
+    if (view) q.set("view", view);
+    if (/^\d{4}-\d{2}$/.test(searchParams.month ?? "")) q.set("month", searchParams.month!);
+    if (/^[a-z]+$/.test(searchParams.stripe ?? "")) q.set("stripe", searchParams.stripe!);
+    const qs = q.toString();
+    redirect(`${MEDSPA_ORIGIN}/${params.business}/desk${qs ? `?${qs}` : ""}`);
   }
   // CP-110 (security): ManagerDashboard is a client component, so drop the
   // server-only per-business credentials before the row is serialized to
@@ -67,5 +64,5 @@ export default async function ManagerHome({ params, searchParams }: { params: { 
     customer_name: r.customer_name ?? null,
   }));
 
-  return <ManagerDashboard business={business} recent={recent} medspaDeskUrl={medspaDeskUrl} />;
+  return <ManagerDashboard business={business} recent={recent} />;
 }

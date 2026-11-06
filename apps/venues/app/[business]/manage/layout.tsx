@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { isMedspaApp } from "@/lib/medspa-app/route";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Business } from "@/lib/types/database";
@@ -28,7 +29,15 @@ export default async function ManagerLayout({
   // preview), and only a SECOND trip to /manage (now that the session
   // cookie existed) actually reached the desk. The business-scoped path
   // works on both the subdomain and path-based topologies.
-  if (!user) redirect(`/${params.business}/login?next=/${params.business}/manage`);
+  if (!user) {
+    // A med spa's page.tsx sends everyone to the desk, which has its own sign-in.
+    // Bouncing to the login here would lose ?tab=reports&month= from the report
+    // email, and a layout can't read the query to keep it. (The only other page
+    // under here, the waiver record, re-checks staff in get_waiver_submission.)
+    const { data: b } = await supabase.from("businesses").select("layout_preset").eq("slug", params.business).maybeSingle();
+    if (b && isMedspaApp(b as Pick<Business, "layout_preset">)) return <>{children}</>;
+    redirect(`/${params.business}/login?next=/${params.business}/manage`);
+  }
 
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();

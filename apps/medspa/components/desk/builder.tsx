@@ -21,7 +21,7 @@ import { Modal } from "./ui";
 import { RewardsView } from "./manager-views";
 import { IcCheck, IcGift, IcMore } from "../icons";
 
-type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "automations" | "rewards";
+export type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "automations" | "rewards";
 type Tab = "offers" | "products" | "membership" | "rewards" | "settings";
 type Cfg = MedspaConfig & { memberships?: MedspaPlan[] };
 const shadow = "shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]";
@@ -29,13 +29,13 @@ const dollars = (c: number | null | undefined) => (c == null ? "" : String(c / 1
 const toCents = (v: string) => { const n = parseFloat(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? Math.round(n * 100) : null; };
 const price = (c: number | null | undefined) => (c == null || c <= 0 ? "No price yet" : `$${(c / 100).toLocaleString("en-US")}`);
 
-export function BuilderView({ clinic, canBrand, initial, say, api }: {
-  clinic: { id: string; slug: string; name: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void; api: DeskApi;
+export function BuilderView({ clinic, canBrand, initial, say, api, initialSection = "gifts" }: {
+  clinic: { id: string; slug: string; name: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void; api: DeskApi; initialSection?: Section;
 }) {
   const [d, setD] = useState<BuilderData>(initial);
   const [cfg, setCfg] = useState<Cfg>(() => readMedspaConfig(initial.cfg) as Cfg);
   const [base, setBase] = useState(() => JSON.stringify([initial, readMedspaConfig(initial.cfg)]));
-  const [section, setSection] = useState<Section>("gifts");
+  const [section, setSection] = useState<Section>(initialSection);
   const [saving, setSaving] = useState(false);
   const dirty = useMemo(() => JSON.stringify([d, cfg]) !== base, [d, cfg, base]);
 
