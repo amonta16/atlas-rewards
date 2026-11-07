@@ -24,7 +24,7 @@ export const SiteSchema = z.object({
     description: z.string().nullable().describe("One or two short sentences about this treatment, based on the spa's own wording; null if the site says nothing"),
     image: z.number().int().nullable().describe("Number of the photo that shows this treatment, or null"),
   })).describe("Up to 12 treatments the spa offers, most prominent first"),
-  hero_image: z.number().int().nullable().describe("Number of the photo that would work best as the large banner at the top of the app (a wide, attractive photo of the spa, a treatment or a happy client; not a logo, not text, not a person's headshot), or null"),
+  hero_image: z.number().int().nullable().describe("Number of the photo that would work best as the large banner at the top of the app (a wide, attractive photo of the spa interior, a treatment or a client; never a photo of a staff member or provider, not a logo, not text), or null"),
   team: z.array(z.object({
     name: z.string(),
     title: z.string().describe("Their role as written, e.g. 'Nurse Injector, RN'"),

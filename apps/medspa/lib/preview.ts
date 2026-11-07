@@ -156,3 +156,33 @@ export function previewConfig(row: PreviewRow): MedspaConfig {
 }
 
 export { EXAMPLE_REWARDS };
+
+export type PreviewReward = { id: string; name: string; description: string; reward_type: string; point_cost: number; image_url: string; terms: null };
+
+/**
+ * CP-233: example rewards made from THEIR treatments ("15% off HydraFacial"),
+ * instead of our demo clinic's (Emsculpt, CoolSculpting…), which they may not offer.
+ * The spa sets its real rewards when it goes live.
+ */
+export function previewRewards(treatments: MedspaTreatment[], heroUrl: string): PreviewReward[] {
+  const short = (n: string) => (n.length > 38 ? `${n.slice(0, 37).trimEnd()}…` : n);
+  const used = new Set<string>();
+  const take = (cat?: string) => {
+    const t = treatments.find((x) => !used.has(x.id) && (!cat || x.category === cat));
+    if (t) used.add(t.id);
+    return t ?? null;
+  };
+  const skin = take("Skin");
+  const inj = take("Injectables");
+  const laser = take("Laser") ?? take("Body");
+  const more = take();
+  const out: Omit<PreviewReward, "id" | "terms">[] = [
+    { name: "$25 off your first visit", description: "Take $25 off any treatment on your first visit.", reward_type: "discount", point_cost: 50, image_url: heroUrl },
+    { name: "Complimentary consultation", description: "A one-on-one consultation and a plan built around your goals.", reward_type: "free_item", point_cost: 120, image_url: heroUrl },
+  ];
+  if (skin) out.push({ name: `15% off ${short(skin.name)}`, description: `Your next ${skin.name}, 15% off.`, reward_type: "discount", point_cost: 200, image_url: skin.image_url ?? heroUrl });
+  if (inj) out.push({ name: `$50 off ${short(inj.name)}`, description: `Take $50 off your next ${inj.name} appointment.`, reward_type: "discount", point_cost: 300, image_url: inj.image_url ?? heroUrl });
+  if (laser) out.push({ name: `30% off your first ${short(laser.name)}`, description: `Try ${laser.name} at 30% off.`, reward_type: "discount", point_cost: 400, image_url: laser.image_url ?? heroUrl });
+  if (more) out.push({ name: `$100 off ${short(more.name)}`, description: `Take $100 off ${more.name}.`, reward_type: "discount", point_cost: 650, image_url: more.image_url ?? heroUrl });
+  return out.map((r, i) => ({ ...r, id: `rw_${i}`, terms: null }));
+}

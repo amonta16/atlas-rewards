@@ -13,8 +13,8 @@
  * an app. `build_error` keeps a short note of what fell back, for the admin page.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { NEUTRAL_PALETTE, dominantColors, paletteFromSeed, themeColorFromHtml, type PreviewColors } from "./colors";
-import { findTags, imageCandidates, pageText, pickFont, serviceLinks, teamLinks, absolutize, type ImageCandidate } from "./html";
+import { NEUTRAL_PALETTE, cssBrandColors, dominantColors, paletteFromSeed, themeColorFromHtml, type PreviewColors } from "./colors";
+import { findTags, imageCandidates, inlineCss, pageText, pickFont, serviceLinks, stylesheetLinks, teamLinks, absolutize, type ImageCandidate } from "./html";
 import { fetchFirstLogo, logoCandidates, logoPixels } from "./logo";
 import { extractSite, type TeamMember } from "./extract";
 import { hostPhotos, type PhotoKind } from "./photos";
@@ -71,6 +71,11 @@ export async function computePreview(input: { businessName: string; website: str
         ...teamLinks(home.html, home.url, 1).map((u) => fetchHtml(u).then((p) => (p ? { ...p, label: "team" } : null))),
       ]).then((rs) => rs.flatMap((r) => (r.status === "fulfilled" && r.value ? [r.value] : [])))
     : Promise.resolve([]);
+  // Their own stylesheets, for the brand color when the logo and meta tags don't give one.
+  const siteCss: Promise<string> = home
+    ? Promise.allSettled(stylesheetLinks(home.html, home.url, 2).map((u) => safeFetch(u, { accept: "text/css,*/*;q=0.1", maxBytes: 1_500_000, onOverflow: "truncate" })))
+        .then((rs) => rs.map((r) => (r.status === "fulfilled" ? r.value.body.toString("utf8") : "")).join("\n"))
+    : Promise.resolve("");
 
   // Logo
   const candidates = ov.logoUrl ? [ov.logoUrl] : home ? logoCandidates(home.html, home.url) : [];
@@ -81,10 +86,17 @@ export async function computePreview(input: { businessName: string; website: str
   // Colors
   let logoSeeds: string[] = [];
   if (logo) {
-    try { const px = await logoPixels(logo.png); logoSeeds = dominantColors(px.data, px.channels, 2); } catch { /* ignore */ }
+    try { const px = await logoPixels(logo.colorPng); logoSeeds = dominantColors(px.data, px.channels, 2); } catch { /* ignore */ }
   }
-  const seed = ov.primary || (home ? themeColorFromHtml(home.html) : null) || logoSeeds[0] || null;
-  const colors = paletteFromSeed(seed, ov.secondary || (seed === logoSeeds[0] ? logoSeeds[1] : logoSeeds[0]) || null);
+  // Order: admin's pick → <meta theme-color> → the logo's own colors → the site's CSS → neutral.
+  let cssSeeds: string[] = [];
+  if (!ov.primary && !(home && themeColorFromHtml(home.html)) && !logoSeeds.length && home) {
+    cssSeeds = cssBrandColors(`${inlineCss(home.html)}
+${await siteCss}`, 2);
+  }
+  const seed = ov.primary || (home ? themeColorFromHtml(home.html) : null) || logoSeeds[0] || cssSeeds[0] || null;
+  const second = seed === logoSeeds[0] ? logoSeeds[1] : seed === cssSeeds[0] ? cssSeeds[1] : logoSeeds[0];
+  const colors = paletteFromSeed(seed, ov.secondary || second || null);
   if (!seed || colors.primary === NEUTRAL_PALETTE.primary) notes.push("colors: neutral");
 
   // Font
@@ -109,9 +121,8 @@ export async function computePreview(input: { businessName: string; website: str
   if (examples) { treatments = EXAMPLE_TREATMENTS; notes.push("treatments: examples"); }
 
   // Their photos → our storage
-  const heroSource = site?.heroSource ?? (home ? ogImage(home.html, home.url) : null);
-  const wanted: Array<{ url: string; kind: PhotoKind }> = [];
-  if (heroSource) wanted.push({ url: heroSource, kind: "hero" });
+  const heroCandidates = pickHeroCandidates(site, images, home ? ogImage(home.html, home.url) : null);
+  const wanted: Array<{ url: string; kind: PhotoKind }> = heroCandidates.map((url) => ({ url, kind: "hero" as const }));
   for (const t of treatments!.slice(0, 10)) if (t.image_url) wanted.push({ url: t.image_url, kind: "treatment" });
   for (const m of site?.team ?? []) if (m.photo_url) wanted.push({ url: m.photo_url, kind: "team" });
   const hosted = up.photo && wanted.length && Date.now() < deadline - 5000
@@ -124,10 +135,37 @@ export async function computePreview(input: { businessName: string; website: str
     return h ? { ...rest, image_url: h } : rest;
   });
   const team = (site?.team ?? []).map((m) => ({ ...m, photo_url: m.photo_url ? hosted.get(m.photo_url) ?? null : null }));
-  const heroUrl = heroSource ? hosted.get(heroSource) ?? null : null;
+  // First candidate that downloaded and passed the size/shape checks.
+  const heroUrl = heroCandidates.map((u) => hosted.get(u)).find(Boolean) ?? null;
   if (!heroUrl) notes.push("hero: example");
 
   return { logoUrl, colors, treatments: finalTreatments, treatmentsAreExamples: examples, notes, heroUrl, font, team, about: site?.about ?? null };
+}
+
+/**
+ * Banner photo candidates, best first: the model's pick, their share image, then
+ * their biggest home-page photo. Never a team member's photo (a headshot makes a
+ * bad banner and isn't what the app is about) and nothing from the team page.
+ */
+export function pickHeroCandidates(
+  site: { heroSource: string | null; team: TeamMember[] } | null,
+  images: ImageCandidate[],
+  og: string | null,
+): string[] {
+  const banned = new Set<string>(site?.team.map((m) => m.photo_url).filter((u): u is string => !!u) ?? []);
+  const names = (site?.team ?? []).map((m) => m.name.toLowerCase().split(/\s+/).filter((w) => w.length > 2 && !/^(dr|mr|mrs|ms)\.?$/.test(w))).flat();
+  for (const im of images) {
+    const text = `${im.alt} ${im.context} ${im.file}`.toLowerCase();
+    if (im.page === "team" || /headshot|portrait|team|staff|provider|injector|\bdr\b|\bmd\b|\brn\b|np-?c/.test(text) || names.some((n) => text.includes(n))) banned.add(im.url);
+  }
+  const wide = images.filter((i) => i.page === "home" && (i.width ?? 0) >= 900).map((i) => i.url);
+  const bg = images.filter((i) => i.page === "home" && i.alt === "background").map((i) => i.url);
+  const out: string[] = [];
+  for (const u of [site?.heroSource ?? null, og, ...bg, ...wide]) {
+    if (u && !banned.has(u) && !out.includes(u)) out.push(u);
+    if (out.length >= 3) break;
+  }
+  return out;
 }
 
 /** Builds the row and marks it ready. Never throws; never leaves a row "building". */

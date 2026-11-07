@@ -51,7 +51,39 @@ export function logoCandidates(html: string, baseUrl: string): string[] {
   return out;
 }
 
-export type LogoImage = { png: Buffer; width: number; height: number; source: string };
+/**
+ * `png` is what the app shows (darkened when needed); `colorPng` is the logo as
+ * the site has it, for reading brand colors. `adjusted` = we darkened it.
+ */
+export type LogoImage = { png: Buffer; colorPng: Buffer; width: number; height: number; source: string; adjusted: boolean };
+
+export type LogoTone = { transparentShare: number; meanLuminance: number; meanSaturation: number };
+
+/** How a logo's visible pixels look: share of transparent pixels, and mean luminance/saturation of the rest (0–1). */
+export function logoTone(rgba: Uint8Array | Buffer, channels: number): LogoTone {
+  let clear = 0, n = 0, lum = 0, sat = 0, total = 0;
+  for (let i = 0; i + channels - 1 < rgba.length; i += channels) {
+    total++;
+    const a = channels >= 4 ? rgba[i + 3] : 255;
+    if (a < 128) { clear++; continue; }
+    const r = rgba[i] / 255, g = rgba[i + 1] / 255, b = rgba[i + 2] / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    lum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    sat += mx === 0 ? 0 : (mx - mn) / mx;
+    n++;
+  }
+  return { transparentShare: total ? clear / total : 0, meanLuminance: n ? lum / n : 0, meanSaturation: n ? sat / n : 0 };
+}
+
+/**
+ * A light logo on a transparent background (made for a dark website header)
+ * disappears on the app's white top bar. Near-white/grey ones are inverted to
+ * near-black; light colored ones are dimmed (hue kept). Everything else is untouched.
+ */
+export function needsDarkening(t: LogoTone): "invert" | "dim" | null {
+  if (t.transparentShare < 0.15 || t.meanLuminance < 0.75) return null;
+  return t.meanSaturation < 0.18 ? "invert" : "dim";
+}
 
 /** Decodes and normalizes one downloaded image. null when it isn't a usable logo. */
 export async function normalizeLogo(buf: Buffer, source: string): Promise<LogoImage | null> {
@@ -67,7 +99,13 @@ export async function normalizeLogo(buf: Buffer, source: string): Promise<LogoIm
       .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
       .png({ compressionLevel: 9 })
       .toBuffer({ resolveWithObject: true });
-    return { png: data, width: info.width, height: info.height, source };
+
+    const raw = await sharp(data).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const fix = needsDarkening(logoTone(raw.data, raw.info.channels));
+    let shown = data;
+    if (fix === "invert") shown = await sharp(data).ensureAlpha().negate({ alpha: false }).png({ compressionLevel: 9 }).toBuffer();
+    if (fix === "dim") shown = await sharp(data).ensureAlpha().modulate({ brightness: 0.45, saturation: 1.2 }).png({ compressionLevel: 9 }).toBuffer();
+    return { png: shown, colorPng: data, width: info.width, height: info.height, source, adjusted: fix !== null };
   } catch {
     return null;
   }

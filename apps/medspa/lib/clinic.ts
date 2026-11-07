@@ -11,7 +11,7 @@ import { readMembership, type MembershipRow, type MembershipView } from "@atlas/
 import { readMedspaConfig, type MedspaConfig } from "./medspa";
 import { buildExampleMedspaConfig, EXAMPLE_IMG, EXAMPLE_REWARDS } from "./example";
 import { examplePlans, readPlans, type MedspaPlan } from "./plans";
-import { getPreviewRow, hostedUrl, monogramDataUri, PREVIEW_SLUG_RE, previewConfig, previewPlans, safeFont, type PreviewRow } from "./preview";
+import { getPreviewRow, hostedUrl, monogramDataUri, PREVIEW_SLUG_RE, previewConfig, previewPlans, previewRewards, safeFont, type PreviewRow } from "./preview";
 
 export const DEMO_SLUG = "demo";
 
@@ -128,7 +128,7 @@ function previewClinic(p: PreviewRow): Clinic {
     about: typeof p.about === "string" ? p.about.slice(0, 600) : null, heroUrl: hostedUrl(p.hero_url) ?? EXAMPLE_IMG.hero,
     primary, primaryRgb: hexToRgb(primary), phone: p.phone, address: p.address, joinCode: null,
     cfg, plans: previewPlans(p.business_name, cfg.treatments),
-    rewards: EXAMPLE_REWARDS.map((r, i) => ({ ...r, id: `rw_${i}`, terms: null })),
+    rewards: previewRewards(cfg.treatments, hostedUrl(p.hero_url) ?? EXAMPLE_IMG.hero),
     membership: null, isExample: true,
     preview: { treatmentsAreExamples: p.treatments_are_examples, areaOpen: p.area_open, expiresAt: p.expires_at, font: safeFont(p.font_family) },
   };

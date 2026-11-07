@@ -9,13 +9,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { logoCandidates, normalizeLogo, initialsOf, logoPixels } from "../lib/preview/logo";
+import { logoCandidates, normalizeLogo, initialsOf, logoPixels, logoTone, needsDarkening } from "../lib/preview/logo";
 import {
   themeColorFromHtml, contrastRatio, ensureContrast, paletteFromSeed, paletteIsReadable, dominantColors, parseColor,
-  isUsableSeed, NEUTRAL_PALETTE, rgbToHsl, hexToRgb,
+  isUsableSeed, NEUTRAL_PALETTE, rgbToHsl, hexToRgb, cssBrandColors,
 } from "../lib/preview/colors";
+import { pickHeroCandidates } from "../lib/preview/build";
 import { normalizeTreatments, memberPriceCents, tidyText, EXAMPLE_TREATMENTS } from "../lib/preview/treatments";
-import { pageText, pageTitle, serviceLinks, teamLinks, findTags, decodeEntities, imageCandidates, googleFontFamilies, pickFont } from "../lib/preview/html";
+import { pageText, pageTitle, serviceLinks, teamLinks, findTags, decodeEntities, imageCandidates, googleFontFamilies, pickFont, inlineCss, stylesheetLinks } from "../lib/preview/html";
 import { extractSite, normalizeSite, photoList } from "../lib/preview/extract";
 import { normalizePhoto } from "../lib/preview/photos";
 import { smsHref, smsMessage, smsQrPayload, detectPlatform, e164 } from "../lib/preview/sms";
@@ -332,5 +333,97 @@ describe("their photos", () => {
     const out = await normalizePhoto(await make(600, 400, true), "treatment");
     assert.equal((await sharp(out!).metadata()).hasAlpha, false);
     assert.equal(await normalizePhoto(Buffer.from("<svg onload=alert(1)>"), "hero"), null);
+  });
+});
+
+/* ───────────── CP-233 fixes from the first live test (Tirage Medspa) ───────────── */
+
+describe("light logos are darkened for the white top bar", () => {
+  const wordmark = async (rgb: { r: number; g: number; b: number }) => {
+    const bar = await sharp({ create: { width: 300, height: 30, channels: 4, background: { ...rgb, alpha: 1 } } }).png().toBuffer();
+    return sharp({ create: { width: 400, height: 120, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite([{ input: bar, left: 50, top: 45 }]).png().toBuffer();
+  };
+  const meanVisibleLum = async (png: Buffer) => {
+    const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return logoTone(data, info.channels).meanLuminance;
+  };
+  test("a white wordmark on transparent becomes dark; the original is kept for colors", async () => {
+    const logo = await normalizeLogo(await wordmark({ r: 250, g: 250, b: 250 }), "x");
+    assert.ok(logo?.adjusted);
+    assert.ok((await meanVisibleLum(logo!.png)) < 0.2);
+    assert.ok((await meanVisibleLum(logo!.colorPng)) > 0.9);
+  });
+  test("a light pink wordmark is dimmed, not inverted (keeps its hue)", async () => {
+    const logo = await normalizeLogo(await wordmark({ r: 248, g: 200, b: 214 }), "x");
+    assert.ok(logo?.adjusted);
+    const { data } = await sharp(logo!.png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const i = (60 * 400 + 200) * 4; // a pixel inside the bar
+    assert.ok(data[i] > data[i + 1], "still pinkish (red > green)");
+    assert.ok((await meanVisibleLum(logo!.png)) < 0.6);
+  });
+  test("dark logos and logos on their own background are left alone", async () => {
+    assert.equal((await normalizeLogo(await wordmark({ r: 40, g: 40, b: 60 }), "x"))?.adjusted, false);
+    const solid = await sharp({ create: { width: 200, height: 80, channels: 3, background: "#ffffff" } }).png().toBuffer();
+    assert.equal((await normalizeLogo(solid, "x"))?.adjusted, false);
+  });
+  test("needsDarkening thresholds", () => {
+    assert.equal(needsDarkening({ transparentShare: 0.5, meanLuminance: 0.95, meanSaturation: 0.02 }), "invert");
+    assert.equal(needsDarkening({ transparentShare: 0.5, meanLuminance: 0.8, meanSaturation: 0.3 }), "dim");
+    assert.equal(needsDarkening({ transparentShare: 0.05, meanLuminance: 0.95, meanSaturation: 0 }), null);
+    assert.equal(needsDarkening({ transparentShare: 0.5, meanLuminance: 0.4, meanSaturation: 0.5 }), null);
+  });
+});
+
+describe("brand color from the site's CSS", () => {
+  test("a brand-named variable wins; theme/widget defaults and greys are ignored", () => {
+    const css = `:root{--e-global-color-primary:#9C6B5B;--e-global-color-text:#7A7A7A}
+      .btn{background:#9c6b5b}.x{color:#0073aa}.y{color:#0073aa}.z{color:#0073aa}.g{color:#333}.g2{color:#333}.g3{color:#333}
+      .fb{color:#1877f2}.fb2{color:#1877f2}.fb3{color:#1877f2}`;
+    assert.deepEqual(cssBrandColors(css), ["#9C6B5B"]);
+  });
+  test("without variables, the most used real color (3+ uses) wins", () => {
+    const css = `a{color:#2a6f97}h1{color:#2a6f97}.b{border-color:#2A6F97}.c{color:rgb(180,120,90)}`;
+    assert.deepEqual(cssBrandColors(css, 1), ["#2A6F97"]);
+    assert.deepEqual(cssBrandColors(`a{color:#c08060}`), []);
+  });
+  test("stylesheets: same site only, plugin/library CSS skipped", () => {
+    const html = `<link rel="stylesheet" href="/wp-content/themes/tirage/style.css">
+      <link rel="stylesheet" href="https://glow.example/wp-includes/css/dashicons.min.css">
+      <link rel="stylesheet" href="https://cdn.other.example/site.css">
+      <link rel="stylesheet" href="https://assets.glow.example/uploads/elementor/css/post-12.css">
+      <link rel="stylesheet" href="/wp-content/plugins/font-awesome/all.css">`;
+    assert.deepEqual(stylesheetLinks(html, "https://www.glow.example/", 3), [
+      "https://www.glow.example/wp-content/themes/tirage/style.css",
+      "https://assets.glow.example/uploads/elementor/css/post-12.css",
+    ]);
+  });
+  test("inline CSS is collected from <style> and style attributes", () => {
+    const css = inlineCss(`<style>.a{color:#123456}</style><div style="background:#abcdef"></div>`);
+    assert.match(css, /#123456/);
+    assert.match(css, /#abcdef/);
+  });
+});
+
+describe("banner photo is never a team member", () => {
+  const img = (url: string, page: string, extra: Partial<{ alt: string; context: string; width: number }> = {}) =>
+    ({ url, alt: extra.alt ?? "", file: url.split("/").pop()!, width: extra.width ?? null, context: extra.context ?? "", page });
+  const images = [
+    img("https://s/a/maya.jpg", "home", { alt: "Dr. Maya Chen", width: 1200 }),
+    img("https://s/a/lobby.jpg", "home", { alt: "our lobby", width: 1600 }),
+    img("https://s/a/staff.jpg", "team", { width: 1400 }),
+    img("https://s/a/bg.jpg", "home", { alt: "background" }),
+  ];
+  const team = [{ name: "Dr. Maya Chen", title: "MD", photo_url: "https://s/a/maya.jpg" }];
+  test("the model's pick is dropped when it's a team photo; next best are used", () => {
+    assert.deepEqual(pickHeroCandidates({ heroSource: "https://s/a/maya.jpg", team }, images, "https://s/og.jpg"),
+      ["https://s/og.jpg", "https://s/a/bg.jpg", "https://s/a/lobby.jpg"]);
+  });
+  test("photos from the team page or named after staff are never banners", () => {
+    const c = pickHeroCandidates({ heroSource: "https://s/a/staff.jpg", team: [] }, images, null);
+    assert.ok(!c.includes("https://s/a/staff.jpg"));
+    assert.ok(!c.includes("https://s/a/maya.jpg"));
+  });
+  test("a good pick stays first", () => {
+    assert.equal(pickHeroCandidates({ heroSource: "https://s/a/lobby.jpg", team }, images, null)[0], "https://s/a/lobby.jpg");
   });
 });

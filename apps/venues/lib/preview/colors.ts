@@ -174,3 +174,41 @@ export function paletteFromSeed(seed: string | null, second?: string | null): Pr
 export function paletteIsReadable(p: PreviewColors): boolean {
   return contrastRatio(p.primary, p.onPrimary) >= AA && contrastRatio(p.secondary, "#FFFFFF") >= AA;
 }
+
+/* ───────────── CP-233: brand color from the site's CSS ───────────── */
+
+/**
+ * Defaults of common themes, page builders and widgets (WordPress, Elementor,
+ * Bootstrap, Squarespace/Wix bits, social buttons). They show up in nearly every
+ * site's CSS and say nothing about the spa's brand.
+ */
+const CSS_NOISE = new Set([
+  "#2271B1", "#0073AA", "#00A0D2", "#135E96", "#72AEE6", "#6EC1E4", "#54595F", "#7A7A7A", "#61CE70", "#4054B2", "#23A455",
+  "#007BFF", "#0D6EFD", "#28A745", "#198754", "#DC3545", "#FFC107", "#17A2B8", "#0DCAF0", "#6C757D", "#6610F2", "#6F42C1", "#E83E8C", "#FD7E14", "#20C997",
+  "#3B5998", "#1877F2", "#1DA1F2", "#4285F4", "#EA4335", "#34A853", "#FBBC05", "#E1306C", "#C13584", "#FF0000", "#25D366", "#0077B5", "#BD081C",
+  "#0000FF", "#00FF00", "#FF00FF", "#00FFFF", "#FFFF00", "#CF2E2E", "#FF6900", "#FCB900", "#7BDCB5", "#00D084", "#8ED1FC", "#0693E3", "#9B51E0", "#F78DA7", "#ABB8C3", "#EB144C", "#32373C",
+]);
+
+/**
+ * The site's own accent color(s), most used first. Custom properties named like
+ * --primary/--brand/--accent count most; plain uses count once each. Greys, near
+ * white/black and well-known theme defaults are ignored. A color needs at least
+ * 3 uses (or a brand-named variable) to count.
+ */
+export function cssBrandColors(css: string, max = 2): string[] {
+  const score = new Map<string, { hex: string; n: number }>();
+  const add = (raw: string, w: number) => {
+    const c = parseColor(raw);
+    if (!c) return;
+    const hex = c.toUpperCase();
+    if (CSS_NOISE.has(hex) || !isUsableSeed(hex)) return;
+    const [r, g, b] = hexToRgb(hex);
+    const key = `${r >> 4},${g >> 4},${b >> 4}`;
+    const e = score.get(key) ?? { hex, n: 0 };
+    e.n += w;
+    score.set(key, e);
+  };
+  for (const m of css.matchAll(/--[\w-]*(?:primary|brand|accent|main|theme|highlight)[\w-]*\s*:\s*([^;}]+)/gi)) add(m[1].trim(), 8);
+  for (const m of css.matchAll(/#(?:[0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])|rgba?\([^)]*\)/gi)) add(m[0], 1);
+  return [...score.values()].filter((e) => e.n >= 3).sort((a, b) => b.n - a.n).slice(0, max).map((e) => e.hex);
+}

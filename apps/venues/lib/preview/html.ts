@@ -218,3 +218,29 @@ export function pickFont(html: string): string | null {
   }
   return fams[0];
 }
+
+/** CP-233: inline CSS on a page (<style> blocks + style="" attributes). */
+export function inlineCss(html: string): string {
+  const blocks = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1]);
+  const attrs = [...html.matchAll(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)].map((m) => decodeEntities(m[1] ?? m[2] ?? ""));
+  return `${blocks.join("\n")}\n${attrs.join(";\n")}`.slice(0, 2_000_000);
+}
+
+/** CP-233: the site's own stylesheets (same host or a subdomain of it), skipping known third-party/plugin CSS. */
+export function stylesheetLinks(html: string, base: string, max = 2): string[] {
+  let host: string;
+  try { host = new URL(base).hostname.replace(/^www\./, ""); } catch { return []; }
+  const out: string[] = [];
+  for (const t of findTags(html, ["link"])) {
+    if (!(t.attrs.rel ?? "").toLowerCase().split(/\s+/).includes("stylesheet")) continue;
+    const url = absolutize(t.attrs.href, base);
+    if (!url) continue;
+    const u = new URL(url);
+    const h = u.hostname.replace(/^www\./, "");
+    if (h !== host && !h.endsWith(`.${host}`)) continue;
+    if (/wp-includes|dashicons|admin-bar|block-library|elementor\/assets\/lib|font-?awesome|bootstrap|jquery|woocommerce|swiper|slick|animate/i.test(u.pathname)) continue;
+    if (!out.includes(url)) out.push(url);
+    if (out.length >= max) break;
+  }
+  return out;
+}
