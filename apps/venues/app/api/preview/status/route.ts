@@ -11,6 +11,9 @@ import { getPreviewBySlug, isExpired, previewUrl, SLUG_RE } from "@/lib/preview/
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Next caches server fetch() GETs by default, and supabase-js reads with GET: without this,
+// a preview read once as "building" would stay "building" (seen live on 2026-11-07).
+export const fetchCache = "force-no-store";
 
 export async function GET(req: Request) {
   const rl = await rateLimit(clientKey(req, "pv-status"), 240, 600);

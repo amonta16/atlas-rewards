@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient as createServer } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { clean } from "@/lib/landing/notify";
 import { parseColor } from "@/lib/preview/colors";
 import { buildPreview } from "@/lib/preview/build";
 import { normalizeTreatments } from "@/lib/preview/treatments";
 import { checkUrl } from "@/lib/preview/safe-fetch";
-import { expiresAt, newPreviewSlug, previewUrl } from "@/lib/preview/store";
+import { expiresAt, newPreviewSlug, previewDb, previewUrl } from "@/lib/preview/store";
 
 /**
  * POST /api/preview/admin — CP-232 · create a preview by hand (agency_admin only).
@@ -18,6 +17,9 @@ import { expiresAt, newPreviewSlug, previewUrl } from "@/lib/preview/store";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Next caches server fetch() GETs by default, and supabase-js reads with GET: without this,
+// a preview read once as "building" would stay "building" (seen live on 2026-11-07).
+export const fetchCache = "force-no-store";
 export const maxDuration = 300;
 
 async function requireAgencyAdmin(): Promise<string | null> {
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
   const treatments = normalizeTreatments({ treatments: Array.isArray(b.treatments) ? b.treatments.slice(0, 20) : [] });
 
   const slug = newPreviewSlug(name);
-  const db = createAdminClient();
+  const db = previewDb();
   const { data, error } = await db.from("app_previews").insert({
     slug, business_name: name, website, phone: clean(b.phone, 40) || null, address: clean(b.address, 200) || null,
     source: "manual", status: "building", expires_at: expiresAt(), created_by: userId,

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { clean } from "@/lib/landing/notify";
 import { requestIp } from "@/lib/landing/meta-capi";
@@ -8,7 +7,7 @@ import { checkAreaAt } from "@/lib/landing/territory";
 import { placeDetails, placesConfigured, PLACE_ID_RE, SESSION_RE } from "@/lib/preview/places";
 import { buildPreview } from "@/lib/preview/build";
 import { postGhlLead } from "@/lib/preview/ghl";
-import { expiresAt, getPreviewByPlace, hashIpString, isExpired, newPreviewSlug, previewUrl, type PreviewRow } from "@/lib/preview/store";
+import { expiresAt, getPreviewByPlace, hashIpString, isExpired, newPreviewSlug, previewDb, previewUrl, type PreviewRow } from "@/lib/preview/store";
 
 /**
  * POST /api/preview/start — CP-232 · the visitor picked their spa; build its preview.
@@ -27,6 +26,9 @@ import { expiresAt, getPreviewByPlace, hashIpString, isExpired, newPreviewSlug, 
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Next caches server fetch() GETs by default, and supabase-js reads with GET: without this,
+// a preview read once as "building" would stay "building" (seen live on 2026-11-07).
+export const fetchCache = "force-no-store";
 export const maxDuration = 300; // CP-233: the deep build runs in waitUntil, inside this limit
 
 const err = (status: number, error: string) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
   };
   const ip = requestIp(req);
 
-  const db = createAdminClient();
+  const db = previewDb();
   let cached: PreviewRow | null = null;
   try { cached = await getPreviewByPlace(placeId); } catch (e) { console.error("[preview] cache lookup failed", e); }
 

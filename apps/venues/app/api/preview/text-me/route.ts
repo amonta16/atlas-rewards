@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { postGhlLead } from "@/lib/preview/ghl";
 import { e164 } from "@/lib/preview/sms";
-import { getPreviewBySlug, isExpired, medspaOrigin, previewUrl, SLUG_RE } from "@/lib/preview/store";
+import { getPreviewBySlug, isExpired, medspaOrigin, previewDb, previewUrl, SLUG_RE } from "@/lib/preview/store";
 
 /**
  * POST /api/preview/text-me — CP-232 · called from med.atlas-engine.app/p/<slug>.
@@ -16,6 +15,9 @@ import { getPreviewBySlug, isExpired, medspaOrigin, previewUrl, SLUG_RE } from "
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Next caches server fetch() GETs by default, and supabase-js reads with GET: without this,
+// a preview read once as "building" would stay "building" (seen live on 2026-11-07).
+export const fetchCache = "force-no-store";
 
 function cors(req: Request): Record<string, string> {
   const origin = req.headers.get("origin");
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
     const now = new Date().toISOString();
     const patch: Record<string, unknown> = { status: row.status === "building" ? row.status : "claimed", claimed_at: now };
     if (phone) patch.contact_phone = phone;
-    const { error } = await createAdminClient().from("app_previews").update(patch).eq("id", row.id);
+    const { error } = await previewDb().from("app_previews").update(patch).eq("id", row.id);
     if (error) console.error("[preview] claim update failed", error.message);
     const sent = await postGhlLead({
       event: "app_preview_text_me",

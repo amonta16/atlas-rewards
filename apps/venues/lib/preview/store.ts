@@ -2,9 +2,28 @@
  * lib/preview/store.ts — CP-232 · app_previews rows, slugs and URLs (server only).
  */
 import { randomBytes, createHash } from "crypto";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { PreviewColors } from "./colors";
 import type { PreviewTreatment } from "./treatments";
+
+let cachedDb: SupabaseClient | null = null;
+
+/**
+ * Service-role client for app_previews whose requests are never cached.
+ * Next.js caches server fetch() GETs, and supabase-js reads with GET, so a plain
+ * client could keep returning an old row ("building" forever). Server only.
+ */
+export function previewDb(): SupabaseClient {
+  if (cachedDb) return cachedDb;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY (or NEXT_PUBLIC_SUPABASE_URL).");
+  cachedDb = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
+  });
+  return cachedDb;
+}
 
 export const PREVIEW_TTL_DAYS = 14;
 /** A build still "building" after this long is finished with fallbacks by the status poll (CP-233: deep builds take 1–2 min). */
@@ -73,18 +92,18 @@ export function hashIpString(ip: string | null): string | null {
 
 export async function getPreviewBySlug(slug: string): Promise<PreviewRow | null> {
   if (!SLUG_RE.test(slug)) return null;
-  const { data } = await createAdminClient().from("app_previews").select("*").eq("slug", slug).maybeSingle();
+  const { data } = await previewDb().from("app_previews").select("*").eq("slug", slug).maybeSingle();
   return (data as PreviewRow | null) ?? null;
 }
 
 export async function getPreviewByPlace(placeId: string): Promise<PreviewRow | null> {
-  const { data } = await createAdminClient().from("app_previews").select("*").eq("place_id", placeId).maybeSingle();
+  const { data } = await previewDb().from("app_previews").select("*").eq("place_id", placeId).maybeSingle();
   return (data as PreviewRow | null) ?? null;
 }
 
 /** Uploads a normalized PNG logo to the public business-logos bucket. Returns its public URL. */
 export async function uploadLogo(slug: string, png: Buffer): Promise<string | null> {
-  const db = createAdminClient();
+  const db = previewDb();
   const path = `previews/${slug}-${randomBytes(4).toString("hex")}.png`;
   const { error } = await db.storage.from("business-logos").upload(path, png, { contentType: "image/png", cacheControl: "31536000", upsert: false });
   if (error) {
@@ -96,7 +115,7 @@ export async function uploadLogo(slug: string, png: Buffer): Promise<string | nu
 
 /** CP-233: uploads one of the spa's re-encoded photos. Returns its public URL. */
 export async function uploadPhoto(slug: string, jpeg: Buffer, kind: string): Promise<string | null> {
-  const db = createAdminClient();
+  const db = previewDb();
   const path = `previews/${slug}/${kind}-${randomBytes(5).toString("hex")}.jpg`;
   const { error } = await db.storage.from("business-logos").upload(path, jpeg, { contentType: "image/jpeg", cacheControl: "31536000", upsert: false });
   if (error) {

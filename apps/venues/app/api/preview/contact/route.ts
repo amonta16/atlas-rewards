@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { clean, EMAIL_RE, notifyLead, emailProspect } from "@/lib/landing/notify";
 import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
@@ -8,7 +7,7 @@ import { newEventId } from "@/lib/landing/funnel-sign";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { postGhlLead } from "@/lib/preview/ghl";
 import { e164 } from "@/lib/preview/sms";
-import { getPreviewBySlug, isExpired, previewUrl, SLUG_RE } from "@/lib/preview/store";
+import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/lib/preview/store";
 
 /**
  * POST /api/preview/contact — CP-233 · the owner's contact, captured while their app builds.
@@ -25,6 +24,9 @@ import { getPreviewBySlug, isExpired, previewUrl, SLUG_RE } from "@/lib/preview/
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Next caches server fetch() GETs by default, and supabase-js reads with GET: without this,
+// a preview read once as "building" would stay "building" (seen live on 2026-11-07).
+export const fetchCache = "force-no-store";
 
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
 
@@ -50,7 +52,7 @@ export async function POST(req: Request) {
   if (!row || isExpired(row)) return bad("This preview has expired. Please build a new one.", 404);
 
   const now = new Date().toISOString();
-  const { error } = await createAdminClient().from("app_previews")
+  const { error } = await previewDb().from("app_previews")
     .update({ contact_name: name, contact_phone: phone, contact_email: email, contact_consent_at: now, contact_at: now })
     .eq("id", row.id);
   if (error) {

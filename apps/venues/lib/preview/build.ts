@@ -12,14 +12,13 @@
  * example menu, our photos) and the row ALWAYS ends "ready", so the visitor gets
  * an app. `build_error` keeps a short note of what fell back, for the admin page.
  */
-import { createAdminClient } from "@/lib/supabase/admin";
 import { NEUTRAL_PALETTE, cssBrandColors, dominantColors, paletteFromSeed, themeColorFromHtml, type PreviewColors } from "./colors";
 import { findTags, imageCandidates, inlineCss, pageText, pickFont, serviceLinks, stylesheetLinks, teamLinks, absolutize, type ImageCandidate } from "./html";
 import { fetchFirstLogo, logoCandidates, logoPixels } from "./logo";
 import { extractSite, type TeamMember } from "./extract";
 import { hostPhotos, type PhotoKind } from "./photos";
 import { safeFetch } from "./safe-fetch";
-import { STALE_BUILD_MS, uploadLogo, uploadPhoto, type PreviewRow } from "./store";
+import { previewDb, STALE_BUILD_MS, uploadLogo, uploadPhoto, type PreviewRow } from "./store";
 import { EXAMPLE_TREATMENTS, type PreviewTreatment } from "./treatments";
 
 export type BuildOverrides = {
@@ -179,7 +178,7 @@ export function pickHeroCandidates(
 
 /** Builds the row and marks it ready. Never throws; never leaves a row "building". */
 export async function buildPreview(id: string, ov: BuildOverrides = {}): Promise<void> {
-  const db = createAdminClient();
+  const db = previewDb();
   const { data } = await db.from("app_previews").select("id, slug, business_name, website, status").eq("id", id).maybeSingle();
   const row = data as Pick<PreviewRow, "id" | "slug" | "business_name" | "website" | "status"> | null;
   if (!row) return;
@@ -211,7 +210,7 @@ export async function buildPreview(id: string, ov: BuildOverrides = {}): Promise
 
 /** Last resort: a usable preview from what we already know (name only). */
 export async function finishWithFallbacks(id: string, reason: string): Promise<void> {
-  const { error } = await createAdminClient().from("app_previews").update({
+  const { error } = await previewDb().from("app_previews").update({
     logo_is_monogram: true,
     colors: NEUTRAL_PALETTE,
     treatments: EXAMPLE_TREATMENTS,
