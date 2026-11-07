@@ -7,6 +7,19 @@ Check items off as you go.
 - [ ] Paste the push commands Claude gives at the end of each build (PowerShell, from `C:\Users\andre\code\atlas`).
 - [ ] If the build added a package (Claude will say so), run `npm install` once before `npm run medspa:dev`.
 
+## Instant app preview (CP-232, ads lead magnet)
+Owner types their spa → ~1 minute later sees their own app at `med.atlas-engine.app/p/<slug>`.
+Ad URL: `https://www.atlas-engine.app/medspa/app?utm_source=meta&utm_campaign=…&utm_content=…`. Manual previews: Admin → App Previews.
+- [ ] Google Cloud → APIs & Services: enable **Places API (New)**. Credentials → the key used for `GOOGLE_PLACES_API_KEY` → API restrictions: **Places API (New) only**. Application restrictions: leave "None" (server key; Vercel has no fixed IPs). Set a daily quota cap.
+- [ ] Anthropic Console → API keys → create a key for Atlas previews; set a monthly spend limit.
+- [ ] GHL → Automation → Workflows → new workflow, trigger **Inbound Webhook** → copy its URL. Map `business_name`, `business_phone`, `website`, `slug`, `preview_url`, `contact_phone`, `utm_*` onto the contact; add the "text them their app" action. Events arrive as `app_preview_created` and `app_preview_text_me`.
+- [ ] GHL → the phone number owners text (`GHL_SMS_NUMBER`), with an inbound-message workflow that replies with the preview link (the text includes the slug).
+- [ ] A2P 10DLC: register the brand + a campaign for that GHL number (GHL → Settings → Phone Numbers → Trust Center). Until approved, texts from it get filtered by carriers.
+- [ ] Stripe → Payment Links → the founding setup offer → copy the link (`https://buy.stripe.com/…`) for `STRIPE_FOUNDING_CHECKOUT_URL`. The preview adds `client_reference_id=<slug>` so you can match payments to previews.
+- [ ] Vercel → the **www.atlas-engine.app** project → Environment Variables: `GOOGLE_PLACES_API_KEY` (already there for the field app; same key), `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (e.g. `claude-opus-5-5`; `claude-haiku-5-5` costs far less for this extraction), `GHL_INBOUND_WEBHOOK_URL`, and strongly recommended `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (rate limits shared across instances). Check `META_CAPI_TOKEN` + `NEXT_PUBLIC_META_PIXEL_ID` are set. Redeploy.
+- [ ] Vercel → **atlas-medspa (med.atlas-engine.app)** → Environment Variables: `GHL_SMS_NUMBER` (e.g. `+18055550142`), `STRIPE_FOUNDING_CHECKOUT_URL`, and check `VENUE_APP_ORIGIN` = `https://www.atlas-engine.app` (the "Text me" form posts there). Redeploy.
+- [ ] Test: open `/medspa/app`, pick a real spa, check the preview, tap "Text me my app" on your phone, and see the lead land in GHL and as `Lead` (content_name `app_preview`) in Meta Events Manager → Test events.
+
 ## Go live: med spa app
 Claude already did: created the Vercel project `atlas-medspa`, set it to `apps/medspa`, added the public env vars
 (Supabase URL + anon key, root domain, VAPID public key, venue origin), added `med.atlas-engine.app`, and deployed.
@@ -46,6 +59,7 @@ Accounts and setup only you can do (start these now, some take days):
 - [ ] Privacy policy + support URL for the store listing, and store screenshots (Claude can make these).
 
 ## Done by Claude (no action needed)
+- 2026-11-07 · CP-232 SQL applied to Supabase: `app_previews` table (RLS on, no direct access for anon/authenticated), `get_app_preview(slug)` and `app_preview_state(slug)` read functions. Verified with rolled-back test rows: ready previews readable by slug only, building/expired ones hidden, table not selectable with the public key.
 - 2026-11-05 · CP-231 SQL applied to Supabase: Shop orders earn points when they're paid (Stripe or Mark paid at the desk), once per order; no points on gift cards; not counted as a visit. Tested with rolled-back demo orders.
 - 2026-10-30 · CP-229: admin folders split by tab (Venues | Med Spas), med spa folders moved to Med Spas; the missing subfolder column added (creating/editing folders was failing before). Automations business picker grouped by Venues / Med Spas.
 - 2026-10-30 · Vercel project `atlas-medspa` created, env vars (public ones) set, domain `med.atlas-engine.app` added, first production deploy.

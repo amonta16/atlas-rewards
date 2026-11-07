@@ -11,6 +11,7 @@ import { readMembership, type MembershipRow, type MembershipView } from "@atlas/
 import { readMedspaConfig, type MedspaConfig } from "./medspa";
 import { buildExampleMedspaConfig, EXAMPLE_IMG, EXAMPLE_REWARDS } from "./example";
 import { examplePlans, readPlans, type MedspaPlan } from "./plans";
+import { getPreviewRow, monogramDataUri, PREVIEW_SLUG_RE, previewConfig, previewPlans, type PreviewRow } from "./preview";
 
 export const DEMO_SLUG = "demo";
 
@@ -49,6 +50,8 @@ export type Clinic = {
   rewards: ClinicReward[];
   membership: MembershipView | null;
   isExample: boolean;
+  /** CP-232: set when this is an instant app preview (slug "pv-…"), not a live clinic. */
+  preview?: { treatmentsAreExamples: boolean; areaOpen: boolean | null; expiresAt: string };
 };
 
 type BusinessRow = {
@@ -63,6 +66,11 @@ const COLUMNS = "id, slug, name, logo_url, hero_image_url, brand_colors, contact
 export const getClinic = cache(async (slug: string): Promise<Clinic | null> => {
   const clean = slug.toLowerCase();
   if (clean === DEMO_SLUG) return exampleClinic();
+  // CP-232: instant app previews. A live business can't be shadowed: no preview row → normal lookup.
+  if (PREVIEW_SLUG_RE.test(clean)) {
+    const p = await getPreviewRow(clean).catch((e) => { console.error("[clinic] preview lookup failed", e); return null; });
+    if (p) return previewClinic(p);
+  }
 
   const supabase = createClient();
   const { data, error } = await supabase.from("businesses").select(COLUMNS).eq("slug", clean).maybeSingle();
@@ -102,6 +110,27 @@ function exampleClinic(): Clinic {
     joinCode: "GLOW", cfg, plans: examplePlans(cfg.treatments),
     rewards: EXAMPLE_REWARDS.map((r, i) => ({ ...r, id: `rw_${i}`, terms: null })),
     membership: null, isExample: true,
+  };
+}
+
+/**
+ * CP-232: an instant app preview as a clinic. id "example" puts it on the demo
+ * clinic's paths everywhere (no database reads or writes for patients, payments
+ * and redemptions refused), so a preview can never touch real data.
+ */
+function previewClinic(p: PreviewRow): Clinic {
+  const cfg = previewConfig(p);
+  const primary = /^#[0-9a-f]{6}$/i.test(p.colors?.primary ?? "") ? p.colors!.primary! : "#4A3F38";
+  const logo = p.logo_url && /^https:\/\//.test(p.logo_url) ? p.logo_url : monogramDataUri(p.business_name, primary);
+  return {
+    id: "example", slug: p.slug, name: p.business_name, logoUrl: logo, appIconUrl: logo, offersOn: true,
+    pointsPerDollar: 1, visitPoints: 50, reviewPoints: 20, referralPoints: 30, googleReviewUrl: null,
+    about: null, heroUrl: EXAMPLE_IMG.hero,
+    primary, primaryRgb: hexToRgb(primary), phone: p.phone, address: p.address, joinCode: null,
+    cfg, plans: previewPlans(p.business_name, cfg.treatments),
+    rewards: EXAMPLE_REWARDS.map((r, i) => ({ ...r, id: `rw_${i}`, terms: null })),
+    membership: null, isExample: true,
+    preview: { treatmentsAreExamples: p.treatments_are_examples, areaOpen: p.area_open, expiresAt: p.expires_at },
   };
 }
 

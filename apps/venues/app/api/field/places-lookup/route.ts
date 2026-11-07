@@ -22,11 +22,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServer } from "@/lib/supabase/server";
 import { guessNiche } from "@/lib/demo-packs";
+import { safeFetch } from "@/lib/preview/safe-fetch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const UA = "Mozilla/5.0 (compatible; AtlasRewards/1.0; +https://atlas-engine.app)";
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 4500): Promise<Response> {
   const c = new AbortController();
@@ -42,11 +41,11 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 4500):
  *  usable image). Size-capped so a rogue site can't feed us a 50MB "logo". */
 async function imageAsDataUrl(url: string): Promise<string | null> {
   try {
-    const r = await fetchWithTimeout(url, { headers: { "User-Agent": UA } }, 4500);
-    if (!r.ok) return null;
-    const ct = (r.headers.get("content-type") || "").split(";")[0].trim();
+    // CP-232: through the SSRF guard (public hosts only, size + redirect caps).
+    const r = await safeFetch(url, { timeoutMs: 4500, accept: "image/*", onOverflow: "error" });
+    const ct = r.contentType;
     if (!ct.startsWith("image/")) return null;
-    const buf = Buffer.from(await r.arrayBuffer());
+    const buf = r.body;
     if (buf.length < 200 || buf.length > 3_000_000) return null;
     return `data:${ct};base64,${buf.toString("base64")}`;
   } catch {
@@ -67,10 +66,10 @@ function absolutize(href: string, base: string): string | null {
  *  service as the last resort. Every step is optional and time-boxed. */
 async function huntLogo(website: string): Promise<string | null> {
   try {
-    const r = await fetchWithTimeout(website, { headers: { "User-Agent": UA, Accept: "text/html" } }, 4500);
-    if (r.ok) {
+    const r = await safeFetch(website, { timeoutMs: 4500, accept: "text/html", maxBytes: 300_000, onOverflow: "truncate" });
+    {
       const base = r.url || website; // follow redirects for relative hrefs
-      const html = (await r.text()).slice(0, 300_000);
+      const html = r.body.toString("utf8");
       const candidates: string[] = [];
       const push = (re: RegExp) => {
         const m = html.match(re);

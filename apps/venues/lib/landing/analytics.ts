@@ -49,7 +49,12 @@ export type LandingEvent =
   // CP-204
   | "area_checked"
   | "area_held" // CP-205: 48-hour hold placed (contact captured), no Meta signal
-  | "intro_video";
+  | "intro_video"
+  // CP-232: instant app preview (/medspa/app)
+  | "preview_search"
+  | "preview_started" // → Meta standard Lead (content_name "app_preview"), deduped with the server CAPI call
+  | "preview_ready"
+  | "preview_failed";
 
 type Props = Record<string, string | number | boolean | undefined>;
 
@@ -78,6 +83,9 @@ export function track(event: LandingEvent, props: Props = {}) {
     // CP-201: a qualified /medspa lead is the standard `Lead`. eventID matches the server
     // Conversions API call (/api/landing/lead), so Meta counts it once.
     if (event === "lead_qualified") window.fbq?.("track", "Lead", { content_name: "medspa_qualified" }, props.event_id ? { eventID: String(props.event_id) } : undefined);
+    // CP-232: a generated app preview is a standard `Lead`, tagged so it can be told apart
+    // from a qualified funnel lead in Events Manager. eventID matches /api/preview/start's CAPI call.
+    if (event === "preview_started" && props.event_id) window.fbq?.("track", "Lead", { content_name: "app_preview" }, { eventID: String(props.event_id) });
     // CP-177: a booked demo is the Meta optimization event (standard `Lead`).
     // CP-201: funnel bookings already sent Lead at the gate, so skip it here.
     if (event === "demo_requested" && !props.qualified_lead) window.fbq?.("track", "Lead", { content_name: String(props.source ?? "") });

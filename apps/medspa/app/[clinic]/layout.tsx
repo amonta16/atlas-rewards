@@ -13,6 +13,8 @@ export async function generateMetadata({ params }: { params: { clinic: string } 
     manifest: `/${c.slug}/app-manifest`,
     appleWebApp: { capable: true, title: c.name, statusBarStyle: "default" },
     icons: { icon, apple: icon },
+    // CP-232: instant app previews are never indexed.
+    ...(c.preview ? { robots: { index: false, follow: false } } : {}),
   };
 }
 

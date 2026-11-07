@@ -41,6 +41,18 @@ export type AreaCheck =
 export async function checkArea(zipInput: string, opts: { leadId?: string | null } = {}): Promise<AreaCheck> {
   const at = lookupZip(zipInput);
   if (!at) return { ok: false, error: "We couldn't find that zip code. Please check it and try again." };
+  return checkAreaAt(at, opts);
+}
+
+/**
+ * CP-232: the same check from an exact location (Google Places lat/lng for the
+ * instant app preview). `zip`/`city`/`state` are only echoed back.
+ */
+export async function checkAreaAt(
+  at: { lat: number; lng: number; zip?: string | null; city?: string | null; state?: string | null },
+  opts: { leadId?: string | null } = {},
+): Promise<AreaCheck> {
+  if (!Number.isFinite(at.lat) || !Number.isFinite(at.lng)) return { ok: false, error: "We couldn't place that location." };
   const db = createAdminClient();
   const { data, error } = await db.from("medspa_territories").select("lat, lng, radius_miles, founding").eq("active", true).limit(5000);
   if (error) throw error;
@@ -65,7 +77,7 @@ export async function checkArea(zipInput: string, opts: { leadId?: string | null
   }
   const held = !!heldUntil;
   return {
-    ok: true, zip: at.zip, city: at.city, state: at.state, open: !claimed && !held, held, heldUntil, radiusMiles: TERRITORY.radiusMiles,
+    ok: true, zip: at.zip ?? "", city: at.city ?? "", state: at.state ?? "", open: !claimed && !held, held, heldUntil, radiusMiles: TERRITORY.radiusMiles,
     founding: { active: FOUNDING.active && used < FOUNDING.spots, spotsLeft: Math.max(0, FOUNDING.spots - used), spots: FOUNDING.spots, setupFull: FOUNDING.setupFull, setupFounding: FOUNDING.setupFounding },
   };
 }
