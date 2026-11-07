@@ -29,7 +29,9 @@ export async function GET(req: Request) {
       row = (await getPreviewBySlug(slug)) ?? row;
     }
     const status = isExpired(row) ? "expired" : row.status === "claimed" ? "ready" : row.status;
-    return NextResponse.json({ status, url: previewUrl(row.slug) }, { headers: { "Cache-Control": "no-store" } });
+    // CP-234: treatment names we read on their site, to pre-tick "What do you offer?"
+    const found = status === "ready" && !row.treatments_are_examples ? (row.treatments ?? []).map((t) => t.name).slice(0, 20) : [];
+    return NextResponse.json({ status, url: previewUrl(row.slug), found }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[preview] status failed", e);
     return NextResponse.json({ error: "Couldn't check right now." }, { status: 500 });

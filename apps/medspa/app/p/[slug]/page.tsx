@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import QRCode from "react-qr-code";
-import { getPreviewRow, getPreviewState, PREVIEW_SLUG_RE } from "@/lib/preview";
+import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib/preview";
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { PhoneFrame } from "@/components/phone-frame";
 
@@ -73,6 +73,7 @@ export default async function PreviewPage({ params }: { params: { slug: string }
   const primary = /^#[0-9a-f]{6}$/i.test(row.colors?.primary ?? "") ? row.colors!.primary! : "#4A3F38";
   const pageUrl = `${SELF}/p/${slug}`;
   const expires = new Date(row.expires_at).toLocaleDateString("en-US", { month: "long", day: "numeric" });
+  const pitch = pitchFor(row.priorities);
 
   return (
     <Shell>
@@ -92,8 +93,18 @@ export default async function PreviewPage({ params }: { params: { slug: string }
             {row.business_name}, this is your app.
           </h1>
           <p className="mt-4 max-w-[34rem] text-[17px] leading-relaxed text-sub">
-            Your name, your colors and your treatments, with memberships, rewards and reminders that bring patients back before their treatment wears off.
+            Your name, your colors and your treatments. {pitch.line}
           </p>
+          <ul className="mt-5 max-w-[34rem] space-y-2.5">
+            {pitch.bullets.map((b) => (
+              <li key={b} className="flex items-start gap-3 text-[15.5px] text-ink">
+                <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full text-white" style={{ background: primary }} aria-hidden>
+                  <svg viewBox="0 0 12 12" className="h-3 w-3"><path d="M2.5 6.2 5 8.6l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </span>
+                {b}
+              </li>
+            ))}
+          </ul>
           {row.treatments_are_examples && (
             <p className="mt-4 max-w-[34rem] rounded-2xl bg-white p-4 text-[14.5px] text-sub shadow-soft">
               We couldn&apos;t read a treatment menu on your website, so these are example treatments. Your real menu goes in when you go live.
@@ -105,7 +116,9 @@ export default async function PreviewPage({ params }: { params: { slug: string }
             businessName={row.business_name}
             primary={primary}
             smsNumber={process.env.PREVIEW_SMS_NUMBER ?? process.env.GHL_SMS_NUMBER ?? null}
-            checkoutUrl={process.env.STRIPE_FOUNDING_CHECKOUT_URL ?? null}
+            walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}`}
+            // CP-234: self-serve checkout stays hidden until a monthly price is set (PREVIEW_SHOW_CHECKOUT=1).
+            checkoutUrl={process.env.PREVIEW_SHOW_CHECKOUT === "1" ? process.env.STRIPE_FOUNDING_CHECKOUT_URL ?? null : null}
             apiOrigin={SITE}
             areaOpen={row.area_open}
           />

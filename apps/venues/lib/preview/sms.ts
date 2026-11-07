@@ -24,7 +24,7 @@ export function e164(raw: string | null | undefined): string | null {
 
 export function smsMessage(businessName: string, slug: string): string {
   const name = businessName.replace(/[\r\n]+/g, " ").trim().slice(0, 80);
-  return `Send my app for ${name} (${slug})`;
+  return `Hi! Send me my ${name} app (${slug})`;
 }
 
 export function smsHref(number: string, body: string, platform: Platform): string {

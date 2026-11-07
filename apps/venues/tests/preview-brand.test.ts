@@ -209,7 +209,7 @@ describe("treatment parsing", () => {
 
 describe("text me my app", () => {
   const body = smsMessage("Glow Aesthetics", "pv-glow-aesthetics-k3x9q2");
-  test("message", () => assert.equal(body, "Send my app for Glow Aesthetics (pv-glow-aesthetics-k3x9q2)"));
+  test("message (spa name + preview code only, no personal data)", () => assert.equal(body, "Hi! Send me my Glow Aesthetics app (pv-glow-aesthetics-k3x9q2)"));
   test("iOS uses &body=, Android ?body=", () => {
     assert.equal(smsHref("+18055550142", body, "ios"), `sms:+18055550142&body=${encodeURIComponent(body)}`);
     assert.equal(smsHref("+18055550142", body, "android"), `sms:+18055550142?body=${encodeURIComponent(body)}`);
@@ -226,7 +226,7 @@ describe("text me my app", () => {
     assert.equal(e164("555-0142"), null);
   });
   test("newlines in a business name can't break the message", () => {
-    assert.equal(smsMessage("Glow\nSpa", "pv-x-abc123"), "Send my app for Glow Spa (pv-x-abc123)");
+    assert.equal(smsMessage("Glow\nSpa", "pv-x-abc123"), "Hi! Send me my Glow Spa app (pv-x-abc123)");
   });
 });
 

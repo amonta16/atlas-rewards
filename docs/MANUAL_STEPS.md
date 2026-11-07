@@ -8,7 +8,7 @@ Check items off as you go.
 - [ ] If the build added a package (Claude will say so), run `npm install` once before `npm run medspa:dev`.
 
 ## Instant app preview (CP-232/233, ads lead magnet)
-Owner types their spa → we read their website for 1–2 minutes (logo, colors, font, photos, team, treatments) → while it builds they leave name, mobile and email → their own app opens at `med.atlas-engine.app/p/<slug>`.
+Owner types their spa (the app starts building) → name, email, mobile (+ texted code when Twilio is on) → booking software → what they offer (pre-ticked from their site) → what's holding them back (2) → priorities (2) → their own app at `med.atlas-engine.app/p/<slug>`, with "Text me my app" and "Book a 15-min walkthrough" (your existing /medspa calendar; the quiz creates the qualified lead and holds their area 48 h).
 Ad URL: `https://www.atlas-engine.app/medspa/app?utm_source=meta&utm_campaign=…&utm_content=…`.
 Leads: **Admin → App Previews** (Leads tab: name, mobile, email, the spa, the ad). You also get an email per lead, and the owner gets an email with their link (Resend, already set up).
 - [ ] Claude key: console.anthropic.com → sign in → Settings → Billing → add a card / credits → **API Keys → Create Key** (name it "Atlas previews") → copy it (shown once). Settings → Limits → set a monthly spend limit.
@@ -16,7 +16,10 @@ Leads: **Admin → App Previews** (Leads tab: name, mobile, email, the spa, the 
       `ANTHROPIC_API_KEY` = the key; `ANTHROPIC_MODEL` = `claude-haiku-5-5` (cheapest, fine for reading a website) or `claude-opus-5-5` (best). Then Deployments → ⋯ on the latest → Redeploy.
 - [ ] Google Cloud → APIs & Services: **Places API (New)** enabled (search already works). Credentials → the `GOOGLE_PLACES_API_KEY` key → API restrictions: Places API (New) only. Set a daily quota cap.
 - [ ] Meta (optional but recommended for ad optimization): Events Manager → your Pixel → Settings → Conversions API → Generate access token → Vercel atlas-rewards: `META_CAPI_TOKEN` and `NEXT_PUBLIC_META_PIXEL_ID` (the Pixel's number). Each lead is sent as `Lead` (content_name `app_preview`) with hashed email + phone.
-- [ ] Twilio (when your number is verified): buy the number, register A2P 10DLC (brand + campaign; use the consent text on the preview's contact form as the opt-in description), then Vercel **atlas-medspa**: `PREVIEW_SMS_NUMBER` = `+1…`. Until then the "Text me my app" button falls back to the phone field. Auto-texting the link from Twilio is not built yet.
+- [ ] Twilio (when your number is verified): buy the number, register A2P 10DLC (brand + campaign; use the consent text on the preview's contact form as the opt-in description).
+      Then Vercel **atlas-medspa**: `PREVIEW_SMS_NUMBER` = `+1…` → turns on the "Text me my app" button (owner texts first; prefilled "Hi! Send me my <spa> app (pv-…)"). Until then the page shows "Book a 15-min walkthrough" as the main button.
+      Then Vercel **atlas-rewards**, for the 6-digit texted code step: Twilio Console → Verify → Services → Create → copy the Service SID; add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, and `PREVIEW_VERIFY_PHONE` = `1`. Redeploy. (Auto-replying to the owner's text with their link is not built yet.)
+- [ ] Self-serve "Go live" checkout is hidden until you set a monthly price. When ready: Vercel atlas-medspa `PREVIEW_SHOW_CHECKOUT` = `1` (plus `STRIPE_FOUNDING_CHECKOUT_URL`).
 - [ ] Stripe → Payment Links → the founding setup offer → Vercel atlas-medspa: `STRIPE_FOUNDING_CHECKOUT_URL`. The preview adds `client_reference_id=<slug>`.
 - [ ] Vercel atlas-medspa: check `VENUE_APP_ORIGIN` = `https://www.atlas-engine.app`. Redeploy after adding vars.
 - [ ] Optional: `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` on atlas-rewards (rate limits shared across instances). `GHL_INBOUND_WEBHOOK_URL` only if you ever want leads copied into GHL; not needed.

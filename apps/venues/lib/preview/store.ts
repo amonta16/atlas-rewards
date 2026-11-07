@@ -41,6 +41,9 @@ export type PreviewRow = {
   // CP-233
   contact_name: string | null; contact_phone: string | null; contact_email: string | null; contact_at: string | null;
   hero_url: string | null; font_family: string | null; about: string | null; team: PreviewTeamMember[];
+  // CP-234
+  booking_system: string | null; offered: string[]; challenges: string[]; priorities: string[];
+  quiz_at: string | null; phone_verified_at: string | null; landing_lead_id: string | null;
 };
 
 export type PreviewTeamMember = { name: string; title: string; photo_url: string | null };

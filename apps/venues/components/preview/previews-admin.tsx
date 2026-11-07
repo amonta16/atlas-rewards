@@ -8,11 +8,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Loader2 } from "lucide-react";
+import { labelOf } from "@/lib/preview/quiz";
 
 export type AdminPreviewRow = {
   id: string; slug: string; url: string; business_name: string; website: string | null; source: string; status: string;
   build_error: string | null; area_open: boolean | null; treatments_are_examples: boolean; logo_is_monogram: boolean;
   phone: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null; contact_at: string | null;
+  booking_system: string | null; challenges: string[] | null; priorities: string[] | null; quiz_at: string | null; phone_verified_at: string | null; landing_lead_id: string | null;
   claimed_at: string | null; created_at: string; expires_at: string;
   utm_campaign: string | null; utm_content: string | null;
 };
@@ -129,6 +131,15 @@ export function PreviewsAdmin({ rows }: { rows: AdminPreviewRow[] }) {
                       </div>
                     ) : <span className="text-slate-400">–</span>}
                     {r.phone && <div className="mt-1 text-xs text-slate-400">Spa: {r.phone}</div>}
+                    {r.phone_verified_at && <div className="text-xs text-emerald-700">mobile verified</div>}
+                    {r.quiz_at && (
+                      <div className="mt-2 max-w-[260px] space-y-0.5 text-xs text-slate-600">
+                        {r.booking_system && <div>Uses {r.booking_system}</div>}
+                        {!!r.priorities?.length && <div>Wants: {r.priorities.map(labelOf).join("; ")}</div>}
+                        {!!r.challenges?.length && <div className="text-slate-400">Stuck on: {r.challenges.map(labelOf).join("; ")}</div>}
+                        {r.landing_lead_id && <div className="text-sky-700">In the call funnel</div>}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600">{[r.utm_campaign, r.utm_content].filter(Boolean).join(" / ") || "–"}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{new Date(r.created_at).toLocaleString()}</td>

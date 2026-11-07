@@ -29,7 +29,27 @@ export type PreviewRow = {
   status: string; area_open: boolean | null; expires_at: string;
   // CP-233 (null/[] on previews built before it)
   hero_url?: string | null; font_family?: string | null; about?: string | null; team?: PreviewTeamRow[] | null;
+  // CP-234 (empty on previews built before it)
+  priorities?: string[] | null;
 };
+
+/** CP-234: the preview page's pitch follows the owner's 2 priorities from the quiz. */
+export const PRIORITY_PITCH: Record<string, { line: string; bullet: string }> = {
+  recall: { line: "It brings patients back before their treatment wears off.", bullet: "Reminders go out when each patient's Botox, filler or facial is due" },
+  memberships: { line: "It sells memberships that bill every month.", bullet: "Memberships patients join and pay for right in the app" },
+  slow_days: { line: "It fills your slow days.", bullet: "Offers sent straight to patients' phones when your book is light" },
+  reviews: { line: "It turns happy patients into reviews and referrals.", bullet: "Points for every Google review and every friend they refer" },
+  packages: { line: "It sells packages and skincare between visits.", bullet: "Packages, skincare and gift cards patients can buy in the app" },
+};
+
+export function pitchFor(priorities: string[] | null | undefined): { line: string; bullets: string[] } {
+  const picked = (priorities ?? []).filter((p) => PRIORITY_PITCH[p]).slice(0, 2);
+  const order = [...picked, ...["recall", "memberships", "reviews"].filter((p) => !picked.includes(p))].slice(0, 3);
+  return {
+    line: picked.length ? PRIORITY_PITCH[picked[0]].line : "Memberships, rewards and reminders that bring patients back before their treatment wears off.",
+    bullets: order.map((p) => PRIORITY_PITCH[p].bullet),
+  };
+}
 
 /** Only our own storage URLs (https) are used for their photos; anything else falls back. */
 export const hostedUrl = (u: unknown): string | null => (typeof u === "string" && /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\//.test(u) ? u : null);

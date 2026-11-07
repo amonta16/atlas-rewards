@@ -7,12 +7,14 @@ import { newEventId } from "@/lib/landing/funnel-sign";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { postGhlLead } from "@/lib/preview/ghl";
 import { e164 } from "@/lib/preview/sms";
+import { phoneVerifyEnabled } from "@/lib/preview/twilio";
 import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/lib/preview/store";
 
 /**
  * POST /api/preview/contact — CP-233 · the owner's contact, captured while their app builds.
  *
- * Body { slug, name, phone, email, consent: true, hp } → { ok, event_id }
+ * Body { slug, first_name, last_name (or name), phone, email, consent: true, hp } → { ok, event_id, verify }
+ * `verify` = the funnel should show the 6-digit texted code next (CP-234, off until Twilio).
  *
  * This is the lead. On submit:
  *   · saved on the preview row (contact_name / contact_phone / contact_email / consent time);
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
   if (b.hp) return NextResponse.json({ ok: true });
 
   const slug = typeof b.slug === "string" && SLUG_RE.test(b.slug) ? b.slug : null;
-  const name = clean(b.name, 120);
+  const name = (clean(b.name, 120) || `${clean(b.first_name, 60)} ${clean(b.last_name, 60)}`).replace(/\s+/g, " ").trim();
   const email = clean(b.email, 200).toLowerCase();
   const phone = e164(clean(b.phone, 40));
   if (!slug) return bad("Invalid request.");
@@ -105,5 +107,5 @@ export async function POST(req: Request) {
     ].join("\n")),
   ]));
 
-  return NextResponse.json({ ok: true, event_id: eventId }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ok: true, event_id: eventId, verify: phoneVerifyEnabled() }, { headers: { "Cache-Control": "no-store" } });
 }

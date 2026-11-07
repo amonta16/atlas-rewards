@@ -21,7 +21,7 @@ export default async function PreviewsPage() {
 
   const { data, error } = await previewDb()
     .from("app_previews")
-    .select("id, slug, business_name, website, phone, source, status, build_error, area_open, treatments_are_examples, logo_is_monogram, contact_name, contact_phone, contact_email, contact_at, claimed_at, created_at, expires_at, utm_campaign, utm_content")
+    .select("id, slug, business_name, website, phone, source, status, build_error, area_open, treatments_are_examples, logo_is_monogram, contact_name, contact_phone, contact_email, contact_at, booking_system, challenges, priorities, quiz_at, phone_verified_at, landing_lead_id, claimed_at, created_at, expires_at, utm_campaign, utm_content")
     .order("created_at", { ascending: false })
     .limit(200);
   const rows: AdminPreviewRow[] = ((data ?? []) as Omit<AdminPreviewRow, "url">[]).map((r) => ({ ...r, url: previewUrl(r.slug) }));
