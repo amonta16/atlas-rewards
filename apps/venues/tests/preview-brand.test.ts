@@ -14,8 +14,10 @@ import {
   themeColorFromHtml, contrastRatio, ensureContrast, paletteFromSeed, paletteIsReadable, dominantColors, parseColor,
   isUsableSeed, NEUTRAL_PALETTE, rgbToHsl, hexToRgb,
 } from "../lib/preview/colors";
-import { normalizeTreatments, memberPriceCents, extractTreatments, EXAMPLE_TREATMENTS } from "../lib/preview/treatments";
-import { pageText, pageTitle, serviceLinks, findTags, decodeEntities } from "../lib/preview/html";
+import { normalizeTreatments, memberPriceCents, tidyText, EXAMPLE_TREATMENTS } from "../lib/preview/treatments";
+import { pageText, pageTitle, serviceLinks, teamLinks, findTags, decodeEntities, imageCandidates, googleFontFamilies, pickFont } from "../lib/preview/html";
+import { extractSite, normalizeSite, photoList } from "../lib/preview/extract";
+import { normalizePhoto } from "../lib/preview/photos";
 import { smsHref, smsMessage, smsQrPayload, detectPlatform, e164 } from "../lib/preview/sms";
 
 const fx = (f: string) => readFileSync(path.join(__dirname, "fixtures", "preview", f), "utf8");
@@ -190,7 +192,17 @@ describe("treatment parsing", () => {
   test("no API key → null (example menu fallback), no network call", async () => {
     const saved = process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
-    try { assert.equal(await extractTreatments(pageText(HOME), "Glow"), null); } finally { if (saved) process.env.ANTHROPIC_API_KEY = saved; }
+    try { assert.equal(await extractSite(pageText(HOME), [], "Glow"), null); } finally { if (saved) process.env.ANTHROPIC_API_KEY = saved; }
+  });
+  test("descriptions are cleaned and photo numbers map to our own URLs only", () => {
+    const list = normalizeTreatments({ treatments: [
+      { name: "Botox", category: "Injectables", price: 12, description: "  Soften <b>frown</b> lines.  ", image: 1 },
+      { name: "Filler", category: "Injectables", price: 650, description: "x", image: 7 },
+    ] }, 12, ["https://glow.example/a.jpg", "https://glow.example/b.jpg"]);
+    assert.equal(list[0].description, "Soften frown lines.");
+    assert.equal(list[0].image_url, "https://glow.example/b.jpg");
+    assert.equal(list[1].description, undefined);
+    assert.equal(list[1].image_url, undefined);
   });
 });
 
@@ -214,5 +226,111 @@ describe("text me my app", () => {
   });
   test("newlines in a business name can't break the message", () => {
     assert.equal(smsMessage("Glow\nSpa", "pv-x-abc123"), "Send my app for Glow Spa (pv-x-abc123)");
+  });
+});
+
+/* ───────────── CP-233: the deeper build ───────────── */
+
+const SERVICES = fx("spa-services.html");
+const SVC_BASE = "https://glow.example/services";
+
+describe("photos on a page", () => {
+  const imgs = imageCandidates(SERVICES, SVC_BASE, "services");
+  test("keeps content photos (largest srcset, lazy data-src, CSS backgrounds); drops logos, pixels, icons, svg, thumbnails", () => {
+    assert.deepEqual(imgs.map((i) => i.url), [
+      "https://glow.example/uploads/botox-1200.jpg",
+      "https://glow.example/uploads/hydrafacial.webp",
+      "https://glow.example/uploads/hero-lobby.jpg",
+    ]);
+  });
+  test("each photo carries the heading above it", () => {
+    assert.equal(imgs[0].context, "BOTOX® Cosmetic");
+    assert.equal(imgs[1].context, "HydraFacial");
+    assert.equal(imgs[0].alt, "Botox injection");
+  });
+  test("the photo list for the model is numbered and has no raw URLs", () => {
+    const list = photoList(imgs);
+    assert.match(list, /^\[0\] file=botox-1200\.jpg alt="Botox injection" under="BOTOX® Cosmetic" page=services w=600$/m);
+    assert.ok(!list.includes("https://"));
+  });
+});
+
+describe("fonts", () => {
+  test("Google font families in order", () => {
+    assert.deepEqual(googleFontFamilies(SERVICES), ["Great Vibes", "Cormorant Garamond", "Lato"]);
+  });
+  test("prefers the body font; never a script font", () => {
+    assert.equal(pickFont(SERVICES), "Lato");
+    assert.equal(pickFont(`<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Playfair+Display">`), "Playfair Display");
+    assert.equal(pickFont(`<link href="https://fonts.googleapis.com/css2?family=Dancing+Script">`), null);
+    assert.equal(pickFont(HOME), null);
+  });
+  test("font names can never carry CSS: only letters, digits and spaces survive", () => {
+    assert.deepEqual(googleFontFamilies(`<link href="https://fonts.googleapis.com/css2?family=Evil');}body{x:url(y">`), ["Evil"]);
+    assert.deepEqual(googleFontFamilies(`<link href="https://fonts.googleapis.com/css2?family=Bad%3Bname">`), []);
+  });
+});
+
+describe("team and about pages", () => {
+  test("team/about links: same site, team first, careers skipped", () => {
+    assert.deepEqual(teamLinks(SERVICES, SVC_BASE, 2), ["https://glow.example/meet-the-team", "https://glow.example/about-us"]);
+  });
+});
+
+describe("reading the site (model answer → stored data)", () => {
+  const imgs = imageCandidates(SERVICES, SVC_BASE, "services");
+  const site = normalizeSite(JSON.parse(fx("claude-site.json")), imgs);
+  test("treatments keep their own photo; out-of-range photo numbers are dropped", () => {
+    assert.equal(site.treatments[0].name, "BOTOX® Cosmetic");
+    assert.equal(site.treatments[0].image_url, "https://glow.example/uploads/hydrafacial.webp");
+    assert.equal(site.treatments[1].image_url, undefined);
+  });
+  test("injected instructions never make it into a description", () => {
+    assert.equal(site.treatments[1].description, undefined);
+  });
+  test("hero photo maps to our list", () => {
+    assert.equal(site.heroSource, "https://glow.example/uploads/botox-1200.jpg");
+  });
+  test("team: deduped, junk and one-letter names dropped, bad photo numbers → null", () => {
+    assert.deepEqual(site.team, [
+      { name: "Dr. Maya Chen", title: "Medical Director, MD", photo_url: null },
+      { name: "Jess Rivera", title: "Nurse Injector, RN", photo_url: null },
+    ]);
+  });
+  test("about is capped at 300 characters", () => {
+    assert.ok(site.about && site.about.length <= 301 && site.about.startsWith("Glow Aesthetics is a physician-led"));
+  });
+  test("garbage never throws", () => {
+    for (const g of [null, 1, "x", { team: "no", treatments: 5, hero_image: "0" }]) {
+      const r = normalizeSite(g, imgs);
+      assert.deepEqual(r, { treatments: [], heroSource: null, team: [], about: null });
+    }
+  });
+  test("tidyText", () => {
+    assert.equal(tidyText("One. Two three four five.", 12), "One. Two…");
+    assert.equal(tidyText("<script>x</script>", 50), null);
+    assert.equal(tidyText(5, 50), null);
+  });
+});
+
+describe("their photos", () => {
+  const make = (w: number, h: number, alpha = false) =>
+    sharp({ create: { width: w, height: h, channels: alpha ? 4 : 3, background: alpha ? { r: 200, g: 100, b: 120, alpha: 0.5 } : { r: 200, g: 100, b: 120 } } }).png().toBuffer();
+  test("a big landscape photo becomes a 1400 px JPEG hero", async () => {
+    const out = await normalizePhoto(await make(2000, 1100), "hero");
+    assert.ok(out);
+    const meta = await sharp(out!).metadata();
+    assert.equal(meta.format, "jpeg");
+    assert.equal(meta.width, 1400);
+  });
+  test("a tall portrait is not a hero; small photos are dropped", async () => {
+    assert.equal(await normalizePhoto(await make(800, 1200), "hero"), null);
+    assert.equal(await normalizePhoto(await make(200, 200), "treatment"), null);
+    assert.ok(await normalizePhoto(await make(300, 300), "team"));
+  });
+  test("transparent PNGs are flattened onto white; non-images rejected", async () => {
+    const out = await normalizePhoto(await make(600, 400, true), "treatment");
+    assert.equal((await sharp(out!).metadata()).hasAlpha, false);
+    assert.equal(await normalizePhoto(Buffer.from("<svg onload=alert(1)>"), "hero"), null);
   });
 });

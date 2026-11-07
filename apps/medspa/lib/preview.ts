@@ -18,7 +18,8 @@ import type { MedspaPlan } from "./plans";
 
 export const PREVIEW_SLUG_RE = /^pv-[a-z0-9-]{3,64}$/;
 
-export type PreviewTreatmentRow = { name: string; category: string; price_cents: number | null; member_price_cents: number | null };
+export type PreviewTreatmentRow = { name: string; category: string; price_cents: number | null; member_price_cents: number | null; description?: string | null; image_url?: string | null };
+export type PreviewTeamRow = { name: string; title: string; photo_url: string | null };
 
 export type PreviewRow = {
   slug: string; business_name: string; address: string | null; phone: string | null; website: string | null;
@@ -26,7 +27,19 @@ export type PreviewRow = {
   colors: { primary?: string; secondary?: string; accent?: string; onPrimary?: string } | null;
   treatments: PreviewTreatmentRow[] | null; treatments_are_examples: boolean;
   status: string; area_open: boolean | null; expires_at: string;
+  // CP-233 (null/[] on previews built before it)
+  hero_url?: string | null; font_family?: string | null; about?: string | null; team?: PreviewTeamRow[] | null;
 };
+
+/** Only our own storage URLs (https) are used for their photos; anything else falls back. */
+export const hostedUrl = (u: unknown): string | null => (typeof u === "string" && /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\//.test(u) ? u : null);
+
+/** Font family names are checked again before they reach a stylesheet URL or CSS. */
+export const safeFont = (f: unknown): string | null => (typeof f === "string" && /^[A-Za-z0-9 ]{2,40}$/.test(f) ? f : null);
+
+export function googleFontHref(font: string): string {
+  return `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font).replace(/%20/g, "+")}:wght@400;500;600;700&display=swap`;
+}
 
 export type PreviewState = "ready" | "building" | "expired" | "failed" | "missing";
 
@@ -56,7 +69,7 @@ const HEX = /^#[0-9a-f]{6}$/i;
 
 /** Two letters for the monogram ("Glow Aesthetics" → "GA"). Letters and digits only. */
 export function initialsOf(name: string): string {
-  const words = name.normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w && !/^(the|and|of|med|medical|spa|llc|inc|co)$/i.test(w));
+  const words = name.normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w && !/^(the|and|of|med|medical|spa|llc|inc|co)$/i.test(w));
   const s = (words.length >= 2 ? words[0][0] + words[1][0] : (words[0] ?? name).slice(0, 2)).toUpperCase();
   return s.replace(/[^A-Z0-9]/g, "").slice(0, 2) || "A";
 }
@@ -102,7 +115,9 @@ export function previewTreatments(rows: PreviewTreatmentRow[] | null): MedspaTre
     const member = Number.isFinite(r.member_price_cents) ? Math.round(Number(r.member_price_cents)) : null;
     return {
       id: `tr_${i}`, name, category, recall_weeks: RECALL_WEEKS[category] ?? null, duration_minutes: category === "Injectables" ? 20 : 45,
-      price_cents: price, member_price_cents: member, description: "", aftercare: [], image_url: exampleImageFor(name, category),
+      price_cents: price, member_price_cents: member,
+      description: typeof r.description === "string" ? r.description.slice(0, 240) : "",
+      aftercare: [], image_url: hostedUrl(r.image_url) ?? exampleImageFor(name, category),
       is_active: true, booking_url: null,
     };
   });
@@ -128,7 +143,11 @@ export function previewConfig(row: PreviewRow): MedspaConfig {
     ...DEFAULT_MEDSPA_CONFIG,
     ...base,
     treatments,
-    providers: [], // not their staff
+    // CP-233: their own team from their site (no photo → initials), never our example staff
+    providers: (row.team ?? []).slice(0, 6).map((m, i) => ({
+      id: `pr_${i}`, name: String(m.name ?? "").slice(0, 60), title: String(m.title ?? "").slice(0, 60), bio: "",
+      photo_url: hostedUrl(m.photo_url), treatment_ids: [], is_active: true,
+    })).filter((p) => p.name.length > 1),
     gallery: [], // not their results
     shop: { ...base.shop, items: base.shop.items.filter((s) => s.kind !== "package").map((s, i) => ({ ...s, id: `sh_${i}`, treatment_id: null })) },
     booking: { ...base.booking, phone: row.phone ?? "" },

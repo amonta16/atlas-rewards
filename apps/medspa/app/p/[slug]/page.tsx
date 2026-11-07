@@ -111,7 +111,7 @@ export default async function PreviewPage({ params }: { params: { slug: string }
             slug={slug}
             businessName={row.business_name}
             primary={primary}
-            smsNumber={process.env.GHL_SMS_NUMBER ?? null}
+            smsNumber={process.env.PREVIEW_SMS_NUMBER ?? process.env.GHL_SMS_NUMBER ?? null}
             checkoutUrl={process.env.STRIPE_FOUNDING_CHECKOUT_URL ?? null}
             apiOrigin={SITE}
             areaOpen={row.area_open}

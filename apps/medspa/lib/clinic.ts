@@ -11,7 +11,7 @@ import { readMembership, type MembershipRow, type MembershipView } from "@atlas/
 import { readMedspaConfig, type MedspaConfig } from "./medspa";
 import { buildExampleMedspaConfig, EXAMPLE_IMG, EXAMPLE_REWARDS } from "./example";
 import { examplePlans, readPlans, type MedspaPlan } from "./plans";
-import { getPreviewRow, monogramDataUri, PREVIEW_SLUG_RE, previewConfig, previewPlans, type PreviewRow } from "./preview";
+import { getPreviewRow, hostedUrl, monogramDataUri, PREVIEW_SLUG_RE, previewConfig, previewPlans, safeFont, type PreviewRow } from "./preview";
 
 export const DEMO_SLUG = "demo";
 
@@ -51,7 +51,7 @@ export type Clinic = {
   membership: MembershipView | null;
   isExample: boolean;
   /** CP-232: set when this is an instant app preview (slug "pv-…"), not a live clinic. */
-  preview?: { treatmentsAreExamples: boolean; areaOpen: boolean | null; expiresAt: string };
+  preview?: { treatmentsAreExamples: boolean; areaOpen: boolean | null; expiresAt: string; font: string | null };
 };
 
 type BusinessRow = {
@@ -125,12 +125,12 @@ function previewClinic(p: PreviewRow): Clinic {
   return {
     id: "example", slug: p.slug, name: p.business_name, logoUrl: logo, appIconUrl: logo, offersOn: true,
     pointsPerDollar: 1, visitPoints: 50, reviewPoints: 20, referralPoints: 30, googleReviewUrl: null,
-    about: null, heroUrl: EXAMPLE_IMG.hero,
+    about: typeof p.about === "string" ? p.about.slice(0, 600) : null, heroUrl: hostedUrl(p.hero_url) ?? EXAMPLE_IMG.hero,
     primary, primaryRgb: hexToRgb(primary), phone: p.phone, address: p.address, joinCode: null,
     cfg, plans: previewPlans(p.business_name, cfg.treatments),
     rewards: EXAMPLE_REWARDS.map((r, i) => ({ ...r, id: `rw_${i}`, terms: null })),
     membership: null, isExample: true,
-    preview: { treatmentsAreExamples: p.treatments_are_examples, areaOpen: p.area_open, expiresAt: p.expires_at },
+    preview: { treatmentsAreExamples: p.treatments_are_examples, areaOpen: p.area_open, expiresAt: p.expires_at, font: safeFont(p.font_family) },
   };
 }
 

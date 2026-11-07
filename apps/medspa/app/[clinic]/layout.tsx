@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getClinic } from "@/lib/clinic";
+import { googleFontHref } from "@/lib/preview";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,11 @@ export async function generateMetadata({ params }: { params: { clinic: string } 
 export default async function ClinicLayout({ children, params }: { children: React.ReactNode; params: { clinic: string } }) {
   const clinic = await getClinic(params.clinic);
   if (!clinic) notFound();
+  // CP-233: an instant preview uses the Google font their own website loads.
+  const font = clinic.preview?.font ?? null;
   return (
-    <div style={{ ["--p" as string]: clinic.primary, ["--p-rgb" as string]: clinic.primaryRgb }}>
+    <div style={{ ["--p" as string]: clinic.primary, ["--p-rgb" as string]: clinic.primaryRgb, ...(font ? { fontFamily: `'${font}', var(--font-hanken), system-ui, sans-serif` } : {}) }}>
+      {font && <link rel="stylesheet" href={googleFontHref(font)} />}
       {children}
     </div>
   );

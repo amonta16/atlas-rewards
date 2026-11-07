@@ -228,3 +228,12 @@ export const DEFAULT_RECALL_ID = "manual";
 
 /** Unbooked follow-ups (email): hours after the hold starts, then `beforeEndHours` before it ends. Max 3. */
 export const FOLLOWUPS = { firstHours: 3, secondHours: 24, beforeEndHours: 4 };
+
+/* ───────────── CP-233: instant app preview (/medspa/app) ───────────── */
+
+/**
+ * contactRequired: the owner gives name, mobile and email on the progress screen
+ * (while the app builds) before the preview opens. That submit is the Meta "Lead".
+ * Set false to make the form skippable (more previews seen, fewer contacts).
+ */
+export const PREVIEW = { contactRequired: true };

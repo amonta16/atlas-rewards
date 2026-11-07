@@ -1,6 +1,7 @@
 "use client";
 /**
- * PreviewsAdmin — CP-232 · the manual "make a preview" form + the recent list.
+ * PreviewsAdmin — CP-232/233 · the manual "make a preview" form + previews and leads.
+ * A lead = an owner who left name, mobile and email on the progress screen.
  * Treatments are pasted one per line: "Botox | Injectables | 150" (category and
  * price optional). Blank fields are filled automatically from the website.
  */
@@ -11,7 +12,8 @@ import { ExternalLink, Loader2 } from "lucide-react";
 export type AdminPreviewRow = {
   id: string; slug: string; url: string; business_name: string; website: string | null; source: string; status: string;
   build_error: string | null; area_open: boolean | null; treatments_are_examples: boolean; logo_is_monogram: boolean;
-  contact_phone: string | null; claimed_at: string | null; created_at: string; expires_at: string;
+  phone: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null; contact_at: string | null;
+  claimed_at: string | null; created_at: string; expires_at: string;
   utm_campaign: string | null; utm_content: string | null;
 };
 
@@ -32,6 +34,10 @@ export function PreviewsAdmin({ rows }: { rows: AdminPreviewRow[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string; url?: string } | null>(null);
+  const [leadsOnly, setLeadsOnly] = useState(true);
+  const leads = rows.filter((r) => r.contact_at);
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const shown = leadsOnly ? leads : rows;
   const [f, setF] = useState({ business_name: "", website: "", logo_url: "", primary: "", secondary: "", phone: "", treatments: "" });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
 
@@ -74,7 +80,7 @@ export function PreviewsAdmin({ rows }: { rows: AdminPreviewRow[] }) {
         </label>
         <div className="flex flex-wrap items-center gap-3 md:col-span-2">
           <button disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white disabled:opacity-60">
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}{busy ? "Building… (up to a minute)" : "Create preview"}
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}{busy ? "Building… (up to 2 minutes)" : "Create preview"}
           </button>
           {msg && (
             <span className={`text-sm ${msg.ok ? "text-emerald-700" : "text-red-700"}`}>
@@ -84,14 +90,23 @@ export function PreviewsAdmin({ rows }: { rows: AdminPreviewRow[] }) {
         </div>
       </form>
 
-      <div className="mt-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm"><b className="text-slate-900">{leads.filter((r) => new Date(r.contact_at!).getTime() > weekAgo).length}</b> <span className="text-slate-500">leads this week</span></div>
+        <div className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm"><b className="text-slate-900">{leads.length}</b> <span className="text-slate-500">leads · {rows.length} previews</span></div>
+        <div className="ml-auto inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm">
+          <button type="button" onClick={() => setLeadsOnly(true)} className={`rounded-md px-3 py-1.5 ${leadsOnly ? "bg-slate-900 text-white" : "text-slate-600"}`}>Leads</button>
+          <button type="button" onClick={() => setLeadsOnly(false)} className={`rounded-md px-3 py-1.5 ${!leadsOnly ? "bg-slate-900 text-white" : "text-slate-600"}`}>All previews</button>
+        </div>
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr><th className="px-4 py-3">Spa</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Built with</th><th className="px-4 py-3">Area</th><th className="px-4 py-3">Contact</th><th className="px-4 py-3">Ad</th><th className="px-4 py-3">Created</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">No previews yet.</td></tr>}
-            {rows.map((r) => {
+            {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">{leadsOnly ? "No leads yet." : "No previews yet."}</td></tr>}
+            {shown.map((r) => {
               const expired = new Date(r.expires_at).getTime() < Date.now();
               return (
                 <tr key={r.id} className="align-top">
@@ -105,7 +120,16 @@ export function PreviewsAdmin({ rows }: { rows: AdminPreviewRow[] }) {
                     {r.build_error && <div className="mt-1 max-w-[260px] text-slate-400">{r.build_error}</div>}
                   </td>
                   <td className="px-4 py-3">{r.area_open == null ? "–" : r.area_open ? "open" : "taken"}</td>
-                  <td className="px-4 py-3">{r.contact_phone ?? "–"}</td>
+                  <td className="px-4 py-3">
+                    {r.contact_name || r.contact_phone || r.contact_email ? (
+                      <div className="space-y-0.5">
+                        {r.contact_name && <div className="font-medium text-slate-900">{r.contact_name}</div>}
+                        {r.contact_phone && <a href={`tel:${r.contact_phone}`} className="block text-sky-700 hover:underline">{r.contact_phone}</a>}
+                        {r.contact_email && <a href={`mailto:${r.contact_email}`} className="block break-all text-sky-700 hover:underline">{r.contact_email}</a>}
+                      </div>
+                    ) : <span className="text-slate-400">–</span>}
+                    {r.phone && <div className="mt-1 text-xs text-slate-400">Spa: {r.phone}</div>}
+                  </td>
                   <td className="px-4 py-3 text-xs text-slate-600">{[r.utm_campaign, r.utm_content].filter(Boolean).join(" / ") || "–"}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{new Date(r.created_at).toLocaleString()}</td>
                 </tr>

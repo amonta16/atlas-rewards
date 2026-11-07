@@ -7,18 +7,20 @@ Check items off as you go.
 - [ ] Paste the push commands Claude gives at the end of each build (PowerShell, from `C:\Users\andre\code\atlas`).
 - [ ] If the build added a package (Claude will say so), run `npm install` once before `npm run medspa:dev`.
 
-## Instant app preview (CP-232, ads lead magnet)
-Owner types their spa → ~1 minute later sees their own app at `med.atlas-engine.app/p/<slug>`.
-Ad URL: `https://www.atlas-engine.app/medspa/app?utm_source=meta&utm_campaign=…&utm_content=…`. Manual previews: Admin → App Previews.
-- [ ] Google Cloud → APIs & Services: enable **Places API (New)**. Credentials → the key used for `GOOGLE_PLACES_API_KEY` → API restrictions: **Places API (New) only**. Application restrictions: leave "None" (server key; Vercel has no fixed IPs). Set a daily quota cap.
-- [ ] Anthropic Console → API keys → create a key for Atlas previews; set a monthly spend limit.
-- [ ] GHL → Automation → Workflows → new workflow, trigger **Inbound Webhook** → copy its URL. Map `business_name`, `business_phone`, `website`, `slug`, `preview_url`, `contact_phone`, `utm_*` onto the contact; add the "text them their app" action. Events arrive as `app_preview_created` and `app_preview_text_me`.
-- [ ] GHL → the phone number owners text (`GHL_SMS_NUMBER`), with an inbound-message workflow that replies with the preview link (the text includes the slug).
-- [ ] A2P 10DLC: register the brand + a campaign for that GHL number (GHL → Settings → Phone Numbers → Trust Center). Until approved, texts from it get filtered by carriers.
-- [ ] Stripe → Payment Links → the founding setup offer → copy the link (`https://buy.stripe.com/…`) for `STRIPE_FOUNDING_CHECKOUT_URL`. The preview adds `client_reference_id=<slug>` so you can match payments to previews.
-- [ ] Vercel → the **www.atlas-engine.app** project → Environment Variables: `GOOGLE_PLACES_API_KEY` (already there for the field app; same key), `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (e.g. `claude-opus-5-5`; `claude-haiku-5-5` costs far less for this extraction), `GHL_INBOUND_WEBHOOK_URL`, and strongly recommended `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (rate limits shared across instances). Check `META_CAPI_TOKEN` + `NEXT_PUBLIC_META_PIXEL_ID` are set. Redeploy.
-- [ ] Vercel → **atlas-medspa (med.atlas-engine.app)** → Environment Variables: `GHL_SMS_NUMBER` (e.g. `+18055550142`), `STRIPE_FOUNDING_CHECKOUT_URL`, and check `VENUE_APP_ORIGIN` = `https://www.atlas-engine.app` (the "Text me" form posts there). Redeploy.
-- [ ] Test: open `/medspa/app`, pick a real spa, check the preview, tap "Text me my app" on your phone, and see the lead land in GHL and as `Lead` (content_name `app_preview`) in Meta Events Manager → Test events.
+## Instant app preview (CP-232/233, ads lead magnet)
+Owner types their spa → we read their website for 1–2 minutes (logo, colors, font, photos, team, treatments) → while it builds they leave name, mobile and email → their own app opens at `med.atlas-engine.app/p/<slug>`.
+Ad URL: `https://www.atlas-engine.app/medspa/app?utm_source=meta&utm_campaign=…&utm_content=…`.
+Leads: **Admin → App Previews** (Leads tab: name, mobile, email, the spa, the ad). You also get an email per lead, and the owner gets an email with their link (Resend, already set up).
+- [ ] Claude key: console.anthropic.com → sign in → Settings → Billing → add a card / credits → **API Keys → Create Key** (name it "Atlas previews") → copy it (shown once). Settings → Limits → set a monthly spend limit.
+- [ ] Vercel → project **atlas-rewards** (www.atlas-engine.app) → Settings → Environment Variables → add, Production, sensitive:
+      `ANTHROPIC_API_KEY` = the key; `ANTHROPIC_MODEL` = `claude-haiku-5-5` (cheapest, fine for reading a website) or `claude-opus-5-5` (best). Then Deployments → ⋯ on the latest → Redeploy.
+- [ ] Google Cloud → APIs & Services: **Places API (New)** enabled (search already works). Credentials → the `GOOGLE_PLACES_API_KEY` key → API restrictions: Places API (New) only. Set a daily quota cap.
+- [ ] Meta (optional but recommended for ad optimization): Events Manager → your Pixel → Settings → Conversions API → Generate access token → Vercel atlas-rewards: `META_CAPI_TOKEN` and `NEXT_PUBLIC_META_PIXEL_ID` (the Pixel's number). Each lead is sent as `Lead` (content_name `app_preview`) with hashed email + phone.
+- [ ] Twilio (when your number is verified): buy the number, register A2P 10DLC (brand + campaign; use the consent text on the preview's contact form as the opt-in description), then Vercel **atlas-medspa**: `PREVIEW_SMS_NUMBER` = `+1…`. Until then the "Text me my app" button falls back to the phone field. Auto-texting the link from Twilio is not built yet.
+- [ ] Stripe → Payment Links → the founding setup offer → Vercel atlas-medspa: `STRIPE_FOUNDING_CHECKOUT_URL`. The preview adds `client_reference_id=<slug>`.
+- [ ] Vercel atlas-medspa: check `VENUE_APP_ORIGIN` = `https://www.atlas-engine.app`. Redeploy after adding vars.
+- [ ] Optional: `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` on atlas-rewards (rate limits shared across instances). `GHL_INBOUND_WEBHOOK_URL` only if you ever want leads copied into GHL; not needed.
+- [ ] Test: open `/medspa/app`, pick a real spa, fill the form while it builds, check the preview, and see the lead in Admin → App Previews and in your inbox.
 
 ## Go live: med spa app
 Claude already did: created the Vercel project `atlas-medspa`, set it to `apps/medspa`, added the public env vars
@@ -59,6 +61,7 @@ Accounts and setup only you can do (start these now, some take days):
 - [ ] Privacy policy + support URL for the store listing, and store screenshots (Claude can make these).
 
 ## Done by Claude (no action needed)
+- 2026-11-07 · CP-233 SQL applied to Supabase: contact columns (name, email, consent time) and deep-build columns (hero photo, font, about, team) on `app_previews`; `get_app_preview` returns the new display fields but never contact details. Verified with rolled-back test rows (unsafe font names rejected, table still unreadable with the public key).
 - 2026-11-07 · CP-232 SQL applied to Supabase: `app_previews` table (RLS on, no direct access for anon/authenticated), `get_app_preview(slug)` and `app_preview_state(slug)` read functions. Verified with rolled-back test rows: ready previews readable by slug only, building/expired ones hidden, table not selectable with the public key.
 - 2026-11-05 · CP-231 SQL applied to Supabase: Shop orders earn points when they're paid (Stripe or Mark paid at the desk), once per order; no points on gift cards; not counted as a visit. Tested with rolled-back demo orders.
 - 2026-10-30 · CP-229: admin folders split by tab (Venues | Med Spas), med spa folders moved to Med Spas; the missing subfolder column added (creating/editing folders was failing before). Automations business picker grouped by Venues / Med Spas.

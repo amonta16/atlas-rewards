@@ -100,7 +100,7 @@ export async function logoPixels(png: Buffer): Promise<{ data: Buffer; channels:
 export function initialsOf(name: string): string {
   const words = name
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{M}/gu, "")
     .replace(/[^\p{L}\p{N}\s&]/gu, " ")
     .split(/\s+/)
     .filter((w) => w && !/^(the|and|&|of|med|medical|spa|llc|inc|co)$/i.test(w));

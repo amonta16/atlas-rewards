@@ -3,9 +3,7 @@ import { waitUntil } from "@vercel/functions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { clean } from "@/lib/landing/notify";
-import { sendCapiEvent, requestIp } from "@/lib/landing/meta-capi";
-import { newEventId } from "@/lib/landing/funnel-sign";
-import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { requestIp } from "@/lib/landing/meta-capi";
 import { checkAreaAt } from "@/lib/landing/territory";
 import { placeDetails, placesConfigured, PLACE_ID_RE, SESSION_RE } from "@/lib/preview/places";
 import { buildPreview } from "@/lib/preview/build";
@@ -23,13 +21,13 @@ import { expiresAt, getPreviewByPlace, hashIpString, isExpired, newPreviewSlug, 
  * · Rate limits: 5 starts per IP per 10 min; 3 builds per place per hour.
  * · The build runs after the response (waitUntil), so the visitor polls
  *   /api/preview/status. It always ends "ready" (with fallbacks if needed).
- * · Side effects for a new preview: GHL inbound webhook + Meta "Lead" via CAPI,
- *   with the same event_id the browser Pixel uses.
+ * · Side effects for a new preview: GHL inbound webhook (if configured). The Meta
+ *   "Lead" fires later, when the owner leaves their contact (/api/preview/contact).
  * · Personal data stays in the POST body; nothing goes in a query string.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300; // CP-233: the deep build runs in waitUntil, inside this limit
 
 const err = (status: number, error: string) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
 
@@ -57,7 +55,6 @@ export async function POST(req: Request) {
     fbc: clean(b.fbc, 300) || null,
   };
   const ip = requestIp(req);
-  const ua = (req.headers.get("user-agent") ?? "").slice(0, 300);
 
   const db = createAdminClient();
   let cached: PreviewRow | null = null;
@@ -65,9 +62,7 @@ export async function POST(req: Request) {
 
   // Cache hit: same spa, same preview.
   if (cached && !isExpired(cached) && cached.status !== "failed") {
-    const eventId = newEventId("pvlead");
-    waitUntil(fireLead(cached, eventId, { ip, ua, fbp: attribution.fbp, fbc: attribution.fbc }));
-    return NextResponse.json({ slug: cached.slug, status: cached.status, url: previewUrl(cached.slug), event_id: eventId, area_open: cached.area_open, cached: true }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ slug: cached.slug, status: cached.status, url: previewUrl(cached.slug), area_open: cached.area_open, cached: true }, { headers: { "Cache-Control": "no-store" } });
   }
 
   // A (re)build from here on: limit per place too.
@@ -89,7 +84,6 @@ export async function POST(req: Request) {
     } catch (e) { console.error("[preview] area check failed", e); }
   }
 
-  const eventId = newEventId("pvlead");
   const base = {
     business_name: details.name,
     address: details.address,
@@ -103,7 +97,6 @@ export async function POST(req: Request) {
     area_open: areaOpen,
     area_zip: details.zip,
     expires_at: expiresAt(),
-    lead_event_id: eventId,
     ip_hash: hashIpString(ip),
     ...attribution,
   };
@@ -120,7 +113,7 @@ export async function POST(req: Request) {
       // Two clicks raced: the other one created it.
       if (error.code === "23505") {
         const again = await getPreviewByPlace(placeId).catch(() => null);
-        if (again) return NextResponse.json({ slug: again.slug, status: again.status, url: previewUrl(again.slug), event_id: eventId, area_open: again.area_open, cached: true });
+        if (again) return NextResponse.json({ slug: again.slug, status: again.status, url: previewUrl(again.slug), area_open: again.area_open, cached: true });
       }
       console.error("[preview] insert failed", error);
       return err(500, "Something went wrong on our side. Please try again.");
@@ -130,7 +123,6 @@ export async function POST(req: Request) {
 
   waitUntil(buildPreview(row.id));
   waitUntil(Promise.allSettled([
-    fireLead(row, eventId, { ip, ua, fbp: attribution.fbp, fbc: attribution.fbc }),
     postGhlLead({
       event: "app_preview_created",
       business_name: row.business_name, business_phone: row.phone, website: row.website, address: row.address,
@@ -140,19 +132,5 @@ export async function POST(req: Request) {
     }),
   ]));
 
-  return NextResponse.json({ slug: row.slug, status: "building", url: previewUrl(row.slug), event_id: eventId, area_open: areaOpen, cached: false }, { headers: { "Cache-Control": "no-store" } });
-}
-
-async function fireLead(row: Pick<PreviewRow, "slug" | "business_name">, eventId: string, u: { ip: string | null; ua: string; fbp: string | null; fbc: string | null }) {
-  try {
-    await sendCapiEvent({
-      name: "Lead",
-      eventId,
-      sourceUrl: `${SITE_ORIGIN}/medspa/app`,
-      user: { ip: u.ip, userAgent: u.ua, fbp: u.fbp, fbc: u.fbc, externalId: row.slug },
-      customData: { content_name: "app_preview", content_category: "medspa" },
-    });
-  } catch (e) {
-    console.error("[preview] capi failed", e);
-  }
+  return NextResponse.json({ slug: row.slug, status: "building", url: previewUrl(row.slug), area_open: areaOpen, cached: false }, { headers: { "Cache-Control": "no-store" } });
 }

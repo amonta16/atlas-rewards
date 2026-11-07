@@ -14,11 +14,11 @@ import { expiresAt, newPreviewSlug, previewUrl } from "@/lib/preview/store";
  * Body { business_name, website?, logo_url?, primary?, secondary?, treatments?: [{ name, category, price }] }
  * Anything left blank is filled the automatic way (from the website), then the
  * usual fallbacks. The logo URL is downloaded through the SSRF guard and
- * re-hosted, never hot-linked. Waits for the build (admin can wait ~30 s).
+ * re-hosted, never hot-linked. Waits for the build (up to ~2 minutes).
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 async function requireAgencyAdmin(): Promise<string | null> {
   const server = createServer();

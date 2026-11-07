@@ -7,8 +7,8 @@ import type { PreviewColors } from "./colors";
 import type { PreviewTreatment } from "./treatments";
 
 export const PREVIEW_TTL_DAYS = 14;
-/** A build still "building" after this long is finished with fallbacks by the status poll. */
-export const STALE_BUILD_MS = 75_000;
+/** A build still "building" after this long is finished with fallbacks by the status poll (CP-233: deep builds take 1–2 min). */
+export const STALE_BUILD_MS = 210_000;
 
 export type PreviewRow = {
   id: string; slug: string; place_id: string | null; business_name: string; address: string | null;
@@ -18,14 +18,20 @@ export type PreviewRow = {
   status: "building" | "ready" | "failed" | "claimed"; build_error: string | null;
   area_open: boolean | null; area_zip: string | null; expires_at: string; created_at: string; updated_at: string;
   utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; utm_content: string | null; utm_term: string | null;
+  fbp: string | null; fbc: string | null;
+  // CP-233
+  contact_name: string | null; contact_phone: string | null; contact_email: string | null; contact_at: string | null;
+  hero_url: string | null; font_family: string | null; about: string | null; team: PreviewTeamMember[];
 };
+
+export type PreviewTeamMember = { name: string; title: string; photo_url: string | null };
 
 export const SLUG_RE = /^pv-[a-z0-9-]{3,64}$/;
 
 export function slugify(name: string): string {
   return name
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
@@ -83,6 +89,18 @@ export async function uploadLogo(slug: string, png: Buffer): Promise<string | nu
   const { error } = await db.storage.from("business-logos").upload(path, png, { contentType: "image/png", cacheControl: "31536000", upsert: false });
   if (error) {
     console.error("[preview] logo upload failed", error.message);
+    return null;
+  }
+  return db.storage.from("business-logos").getPublicUrl(path).data.publicUrl ?? null;
+}
+
+/** CP-233: uploads one of the spa's re-encoded photos. Returns its public URL. */
+export async function uploadPhoto(slug: string, jpeg: Buffer, kind: string): Promise<string | null> {
+  const db = createAdminClient();
+  const path = `previews/${slug}/${kind}-${randomBytes(5).toString("hex")}.jpg`;
+  const { error } = await db.storage.from("business-logos").upload(path, jpeg, { contentType: "image/jpeg", cacheControl: "31536000", upsert: false });
+  if (error) {
+    console.error("[preview] photo upload failed", error.message);
     return null;
   }
   return db.storage.from("business-logos").getPublicUrl(path).data.publicUrl ?? null;

@@ -8,15 +8,17 @@
  */
 
 export type GhlPreviewLead = {
-  event: "app_preview_created" | "app_preview_text_me";
+  event: "app_preview_created" | "app_preview_contact" | "app_preview_text_me";
   business_name: string;
   business_phone: string | null;
   website: string | null;
   address: string | null;
   slug: string;
   preview_url: string;
-  /** Only on "text me": the number the visitor typed. */
+  /** The owner's own details (contact form, or the "text me" phone field). */
+  contact_name?: string | null;
   contact_phone?: string | null;
+  contact_email?: string | null;
   area_open?: boolean | null;
   source?: "manual" | "auto";
   utm_source?: string | null;
