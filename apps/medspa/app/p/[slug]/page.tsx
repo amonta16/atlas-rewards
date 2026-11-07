@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import QRCode from "react-qr-code";
 import { getPreviewRow, getPreviewState, PREVIEW_SLUG_RE } from "@/lib/preview";
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
+import { PhoneFrame } from "@/components/phone-frame";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
@@ -75,19 +76,11 @@ export default async function PreviewPage({ params }: { params: { slug: string }
 
   return (
     <Shell>
-      <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-2 lg:grid-cols-[400px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
+      <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-2 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
         {/* The real app, in a phone frame */}
-        <div className="mx-auto w-full max-w-[400px]">
-          <div className="relative rounded-[54px] bg-[#111] p-3 shadow-[0_40px_80px_-30px_rgba(23,27,38,.55)]">
-            <div aria-hidden className="absolute left-1/2 top-3 z-10 h-7 w-32 -translate-x-1/2 rounded-b-2xl bg-[#111]" />
-            <iframe
-              src={`/${slug}`}
-              title={`${row.business_name} app preview`}
-              className="block h-[min(760px,78dvh)] w-full rounded-[42px] bg-white"
-              loading="eager"
-            />
-          </div>
-          <p className="mt-3 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
+        <div className="mx-auto w-full max-w-[418px]">
+          <PhoneFrame src={`/${slug}`} title={`${row.business_name} app preview`} />
+          <p className="mt-4 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
         </div>
 
         {/* The pitch */}
