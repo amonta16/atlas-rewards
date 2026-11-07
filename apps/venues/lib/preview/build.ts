@@ -85,18 +85,27 @@ export async function computePreview(input: { businessName: string; website: str
 
   // Colors
   let logoSeeds: string[] = [];
+  let mutedLogoSeeds: string[] = [];
   if (logo) {
-    try { const px = await logoPixels(logo.colorPng); logoSeeds = dominantColors(px.data, px.channels, 2); } catch { /* ignore */ }
+    try {
+      const px = await logoPixels(logo.colorPng);
+      logoSeeds = dominantColors(px.data, px.channels, 2);
+      // A sage/olive/taupe wordmark is still the brand: keep it as a fallback.
+      if (!logoSeeds.length) mutedLogoSeeds = dominantColors(px.data, px.channels, 2, { minSaturation: 0.06 });
+    } catch { /* ignore */ }
   }
-  // Order: admin's pick → <meta theme-color> → the logo's own colors → the site's CSS → neutral.
+  // Order: admin's pick → <meta theme-color> → the logo's colors → the logo's muted color
+  // → colors the site's CSS names as its brand → neutral.
+  const theme = home ? themeColorFromHtml(home.html) : null;
   let cssSeeds: string[] = [];
-  if (!ov.primary && !(home && themeColorFromHtml(home.html)) && !logoSeeds.length && home) {
-    cssSeeds = cssBrandColors(`${inlineCss(home.html)}
-${await siteCss}`, 2);
+  if (!ov.primary && !theme && !logoSeeds.length && !mutedLogoSeeds.length && home) {
+    cssSeeds = cssBrandColors(`${inlineCss(home.html)}\n${await siteCss}`, 2);
   }
-  const seed = ov.primary || (home ? themeColorFromHtml(home.html) : null) || logoSeeds[0] || cssSeeds[0] || null;
-  const second = seed === logoSeeds[0] ? logoSeeds[1] : seed === cssSeeds[0] ? cssSeeds[1] : logoSeeds[0];
-  const colors = paletteFromSeed(seed, ov.secondary || second || null);
+  const seed = ov.primary || theme || logoSeeds[0] || mutedLogoSeeds[0] || cssSeeds[0] || null;
+  const second = seed === logoSeeds[0] ? logoSeeds[1] : seed === mutedLogoSeeds[0] ? mutedLogoSeeds[1] : seed === cssSeeds[0] ? cssSeeds[1] : logoSeeds[0];
+  // Muted colors are allowed only when they're clearly the site's own (logo or named CSS brand color).
+  const allowMuted = !!seed && (seed === mutedLogoSeeds[0] || seed === cssSeeds[0]);
+  const colors = paletteFromSeed(seed, ov.secondary || second || null, { allowMuted });
   if (!seed || colors.primary === NEUTRAL_PALETTE.primary) notes.push("colors: neutral");
 
   // Font

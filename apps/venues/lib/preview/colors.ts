@@ -31,6 +31,12 @@ export function parseColor(raw: string | null | undefined): string | null {
     const [r, g, b] = [m[1], m[2], m[3]].map(Number);
     if ([r, g, b].every((v) => v <= 255)) return rgbToHex(r, g, b);
   }
+  // CP-233: hsl(204, 8.9%, 78%) / hsla(…) and Squarespace's bare "204,8.93%,78.04%" (--accent-hsl)
+  m = s.match(/^(?:hsla?\(\s*)?(\d{1,3}(?:\.\d+)?)(?:deg)?[\s,]+(\d{1,3}(?:\.\d+)?)%[\s,]+(\d{1,3}(?:\.\d+)?)%/);
+  if (m) {
+    const [h, sat, l] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    if (h <= 360 && sat <= 100 && l <= 100) return hslToHex(h, sat / 100, l / 100).toLowerCase();
+  }
   return null;
 }
 
@@ -101,9 +107,10 @@ export function ensureContrast(hex: string, against = "#FFFFFF", min = AA): stri
 /* ── seeds ───────────────────────────────────────────────────── */
 
 /** Greys, near-white and near-black make a flat app: not a usable brand seed. */
-export function isUsableSeed(hex: string): boolean {
+export function isUsableSeed(hex: string, opts: { allowMuted?: boolean } = {}): boolean {
   const [, s, l] = rgbToHsl(...hexToRgb(hex));
-  return s >= 0.15 && l >= 0.08 && l <= 0.92;
+  // A color the site itself names as its accent may be muted (sage, taupe, slate): still theirs.
+  return s >= (opts.allowMuted ? 0.06 : 0.15) && l >= 0.08 && l <= 0.92;
 }
 
 function metaContent(html: string, name: string): string | null {
@@ -132,14 +139,15 @@ export function themeColorFromHtml(html: string): string | null {
  * Transparent, near-white, near-black and grey pixels are ignored, and buckets
  * are weighted by saturation so a small colored mark beats a big grey field.
  */
-export function dominantColors(pixels: Uint8Array | Buffer, channels: number, max = 3): string[] {
+export function dominantColors(pixels: Uint8Array | Buffer, channels: number, max = 3, opts: { minSaturation?: number } = {}): string[] {
+  const minSat = opts.minSaturation ?? 0.15;
   const buckets = new Map<number, { w: number; r: number; g: number; b: number }>();
   for (let i = 0; i + channels - 1 < pixels.length; i += channels) {
     const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
     const a = channels >= 4 ? pixels[i + 3] : 255;
     if (a < 128) continue;
     const [, s, l] = rgbToHsl(r, g, b);
-    if (s < 0.15 || l > 0.92 || l < 0.08) continue;
+    if (s < minSat || l > 0.92 || l < 0.08) continue;
     const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
     const e = buckets.get(key) ?? { w: 0, r: 0, g: 0, b: 0 };
     const w = 0.35 + s;
@@ -159,9 +167,9 @@ export function dominantColors(pixels: Uint8Array | Buffer, channels: number, ma
 }
 
 /** A full readable palette from one seed color. null/unusable seed → the neutral palette. */
-export function paletteFromSeed(seed: string | null, second?: string | null): PreviewColors {
+export function paletteFromSeed(seed: string | null, second?: string | null, opts: { allowMuted?: boolean } = {}): PreviewColors {
   const s = seed ? parseColor(seed) : null;
-  if (!s || !isUsableSeed(s)) return { ...NEUTRAL_PALETTE };
+  if (!s || !isUsableSeed(s, opts)) return { ...NEUTRAL_PALETTE };
   const primary = ensureContrast(s);
   const [h, sat, l] = rgbToHsl(...hexToRgb(primary));
   const secondary = hslToHex(h, Math.min(1, sat * 1.05), Math.max(0.1, l - 0.14));
@@ -190,25 +198,38 @@ const CSS_NOISE = new Set([
 ]);
 
 /**
- * The site's own accent color(s), most used first. Custom properties named like
- * --primary/--brand/--accent count most; plain uses count once each. Greys, near
- * white/black and well-known theme defaults are ignored. A color needs at least
- * 3 uses (or a brand-named variable) to count.
+ * The site's own accent color(s), best first.
+ *   1. Colors the site names as its brand in CSS variables (--primary, --brand,
+ *      --accent, Elementor's --e-global-color-primary, Squarespace's --accent-hsl /
+ *      --lightAccent-hsl / --darkAccent-hsl…). These may be muted (sage, taupe,
+ *      slate): they're still theirs. Ordered by how colorful they are.
+ *   2. Otherwise the most used real color in plain CSS (3+ uses).
+ * Greys, near white/black and well-known theme/widget defaults are ignored.
+ * Colors from tier 1 need `allowMuted` when building the palette.
  */
 export function cssBrandColors(css: string, max = 2): string[] {
-  const score = new Map<string, { hex: string; n: number }>();
-  const add = (raw: string, w: number) => {
-    const c = parseColor(raw);
-    if (!c) return;
+  const named = new Map<string, { hex: string; sat: number }>();
+  for (const m of css.matchAll(/--[\w-]*(?:primary|brand|accent|main|theme|highlight)[\w-]*\s*:\s*([^;}]+)/gi)) {
+    if (/var\(|safe|inverse/i.test(m[0])) continue; // aliases and Squarespace's auto-contrast variants
+    const c = parseColor(m[1].trim());
+    if (!c) continue;
     const hex = c.toUpperCase();
-    if (CSS_NOISE.has(hex) || !isUsableSeed(hex)) return;
+    if (CSS_NOISE.has(hex) || !isUsableSeed(hex, { allowMuted: true })) continue;
+    named.set(hex, { hex, sat: rgbToHsl(...hexToRgb(hex))[1] });
+  }
+  if (named.size) return [...named.values()].sort((a, b) => b.sat - a.sat).slice(0, max).map((e) => e.hex);
+
+  const score = new Map<string, { hex: string; n: number }>();
+  for (const m of css.matchAll(/#(?:[0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])|rgba?\([^)]*\)|hsla?\([^)]*\)/gi)) {
+    const c = parseColor(m[0]);
+    if (!c) continue;
+    const hex = c.toUpperCase();
+    if (CSS_NOISE.has(hex) || !isUsableSeed(hex)) continue;
     const [r, g, b] = hexToRgb(hex);
     const key = `${r >> 4},${g >> 4},${b >> 4}`;
     const e = score.get(key) ?? { hex, n: 0 };
-    e.n += w;
+    e.n += 1;
     score.set(key, e);
-  };
-  for (const m of css.matchAll(/--[\w-]*(?:primary|brand|accent|main|theme|highlight)[\w-]*\s*:\s*([^;}]+)/gi)) add(m[1].trim(), 8);
-  for (const m of css.matchAll(/#(?:[0-9a-f]{6}|[0-9a-f]{3})(?![0-9a-f])|rgba?\([^)]*\)/gi)) add(m[0], 1);
+  }
   return [...score.values()].filter((e) => e.n >= 3).sort((a, b) => b.n - a.n).slice(0, max).map((e) => e.hex);
 }

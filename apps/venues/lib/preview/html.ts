@@ -226,7 +226,14 @@ export function inlineCss(html: string): string {
   return `${blocks.join("\n")}\n${attrs.join(";\n")}`.slice(0, 2_000_000);
 }
 
-/** CP-233: the site's own stylesheets (same host or a subdomain of it), skipping known third-party/plugin CSS. */
+/**
+ * Site builders keep each site's own theme CSS on their CDN (Squarespace
+ * "versioned-site-css", Webflow's per-site CSS, Shopify theme files). These hold
+ * the brand colors, so they count as the site's own; the builders' shared CSS doesn't.
+ */
+const BUILDER_SITE_CSS = /^(?:static1\.squarespace\.com\/static\/versioned-site-css\/|[a-z0-9-]+\.website-files\.com\/[^/]+\/css\/|assets\.website-files\.com\/[^/]+\/css\/|cdn\.shopify\.com\/s\/files\/)/i;
+
+/** CP-233: the site's own stylesheets (same host, a subdomain of it, or its site-builder theme CSS), skipping known third-party/plugin CSS. */
 export function stylesheetLinks(html: string, base: string, max = 2): string[] {
   let host: string;
   try { host = new URL(base).hostname.replace(/^www\./, ""); } catch { return []; }
@@ -237,7 +244,7 @@ export function stylesheetLinks(html: string, base: string, max = 2): string[] {
     if (!url) continue;
     const u = new URL(url);
     const h = u.hostname.replace(/^www\./, "");
-    if (h !== host && !h.endsWith(`.${host}`)) continue;
+    if (h !== host && !h.endsWith(`.${host}`) && !BUILDER_SITE_CSS.test(`${u.hostname}${u.pathname}`)) continue;
     if (/wp-includes|dashicons|admin-bar|block-library|elementor\/assets\/lib|font-?awesome|bootstrap|jquery|woocommerce|swiper|slick|animate/i.test(u.pathname)) continue;
     if (!out.includes(url)) out.push(url);
     if (out.length >= max) break;

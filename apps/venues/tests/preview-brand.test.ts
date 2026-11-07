@@ -356,8 +356,8 @@ describe("light logos are darkened for the white top bar", () => {
   test("a light pink wordmark is dimmed, not inverted (keeps its hue)", async () => {
     const logo = await normalizeLogo(await wordmark({ r: 248, g: 200, b: 214 }), "x");
     assert.ok(logo?.adjusted);
-    const { data } = await sharp(logo!.png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    const i = (60 * 400 + 200) * 4; // a pixel inside the bar
+    const { data, info } = await sharp(logo!.png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const i = (Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)) * 4; // middle of the (trimmed) bar
     assert.ok(data[i] > data[i + 1], "still pinkish (red > green)");
     assert.ok((await meanVisibleLum(logo!.png)) < 0.6);
   });
@@ -425,5 +425,37 @@ describe("banner photo is never a team member", () => {
   });
   test("a good pick stays first", () => {
     assert.equal(pickHeroCandidates({ heroSource: "https://s/a/lobby.jpg", team }, images, null)[0], "https://s/a/lobby.jpg");
+  });
+});
+
+describe("muted brand colors (Squarespace sites, sage/olive logos)", () => {
+  test("hsl() and Squarespace's bare h,s%,l% values parse", () => {
+    assert.equal(parseColor("hsl(88, 12.4%, 23.73%)"), parseColor("88,12.4%,23.73%"));
+    assert.ok(parseColor("hsla(30,36.84%,85.1%,1)"));
+    assert.equal(parseColor("hsla(var(--accent-hsl),1)"), null);
+  });
+  test("Squarespace palette variables are read; safe/inverse variants and var() aliases skipped", () => {
+    const css = `:root{--safeDarkAccent-hsl:0,0%,0%;--accent-hsl:204,8.93%,78.04%;--lightAccent-hsl:30,36.84%,85.1%;--darkAccent-hsl:88,12.4%,23.73%;--tweak-accent:hsla(var(--accent-hsl),1)}`;
+    const out = cssBrandColors(css, 3);
+    assert.equal(out.length, 3);
+    assert.equal(out[0], parseColor("30,36.84%,85.1%")!.toUpperCase()); // most colorful first
+  });
+  test("a muted brand color is used only when allowed", () => {
+    const sage = parseColor("88,12.4%,40%")!;
+    assert.deepEqual(paletteFromSeed(sage), NEUTRAL_PALETTE);
+    const p = paletteFromSeed(sage, null, { allowMuted: true });
+    assert.notDeepEqual(p, NEUTRAL_PALETTE);
+    assert.ok(paletteIsReadable(p));
+  });
+  test("Squarespace's per-site theme CSS counts as the site's own stylesheet", () => {
+    const html = `<link rel="stylesheet" href="https://static1.squarespace.com/static/versioned-site-css/abc/31/def/ghi/1850/site.css?nocustom=true">
+      <link rel="stylesheet" href="//assets.squarespace.com/universal/styles-compressed/commerce-min.en-US.css">`;
+    assert.deepEqual(stylesheetLinks(html, "https://www.entiragemedspa.com/"), ["https://static1.squarespace.com/static/versioned-site-css/abc/31/def/ghi/1850/site.css?nocustom=true"]);
+  });
+  test("an olive logo gives an olive palette (muted logo color)", async () => {
+    const png = await sharp({ create: { width: 200, height: 60, channels: 4, background: { r: 110, g: 122, b: 99, alpha: 1 } } }).png().toBuffer();
+    const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    assert.deepEqual(dominantColors(data, info.channels), []);
+    assert.equal(dominantColors(data, info.channels, 2, { minSaturation: 0.06 }).length, 1);
   });
 });

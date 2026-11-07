@@ -94,14 +94,21 @@ export async function normalizeLogo(buf: Buffer, source: string): Promise<LogoIm
     const okFormats = new Set(["png", "jpeg", "webp", "gif", "svg", "avif", "tiff"]);
     if (!meta.format || !okFormats.has(meta.format)) return null;
     if (!meta.width || !meta.height || Math.min(meta.width, meta.height) < 32) return null;
-    const { data, info } = await img
-      .rotate()
+    // Trim empty margins (transparent or flat background) so a thin wordmark fills
+    // the app's logo slot instead of floating small in a big empty canvas.
+    let source2: Buffer = await img.rotate().png().toBuffer();
+    // Judge light-vs-dark on the untrimmed logo (its transparent canvas is part of the signal).
+    const pre = await sharp(source2).resize({ width: 256, height: 256, fit: "inside", withoutEnlargement: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const fix = needsDarkening(logoTone(pre.data, pre.info.channels));
+    try {
+      const trimmed = await sharp(source2).trim({ threshold: 12 }).png().toBuffer({ resolveWithObject: true });
+      if (trimmed.info.width >= 24 && trimmed.info.height >= 12) source2 = trimmed.data;
+    } catch { /* nothing to trim */ }
+    const { data, info } = await sharp(source2)
       .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
       .png({ compressionLevel: 9 })
       .toBuffer({ resolveWithObject: true });
 
-    const raw = await sharp(data).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    const fix = needsDarkening(logoTone(raw.data, raw.info.channels));
     let shown = data;
     if (fix === "invert") shown = await sharp(data).ensureAlpha().negate({ alpha: false }).png({ compressionLevel: 9 }).toBuffer();
     if (fix === "dim") shown = await sharp(data).ensureAlpha().modulate({ brightness: 0.45, saturation: 1.2 }).png({ compressionLevel: 9 }).toBuffer();
