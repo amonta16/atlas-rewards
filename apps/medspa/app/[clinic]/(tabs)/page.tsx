@@ -34,7 +34,7 @@ export default async function Home({ params }: { params: { clinic: string } }) {
 
   return (
     <>
-      <TopBar slug={clinic.slug} wordmark={<Wordmark name={clinic.name} logoUrl={clinic.logoUrl} size="sm" />} />
+      <TopBar slug={clinic.slug} wordmark={<Wordmark name={clinic.name} logoUrl={clinic.logoUrl} size={clinic.preview && clinic.logoUrl ? "md" : "sm"} />} />
 
       {/* Hero + points */}
       <section className="relative">
