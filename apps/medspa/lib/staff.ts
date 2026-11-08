@@ -11,8 +11,9 @@ export type Staff = { userId: string; role: StaffRole; name: string; isManager: 
 const ROLES: StaffRole[] = ["agency_admin", "business_manager", "business_staff"];
 
 export async function getStaff(clinic: Clinic): Promise<Staff | "signed-out" | "no-access"> {
-  // CP-232: instant app previews have no front desk.
-  if (clinic.preview) return "no-access";
+  // CP-237: an instant app preview opens its front desk without sign-in, as the owner, in the
+  // demo mode the example clinic uses (clinic id "example": client-side data, nothing is saved).
+  if (clinic.preview) return { userId: "preview", role: "business_manager", name: "You (preview)", isManager: true };
   if (clinic.isExample && clinic.id === "example") return { userId: "demo", role: "business_manager", name: "Dr. Jane Preview", isManager: true };
   const user = await getCachedUser().catch(() => null);
   if (!user) return "signed-out";

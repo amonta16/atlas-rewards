@@ -25,7 +25,8 @@ export type BuilderData = {
 export async function getBuilderData(clinic: Clinic): Promise<BuilderData> {
   if (clinic.isExample && clinic.id === "example") {
     return {
-      name: clinic.name, logo_url: null, app_icon_url: null, hero_image_url: clinic.heroUrl, primary: clinic.primary,
+      // CP-237: a preview shows its own logo (a real https upload; the monogram is a data: URI, left out).
+      name: clinic.name, logo_url: clinic.preview && /^https:\/\//.test(clinic.logoUrl ?? "") ? clinic.logoUrl : null, app_icon_url: null, hero_image_url: clinic.heroUrl, primary: clinic.primary,
       phone: clinic.phone ?? "", address: clinic.address ?? "", google_review_url: "", welcome_message: "",
       cfg: { ...(clinic.cfg as unknown as Record<string, unknown>), memberships: clinic.plans },
       brandRaw: { primary: clinic.primary }, contactRaw: {},

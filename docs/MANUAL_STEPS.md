@@ -16,9 +16,14 @@ Leads: **Admin → App Previews** (Leads tab: name, mobile, email, the spa, the 
       `ANTHROPIC_API_KEY` = the key; `ANTHROPIC_MODEL` = `claude-haiku-5-5` (cheapest, fine for reading a website) or `claude-opus-5-5` (best). Then Deployments → ⋯ on the latest → Redeploy.
 - [ ] Google Cloud → APIs & Services: **Places API (New)** enabled (search already works). Credentials → the `GOOGLE_PLACES_API_KEY` key → API restrictions: Places API (New) only. Set a daily quota cap.
 - [ ] Meta (optional but recommended for ad optimization): Events Manager → your Pixel → Settings → Conversions API → Generate access token → Vercel atlas-rewards: `META_CAPI_TOKEN` and `NEXT_PUBLIC_META_PIXEL_ID` (the Pixel's number). Each lead is sent as `Lead` (content_name `app_preview`) with hashed email + phone.
-- [ ] Twilio (when your number is verified): buy the number, register A2P 10DLC (brand + campaign; use the consent text on the preview's contact form as the opt-in description).
-      Then Vercel **atlas-medspa**: `PREVIEW_SMS_NUMBER` = `+1…` → turns on the "Text me my app" button (owner texts first; prefilled "Hi! Send me my <spa> app (pv-…)"). Until then the page shows "Book a walkthrough" as the main button.
-      Then Vercel **atlas-rewards**, for the 6-digit texted code step: Twilio Console → Verify → Services → Create → copy the Service SID; add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, and `PREVIEW_VERIFY_PHONE` = `1`. Redeploy. (Auto-replying to the owner's text with their link is not built yet.)
+- [x] Twilio A2P 10DLC approved (2026-11-08). Number: **+1 775 252 4211**.
+- [ ] CP-237 texting (code is in, sending is OFF until you flip it). Vercel → Settings → Environment Variables, Production:
+      **atlas-medspa**: `PREVIEW_SMS_NUMBER` = `+17752524211` → turns on the "Text me my app" button (owner texts first). Redeploy.
+      **atlas-rewards** (sensitive): `TWILIO_ACCOUNT_SID` (`AC…`, Twilio Console home), `TWILIO_AUTH_TOKEN` (same page), `PREVIEW_SMS_NUMBER` = `+17752524211`.
+      Optional on atlas-rewards: `TWILIO_MESSAGING_SERVICE_SID` (`MG…`, Messaging → Services → the service your A2P campaign is attached to). Without it, texts go out "From" the number, which works as long as the number sits in that campaign's service.
+      Twilio Console → Phone Numbers → +1 775 252 4211 → Messaging → "A message comes in" → Webhook, HTTP POST: `https://www.atlas-engine.app/api/preview/sms-inbound` (if the number is in a Messaging Service, set it on the service's Integration page instead). This is the auto-reply with their link.
+      When you've tested: `PREVIEW_SMS_SEND` = `1` on atlas-rewards and redeploy. Before that, nothing is texted (inbound texts still get logged and emailed to you).
+      Optional, the 6-digit texted code step: Twilio Console → Verify → Services → Create → `TWILIO_VERIFY_SERVICE_SID` (`VA…`) and `PREVIEW_VERIFY_PHONE` = `1` on atlas-rewards. Verify sends from Twilio's own numbers, not yours.
 - [ ] Self-serve "Go live" checkout is hidden until you set a monthly price. When ready: Vercel atlas-medspa `PREVIEW_SHOW_CHECKOUT` = `1` (plus `STRIPE_FOUNDING_CHECKOUT_URL`).
 - [ ] Stripe → Payment Links → the founding setup offer → Vercel atlas-medspa: `STRIPE_FOUNDING_CHECKOUT_URL`. The preview adds `client_reference_id=<slug>`.
 - [ ] Vercel atlas-medspa: check `VENUE_APP_ORIGIN` = `https://www.atlas-engine.app`. Redeploy after adding vars.
@@ -64,6 +69,7 @@ Accounts and setup only you can do (start these now, some take days):
 - [ ] Privacy policy + support URL for the store listing, and store screenshots (Claude can make these).
 
 ## Done by Claude (no action needed)
+- 2026-11-08 · CP-237 committed (not deployed): 3D phones video on /medspa/app, "built" only after the scan animation, front-desk welcome email after the last step, preview front desk at `med.atlas-engine.app/<slug>/desk` (no sign-in, nothing saved), Twilio texting from +1 775 252 4211 (off until `PREVIEW_SMS_SEND=1`). See db/history/checkpoint-237-preview-desk-sms/README.md.
 - 2026-11-08 · CP-235 live: cleaner /medspa/app landing, booking-software logos, no pre-ticked treatments, ~22 s scanning screen that shows what was found (logo, color, treatments, photos), branded "your app is ready" email (their logo, photo and color), Admin → Funnels tab, SMS sections in Terms and Privacy (for A2P review).
 - 2026-11-07 · CP-234 SQL applied to Supabase: quiz answers (booking tool, offered, challenges, priorities), phone_verified_at and landing_lead_id on `app_previews`; `get_app_preview` returns `priorities` only (other answers stay private). Verified with rolled-back test rows; funnel tested end to end on production (Tirage Medspa, test contact).
 - 2026-11-07 · CP-233 SQL applied to Supabase: contact columns (name, email, consent time) and deep-build columns (hero photo, font, about, team) on `app_previews`; `get_app_preview` returns the new display fields but never contact details. Verified with rolled-back test rows (unsafe font names rejected, table still unreadable with the public key).

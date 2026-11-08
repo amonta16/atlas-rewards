@@ -42,6 +42,8 @@ type DeskClinic = {
   recall: { enabled: boolean; lead_days: number; followup_days: number };
   treatments: Treatment[]; providers: Provider[];
   rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[];
+  /** CP-237: set on an instant app preview's desk (pv-…): no sign-in, nothing is saved. */
+  preview?: { walkthroughUrl: string; expiresAt: string } | null;
 };
 type View = "checkin" | "patients" | "due" | "orders" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
 const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "billing"];
@@ -143,7 +145,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
           </div>
           <div className="px-1">
             <p className="truncate text-[13px] font-semibold">{staff.name}</p>
-            <p className="text-[12px] text-faint">{staff.role === "business_staff" ? "Front desk" : staff.role === "agency_admin" ? "Atlas admin" : "Manager"}{clinic.demo ? " · demo, nothing is saved" : ""}</p>
+            <p className="text-[12px] text-faint">{staff.role === "business_staff" ? "Front desk" : staff.role === "agency_admin" ? "Atlas admin" : "Manager"}{clinic.preview ? " · preview, nothing is saved" : clinic.demo ? " · demo, nothing is saved" : ""}</p>
             {!clinic.demo && <Link href="/auth/signout" prefetch={false} className="mt-1.5 flex items-center gap-1 text-[12.5px] font-medium text-sub hover:text-ink"><IcOut className="h-3.5 w-3.5" />Sign out</Link>}
           </div>
         </div>
@@ -151,6 +153,15 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
 
       {/* Main */}
       <main className="min-w-0 flex-1 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
+        {clinic.preview && (
+          <div role="note" className="mb-5 flex flex-col gap-3 rounded-[16px] border border-brand/20 bg-brand/[.06] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[13.5px] leading-snug text-ink">
+              <b>This is {clinic.name}&apos;s front desk, in preview.</b>{" "}
+              <span className="text-sub">Try anything: nothing is saved and nothing reaches patients until you go live. Saved until {new Date(clinic.preview.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.</span>
+            </p>
+            <a href={clinic.preview.walkthroughUrl} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-[13px] font-semibold text-white">Book a walkthrough</a>
+          </div>
+        )}
         <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{title}</h1>
           <div className="flex flex-col items-end gap-1.5">

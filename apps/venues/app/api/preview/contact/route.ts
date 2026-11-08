@@ -8,7 +8,7 @@ import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { postGhlLead } from "@/lib/preview/ghl";
 import { e164 } from "@/lib/preview/sms";
 import { phoneVerifyEnabled } from "@/lib/preview/twilio";
-import { sendPreviewEmail } from "@/lib/preview/email";
+import { sendPreviewEmailIfAbandoned } from "@/lib/preview/email";
 import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/lib/preview/store";
 
 /**
@@ -22,13 +22,14 @@ import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/l
  *   · Meta "Lead" via the Conversions API with hashed email + phone (much better
  *     ad matching than an anonymous click), same event_id as the browser Pixel;
  *   · GHL inbound webhook (event "app_preview_contact"), if configured;
- *   · an email to Andrew, and an email to the owner with their preview link (Resend).
+ *   · an email to Andrew; the owner's "your app is ready" email is sent only if they stop
+ *     before the end (CP-237: finishing sends the front-desk welcome email instead, after the animation).
  * Contact details travel only in this POST body, never in a URL.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// The branded email waits (in waitUntil) for the build to finish, up to ~90 s.
-export const maxDuration = 120;
+// CP-237: the "ready" email waits (in waitUntil) ~4 min to see whether the owner finishes the funnel.
+export const maxDuration = 300;
 // Next caches server fetch() GETs by default, and supabase-js reads with GET: without this,
 // a preview read once as "building" would stay "building" (seen live on 2026-11-07).
 export const fetchCache = "force-no-store";
@@ -104,8 +105,9 @@ export async function POST(req: Request) {
       ["Preview", url],
       ["Ad", [row.utm_campaign, row.utm_content].filter(Boolean).join(" / ") || null],
     ]),
-    // CP-235: the branded "your app is ready" email (waits for the build so it can show their logo and photo).
-    sendPreviewEmail(row.slug, email, first),
+    // CP-235 email, CP-237 timing: only for owners who stop before the last step. Finishing sends
+    // the welcome email (front desk) from /api/preview/answers, after the build animation.
+    sendPreviewEmailIfAbandoned(row.slug, email, first),
   ]));
 
   return NextResponse.json({ ok: true, event_id: eventId, verify: phoneVerifyEnabled() }, { headers: { "Cache-Control": "no-store" } });

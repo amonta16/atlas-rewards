@@ -78,6 +78,27 @@ function Progress({ step }: { step: Step }) {
   );
 }
 
+/** CP-237: the 3D phones loop (MP4 + WebM + poster). Reduced-motion visitors get the still poster. */
+function TrioVideo() {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { v.pause(); v.removeAttribute("autoplay"); return; }
+    v.play().catch(() => { /* autoplay blocked: the poster stays */ });
+  }, []);
+  return (
+    <video
+      ref={ref} autoPlay muted loop playsInline preload="auto" poster="/landing/medspa-trio/trio-poster.webp" width={1280} height={788}
+      aria-label="Three med spa apps on phones: a rewards card, a membership page and a treatment menu"
+      className="block h-auto w-full mix-blend-multiply lg:w-[122%] lg:max-w-none"
+    >
+      <source src="/landing/medspa-trio/trio.webm" type="video/webm" />
+      <source src="/landing/medspa-trio/trio.mp4" type="video/mp4" />
+    </video>
+  );
+}
+
 function StepShell({ step, title, sub, onBack, children, footer }: {
   step: Step; title: string; sub?: React.ReactNode; onBack?: () => void; children: React.ReactNode; footer?: React.ReactNode;
 }) {
@@ -326,12 +347,14 @@ export function PreviewStart() {
     else if (e.key === "Escape") setSuggestions([]);
   };
 
+  // CP-237: never "built" here. Even when the server build is already done (a spa searched before),
+  // "complete" belongs to the end of the scan animation on the finishing step, not to this step.
   const buildChip = useMemo(() => spa && (
     <div className="inline-flex items-center gap-2 rounded-full bg-[#E6F1FF] px-3 py-1.5 text-[13px] font-semibold text-[#0B5FD6]">
-      {built ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-      {built ? `${spa.main}'s app is built` : `Building ${spa.main}'s app…`}
+      <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+      {`Building ${spa.main}'s app…`}
     </div>
-  ), [spa, built]);
+  ), [spa]);
 
   const honeypot = <input ref={hp} type="text" name="website_url_hp" tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" />;
 
@@ -345,8 +368,10 @@ export function PreviewStart() {
           <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
           <a href="/medspa" className="text-[14px] font-semibold text-[#3A4A5C] hover:text-[#0B1B2B]">How it works</a>
         </header>
-        <main className="s-wrap grid items-center gap-10 pb-16 pt-6 lg:min-h-[calc(100dvh-72px)] lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:pb-10 lg:pt-0">
-          <div>
+        {/* CP-237: three grid items so the phones sit right under the search on phones (text, video, SMS note),
+            while on desktop the video spans both rows of the right column. */}
+        <main className="s-wrap grid items-center gap-10 pb-16 pt-6 lg:min-h-[calc(100dvh-72px)] lg:grid-cols-[0.95fr_1.05fr] lg:content-center lg:gap-x-16 lg:gap-y-0 lg:pb-10 lg:pt-0">
+          <div className="lg:col-start-1 lg:row-start-1">
             <p className="text-[14px] font-semibold uppercase tracking-[0.12em] text-[#0B5FD6]">For med spas</p>
             <h1 className="mt-4 max-w-[13ch] text-[clamp(2.4rem,1.6rem+3.4vw,4.3rem)] font-bold leading-[1.02] tracking-[-0.035em] text-[#0B1B2B]">
               See your patient app before you spend a dollar.
@@ -390,17 +415,20 @@ export function PreviewStart() {
                 <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#0B5FD6]" aria-hidden />{t}</li>
               ))}
             </ul>
-            <p className="mt-8 max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C]">
-              Text messages are optional. On the next step there are two separate unchecked boxes: one for your app link and
-              call reminders (&ldquo;{SMS_INFO_CONSENT_TEXT}&rdquo;) and one for offers (&ldquo;{SMS_MARKETING_CONSENT_TEXT}&rdquo;).
-              Your app is emailed either way.{" "}
-              <a href={SMS_CONSENT_PAGE} className="underline">See the form</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
-            </p>
+
           </div>
-          <div className="relative mx-auto w-full max-w-[340px] lg:max-w-[380px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/landing/apps/spa-upright.webp" alt="A med spa's own Atlas app on a phone" width={640} height={1300} className="relative mx-auto h-auto max-h-[min(78dvh,760px)] w-auto max-w-full drop-shadow-[0_40px_60px_rgba(11,27,43,.25)]" />
-          </div>
+          {/* CP-237: three real med spa previews on 3D phones (projects/medspa-trio-3d), a seamless 6 s loop.
+              White background + multiply, so the video's edge disappears into the page. Wider than its column on desktop. */}
+          <figure className="relative mx-auto w-full max-w-[560px] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mx-0 lg:max-w-none">
+            <TrioVideo />
+            <figcaption className="mt-1 text-center text-[13px] text-[#6B7A8C] lg:w-[122%]">Three med spa apps, each built from the practice&apos;s own website.</figcaption>
+          </figure>
+          <p className="max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C] lg:col-start-1 lg:row-start-2 lg:mt-8">
+            Text messages are optional. On the next step there are two separate unchecked boxes: one for your app link and
+            call reminders (&ldquo;{SMS_INFO_CONSENT_TEXT}&rdquo;) and one for offers (&ldquo;{SMS_MARKETING_CONSENT_TEXT}&rdquo;).
+            Your app is emailed either way.{" "}
+            <a href={SMS_CONSENT_PAGE} className="underline">See the form</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
+          </p>
         </main>
       </div>
     );
@@ -669,6 +697,8 @@ export function PreviewStart() {
           <span className="grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-[#39A0FF] to-[#06318F] text-white shadow-[0_20px_40px_-20px_rgba(6,49,143,.8)]"><Check className="h-10 w-10" aria-hidden /></span>
           <p className="mt-6 max-w-[30ch] text-[17px] text-[#3A4A5C]">{spa?.main ?? "Your spa"}&apos;s own patient app, with your logo, colors and treatments. We also emailed you the link.</p>
           <a href={preview.url} className={`${primaryBtn} mt-8`}>Open my app</a>
+          {/* CP-237: the preview's front desk (same link as the welcome email). */}
+          <a href={preview.url.replace(`/p/${preview.slug}`, `/${preview.slug}/desk`)} className="s-focus mt-4 text-[15px] font-semibold text-[#0B5FD6] underline-offset-4 hover:underline">Open my front desk</a>
         </div>
       </StepShell>
     );

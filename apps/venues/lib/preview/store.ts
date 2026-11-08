@@ -78,6 +78,11 @@ export function previewUrl(slug: string): string {
   return `${medspaOrigin()}/p/${slug}`;
 }
 
+/** CP-237: the preview's front desk (opens in preview mode, no sign-in; nothing is saved). */
+export function deskUrl(slug: string): string {
+  return `${medspaOrigin()}/${slug}/desk`;
+}
+
 export function expiresAt(from = Date.now()): string {
   return new Date(from + PREVIEW_TTL_DAYS * 86_400_000).toISOString();
 }

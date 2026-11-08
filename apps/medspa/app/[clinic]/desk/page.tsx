@@ -5,7 +5,8 @@ import { getStaff } from "@/lib/staff";
 import { DeskApp } from "@/components/desk/desk-app";
 import { getBuilderData } from "@/lib/builder-data";
 
-export const metadata = { title: "Front desk" };
+export const metadata = { title: "Front desk", robots: { index: false, follow: false } };
+const SITE = (process.env.VENUE_APP_ORIGIN || "https://www.atlas-engine.app").replace(/\/$/, "");
 export const dynamic = "force-dynamic";
 
 /**
@@ -42,6 +43,8 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
       clinic={{
         id: clinic.id, slug: clinic.slug, name: clinic.name, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl, primary: clinic.primary, phone: clinic.phone,
         pointsPerDollar: clinic.pointsPerDollar, visitPoints: clinic.visitPoints, offersOn: clinic.offersOn, demo,
+        // CP-237: an instant preview's desk says so, and links back to the app and the walkthrough.
+        preview: clinic.preview ? { walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}`, expiresAt: clinic.preview.expiresAt } : null,
         recall: { enabled: clinic.cfg.recall.enabled, lead_days: clinic.cfg.recall.lead_days, followup_days: clinic.cfg.recall.followup_days },
         treatments: activeTreatments(clinic).map((t) => ({ id: t.id, name: t.name, recall_weeks: t.recall_weeks ?? null })),
         providers: clinic.cfg.providers.filter((p) => p.is_active).map((p) => ({ id: p.id, name: p.name, treatment_ids: p.treatment_ids ?? [] })),

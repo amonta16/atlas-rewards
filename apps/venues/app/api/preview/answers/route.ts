@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { notifyLead } from "@/lib/landing/notify";
 import { HOLD } from "@/lib/landing/medspa-funnel";
 import { labelOf, validateAnswers } from "@/lib/preview/quiz";
+import { sendWelcomeEmail } from "@/lib/preview/email";
+import { textPreviewLink } from "@/lib/preview/twilio-sms";
 import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/lib/preview/store";
 
 /**
@@ -16,10 +19,15 @@ import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/l
  *   · area open → qualified, and the area is held for HOLD.hours;
  *   · area taken → not qualified (reason area_taken): the page offers the waitlist.
  * Requires the contact step first (name, email, mobile are taken from the row).
+ * CP-237: then, in the background and only after the funnel's build animation, the welcome
+ * email (button to the front desk at med.atlas-engine.app/<slug>/desk) and, for owners who
+ * ticked the informational SMS box, one text with their link (off until PREVIEW_SMS_SEND=1).
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+// CP-237: the welcome email (and the optional text) wait for the build animation, in waitUntil.
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const rl = await rateLimit(clientKey(req, "pv-answers"), 10, 600);
@@ -98,6 +106,9 @@ export async function POST(req: Request) {
     ["Area", row.area_open == null ? null : row.area_open ? "open (held 48 h)" : "TAKEN (waitlist)"],
     ["Preview", previewUrl(row.slug)],
   ]).catch(() => false);
+
+  // Only the first finish sends (the quiz can be re-submitted with Back).
+  if (!row.quiz_at) waitUntil(Promise.allSettled([sendWelcomeEmail(row.slug), textPreviewLink(row.slug)]));
 
   return NextResponse.json({ ok: true, qualified: open });
 }
