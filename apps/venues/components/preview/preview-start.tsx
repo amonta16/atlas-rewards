@@ -16,7 +16,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
-import { SMS_CONSENT_PAGE, SMS_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
+import { SMS_CONSENT_PAGE, SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 
 type Suggestion = { placeId: string; main: string; secondary: string };
 type Step = "search" | "contact" | "code" | "booking" | "offer" | "challenges" | "priorities" | "finishing" | "ready" | "error";
@@ -118,7 +118,7 @@ export function PreviewStart() {
   const [built, setBuilt] = useState(false);
   const [found, setFound] = useState<Found | null>(null);
   // contact + code
-  const [contact, setContact] = useState({ first: "", last: "", email: "", phone: "", consent: false });
+  const [contact, setContact] = useState({ first: "", last: "", email: "", phone: "", consent: false, marketing: false });
   const [code, setCode] = useState("");
   const [needsCode, setNeedsCode] = useState(false);
   // quiz
@@ -263,16 +263,17 @@ export function PreviewStart() {
     if (!contact.first.trim()) return setStepError("Please enter your first name.");
     if (!EMAIL_RE.test(contact.email.trim())) return setStepError("Please enter a valid email.");
     if (!(d.length === 10 || (d.length === 11 && d.startsWith("1")))) return setStepError("Please enter a US mobile number.");
-    if (!contact.consent) return setStepError("Please tick the box so we can text you your app.");
     if (!preview) return setStepError("One moment, we're still starting your app…");
     setBusy(true);
     const { ok, json } = await post("/api/preview/contact", {
-      slug: preview.slug, first_name: contact.first.trim(), last_name: contact.last.trim(), email: contact.email.trim(), phone: contact.phone, consent: true, hp: hp.current?.value || undefined,
+      slug: preview.slug, first_name: contact.first.trim(), last_name: contact.last.trim(), email: contact.email.trim(), phone: contact.phone,
+      sms_consent: contact.consent, sms_marketing_consent: contact.marketing, hp: hp.current?.value || undefined,
     });
     setBusy(false);
     if (!ok) return setStepError(String(json.error ?? "That didn't go through. Please try again."));
     if (json.event_id) track("preview_contact", { event_id: String(json.event_id) });
-    if (json.verify) {
+    // The texted code is an SMS too: only for owners who ticked the informational box.
+    if (json.verify && contact.consent) {
       setNeedsCode(true);
       const sent = await post("/api/preview/verify", { slug: preview.slug, action: "send" });
       if (sent.ok && !sent.json.skip) { setStep("code"); return; }
@@ -390,8 +391,9 @@ export function PreviewStart() {
               ))}
             </ul>
             <p className="mt-8 max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C]">
-              Text messages: on the next step you can choose to get your app by text by ticking an unchecked box that reads
-              &ldquo;{SMS_CONSENT_TEXT}&rdquo;{" "}
+              Text messages are optional. On the next step there are two separate unchecked boxes: one for your app link and
+              call reminders (&ldquo;{SMS_INFO_CONSENT_TEXT}&rdquo;) and one for offers (&ldquo;{SMS_MARKETING_CONSENT_TEXT}&rdquo;).
+              Your app is emailed either way.{" "}
               <a href={SMS_CONSENT_PAGE} className="underline">See the form</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
             </p>
           </div>
@@ -444,10 +446,17 @@ export function PreviewStart() {
               <input className={field} type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(555) 555-0123" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} />
             </div>
           </label>
-          <label className="flex items-start gap-3 pt-1 text-[12.5px] leading-snug text-[#3A4A5C]">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.consent} onChange={(e) => setContact((c) => ({ ...c, consent: e.target.checked }))} />
-            <span>{SMS_CONSENT_TEXT} <a href={SMS_TERMS_URL} target="_blank" className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} target="_blank" className="underline">Privacy Policy</a></span>
-          </label>
+          <div className="space-y-3 pt-1">
+            <label className="flex items-start gap-3 text-[12.5px] leading-snug text-[#3A4A5C]">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.consent} onChange={(e) => setContact((c) => ({ ...c, consent: e.target.checked }))} />
+              <span>{SMS_INFO_CONSENT_TEXT}</span>
+            </label>
+            <label className="flex items-start gap-3 text-[12.5px] leading-snug text-[#3A4A5C]">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.marketing} onChange={(e) => setContact((c) => ({ ...c, marketing: e.target.checked }))} />
+              <span>{SMS_MARKETING_CONSENT_TEXT}</span>
+            </label>
+            <p className="pl-7 text-[12.5px] text-[#6B7A8C]">Both optional. <a href={SMS_TERMS_URL} target="_blank" className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} target="_blank" className="underline">Privacy Policy</a></p>
+          </div>
         </form>
       </StepShell>
     );

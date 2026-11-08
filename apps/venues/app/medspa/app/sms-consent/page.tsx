@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { siteFontClass } from "@/lib/landing/site-fonts";
-import { SMS_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
+import { SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 import "../../../site.css";
 
 /**
@@ -33,7 +33,8 @@ export default function SmsConsentPage() {
           <p className="mt-8 rounded-2xl bg-[#F1F6FD] p-4 text-[14.5px] leading-relaxed text-[#3A4A5C]">
             This is the contact form med spa owners and managers see at step 2 of our free app preview at{" "}
             <a href="/medspa/app" className="font-semibold text-[#0B5FD6] underline">atlas-engine.app/medspa/app</a>, right after they pick
-            their practice. The SMS consent box is <b>unchecked by default</b> and is required only to receive texts.
+            their practice. There are <b>two separate SMS boxes</b>, one for informational texts and one for marketing texts. Both are{" "}
+            <b>optional and unchecked by default</b>, and the preview is emailed whether or not either is ticked.
           </p>
 
           <h1 className="mt-8 text-[30px] font-bold leading-[1.1] tracking-[-0.025em] text-[#0B1B2B]">Where should we send your app?</h1>
@@ -50,21 +51,27 @@ export default function SmsConsentPage() {
                 <input className={field} type="tel" name="phone" placeholder="(555) 555-0123" autoComplete="off" readOnly />
               </div>
             </label>
-            <label className="flex items-start gap-3 pt-1 text-[13px] leading-snug text-[#3A4A5C]">
-              <input type="checkbox" name="sms_consent" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" defaultChecked={false} />
-              <span>
-                {SMS_CONSENT_TEXT}{" "}
-                <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
-              </span>
-            </label>
+            <div className="space-y-3 pt-1">
+              <label className="flex items-start gap-3 text-[13px] leading-snug text-[#3A4A5C]">
+                <input type="checkbox" name="sms_consent" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" defaultChecked={false} />
+                <span>{SMS_INFO_CONSENT_TEXT}</span>
+              </label>
+              <label className="flex items-start gap-3 text-[13px] leading-snug text-[#3A4A5C]">
+                <input type="checkbox" name="sms_marketing_consent" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" defaultChecked={false} />
+                <span>{SMS_MARKETING_CONSENT_TEXT}</span>
+              </label>
+              <p className="pl-7 text-[13px] text-[#6B7A8C]">
+                Both optional. <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
+              </p>
+            </div>
             <button type="submit" className="s-btn s-btn-primary s-focus h-14 w-full text-[17px]">Start my free app preview</button>
           </form>
 
           <section className="mt-10 space-y-3 text-[14.5px] leading-relaxed text-[#3A4A5C]">
             <h2 className="text-[18px] font-bold text-[#0B1B2B]">About these text messages</h2>
-            <p><b>Who gets them:</b> owners and managers of US med spas who request their app preview and tick the box above, or who text our number first from their preview page.</p>
-            <p><b>What we send:</b> the link to their app preview, answers to their questions, reminders for walkthrough calls they booked, and occasional follow-ups and offers about Atlas Engine&apos;s patient app and membership service.</p>
-            <p><b>How often:</b> message frequency varies, usually 2–6 messages a month. Message and data rates may apply.</p>
+            <p><b>Informational texts (first box):</b> the link to their app preview, answers to their questions, and reminders for walkthrough calls they booked. Sent only to owners who tick the first box or who text our number first from their preview page. Frequency varies.</p>
+            <p><b>Marketing texts (second box):</b> occasional offers and promotions about Atlas Engine&apos;s patient app and membership service. Sent only to owners who tick the second box. Up to 4 messages a month.</p>
+            <p><b>Not a condition of purchase:</b> owners can get their preview, book a call or buy without agreeing to either. Message and data rates may apply.</p>
             <p><b>Opt out or get help:</b> reply STOP at any time to stop, or HELP for help. You can also email <a href="mailto:andrew@atlas-engine.app" className="underline">andrew@atlas-engine.app</a>.</p>
             <p><b>Your number:</b> no mobile information will be shared with third parties or affiliates for marketing or promotional purposes. See our <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a> and <a href={SMS_TERMS_URL} className="underline">Terms</a>.</p>
           </section>

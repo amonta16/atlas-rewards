@@ -29,6 +29,8 @@ export async function POST(req: Request) {
   const row = await getPreviewBySlug(slug).catch(() => null);
   if (!row || isExpired(row) || !row.contact_phone) return NextResponse.json({ error: "Please enter your mobile number first." }, { status: 400 });
   if ((row as { phone_verified_at?: string | null }).phone_verified_at) return NextResponse.json({ ok: true, verified: true });
+  // CP-236: a texted code is an SMS, so only for owners who ticked the informational box.
+  if (!(row as { contact_consent_at?: string | null }).contact_consent_at) return NextResponse.json({ ok: true, skip: true });
 
   if (b.action === "send") {
     const per = await rateLimit(`pv-verify-send:${slug}`, 3, 900);

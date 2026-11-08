@@ -63,10 +63,12 @@ export default function TermsPage() {
 
       <h2 className="text-xl font-bold mt-8" id="sms">6a. Text message program</h2>
       <p>
-        <strong>Atlas Engine app previews and updates.</strong> When you request a preview of your practice&apos;s app and
-        tick the consent box, or text our number first, you agree to receive text messages from Atlas Engine about your
-        preview, calls you booked, and our service. Message frequency varies (usually 2–6 a month). Message and data
-        rates may apply. Consent is not a condition of purchase.
+        <strong>Atlas Engine app previews and updates.</strong> When you request a preview of your practice&apos;s app you
+        can tick two separate, optional boxes. The first (or texting our number first) means you agree to receive
+        informational texts: your preview link, answers to your questions and reminders for calls you booked; frequency
+        varies. The second means you also agree to receive occasional marketing texts with offers and promotions about
+        Atlas Engine, up to 4 a month. You can agree to one, both or neither. Message and data rates may apply. Consent
+        is not a condition of purchase.
       </p>
       <ul className="list-disc pl-6 mt-3 space-y-1">
         <li>Reply <strong>STOP</strong> to cancel at any time. You&apos;ll get one message confirming you&apos;re unsubscribed.</li>

@@ -14,11 +14,11 @@ import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/l
 /**
  * POST /api/preview/contact — CP-233 · the owner's contact, captured while their app builds.
  *
- * Body { slug, first_name, last_name (or name), phone, email, consent: true, hp } → { ok, event_id, verify }
+ * Body { slug, first_name, last_name (or name), phone, email, sms_consent?, sms_marketing_consent?, hp } → { ok, event_id, verify }
  * `verify` = the funnel should show the 6-digit texted code next (CP-234, off until Twilio).
  *
  * This is the lead. On submit:
- *   · saved on the preview row (contact_name / contact_phone / contact_email / consent time);
+ *   · saved on the preview row (contact_name / contact_phone / contact_email, plus the time of each SMS consent box ticked);
  *   · Meta "Lead" via the Conversions API with hashed email + phone (much better
  *     ad matching than an anonymous click), same event_id as the browser Pixel;
  *   · GHL inbound webhook (event "app_preview_contact"), if configured;
@@ -51,19 +51,26 @@ export async function POST(req: Request) {
   if (name.length < 2) return bad("Please enter your name.");
   if (!phone) return bad("Please enter a US mobile number.");
   if (!EMAIL_RE.test(email)) return bad("Please enter a valid email.");
-  if (b.consent !== true) return bad("Please tick the box so we can text you your app.");
+  // CP-236: two separate, optional SMS consents (informational vs marketing). Neither is required.
+  // `consent: true` from an older cached page is read as the informational box.
+  const smsInfo = b.sms_consent === true || b.consent === true;
+  const smsMarketing = b.sms_marketing_consent === true;
 
   const row = await getPreviewBySlug(slug).catch(() => null);
   if (!row || isExpired(row)) return bad("This preview has expired. Please build a new one.", 404);
 
   const now = new Date().toISOString();
-  const { error } = await previewDb().from("app_previews")
-    .update({ contact_name: name, contact_phone: phone, contact_email: email, contact_consent_at: now, contact_at: now })
+  const db = previewDb();
+  const { error } = await db.from("app_previews")
+    .update({ contact_name: name, contact_phone: phone, contact_email: email, contact_consent_at: smsInfo ? now : null, contact_at: now })
     .eq("id", row.id);
   if (error) {
     console.error("[preview] contact save failed", error.message);
     return bad("We couldn't save that. Please try again.", 500);
   }
+  // Separate write so the contact still saves if the CP-236 column isn't there yet.
+  const mk = await db.from("app_previews").update({ contact_marketing_consent_at: smsMarketing ? now : null }).eq("id", row.id);
+  if (mk.error) console.error("[preview] marketing consent save failed", mk.error.message);
 
   const eventId = newEventId("pvlead");
   const url = previewUrl(row.slug);

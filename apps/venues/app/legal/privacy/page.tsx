@@ -99,8 +99,9 @@ export default function PrivacyPage() {
       <p>
         If you give us your mobile number and agree to receive texts from Atlas Engine (for example when you request a
         preview of your practice&apos;s app at atlas-engine.app/medspa/app, or when you text us first), we use it only to
-        send you the messages you asked for: your app preview link, answers to your questions, reminders for calls you
-        booked, and follow-ups about Atlas Engine. Message frequency varies. Message and data rates may apply. Reply
+        send you the messages you asked for. Informational texts (your app preview link, answers to your questions,
+        reminders for calls you booked) and marketing texts (offers and promotions about Atlas Engine) are agreed to
+        separately, and we only send the kind you opted in to. Message frequency varies. Message and data rates may apply. Reply
         STOP to opt out at any time, or HELP for help.
       </p>
       <p className="mt-3">
