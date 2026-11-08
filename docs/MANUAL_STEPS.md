@@ -17,7 +17,7 @@ Leads: **Admin → App Previews** (Leads tab: name, mobile, email, the spa, the 
 - [ ] Google Cloud → APIs & Services: **Places API (New)** enabled (search already works). Credentials → the `GOOGLE_PLACES_API_KEY` key → API restrictions: Places API (New) only. Set a daily quota cap.
 - [ ] Meta (optional but recommended for ad optimization): Events Manager → your Pixel → Settings → Conversions API → Generate access token → Vercel atlas-rewards: `META_CAPI_TOKEN` and `NEXT_PUBLIC_META_PIXEL_ID` (the Pixel's number). Each lead is sent as `Lead` (content_name `app_preview`) with hashed email + phone.
 - [x] Twilio A2P 10DLC approved (2026-11-08). Number: **+1 775 252 4211**.
-- [ ] CP-237 texting (code is in, sending is OFF until you flip it). Vercel → Settings → Environment Variables, Production:
+- [x] CP-237 texting is ON (2026-11-08): Twilio + Vercel values set by Andrew, `PREVIEW_SMS_SEND=1` set by Claude and atlas-rewards redeployed. Still to do: text the number once from your phone and check you get your app link back (or an email "Text to the Atlas number" for a text without a pv- code). Reference, what was set: Vercel → Settings → Environment Variables, Production:
       **atlas-medspa**: `PREVIEW_SMS_NUMBER` = `+17752524211` → turns on the "Text me my app" button (owner texts first). Redeploy.
       **atlas-rewards** (sensitive): `TWILIO_ACCOUNT_SID` (`AC…`, Twilio Console home), `TWILIO_AUTH_TOKEN` (same page), `PREVIEW_SMS_NUMBER` = `+17752524211`.
       Optional on atlas-rewards: `TWILIO_MESSAGING_SERVICE_SID` (`MG…`, Messaging → Services → the service your A2P campaign is attached to). Without it, texts go out "From" the number, which works as long as the number sits in that campaign's service.
