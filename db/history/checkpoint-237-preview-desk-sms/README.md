@@ -12,7 +12,8 @@
   the right column at 122% width (687 px at 1440).
 - It shows three real practices from the funnel (St. George Med Spa, MedSpa SLO, Spa By the Bay). Andrew OK'd showing their
   names publicly on 2026-11-08.
-- Still open: the Botox/filler phone's photo carries an "After" label from the practice's own site (before/after rule).
+- The filler photo on the right phone carries an "After" label from the practice's own site. Flagged against the
+  before/after rule; Andrew chose to keep it as is (2026-11-08).
 
 ## 2. "Complete" only after the build animation
 Before: the contact step's chip said "<spa>'s app is built ✓" as soon as the server build finished (instantly for a spa searched
