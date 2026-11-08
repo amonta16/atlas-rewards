@@ -64,6 +64,7 @@ Accounts and setup only you can do (start these now, some take days):
 - [ ] Privacy policy + support URL for the store listing, and store screenshots (Claude can make these).
 
 ## Done by Claude (no action needed)
+- 2026-11-07 · CP-234 SQL applied to Supabase: quiz answers (booking tool, offered, challenges, priorities), phone_verified_at and landing_lead_id on `app_previews`; `get_app_preview` returns `priorities` only (other answers stay private). Verified with rolled-back test rows; funnel tested end to end on production (Tirage Medspa, test contact).
 - 2026-11-07 · CP-233 SQL applied to Supabase: contact columns (name, email, consent time) and deep-build columns (hero photo, font, about, team) on `app_previews`; `get_app_preview` returns the new display fields but never contact details. Verified with rolled-back test rows (unsafe font names rejected, table still unreadable with the public key).
 - 2026-11-07 · CP-232 SQL applied to Supabase: `app_previews` table (RLS on, no direct access for anon/authenticated), `get_app_preview(slug)` and `app_preview_state(slug)` read functions. Verified with rolled-back test rows: ready previews readable by slug only, building/expired ones hidden, table not selectable with the public key.
 - 2026-11-05 · CP-231 SQL applied to Supabase: Shop orders earn points when they're paid (Stripe or Mark paid at the desk), once per order; no points on gift cards; not counted as a visit. Tested with rolled-back demo orders.

@@ -1,4 +1,5 @@
 -- CP-234: instant app preview v3 — Dermis-style steps (contact → phone code → quiz).
+-- Applied to production 2026-11-07 as migration cp234_preview_quiz.
 --
 -- · Quiz answers on the preview row: booking tool, what they offer, what's holding
 --   them back (2), top priorities (2). Private, except `priorities`, which the
