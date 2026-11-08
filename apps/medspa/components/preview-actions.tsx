@@ -8,7 +8,7 @@
  *      Dermis's WhatsApp step). iOS reads the body after "&", Android after "?".
  *      On a computer: a QR code that opens that same text on their phone.
  *      No number configured yet (Twilio pending) → this button is hidden.
- *   2. "Book a 15-min walkthrough" — the existing /medspa calendar for the lead their
+ *   2. "Book a walkthrough" — the existing /medspa calendar for the lead their
  *      quiz created (atlas-engine.app/medspa/walkthrough/<slug> redirects there).
  *      Area already taken → "Join the waitlist".
  *   3. "Go live" (Stripe) — only when PREVIEW_SHOW_CHECKOUT=1 (a monthly price is set).
@@ -82,7 +82,7 @@ export function PreviewActions({ slug, businessName, primary, smsNumber, walkthr
           </button>
         ))}
         <a href={walkthroughUrl} className={`${btn} ${number ? "bg-white text-ink ring-1 ring-line hover:bg-page" : "text-white"}`} style={number ? undefined : { background: primary }}>
-          {taken ? "Join the waitlist" : "Book a 15-min walkthrough"}
+          {taken ? "Join the waitlist" : "Book a walkthrough"}
         </a>
         {goLive && (
           <a href={goLive} onClick={() => beacon("go_live")} className={`${btn} bg-ink text-white`}>Go live</a>

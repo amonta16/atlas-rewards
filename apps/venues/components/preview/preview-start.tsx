@@ -172,9 +172,13 @@ export function PreviewStart() {
     let stop = false;
     const started = Date.now();
     let misses = 0;
+    let first = true;
     (async () => {
       while (!stop) {
-        await new Promise((r) => setTimeout(r, POLL_MS));
+        // First check right away: a preview that's already built (same spa searched before)
+        // returns its treatments now, so "What do you offer?" can be pre-ticked.
+        if (!first) await new Promise((r) => setTimeout(r, POLL_MS));
+        first = false;
         if (stop) return;
         try {
           const r = await fetch(`/api/preview/status?slug=${encodeURIComponent(preview.slug)}`, { cache: "no-store" });
@@ -239,7 +243,6 @@ export function PreviewStart() {
         return;
       }
       setPreview({ slug: j.slug, url: j.url });
-      if (j.status === "ready") setBuilt(true);
       session.current = newSession();
       track("preview_started", {});
     } catch {
