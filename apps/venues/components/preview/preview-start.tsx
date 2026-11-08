@@ -391,7 +391,7 @@ export function PreviewStart() {
           </div>
           <div className="relative mx-auto w-full max-w-[340px] lg:max-w-[380px]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/landing/apps/spa-upright.webp" alt="A med spa's own Atlas app on a phone" width={640} height={1300} className="relative w-full drop-shadow-[0_40px_60px_rgba(11,27,43,.25)]" />
+            <img src="/landing/apps/spa-upright.webp" alt="A med spa's own Atlas app on a phone" width={640} height={1300} className="relative mx-auto h-auto max-h-[min(78dvh,760px)] w-auto max-w-full drop-shadow-[0_40px_60px_rgba(11,27,43,.25)]" />
           </div>
         </main>
       </div>
@@ -477,10 +477,10 @@ export function PreviewStart() {
             const on = tool === t.name;
             return (
               <button key={t.name} type="button" onClick={() => choose(t.name)} aria-pressed={on}
-                className={`flex h-[78px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 transition ${on ? "border-[#0B5FD6] bg-[#F1F6FD] ring-2 ring-[#0B5FD6]" : "border-[#0B1B2B]/10 bg-white hover:border-[#0B1B2B]/25"}`}>
+                className={`flex h-[84px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 transition ${on ? "border-[#0B5FD6] bg-[#F1F6FD] ring-2 ring-[#0B5FD6]" : "border-[#0B1B2B]/10 bg-white hover:border-[#0B1B2B]/25"}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`/booking-logos/${t.logo}.png`} alt="" width={30} height={30} className="h-[30px] w-[30px] rounded-lg object-contain" />
-                <span className={`max-w-full truncate text-[12.5px] font-semibold ${on ? "text-[#06318F]" : "text-[#0B1B2B]"}`}>{t.name}</span>
+                <span className={`line-clamp-2 max-w-full text-center text-[12px] font-semibold leading-tight ${on ? "text-[#06318F]" : "text-[#0B1B2B]"}`}>{t.name}</span>
               </button>
             );
           })}
