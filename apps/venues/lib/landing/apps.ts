@@ -33,17 +33,6 @@ export const APP_MOCKUPS: AppMockup[] = [
     points: "910 pts banked toward free play",
   },
   {
-    id: "area51",
-    name: "Area 51 Smoke Shop",
-    label: "Smoke shop",
-    color: "#34c759",
-    upright: "/landing/apps/area51-upright.webp",
-    tilt: "/landing/apps/area51-tilt.webp",
-    alt: "Area 51 Smoke Shop rewards app on an iPhone — green-branded home screen with a mix-and-match offer and top rewards",
-    offer: "Mix & Match any 3 for 10% off",
-    points: "$1 spent = points toward free products",
-  },
-  {
     id: "reveal",
     name: "Reveal Medical Aesthetics",
     label: "Med spa",

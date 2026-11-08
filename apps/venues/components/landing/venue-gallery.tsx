@@ -43,7 +43,7 @@ export function VenueGallery() {
         <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white sm:w-24" aria-hidden />
       </div>
       <p className="lp-container mt-6 text-center text-sm text-slate-500">
-        Arcades, batting cages, go-karts, bowling, trampoline parks and party venues. Also running in smoke shops, med spas and cafes.
+        Arcades, batting cages, go-karts, bowling, trampoline parks and party venues. Also running in med spas and cafes.
       </p>
     </section>
   );

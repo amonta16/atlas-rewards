@@ -9,7 +9,6 @@ import { Reveal } from "./reveal";
 import { DemoCta } from "./cta-button";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
-  area51: Store,
   reveal: Sparkles,
   flippos: Gamepad2,
   spa: Waves,
@@ -41,7 +40,7 @@ export function InteractiveDemo() {
           <p className="lp-eyebrow">Your brand, not ours</p>
           <h2 id="demo-title" className="lp-h2 mt-4">See what your app could look like.</h2>
           <p className="mt-4 max-w-xl text-lg text-slate-600">
-            These are real apps built on Atlas — a smoke shop, a med spa, an arcade and a day spa. Flip between them:
+            These are real apps built on Atlas — a med spa, an arcade and a day spa. Flip between them:
             the logo, colors, offers and rewards change, the engine underneath doesn&apos;t. That&apos;s how we launch fast.
           </p>
 

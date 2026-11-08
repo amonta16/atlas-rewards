@@ -9,7 +9,6 @@ import { Reveal } from "./reveal";
 import { DemoCta } from "./cta-button";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
-  area51: Store,
   reveal: Sparkles,
   flippos: Gamepad2,
   spa: Waves,

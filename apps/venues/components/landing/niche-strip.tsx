@@ -27,7 +27,7 @@ export function NicheStrip() {
             </li>
           ))}
         </ul>
-        <p className="mt-5 text-center text-sm text-slate-500">Also running in smoke shops, med spas and cafes.</p>
+        <p className="mt-5 text-center text-sm text-slate-500">Also running in med spas and cafes.</p>
       </Reveal>
     </section>
   );

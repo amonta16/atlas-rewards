@@ -1,14 +1,13 @@
 import { Reveal } from "./reveal";
 
 /**
- * Trust strip — CP-103. First tile is real (Exotic Smoke Shop, live since
- * Aug 2026); the rest stay placeholders until more launches land. Swap a
+ * Trust strip — CP-103. Tiles stay placeholders until launches land (CP-236: no
+ * tobacco/vape businesses on public pages, for carrier SMS review). Swap a
  * placeholder for a real one by adding to LIVE (name + optional sub).
  */
 const LIVE: Array<{ name: string; sub: string }> = [
-  { name: "EXOTIC SMOKE SHOP", sub: "San Luis Obispo · live" },
 ];
-const PLACEHOLDER_SLOTS = 5;
+const PLACEHOLDER_SLOTS = 6;
 
 export function LogoCloud() {
   return (

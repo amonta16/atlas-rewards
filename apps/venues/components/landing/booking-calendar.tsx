@@ -17,7 +17,7 @@ import { CALL_MINUTES, COMMON_TZS, HOST_TZ, dayKey, getAvailableSlots, tzLabel, 
  * back to the local hours grid so the funnel never dead-ends; the server
  * still re-checks the slot before booking.
  */
-const INDUSTRIES = ["Arcade / family fun center", "Batting cages / sports", "Go-karts / mini golf", "Trampoline park / bowling", "Smoke shop", "Med spa", "Restaurant / cafe", "Other"];
+const INDUSTRIES = ["Arcade / family fun center", "Batting cages / sports", "Go-karts / mini golf", "Trampoline park / bowling", "Med spa", "Restaurant / cafe", "Other"];
 const field =
   "lp-focus h-11 w-full rounded-lg border border-[#e8dfd1] bg-white px-3.5 text-[15px] text-[#14213d] placeholder:text-slate-400 focus:border-[#1f5f8b]/60";
 
