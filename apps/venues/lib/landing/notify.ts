@@ -34,16 +34,20 @@ export async function notifyLead(subject: string, lines: Array<[string, string |
   }
 }
 
-/** CP-189: email a prospect directly (booking confirmation). Reply-To goes to Andrew. */
-export async function emailProspect(to: string, subject: string, text: string): Promise<boolean> {
+/**
+ * CP-189: email a prospect directly (booking confirmation). Reply-To goes to Andrew.
+ * CP-235: optional `html` (sent alongside the plain text, which stays as the fallback).
+ */
+export async function emailProspect(to: string, subject: string, text: string, html?: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   if (!key) { console.info(`[landing] RESEND_API_KEY not set — would have emailed ${to}: ${subject}`); return false; }
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: FROM, to: [to], reply_to: CONTACT_EMAIL, subject, text }),
+      body: JSON.stringify({ from: FROM, to: [to], reply_to: CONTACT_EMAIL, subject, text, ...(html ? { html } : {}) }),
     });
+    if (!r.ok) console.error("[landing] prospect email rejected", r.status, (await r.text()).slice(0, 200));
     return r.ok;
   } catch (e) {
     console.error("[landing] prospect email failed", e);

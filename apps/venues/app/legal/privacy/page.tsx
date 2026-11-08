@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   return (
     <article className="prose prose-zinc max-w-none">
       <h1 className="text-3xl font-extrabold tracking-tight">Privacy Policy</h1>
-      <p className="text-sm text-zinc-500">Last updated: July 21, 2026</p>
+      <p className="text-sm text-zinc-500">Last updated: November 7, 2026</p>
 
       <p className="mt-4 leading-relaxed">
         Atlas Engine ("Atlas," "we," "us") provides a white-label customer
@@ -94,6 +94,20 @@ export default function PrivacyPage() {
           <strong>EU / UK / California residents</strong> have additional GDPR / CCPA rights (access, rectification, restriction of processing). Email us — we honor all of them.
         </li>
       </ul>
+
+      <h2 className="text-xl font-bold mt-8" id="sms">6a. Text messages (SMS)</h2>
+      <p>
+        If you give us your mobile number and agree to receive texts from Atlas Engine (for example when you request a
+        preview of your practice&apos;s app at atlas-engine.app/medspa/app, or when you text us first), we use it only to
+        send you the messages you asked for: your app preview link, answers to your questions, reminders for calls you
+        booked, and follow-ups about Atlas Engine. Message frequency varies. Message and data rates may apply. Reply
+        STOP to opt out at any time, or HELP for help.
+      </p>
+      <p className="mt-3">
+        <strong>No mobile information will be shared with third parties or affiliates for marketing or promotional
+        purposes.</strong> Text messaging originator opt-in data and consent will not be shared with any third parties,
+        except the providers that deliver the messages for us (such as our SMS carrier) and only to send them.
+      </p>
 
       <h2 className="text-xl font-bold mt-8">7. Retention</h2>
       <p>

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
-import { clean, EMAIL_RE, notifyLead, emailProspect } from "@/lib/landing/notify";
+import { clean, EMAIL_RE, notifyLead } from "@/lib/landing/notify";
 import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
 import { newEventId } from "@/lib/landing/funnel-sign";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { postGhlLead } from "@/lib/preview/ghl";
 import { e164 } from "@/lib/preview/sms";
 import { phoneVerifyEnabled } from "@/lib/preview/twilio";
+import { sendPreviewEmail } from "@/lib/preview/email";
 import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/lib/preview/store";
 
 /**
@@ -26,6 +27,8 @@ import { getPreviewBySlug, isExpired, previewDb, previewUrl, SLUG_RE } from "@/l
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// The branded email waits (in waitUntil) for the build to finish, up to ~90 s.
+export const maxDuration = 120;
 // Next caches server fetch() GETs by default, and supabase-js reads with GET: without this,
 // a preview read once as "building" would stay "building" (seen live on 2026-11-07).
 export const fetchCache = "force-no-store";
@@ -94,17 +97,8 @@ export async function POST(req: Request) {
       ["Preview", url],
       ["Ad", [row.utm_campaign, row.utm_content].filter(Boolean).join(" / ") || null],
     ]),
-    emailProspect(email, `Your ${row.business_name} app preview`, [
-      `Hi ${first || "there"},`,
-      "",
-      `Here's the preview of ${row.business_name}'s own patient app:`,
-      url,
-      "",
-      "Open it on your phone and tap around: memberships, rewards and reminders that bring patients back before their treatment wears off.",
-      "It's saved for 14 days. Reply to this email or text us when you want it live.",
-      "",
-      "Andrew, Atlas Engine",
-    ].join("\n")),
+    // CP-235: the branded "your app is ready" email (waits for the build so it can show their logo and photo).
+    sendPreviewEmail(row.slug, email, first),
   ]));
 
   return NextResponse.json({ ok: true, event_id: eventId, verify: phoneVerifyEnabled() }, { headers: { "Cache-Control": "no-store" } });

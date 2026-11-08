@@ -7,7 +7,7 @@ export default function TermsPage() {
   return (
     <article className="prose prose-zinc max-w-none">
       <h1 className="text-3xl font-extrabold tracking-tight">Terms of Service</h1>
-      <p className="text-sm text-zinc-500">Last updated: May 31, 2026</p>
+      <p className="text-sm text-zinc-500">Last updated: November 7, 2026</p>
 
       <p className="mt-4 leading-relaxed">
         By using Atlas Engine ("Atlas," "we," "us"), you agree to these terms.
@@ -60,6 +60,20 @@ export default function TermsPage() {
         billing period, no refund for partial months. Refund requests for clear
         billing errors are honored.
       </p>
+
+      <h2 className="text-xl font-bold mt-8" id="sms">6a. Text message program</h2>
+      <p>
+        <strong>Atlas Engine app previews and updates.</strong> When you request a preview of your practice&apos;s app and
+        tick the consent box, or text our number first, you agree to receive text messages from Atlas Engine about your
+        preview, calls you booked, and our service. Message frequency varies (usually 2–6 a month). Message and data
+        rates may apply. Consent is not a condition of purchase.
+      </p>
+      <ul className="list-disc pl-6 mt-3 space-y-1">
+        <li>Reply <strong>STOP</strong> to cancel at any time. You&apos;ll get one message confirming you&apos;re unsubscribed.</li>
+        <li>Reply <strong>HELP</strong> for help, or email <a href="mailto:andrew@atlas-engine.app" className="underline">andrew@atlas-engine.app</a>.</li>
+        <li>Carriers are not liable for delayed or undelivered messages.</li>
+        <li>How we handle your number: see our <a href="/legal/privacy#sms" className="underline">Privacy Policy</a>.</li>
+      </ul>
 
       <h2 className="text-xl font-bold mt-8">7. Service availability</h2>
       <p>

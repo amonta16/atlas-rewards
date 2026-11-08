@@ -13,14 +13,19 @@
  * request failure ends on a clear message with a way forward, never a blank page.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, Sparkles, WifiOff } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { track } from "@/lib/landing/analytics";
-import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES, prefillOffered } from "@/lib/preview/quiz";
+import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 
 type Suggestion = { placeId: string; main: string; secondary: string };
 type Step = "search" | "contact" | "code" | "booking" | "offer" | "challenges" | "priorities" | "finishing" | "ready" | "error";
 
 const POLL_MS = 2500;
+/** The scan screen runs at least this long, so the owner watches their app come together (CP-235). */
+const SCAN_MS = 22_000;
+
+/** What the build found on their site (from /api/preview/status once ready). */
+type Found = { site: string | null; logo: string | null; color: string | null; treatments: number; treatmentNames: string[]; photos: number; team: number; font: string | null };
 const GIVE_UP_MS = 220_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -110,7 +115,7 @@ export function PreviewStart() {
   const [spa, setSpa] = useState<Suggestion | null>(null);
   const [preview, setPreview] = useState<{ slug: string; url: string } | null>(null);
   const [built, setBuilt] = useState(false);
-  const [found, setFound] = useState<string[]>([]);
+  const [found, setFound] = useState<Found | null>(null);
   // contact + code
   const [contact, setContact] = useState({ first: "", last: "", email: "", phone: "", consent: false });
   const [code, setCode] = useState("");
@@ -119,14 +124,13 @@ export function PreviewStart() {
   const [tool, setTool] = useState<string | null>(null);
   const [toolOther, setToolOther] = useState("");
   const [offered, setOffered] = useState<string[]>([]);
-  const [touchedOffer, setTouchedOffer] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(OFFER_GROUPS[0].id);
   const [challenges, setChallenges] = useState<string[]>([]);
   const [priorities, setPriorities] = useState<string[]>([]);
   // request state for the current step
   const [busy, setBusy] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
-  const [pct, setPct] = useState(12);
+  const [pct, setPct] = useState(0);
 
   const session = useRef("");
   const abort = useRef<AbortController | null>(null);
@@ -175,16 +179,15 @@ export function PreviewStart() {
     let first = true;
     (async () => {
       while (!stop) {
-        // First check right away: a preview that's already built (same spa searched before)
-        // returns its treatments now, so "What do you offer?" can be pre-ticked.
+        // First check right away: a preview that's already built (same spa searched before) answers at once.
         if (!first) await new Promise((r) => setTimeout(r, POLL_MS));
         first = false;
         if (stop) return;
         try {
           const r = await fetch(`/api/preview/status?slug=${encodeURIComponent(preview.slug)}`, { cache: "no-store" });
-          const j = (await r.json().catch(() => ({}))) as { status?: string; found?: string[] };
+          const j = (await r.json().catch(() => ({}))) as { status?: string; found?: Found | null };
           if (r.ok && (j.status === "ready" || j.status === "expired")) {
-            setFound(Array.isArray(j.found) ? j.found : []);
+            setFound(j.found ?? null);
             setBuilt(true);
             return;
           }
@@ -196,37 +199,30 @@ export function PreviewStart() {
     return () => { stop = true; };
   }, [preview, built]);
 
-  // Pre-tick "What do you offer?" from their website, unless they've already changed it.
-  useEffect(() => {
-    if (!found.length || touchedOffer) return;
-    const pre = prefillOffered(found);
-    if (pre.length) {
-      setOffered(pre);
-      const first = OFFER_GROUPS.find((g) => g.items.some((i) => pre.includes(i.id)));
-      if (first) setOpenGroup(first.id);
-    }
-  }, [found, touchedOffer]);
-
-  // "Finishing" waits for the build, then the reveal.
+  // The scan: progress climbs steadily for at least SCAN_MS (and waits at 96% if the build isn't
+  // done yet), findings tick in as it goes, then the reveal.
   useEffect(() => {
     if (step !== "finishing") return;
-    const t = setInterval(() => setPct((p) => (p < 94 ? p + Math.max(1, Math.round((94 - p) / 9)) : p)), 450);
+    const t0 = Date.now();
+    const t = setInterval(() => {
+      const target = Math.min(96, Math.round(((Date.now() - t0) / SCAN_MS) * 96));
+      setPct((p) => Math.max(p, target));
+    }, 200);
     return () => clearInterval(t);
   }, [step]);
   useEffect(() => {
-    if (step === "finishing" && built) {
-      setPct(100);
-      const t = setTimeout(() => { setStep("ready"); track("preview_ready", { contact: true }); }, 600);
-      return () => clearTimeout(t);
-    }
-  }, [step, built]);
+    if (step !== "finishing" || !built || pct < 96) return;
+    setPct(100);
+    const t = setTimeout(() => { setStep("ready"); track("preview_ready", { contact: true }); }, 1100);
+    return () => clearTimeout(t);
+  }, [step, built, pct]);
 
   const start = useCallback(async (s: Suggestion) => {
     setSuggestions([]);
     setSpa(s);
     setPreview(null);
     setBuilt(false);
-    setFound([]);
+    setFound(null);
     setError(null);
     setStep("contact");
     track("preview_search", { selected: true });
@@ -311,7 +307,7 @@ export function PreviewStart() {
     setBusy(false);
     if (!ok) return setStepError(String(json.error ?? "We couldn't save that. Please try again."));
     track("preview_quiz_done", { priorities: priorities.join(",") });
-    setPct(built ? 90 : 18);
+    setPct(0);
     setStep("finishing");
   }
 
@@ -340,57 +336,64 @@ export function PreviewStart() {
   /* ───────────── search (landing) ───────────── */
   if (step === "search") {
     return (
-      <div className="site min-h-[100dvh] overflow-x-clip">
-        <section className="s-ocean relative flex min-h-[100dvh] flex-col">
-          <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent to-[#06318F]/45" />
-          <header className="s-wrap relative flex h-[68px] items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/atlas-engine-logo.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
-          </header>
-          {honeypot}
-          <div className="s-wrap relative flex flex-1 flex-col items-center justify-center pb-16 pt-6 text-center">
-            <p className="inline-flex items-center gap-2 rounded-full bg-white/12 py-1.5 pl-2.5 pr-4 text-[14px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
-              <Sparkles className="h-4 w-4" aria-hidden /> Free · about two minutes
+      <div className="site min-h-[100dvh] overflow-x-clip bg-white">
+        {honeypot}
+        <header className="s-wrap flex h-[72px] items-center justify-between">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
+          <a href="/medspa" className="text-[14px] font-semibold text-[#3A4A5C] hover:text-[#0B1B2B]">How it works</a>
+        </header>
+        <main className="s-wrap grid items-center gap-10 pb-16 pt-6 lg:min-h-[calc(100dvh-72px)] lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:pb-10 lg:pt-0">
+          <div>
+            <p className="text-[14px] font-semibold uppercase tracking-[0.12em] text-[#0B5FD6]">For med spas</p>
+            <h1 className="mt-4 max-w-[13ch] text-[clamp(2.4rem,1.6rem+3.4vw,4.3rem)] font-bold leading-[1.02] tracking-[-0.035em] text-[#0B1B2B]">
+              See your patient app before you spend a dollar.
+            </h1>
+            <p className="mt-5 max-w-[32rem] text-[18px] leading-relaxed text-[#3A4A5C]">
+              Type your practice&apos;s name. We read your website and build your own app: your logo, your colors, your treatments.
             </p>
-            <h1 className="s-display mx-auto mt-6 max-w-[15ch] !text-white">See your med spa&apos;s own app.</h1>
-            <p className="s-lead mx-auto mt-5 max-w-[34rem] !text-white/85">
-              Type your practice&apos;s name. We&apos;ll build a preview of your patient app from your website: your logo, colors, photos and treatments.
-            </p>
-            <div className="relative mx-auto mt-9 w-full max-w-[560px] text-left">
+
+            <div className="relative mt-8 w-full max-w-[540px]">
               <label htmlFor="pv-search" className="sr-only">Your med spa&apos;s name</label>
-              <div className="flex h-16 items-center gap-3 rounded-full bg-white pl-5 pr-3 shadow-[0_24px_50px_-24px_rgba(6,49,143,.8)] ring-1 ring-white/60 focus-within:ring-4 focus-within:ring-white/50">
+              <div className="flex h-[60px] items-center gap-3 rounded-2xl border border-[#0B1B2B]/15 bg-white pl-5 pr-3 shadow-[0_18px_40px_-28px_rgba(11,27,43,.45)] focus-within:border-[#0B5FD6] focus-within:ring-4 focus-within:ring-[#0B5FD6]/15">
                 <Search className="h-5 w-5 shrink-0 text-[#6B7A8C]" aria-hidden />
                 <input
                   id="pv-search" type="text" role="combobox" aria-expanded={suggestions.length > 0} aria-controls={listId} aria-autocomplete="list"
                   aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off" autoFocus enterKeyHint="search"
                   placeholder="Your med spa's name" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKey}
-                  className="h-full min-w-0 flex-1 bg-transparent text-[18px] text-[#0B1B2B] placeholder:text-[#6B7A8C] focus:outline-none"
+                  className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-[#0B1B2B] placeholder:text-[#8A97A8] focus:outline-none"
                 />
                 {searching && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#0B5FD6]" aria-label="Searching" />}
               </div>
               {suggestions.length > 0 && (
-                <ul id={listId} role="listbox" className="absolute inset-x-0 top-[72px] z-20 overflow-hidden rounded-3xl bg-white py-2 shadow-[0_30px_60px_-30px_rgba(6,49,143,.7)] ring-1 ring-black/5">
+                <ul id={listId} role="listbox" className="absolute inset-x-0 top-[66px] z-20 overflow-hidden rounded-2xl border border-[#0B1B2B]/10 bg-white py-1.5 shadow-[0_24px_50px_-24px_rgba(11,27,43,.45)]">
                   {suggestions.map((s, i) => (
                     <li key={s.placeId} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
-                      <button type="button" onMouseEnter={() => setActive(i)} onClick={() => start(s)} className={`flex w-full items-start gap-3 px-5 py-3 text-left ${i === active ? "bg-[#E6F1FF]" : ""}`}>
+                      <button type="button" onMouseEnter={() => setActive(i)} onClick={() => start(s)} className={`flex w-full items-start gap-3 px-4 py-2.5 text-left ${i === active ? "bg-[#F1F6FD]" : ""}`}>
                         <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#0B5FD6]" aria-hidden />
                         <span className="min-w-0">
-                          <span className="block truncate text-[16px] font-semibold text-[#0B1B2B]">{s.main}</span>
-                          <span className="block truncate text-[14px] text-[#6B7A8C]">{s.secondary}</span>
+                          <span className="block truncate text-[15.5px] font-semibold text-[#0B1B2B]">{s.main}</span>
+                          <span className="block truncate text-[13.5px] text-[#6B7A8C]">{s.secondary}</span>
                         </span>
                       </button>
                     </li>
                   ))}
-                  <li className="px-5 pb-1 pt-2 text-right text-[11px] text-[#6B7A8C]">Search by Google</li>
+                  <li className="px-4 pb-1 pt-1.5 text-right text-[11px] text-[#8A97A8]">Search by Google</li>
                 </ul>
               )}
-              {searchError && <p role="alert" className="mt-3 text-center text-[14px] font-medium text-white">{searchError}</p>}
+              {searchError && <p role="alert" className="mt-3 text-[14px] font-medium text-red-700">{searchError}</p>}
             </div>
-            <p className="mt-6 text-[14px] text-white/75">
-              Can&apos;t find your practice? <a href="/medspa" className="font-semibold text-white underline underline-offset-4">See how Atlas works instead</a>
-            </p>
+            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[14.5px] text-[#3A4A5C]">
+              {["Free", "No card needed", "Ready in about 2 minutes"].map((t) => (
+                <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#0B5FD6]" aria-hidden />{t}</li>
+              ))}
+            </ul>
           </div>
-        </section>
+          <div className="relative mx-auto w-full max-w-[340px] lg:max-w-[380px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/landing/apps/spa-upright.webp" alt="A med spa's own Atlas app on a phone" width={640} height={1300} className="relative w-full drop-shadow-[0_40px_60px_rgba(11,27,43,.25)]" />
+          </div>
+        </main>
       </div>
     );
   }
@@ -437,7 +440,7 @@ export function PreviewStart() {
           </label>
           <label className="flex items-start gap-3 pt-1 text-[12.5px] leading-snug text-[#3A4A5C]">
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.consent} onChange={(e) => setContact((c) => ({ ...c, consent: e.target.checked }))} />
-            <span>Text me my app and follow-ups from Atlas Engine at this number. Msg &amp; data rates may apply. Msg frequency varies. Reply STOP to opt out. Consent isn&apos;t a condition of purchase.</span>
+            <span>Text me my app and follow-ups from Atlas Engine at this number. Msg &amp; data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help. Consent isn&apos;t a condition of purchase. <a href="/legal/terms#sms" target="_blank" className="underline">Terms</a> · <a href="/legal/privacy#sms" target="_blank" className="underline">Privacy</a></span>
           </label>
         </form>
       </StepShell>
@@ -469,13 +472,18 @@ export function PreviewStart() {
           <button type="button" disabled={!tool && !toolOther.trim()} onClick={() => setStep("offer")} className={primaryBtn}>Continue</button>
           <button type="button" onClick={() => { choose("None"); setStep("offer"); }} className="mt-3 w-full text-center text-[14px] text-[#3A4A5C] underline-offset-4 hover:underline">I don&apos;t use booking software</button>
         </>}>
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {BOOKING_TOOLS.map((t) => (
-            <button key={t} type="button" onClick={() => choose(t)} aria-pressed={tool === t}
-              className={`h-[68px] rounded-2xl border px-2 text-[15px] font-semibold tracking-[-0.01em] transition ${tool === t ? "border-[#0B5FD6] bg-[#E6F1FF] text-[#06318F] ring-2 ring-[#0B5FD6]" : "border-[#0B1B2B]/10 bg-white text-[#0B1B2B] hover:border-[#0B1B2B]/25"}`}>
-              {t}
-            </button>
-          ))}
+        <div className="grid grid-cols-3 gap-2">
+          {BOOKING_TOOLS.map((t) => {
+            const on = tool === t.name;
+            return (
+              <button key={t.name} type="button" onClick={() => choose(t.name)} aria-pressed={on}
+                className={`flex h-[78px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1 transition ${on ? "border-[#0B5FD6] bg-[#F1F6FD] ring-2 ring-[#0B5FD6]" : "border-[#0B1B2B]/10 bg-white hover:border-[#0B1B2B]/25"}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/booking-logos/${t.logo}.png`} alt="" width={30} height={30} className="h-[30px] w-[30px] rounded-lg object-contain" />
+                <span className={`max-w-full truncate text-[12.5px] font-semibold ${on ? "text-[#06318F]" : "text-[#0B1B2B]"}`}>{t.name}</span>
+              </button>
+            );
+          })}
         </div>
         <label className="mt-5 block text-[14px] font-medium text-[#3A4A5C]">Not listed? Type it
           <input className={`${field} mt-1.5`} value={toolOther} onChange={(e) => { setToolOther(e.target.value); if (e.target.value) setTool(null); }} placeholder="e.g. Jane, Acuity" />
@@ -489,7 +497,7 @@ export function PreviewStart() {
     const n = offered.length;
     return (
       <StepShell step="offer" title="What do you offer?" onBack={() => setStep("booking")}
-        sub={found.length && !touchedOffer && n ? "We ticked what we found on your website. Add anything we missed." : `Pick at least ${MIN_OFFERED} treatments your clinic offers.`}
+        sub={`Pick at least ${MIN_OFFERED} treatments your clinic offers.`}
         footer={<button type="button" disabled={n < MIN_OFFERED} onClick={() => setStep("challenges")} className={primaryBtn}>{n < MIN_OFFERED ? `Pick at least ${MIN_OFFERED} (${n}/${MIN_OFFERED})` : `Continue (${n} selected)`}</button>}>
         <div className="space-y-2.5">
           {OFFER_GROUPS.map((g) => {
@@ -507,7 +515,7 @@ export function PreviewStart() {
                       const on = offered.includes(i.id);
                       return (
                         <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-xl px-2 py-3 hover:bg-[#F6F9FD]">
-                          <input type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-[#0B5FD6]" checked={on} onChange={() => { setTouchedOffer(true); toggle(offered, setOffered, i.id); }} />
+                          <input type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-[#0B5FD6]" checked={on} onChange={() => toggle(offered, setOffered, i.id)} />
                           <span>
                             <span className="block text-[16px] text-[#0B1B2B]">{i.label}</span>
                             {i.hint && <span className="block text-[13.5px] text-[#6B7A8C]">{i.hint}</span>}
@@ -556,17 +564,82 @@ export function PreviewStart() {
   /* ───────────── finishing → ready ───────────── */
   const first = contact.first.trim() || "Your";
   if (step === "finishing") {
+    const f = found;
+    const brand = f?.color ?? "#0B5FD6";
+    // Each finding starts at `at`% and ticks off ~12 points later, but only once the build has
+    // actually found it (the first one is just "reading", so it can tick on its own).
+    const items: Array<{ at: number; doing: string; done: string; detail?: React.ReactNode }> = [
+      { at: 4, doing: f?.site ? `Reading ${f.site}` : "Reading your website", done: f?.site ? `Read ${f.site}` : "Read your website" },
+      { at: 20, doing: "Finding your logo", done: f?.logo ? "Found your logo" : "Made your monogram",
+        // eslint-disable-next-line @next/next/no-img-element
+        detail: f?.logo ? <img src={f.logo} alt="" className="h-6 max-w-[84px] object-contain" /> : null },
+      { at: 36, doing: "Matching your brand color", done: "Matched your brand color",
+        detail: f?.color ? <span className="flex items-center gap-1.5 text-[12px] text-[#6B7A8C]"><span className="h-4 w-4 rounded-full ring-1 ring-black/10" style={{ background: f.color }} />{f.color}</span> : null },
+      { at: 52, doing: "Pulling your treatments", done: f?.treatments ? `Added ${f.treatments} of your treatments` : "Added a starter menu",
+        detail: f?.treatmentNames?.length ? <span className="max-w-[130px] truncate text-[12px] text-[#6B7A8C]">{f.treatmentNames.slice(0, 2).join(", ")}</span> : null },
+      { at: 68, doing: "Adding your photos", done: f?.photos ? `Added ${f.photos} of your photos` : "Added photos" },
+      { at: 82, doing: "Setting up rewards and memberships", done: "Rewards and memberships ready" },
+    ];
+    const state = (i: number) => (pct >= items[i].at + 12 && (built || i === 0) ? "done" : pct >= items[i].at ? "doing" : "todo");
+    const stage = Math.max(0, items.findIndex((_, i) => state(i) !== "done"));
+    const showLogo = state(1) === "done";
+    const showColor = state(2) === "done";
+    const showMenu = state(3) === "done";
+    const name = contact.first.trim();
     return (
-      <StepShell step="finishing" title={`${contact.first.trim() ? `${contact.first.trim()}, a` : "A"}lmost done…`}>
-        <div className="flex flex-col items-center pt-10 text-center" role="status" aria-live="polite">
-          <div className="relative grid h-28 w-28 place-items-center">
-            <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden>
-              <circle cx="60" cy="60" r="52" fill="none" stroke="#E6F1FF" strokeWidth="10" />
-              <circle cx="60" cy="60" r="52" fill="none" stroke="#0B5FD6" strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(pct / 100) * 326.7} 326.7`} className="transition-[stroke-dasharray] duration-500" />
-            </svg>
-            <span className="text-[26px] font-bold tabular-nums text-[#0B1B2B]">{pct}%</span>
+      <StepShell step="finishing" title={pct >= 96 ? (name ? `${name}, almost done…` : "Almost done…") : `Building ${spa?.main ?? "your"}${spa ? "'s" : ""} app…`}>
+        <style>{`@keyframes pvscan{0%{transform:translateY(-10%)}100%{transform:translateY(520%)}}@keyframes pvpulse{0%,100%{opacity:.55}50%{opacity:1}}`}</style>
+        <div className="flex flex-col items-center" role="status" aria-live="polite">
+          {/* The phone, filling in as each finding lands */}
+          <div className="relative h-[300px] w-[150px] overflow-hidden rounded-[30px] border-[6px] border-[#0B1B2B] bg-white shadow-[0_30px_60px_-30px_rgba(11,27,43,.6)]">
+            <div className="mx-auto mt-1.5 h-3 w-12 rounded-full bg-[#0B1B2B]" />
+            <div className="flex h-8 items-center px-2.5">
+              {showLogo && f?.logo
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={f.logo} alt="" className="h-5 max-w-[80px] object-contain" />
+                : <span className="h-2.5 w-14 rounded-full bg-[#E6EBF2]" style={{ animation: "pvpulse 1.4s ease-in-out infinite" }} />}
+            </div>
+            <div className="mx-2 h-[86px] rounded-xl transition-colors duration-700" style={{ background: showColor ? `linear-gradient(140deg, ${brand}, ${brand}cc)` : "#E6EBF2" }} />
+            <div className="mx-2 mt-2 h-7 rounded-lg bg-white shadow-[0_6px_14px_-8px_rgba(11,27,43,.4)] ring-1 ring-black/5" />
+            <div className="mx-2 mt-3 grid grid-cols-2 gap-1.5">
+              {[0, 1, 2, 3].map((k) => (
+                <div key={k} className="h-[52px] rounded-lg transition-colors duration-700" style={{ background: showMenu ? `${brand}${k % 2 ? "26" : "40"}` : "#EEF2F7" }} />
+              ))}
+            </div>
+            <div className="absolute inset-x-2 bottom-2 flex h-6 items-center justify-around rounded-lg bg-[#F6F9FD]">
+              {[0, 1, 2, 3].map((k) => <span key={k} className="h-2 w-2 rounded-full" style={{ background: k === 0 && showColor ? brand : "#C9D3E0" }} />)}
+            </div>
+            {pct < 100 && (
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-16" style={{ animation: "pvscan 2.2s ease-in-out infinite alternate", background: `linear-gradient(180deg, transparent, ${brand}33 60%, ${brand}aa 96%, transparent)` }} />
+            )}
           </div>
-          <p className="mt-6 text-[16px] text-[#3A4A5C]">{pct < 40 ? "Reading your website…" : pct < 70 ? "Adding your treatments and photos…" : "Setting up your rewards and memberships…"}</p>
+
+          <div className="mt-6 w-full">
+            <div className="flex items-baseline justify-between">
+              <span className="min-w-0 truncate pr-3 text-[15px] font-semibold text-[#0B1B2B]">{pct >= 100 ? "Done" : pct >= 96 ? "Finishing touches…" : `${items[stage].doing}…`}</span>
+              <span className="text-[15px] font-bold tabular-nums text-[#0B1B2B]">{pct}%</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#0B1B2B]/8">
+              <div className="h-full rounded-full bg-gradient-to-r from-[#39A0FF] via-[#0B5FD6] to-[#06318F] transition-[width] duration-200" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+
+          <ol className="mt-5 w-full space-y-2.5">
+            {items.map((it, i) => {
+              const st = state(i);
+              if (st === "todo") return null;
+              return (
+                <li key={it.doing} className="flex items-center gap-3 rounded-xl border border-[#0B1B2B]/8 bg-white px-3.5 py-2.5">
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${st === "done" ? "bg-[#0B5FD6] text-white" : "bg-[#E6F1FF] text-[#0B5FD6]"}`}>
+                    {st === "done" ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+                  </span>
+                  <span className={`min-w-0 flex-1 text-[14.5px] ${st === "done" ? "text-[#0B1B2B]" : "font-semibold text-[#0B1B2B]"}`}>{st === "done" ? it.done : it.doing}</span>
+                  {st === "done" && it.detail}
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-5 text-[13px] text-[#6B7A8C]">Don&apos;t close this page. Your app opens here when it&apos;s ready.</p>
         </div>
       </StepShell>
     );

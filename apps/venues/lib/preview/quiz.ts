@@ -5,10 +5,14 @@
  * answers against the same ids. Wording is ours (Atlas), written for owners.
  */
 
-export const BOOKING_TOOLS = [
-  "Boulevard", "Vagaro", "Mangomint", "Zenoti", "Mindbody", "GlossGenius", "Square",
-  "Fresha", "PatientNow", "AestheticsPro", "Pabau", "Aesthetic Record", "Jane",
-] as const;
+/** Booking software, with each company's own app icon (public/booking-logos, taken from their sites). */
+export const BOOKING_TOOLS: ReadonlyArray<{ name: string; logo: string }> = [
+  { name: "Boulevard", logo: "boulevard" }, { name: "Vagaro", logo: "vagaro" }, { name: "Mangomint", logo: "mangomint" },
+  { name: "Zenoti", logo: "zenoti" }, { name: "Mindbody", logo: "mindbody" }, { name: "GlossGenius", logo: "glossgenius" },
+  { name: "Square", logo: "square" }, { name: "Fresha", logo: "fresha" }, { name: "PatientNow", logo: "patientnow" },
+  { name: "AestheticsPro", logo: "aestheticspro" }, { name: "Pabau", logo: "pabau" }, { name: "Aesthetic Record", logo: "aestheticrecord" },
+  { name: "Jane", logo: "jane" },
+];
 
 export type OfferGroup = { id: string; label: string; items: Array<{ id: string; label: string; hint?: string; match: RegExp }> };
 

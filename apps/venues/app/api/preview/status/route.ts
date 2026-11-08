@@ -29,8 +29,23 @@ export async function GET(req: Request) {
       row = (await getPreviewBySlug(slug)) ?? row;
     }
     const status = isExpired(row) ? "expired" : row.status === "claimed" ? "ready" : row.status;
-    // CP-234: treatment names we read on their site, to pre-tick "What do you offer?"
-    const found = status === "ready" && !row.treatments_are_examples ? (row.treatments ?? []).map((t) => t.name).slice(0, 20) : [];
+    // CP-235: what the build found, for the scanning screen (all of it is shown on the public preview anyway).
+    let found: Record<string, unknown> | null = null;
+    if (status === "ready") {
+      const ts = row.treatments ?? [];
+      let site: string | null = null;
+      try { site = row.website ? new URL(row.website).hostname.replace(/^www\./, "") : null; } catch { site = null; }
+      found = {
+        site,
+        logo: row.logo_is_monogram ? null : row.logo_url,
+        color: (row.colors as { primary?: string } | null)?.primary ?? null,
+        treatments: row.treatments_are_examples ? 0 : ts.length,
+        treatmentNames: row.treatments_are_examples ? [] : ts.slice(0, 4).map((t) => t.name),
+        photos: ts.filter((t) => t.image_url).length + (row.hero_url ? 1 : 0),
+        team: (row.team ?? []).length,
+        font: row.font_family,
+      };
+    }
     return NextResponse.json({ status, url: previewUrl(row.slug), found }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[preview] status failed", e);
