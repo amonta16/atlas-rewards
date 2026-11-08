@@ -16,6 +16,10 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
+import QRCode from "react-qr-code";
+import { TrioVideo } from "@/components/landing/trio-video";
+import { FOUNDING, GUARANTEES, HOLD, MONTHLY_PRICE, OFFER_NAME, SETUP_STACK, TERRITORY } from "@/lib/landing/medspa-funnel";
+import { detectPlatform, e164, type Platform } from "@/lib/preview/sms";
 import { SMS_CONSENT_PAGE, SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 
 type Suggestion = { placeId: string; main: string; secondary: string };
@@ -78,27 +82,6 @@ function Progress({ step }: { step: Step }) {
   );
 }
 
-/** CP-237: the 3D phones loop (MP4 + WebM + poster). Reduced-motion visitors get the still poster. */
-function TrioVideo() {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const v = ref.current;
-    if (!v) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { v.pause(); v.removeAttribute("autoplay"); return; }
-    v.play().catch(() => { /* autoplay blocked: the poster stays */ });
-  }, []);
-  return (
-    <video
-      ref={ref} autoPlay muted loop playsInline preload="auto" poster="/landing/medspa-trio/trio-poster.webp" width={1280} height={788}
-      aria-label="Three med spa apps on phones: a rewards card, a membership page and a treatment menu"
-      className="block h-auto w-full mix-blend-multiply lg:w-[122%] lg:max-w-none"
-    >
-      <source src="/landing/medspa-trio/trio.webm" type="video/webm" />
-      <source src="/landing/medspa-trio/trio.mp4" type="video/mp4" />
-    </video>
-  );
-}
-
 function StepShell({ step, title, sub, onBack, children, footer }: {
   step: Step; title: string; sub?: React.ReactNode; onBack?: () => void; children: React.ReactNode; footer?: React.ReactNode;
 }) {
@@ -124,7 +107,12 @@ function StepShell({ step, title, sub, onBack, children, footer }: {
   );
 }
 
-export function PreviewStart() {
+export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string | null } = {}) {
+  // CP-237: the A2P number for "Take your app on the go" (PREVIEW_SMS_NUMBER, read on the server).
+  const smsNumber = e164(rawSms);
+  const [platform, setPlatform] = useState<Platform>("desktop");
+  const [sad, setSad] = useState(false);
+  const [qualified, setQualified] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>("search");
   const [error, setError] = useState<{ message: string; offline?: boolean; retry?: Suggestion } | null>(null);
   // search
@@ -160,7 +148,20 @@ export function PreviewStart() {
   const hp = useRef<HTMLInputElement>(null);
   const listId = useId();
 
-  useEffect(() => { session.current = newSession(); attr.current = attribution(); }, []);
+  useEffect(() => { session.current = newSession(); attr.current = attribution(); setPlatform(detectPlatform(navigator.userAgent)); }, []);
+
+  // CP-237: "Don't leave me!" while the app finishes: when they switch away and come back,
+  // or (desktop) move the mouse up to the tab bar.
+  useEffect(() => {
+    if (step !== "finishing") return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const sadFor = () => { setSad(true); clearTimeout(t); t = setTimeout(() => setSad(false), 3500); };
+    const onVis = () => { if (document.visibilityState === "visible") sadFor(); };
+    const onLeave = (e: MouseEvent) => { if (e.clientY <= 0) sadFor(); };
+    document.addEventListener("visibilitychange", onVis);
+    document.documentElement.addEventListener("mouseleave", onLeave);
+    return () => { clearTimeout(t); document.removeEventListener("visibilitychange", onVis); document.documentElement.removeEventListener("mouseleave", onLeave); };
+  }, [step]);
   useEffect(() => { setStepError(null); window.scrollTo({ top: 0 }); }, [step]);
 
   // Debounced autocomplete
@@ -330,6 +331,7 @@ export function PreviewStart() {
     setBusy(false);
     if (!ok) return setStepError(String(json.error ?? "We couldn't save that. Please try again."));
     track("preview_quiz_done", { priorities: priorities.join(",") });
+    setQualified(typeof json.qualified === "boolean" ? json.qualified : null);
     setPct(0);
     setStep("finishing");
   }
@@ -415,12 +417,16 @@ export function PreviewStart() {
                 <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#0B5FD6]" aria-hidden />{t}</li>
               ))}
             </ul>
+            {/* CP-237: the offer, up front. Numbers from lib/landing/medspa-funnel.ts. */}
+            <p className="mt-4 max-w-[34rem] text-[14.5px] leading-relaxed text-[#3A4A5C]">
+              The preview is free. If you want it live, {FOUNDING.active ? <>our first {FOUNDING.spots} med spas pay a <b className="text-[#0B1B2B]">{usd(FOUNDING.setupFounding)} setup</b> <span className="line-through decoration-rose-400/80">{usd(FOUNDING.setupFull)}</span></> : <>setup is <b className="text-[#0B1B2B]">{usd(FOUNDING.setupFull)}</b></>} and one flat monthly plan. One med spa per {TERRITORY.radiusMiles}-mile area.
+            </p>
 
           </div>
           {/* CP-237: three real med spa previews on 3D phones (projects/medspa-trio-3d), a seamless 6 s loop.
               White background + multiply, so the video's edge disappears into the page. Wider than its column on desktop. */}
           <figure className="relative mx-auto w-full max-w-[560px] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mx-0 lg:max-w-none">
-            <TrioVideo />
+            <TrioVideo className="lg:w-[122%] lg:max-w-none" />
             <figcaption className="mt-1 text-center text-[13px] text-[#6B7A8C] lg:w-[122%]">Three med spa apps, each built from the practice&apos;s own website.</figcaption>
           </figure>
           <p className="max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C] lg:col-start-1 lg:row-start-2 lg:mt-8">
@@ -610,98 +616,152 @@ export function PreviewStart() {
   /* ───────────── finishing → ready ───────────── */
   const first = contact.first.trim() || "Your";
   if (step === "finishing") {
+    // CP-237: Dermis-style hand-off after the last question. A few seconds of "Optimizing… N%",
+    // then "{First}, we're almost done…" with the progress bar, time left, OR, and "Take your app
+    // on the go" (a text to our number with their app code filled in; /api/preview/sms-inbound
+    // replies with the link). Leaving the page (switching apps, mouse to the tab bar) gets
+    // "Don't leave me!". "Ready" still waits for the scan (SCAN_MS) and the real build status.
     const f = found;
     const brand = f?.color ?? "#0B5FD6";
-    // Each finding starts at `at`% and ticks off ~12 points later, but only once the build has
-    // actually found it (the first one is just "reading", so it can tick on its own).
-    const items: Array<{ at: number; doing: string; done: string; detail?: React.ReactNode }> = [
+    const items: Array<{ at: number; doing: string; done: string }> = [
       { at: 4, doing: f?.site ? `Reading ${f.site}` : "Reading your website", done: f?.site ? `Read ${f.site}` : "Read your website" },
-      { at: 20, doing: "Finding your logo", done: f?.logo ? "Found your logo" : "Made your monogram",
-        // eslint-disable-next-line @next/next/no-img-element
-        detail: f?.logo ? <img src={f.logo} alt="" className="h-6 max-w-[84px] object-contain" /> : null },
-      { at: 36, doing: "Matching your brand color", done: "Matched your brand color",
-        detail: f?.color ? <span className="flex items-center gap-1.5 text-[12px] text-[#6B7A8C]"><span className="h-4 w-4 rounded-full ring-1 ring-black/10" style={{ background: f.color }} />{f.color}</span> : null },
-      { at: 52, doing: "Pulling your treatments", done: f?.treatments ? `Added ${f.treatments} of your treatments` : "Added a starter menu",
-        detail: f?.treatmentNames?.length ? <span className="max-w-[130px] truncate text-[12px] text-[#6B7A8C]">{f.treatmentNames.slice(0, 2).join(", ")}</span> : null },
+      { at: 20, doing: "Finding your logo", done: f?.logo ? "Found your logo" : "Made your monogram" },
+      { at: 36, doing: "Matching your brand color", done: "Matched your brand color" },
+      { at: 52, doing: "Pulling your treatments", done: f?.treatments ? `Added ${f.treatments} of your treatments` : "Added a starter menu" },
       { at: 68, doing: "Adding your photos", done: f?.photos ? `Added ${f.photos} of your photos` : "Added photos" },
       { at: 82, doing: "Setting up rewards and memberships", done: "Rewards and memberships ready" },
     ];
-    const state = (i: number) => (pct >= items[i].at + 12 && (built || i === 0) ? "done" : pct >= items[i].at ? "doing" : "todo");
-    const stage = Math.max(0, items.findIndex((_, i) => state(i) !== "done"));
-    const showLogo = state(1) === "done";
-    const showColor = state(2) === "done";
-    const showMenu = state(3) === "done";
+    const isDone = (i: number) => pct >= items[i].at + 12 && (built || i === 0);
+    const stage = Math.max(0, items.findIndex((_, i) => !isDone(i)));
+    const showLogo = isDone(1), showColor = isDone(2), showMenu = isDone(3);
     const name = contact.first.trim();
-    return (
-      <StepShell step="finishing" title={pct >= 96 ? (name ? `${name}, almost done…` : "Almost done…") : `Building ${spa?.main ?? "your"}${spa ? "'s" : ""} app…`}>
-        <style>{`@keyframes pvscan{0%{transform:translateY(-10%)}100%{transform:translateY(520%)}}@keyframes pvpulse{0%,100%{opacity:.55}50%{opacity:1}}`}</style>
-        <div className="flex flex-col items-center" role="status" aria-live="polite">
-          {/* The phone, filling in as each finding lands */}
-          <div className="relative h-[300px] w-[150px] overflow-hidden rounded-[30px] border-[6px] border-[#0B1B2B] bg-white shadow-[0_30px_60px_-30px_rgba(11,27,43,.6)]">
-            <div className="mx-auto mt-1.5 h-3 w-12 rounded-full bg-[#0B1B2B]" />
-            <div className="flex h-8 items-center px-2.5">
-              {showLogo && f?.logo
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={f.logo} alt="" className="h-5 max-w-[80px] object-contain" />
-                : <span className="h-2.5 w-14 rounded-full bg-[#E6EBF2]" style={{ animation: "pvpulse 1.4s ease-in-out infinite" }} />}
-            </div>
-            <div className="mx-2 h-[86px] rounded-xl transition-colors duration-700" style={{ background: showColor ? `linear-gradient(140deg, ${brand}, ${brand}cc)` : "#E6EBF2" }} />
-            <div className="mx-2 mt-2 h-7 rounded-lg bg-white shadow-[0_6px_14px_-8px_rgba(11,27,43,.4)] ring-1 ring-black/5" />
-            <div className="mx-2 mt-3 grid grid-cols-2 gap-1.5">
-              {[0, 1, 2, 3].map((k) => (
-                <div key={k} className="h-[52px] rounded-lg transition-colors duration-700" style={{ background: showMenu ? `${brand}${k % 2 ? "26" : "40"}` : "#EEF2F7" }} />
-              ))}
-            </div>
-            <div className="absolute inset-x-2 bottom-2 flex h-6 items-center justify-around rounded-lg bg-[#F6F9FD]">
-              {[0, 1, 2, 3].map((k) => <span key={k} className="h-2 w-2 rounded-full" style={{ background: k === 0 && showColor ? brand : "#C9D3E0" }} />)}
-            </div>
-            {pct < 100 && (
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-16" style={{ animation: "pvscan 2.2s ease-in-out infinite alternate", background: `linear-gradient(180deg, transparent, ${brand}33 60%, ${brand}aa 96%, transparent)` }} />
-            )}
+    const optimizing = pct < 14;
+    const secsLeft = Math.max(1, Math.ceil((SCAN_MS * (96 - Math.min(pct, 96))) / 96 / 1000));
+    const spaName = spa?.main ?? "my spa";
+    const smsBody = preview ? `Hi! I'm waiting on my ${spaName} app (${preview.slug}). Here's the email I used: ${contact.email.trim()}` : "";
+    const sms = smsNumber && preview && platform !== "desktop" ? `sms:${smsNumber}${platform === "ios" ? "&" : "?"}body=${encodeURIComponent(smsBody)}` : null;
+    const phone = (
+      <div className="relative">
+        {sad && (
+          <div className="absolute -left-[118px] top-2 z-10 rounded-2xl bg-white px-3.5 py-2 text-[14px] font-semibold text-[#0B1B2B] shadow-[0_12px_30px_-12px_rgba(11,27,43,.45)] ring-1 ring-black/5" role="status">
+            Don&apos;t leave me!
+            <span aria-hidden className="absolute -right-1.5 top-4 h-3 w-3 rotate-45 bg-white" />
           </div>
-
-          <div className="mt-6 w-full">
-            <div className="flex items-baseline justify-between">
-              <span className="min-w-0 truncate pr-3 text-[15px] font-semibold text-[#0B1B2B]">{pct >= 100 ? "Done" : pct >= 96 ? "Finishing touches…" : `${items[stage].doing}…`}</span>
-              <span className="text-[15px] font-bold tabular-nums text-[#0B1B2B]">{pct}%</span>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#0B1B2B]/8">
-              <div className="h-full rounded-full bg-gradient-to-r from-[#39A0FF] via-[#0B5FD6] to-[#06318F] transition-[width] duration-200" style={{ width: `${pct}%` }} />
-            </div>
+        )}
+        <div className={`relative h-[220px] w-[110px] overflow-hidden rounded-[24px] border-[5px] border-[#0B1B2B] bg-white shadow-[0_30px_60px_-30px_rgba(11,27,43,.6)] transition-transform duration-500 ${sad ? "-rotate-6" : ""}`}>
+          <div className="mx-auto mt-1 h-2.5 w-9 rounded-full bg-[#0B1B2B]" />
+          <div className="flex h-6 items-center px-2">
+            {showLogo && f?.logo
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={f.logo} alt="" className="h-4 max-w-[64px] object-contain" />
+              : <span className="h-2 w-10 rounded-full bg-[#E6EBF2]" style={{ animation: "pvpulse 1.4s ease-in-out infinite" }} />}
           </div>
-
-          <ol className="mt-5 w-full space-y-2.5">
-            {items.map((it, i) => {
-              const st = state(i);
-              if (st === "todo") return null;
-              return (
-                <li key={it.doing} className="flex items-center gap-3 rounded-xl border border-[#0B1B2B]/8 bg-white px-3.5 py-2.5">
-                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${st === "done" ? "bg-[#0B5FD6] text-white" : "bg-[#E6F1FF] text-[#0B5FD6]"}`}>
-                    {st === "done" ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-                  </span>
-                  <span className={`min-w-0 flex-1 text-[14.5px] ${st === "done" ? "text-[#0B1B2B]" : "font-semibold text-[#0B1B2B]"}`}>{st === "done" ? it.done : it.doing}</span>
-                  {st === "done" && it.detail}
-                </li>
-              );
-            })}
-          </ol>
-          <p className="mt-5 text-[13px] text-[#6B7A8C]">Don&apos;t close this page. Your app opens here when it&apos;s ready.</p>
+          <div className="mx-1.5 h-[62px] rounded-lg transition-colors duration-700" style={{ background: showColor ? `linear-gradient(140deg, ${brand}, ${brand}cc)` : "#E6EBF2" }} />
+          <div className="mx-1.5 mt-1.5 grid grid-cols-2 gap-1">
+            {[0, 1, 2, 3].map((k) => <div key={k} className="h-[38px] rounded-md transition-colors duration-700" style={{ background: showMenu ? `${brand}${k % 2 ? "26" : "40"}` : "#EEF2F7" }} />)}
+          </div>
+          {sad && <div className="absolute inset-0 grid place-items-center bg-white/70 text-[34px]" aria-hidden>🥺</div>}
+          {pct < 100 && <div className="pointer-events-none absolute inset-x-0 top-0 h-12" style={{ animation: "pvscan 2.2s ease-in-out infinite alternate", background: `linear-gradient(180deg, transparent, ${brand}33 60%, ${brand}aa 96%, transparent)` }} />}
         </div>
-      </StepShell>
+      </div>
+    );
+    return (
+      <div className="site min-h-[100dvh] bg-white">
+        <style>{`@keyframes pvscan{0%{transform:translateY(-10%)}100%{transform:translateY(520%)}}@keyframes pvpulse{0%,100%{opacity:.55}50%{opacity:1}}`}</style>
+        <div className="mx-auto flex min-h-[100dvh] w-full max-w-[520px] flex-col items-center justify-center px-5 py-10 text-center" role="status" aria-live="polite">
+          {optimizing ? (
+            <>
+              {phone}
+              <p className="mt-6 text-[17px] text-[#6B7A8C]">Optimizing&hellip; <span className="tabular-nums">{pct}%</span></p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.025em] text-[#0B1B2B]">
+                {pct >= 100 ? (name ? `${name}, it's ready!` : "It's ready!") : name ? `${name}, we're almost done…` : "We're almost done…"}
+              </h1>
+              <div className="mt-8">{phone}</div>
+              <div className="mt-8 w-full">
+                <div className="h-2.5 overflow-hidden rounded-full bg-[#0B1B2B]/8">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#39A0FF] via-[#0B5FD6] to-[#06318F] transition-[width] duration-200" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="mt-3 text-[15px] text-[#6B7A8C]">
+                  {pct >= 100 ? "Done" : pct >= 96 ? "Finishing touches…" : `Est. time remaining: ${secsLeft} sec`}
+                </p>
+                <p className="mt-1 min-h-[20px] truncate text-[13.5px] text-[#8A97A8]">{pct < 96 ? `${isDone(stage) ? items[stage].done : items[stage].doing}…` : ""}</p>
+              </div>
+              {smsNumber && preview && pct < 100 && (
+                <>
+                  <div className="my-6 flex w-full items-center gap-4 text-[13px] font-semibold text-[#8A97A8]"><span className="h-px flex-1 bg-[#0B1B2B]/10" />OR<span className="h-px flex-1 bg-[#0B1B2B]/10" /></div>
+                  {sms ? (
+                    <a href={sms} onClick={() => track("preview_on_the_go", { platform })} className="s-focus grid h-14 w-full place-items-center rounded-2xl bg-[#0B1B2B] text-[17px] font-semibold text-white">Take your app on the go</a>
+                  ) : (
+                    <div className="flex w-full items-center gap-4 rounded-2xl border border-[#0B1B2B]/10 p-4 text-left">
+                      <div className="shrink-0 rounded-lg bg-white p-1.5 ring-1 ring-black/5"><QRCode value={`SMSTO:${smsNumber}:${smsBody}`} size={92} level="M" /></div>
+                      <p className="text-[14px] leading-snug text-[#3A4A5C]"><b className="text-[#0B1B2B]">Take your app on the go.</b> Scan with your phone&apos;s camera: it opens a text to us with your app&apos;s code filled in. Hit send and we&apos;ll text your app back.</p>
+                    </div>
+                  )}
+                  <p className="mt-3 text-[12px] leading-snug text-[#8A97A8]">Opens a text to Atlas Engine at {prettyPhone(smsNumber)}. We reply with your app link. Msg &amp; data rates may apply. Reply STOP to opt out.</p>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     );
   }
   if (step === "ready" && preview) {
+    const desk = preview.url.replace(`/p/${preview.slug}`, `/${preview.slug}/desk`);
     return (
       <StepShell step="ready" title={`${first === "Your" ? "Your" : `${first}, your`} app is ready.`}>
-        <div className="flex flex-col items-center pt-8 text-center">
+        <div className="flex flex-col items-center pt-6 text-center">
           <span className="grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-[#39A0FF] to-[#06318F] text-white shadow-[0_20px_40px_-20px_rgba(6,49,143,.8)]"><Check className="h-10 w-10" aria-hidden /></span>
           <p className="mt-6 max-w-[30ch] text-[17px] text-[#3A4A5C]">{spa?.main ?? "Your spa"}&apos;s own patient app, with your logo, colors and treatments. We also emailed you the link.</p>
           <a href={preview.url} className={`${primaryBtn} mt-8`}>Open my app</a>
           {/* CP-237: the preview's front desk (same link as the welcome email). */}
-          <a href={preview.url.replace(`/p/${preview.slug}`, `/${preview.slug}/desk`)} className="s-focus mt-4 text-[15px] font-semibold text-[#0B5FD6] underline-offset-4 hover:underline">Open my front desk</a>
+          <a href={desk} className="s-focus mt-4 text-[15px] font-semibold text-[#0B5FD6] underline-offset-4 hover:underline">Open my front desk</a>
         </div>
+        <OfferCard slug={preview.slug} qualified={qualified} />
       </StepShell>
     );
   }
   return null;
+}
+
+const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
+
+/**
+ * CP-237 · the offer, stated plainly where the owner first sees their app. Every number comes
+ * from lib/landing/medspa-funnel.ts (the same source as the /medspa offer section and FAQ).
+ */
+function OfferCard({ slug, qualified }: { slug: string; qualified: boolean | null }) {
+  const taken = qualified === false;
+  return (
+    <section aria-labelledby="pv-offer" className="mt-10 rounded-[24px] border border-[#0B1B2B]/10 bg-[#F6F9FD] p-5 text-left sm:p-6">
+      <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#0B5FD6]">{FOUNDING.active ? `Want it live? First ${FOUNDING.spots} med spas` : "Want it live?"}</p>
+      <h2 id="pv-offer" className="mt-1.5 text-[22px] font-bold leading-tight tracking-[-0.02em] text-[#0B1B2B]">{FOUNDING.active ? `The ${OFFER_NAME}` : "Your setup"}</h2>
+      <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-1">
+        {FOUNDING.active && <span className="pb-1 text-[16px] font-semibold text-[#8A97A8] line-through decoration-rose-400/80">{usd(FOUNDING.setupFull)}</span>}
+        <span className="text-[40px] font-extrabold leading-none tracking-tight text-[#0B1B2B]">{usd(FOUNDING.active ? FOUNDING.setupFounding : FOUNDING.setupFull)}</span>
+        <span className="pb-1 text-[14px] text-[#3A4A5C]">one-time setup</span>
+      </div>
+      <p className="mt-2 text-[13.5px] leading-snug text-[#3A4A5C]">
+        {MONTHLY_PRICE ? `Then ${usd(MONTHLY_PRICE)} a month, month to month.` : "Then one flat monthly plan, month to month, quoted on your walkthrough."} No percentage of your treatment revenue.
+        {FOUNDING.active ? ` Founding price in exchange for ${FOUNDING.trade}.` : ""}
+      </p>
+      <ul className="mt-4 space-y-2">
+        {SETUP_STACK.map((s) => (
+          <li key={s.title} className="flex items-start gap-2.5 text-[14.5px] leading-snug text-[#0B1B2B]">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0B5FD6]" strokeWidth={3} aria-hidden />{s.title}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 space-y-1.5 border-t border-[#0B1B2B]/8 pt-4">
+        {GUARANTEES.map((g) => <p key={g.id} className="text-[13.5px] leading-snug text-[#3A4A5C]"><b className="text-[#0B1B2B]">{g.title}</b> {g.short}.</p>)}
+      </div>
+      <p className="mt-4 text-[13.5px] font-semibold text-[#0B1B2B]">
+        {taken ? `Another med spa holds your area (one per ${TERRITORY.radiusMiles} miles). Join the waitlist and we'll tell you if it opens.` : `One med spa per ${TERRITORY.radiusMiles}-mile area.${qualified ? ` Yours is held for ${HOLD.hours} hours.` : ""}`}
+      </p>
+      <a href={`/medspa/walkthrough/${slug}`} onClick={() => track("preview_offer_cta", { taken })} className={`${primaryBtn} mt-5`}>{taken ? "Join the waitlist" : "Book a 15-min walkthrough"}</a>
+    </section>
+  );
 }

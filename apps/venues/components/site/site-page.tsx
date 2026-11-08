@@ -13,6 +13,7 @@
  * does today. No invented customers, numbers or logos. Entertainment venues
  * are routed to /venues from the nav and footer.
  */
+import { MedspaAppsBand } from "@/components/landing/medspa-apps-band"; // CP-237
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowRight, Check, Menu, Minus, Play, Plus, Star, X } from "lucide-react";
@@ -53,6 +54,7 @@ function Page() {
       <Nav onStart={() => start("nav")} />
       <main id="main">
         <Showcase onStart={() => start("hero")} />
+        <MedspaAppsBand where="site" />
         <ClientResults />
         <Desk />
         <Week />

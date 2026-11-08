@@ -55,6 +55,8 @@ export type LandingEvent =
   | "preview_started"
   | "preview_contact" // CP-233: owner gave name/mobile/email → Meta standard Lead (content_name "app_preview"), deduped with CAPI
   | "preview_quiz_done" // CP-234
+  | "preview_on_the_go" // CP-237: "Take your app on the go" (text us)
+  | "preview_offer_cta" // CP-237: the offer card's walkthrough button
   | "preview_ready"
   | "preview_failed";
 

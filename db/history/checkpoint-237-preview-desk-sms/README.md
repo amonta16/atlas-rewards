@@ -71,3 +71,30 @@ New:
 - sms-inbound: unsigned and forged signatures → 403; signed STOP → empty TwiML; signed text while sending is off → empty TwiML.
 - Welcome email rendered and checked at 390 px.
 Not done: no real SMS or email was sent; the live contact/answers routes weren't run against the database (no service key locally).
+
+## Part 2 (same day): website video, the offer, Dermis-style hand-off
+- **Video on the website**: `components/landing/trio-video.tsx` (shared) and `medspa-apps-band.tsx`, a white band
+  "Your app, built from your own website." with a "See my app" button into /medspa/app (UTMs kept). On /medspa
+  (right after the hero, before Assurances) and /med-spas (right after Showcase). Plays at 390 and 1440, no side scroll.
+- **The offer, stated plainly** (all numbers from `lib/landing/medspa-funnel.ts`):
+  · /medspa/app landing: one line under the checks ("The preview is free. If you want it live, our first 10 med spas
+    pay a $500 setup ~~$1,000~~ and one flat monthly plan. One med spa per 10-mile area.").
+  · Ready screen: an offer card (Founding Partner Program, $500 vs $1,000 setup, monthly quoted on the walkthrough,
+    the six setup items, the three guarantees, area held 48 h or waitlist) with "Book a 15-min walkthrough".
+  · med.atlas-engine.app/p/<slug>: the same card before the buttons. Its numbers live in `apps/medspa/lib/offer.ts`,
+    a mirror of the venue file. **Change both when the offer changes.**
+- **Finishing step, Dermis-style** (from Dermis's onboarding screenshots: Optimizing → "{Name}, I'm almost done…" → OR →
+  "Take Dermis on the go" → a prefilled message; "Don't leave me!" on exit):
+  · "Optimizing… N%" for the first ~3 s, then "{First}, we're almost done…", the phone filling in, a progress bar,
+    "Est. time remaining: N sec" and the current step.
+  · OR → **Take your app on the go**: on phones an `sms:` link to PREVIEW_SMS_NUMBER with
+    "Hi! I'm waiting on my <spa> app (pv-…). Here's the email I used: <email>"; on desktop a QR code of the same text.
+    The inbound webhook finds the pv- code and replies with the app + desk links (only once `PREVIEW_SMS_SEND=1`).
+    Disclosure under it: number, "we reply with your app link", rates, STOP.
+  · "Don't leave me!" bubble (and a sad phone) when they come back from another app/tab, or move the mouse to the tab bar.
+  · `/medspa/app` reads `PREVIEW_SMS_NUMBER` at build time (static page). Without it, the OR block is hidden.
+- Checked (production builds, funnel APIs mocked): iPhone UA at 390 → "Optimizing… 6%", "Andrew, we're almost done…",
+  "Est. time remaining: 16 sec", the sms: link with the slug, "Don't leave me!" on return, ready screen with the offer;
+  1440 → the same with the QR code. /p/<slug> offer card at both widths (Tirage preview, real data). tsc + next build green.
+- Vercel (checked by name only, values are hidden): atlas-rewards has TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
+  PREVIEW_SMS_NUMBER, TWILIO_MESSAGING_SERVICE_SID; atlas-medspa has PREVIEW_SMS_NUMBER. PREVIEW_SMS_SEND is not set yet.

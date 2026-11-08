@@ -28,7 +28,8 @@ export default function Page() {
     <>
       <MetaPixel />
       <div className={siteFontClass}>
-        <PreviewStart />
+        {/* CP-237: the A2P number, for "Take your app on the go" on the finishing step. */}
+        <PreviewStart smsNumber={process.env.PREVIEW_SMS_NUMBER ?? null} />
       </div>
     </>
   );

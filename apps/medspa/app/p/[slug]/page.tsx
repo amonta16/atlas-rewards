@@ -3,6 +3,7 @@ import QRCode from "react-qr-code";
 import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib/preview";
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { PhoneFrame } from "@/components/phone-frame";
+import { OFFER } from "@/lib/offer";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
@@ -110,6 +111,30 @@ export default async function PreviewPage({ params }: { params: { slug: string }
               We couldn&apos;t read a treatment menu on your website, so these are example treatments. Your real menu goes in when you go live.
             </p>
           )}
+
+          {/* CP-237: the offer, stated plainly before the buttons (numbers in lib/offer.ts, mirrored from the venue site). */}
+          <section aria-labelledby="pv-offer" className="mt-8 max-w-[34rem] rounded-[24px] bg-white p-5 shadow-soft sm:p-6">
+            <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{OFFER.foundingActive ? `Want it live? First ${OFFER.spots} med spas` : "Want it live?"}</p>
+            <h2 id="pv-offer" className="mt-1.5 text-[22px] font-semibold leading-tight tracking-[-0.015em]">{OFFER.foundingActive ? `The ${OFFER.name}` : "Your setup"}</h2>
+            <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
+              {OFFER.foundingActive && <span className="pb-1 text-[16px] font-semibold text-sub line-through">${OFFER.setupFull.toLocaleString("en-US")}</span>}
+              <span className="text-[38px] font-bold leading-none tracking-tight">${(OFFER.foundingActive ? OFFER.setupFounding : OFFER.setupFull).toLocaleString("en-US")}</span>
+              <span className="pb-1 text-[14px] text-sub">one-time setup</span>
+            </div>
+            <p className="mt-2 text-[13.5px] leading-snug text-sub">
+              {OFFER.monthlyPrice ? `Then $${OFFER.monthlyPrice} a month, month to month.` : "Then one flat monthly plan, month to month, quoted on your walkthrough."} No percentage of your treatment revenue.
+              {OFFER.foundingActive ? ` Founding price in exchange for ${OFFER.trade}.` : ""}
+            </p>
+            <ul className="mt-4 grid gap-1.5 sm:grid-cols-2">
+              {OFFER.includes.map((t) => <li key={t} className="flex items-start gap-2 text-[14px] text-ink"><span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: primary }} aria-hidden />{t}</li>)}
+            </ul>
+            <ul className="mt-4 space-y-1 border-t border-line pt-3 text-[13px] text-sub">
+              {OFFER.guarantees.map((g) => <li key={g}>{g}.</li>)}
+            </ul>
+            <p className="mt-3 text-[13.5px] font-semibold">
+              {row.area_open === false ? `Another med spa holds your area (one per ${OFFER.radiusMiles} miles). Join the waitlist below.` : `One med spa per ${OFFER.radiusMiles}-mile area.`}
+            </p>
+          </section>
 
           <PreviewActions
             slug={slug}

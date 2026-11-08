@@ -17,6 +17,7 @@
  * Flippo's clips are labeled as an arcade; the estimate is labeled a planning
  * estimate; price is quoted on the call unless PRICE_BEFORE_CALL is set.
  */
+import { MedspaAppsBand } from "@/components/landing/medspa-apps-band"; // CP-237
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, Check, ChevronDown, Clock, MapPin, Play, Plus, ShieldCheck, Sparkles, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,7 @@ export function MedspaFunnelPage() {
       <main id="main">
         <HeroVideo onStart={() => start("hero")} />
         <Assurances />
+        <MedspaAppsBand where="medspa" />
         <Leak />
         <WhatAtlasRuns />
         <Calculator onStart={() => start("calculator")} />
