@@ -16,6 +16,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
+import { SMS_CONSENT_PAGE, SMS_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 
 type Suggestion = { placeId: string; main: string; secondary: string };
 type Step = "search" | "contact" | "code" | "booking" | "offer" | "challenges" | "priorities" | "finishing" | "ready" | "error";
@@ -388,6 +389,11 @@ export function PreviewStart() {
                 <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#0B5FD6]" aria-hidden />{t}</li>
               ))}
             </ul>
+            <p className="mt-8 max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C]">
+              Text messages: on the next step you can choose to get your app by text by ticking an unchecked box that reads
+              &ldquo;{SMS_CONSENT_TEXT}&rdquo;{" "}
+              <a href={SMS_CONSENT_PAGE} className="underline">See the form</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
+            </p>
           </div>
           <div className="relative mx-auto w-full max-w-[340px] lg:max-w-[380px]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -440,7 +446,7 @@ export function PreviewStart() {
           </label>
           <label className="flex items-start gap-3 pt-1 text-[12.5px] leading-snug text-[#3A4A5C]">
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.consent} onChange={(e) => setContact((c) => ({ ...c, consent: e.target.checked }))} />
-            <span>Text me my app and follow-ups from Atlas Engine at this number. Msg &amp; data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help. Consent isn&apos;t a condition of purchase. <a href="/legal/terms#sms" target="_blank" className="underline">Terms</a> · <a href="/legal/privacy#sms" target="_blank" className="underline">Privacy</a></span>
+            <span>{SMS_CONSENT_TEXT} <a href={SMS_TERMS_URL} target="_blank" className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} target="_blank" className="underline">Privacy Policy</a></span>
           </label>
         </form>
       </StepShell>
