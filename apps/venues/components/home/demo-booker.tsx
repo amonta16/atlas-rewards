@@ -16,7 +16,7 @@ import { CALL_MINUTES, COMMON_TZS, HOST_TZ, tzLabel } from "@/lib/landing/availa
 import { track } from "@/lib/landing/analytics";
 
 export const BUSINESS_TYPES = [
-  "Coffee shop or bakery", "Donut or dessert shop", "Restaurant", "Smoke or vape shop", "Retail store",
+  "Coffee shop or bakery", "Donut or dessert shop", "Restaurant", "Retail store",
   "Salon or barbershop", "Med spa", "Entertainment venue", "Gym or studio", "Something else",
 ] as const;
 

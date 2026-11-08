@@ -37,7 +37,7 @@ const FEATURES = [
   { icon: BarChart3, t: "Real numbers", d: "A simple dashboard of visits, members and who came back. Only what it actually tracks." },
 ];
 
-const TYPES = ["Coffee shops", "Donut shops", "Restaurants", "Smoke shops", "Salons", "Med spas", "Arcades and venues", "Retail"];
+const TYPES = ["Coffee shops", "Donut shops", "Restaurants", "Salons", "Med spas", "Arcades and venues", "Retail"];
 
 const STEPS = [
   { t: "Book a 20-minute demo", d: "On video with Andrew. You see your own app and what it costs." },
@@ -179,8 +179,9 @@ function Apps() {
         <p className="text-[13px] font-bold uppercase tracking-[0.12em] text-[var(--s-ocean)]">Built on Atlas</p>
         <h2 id="apps-title" className="s-h2 mx-auto mt-3 max-w-[18ch]">Your brand on their phone. Not ours.</h2>
         <p className="s-lead mx-auto mt-4 max-w-[34rem] !text-[var(--s-ink-2)]">Every business gets its own app: its name, its colors, its rewards. Here are a few.</p>
-        <ul data-gs="stagger" className="mx-auto mt-12 grid max-w-[1080px] grid-cols-2 gap-x-4 gap-y-8 sm:gap-x-6 lg:grid-cols-4">
-          {APP_MOCKUPS.map((a, i) => (
+        {/* CP-236: the smoke shop app stays off the homepage (carrier SMS review flags tobacco/vape content on the brand's site). */}
+        <ul data-gs="stagger" className="mx-auto mt-12 grid max-w-[840px] grid-cols-3 gap-x-3 gap-y-8 sm:gap-x-6">
+          {APP_MOCKUPS.filter((a) => a.id !== "area51").map((a, i) => (
             <li key={a.id} data-gs-item className={cn("flex flex-col items-center", i % 2 === 1 && "lg:translate-y-8")}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={a.upright} alt={a.alt} width={640} height={1300} loading="lazy" className="w-full max-w-[230px] drop-shadow-[0_30px_40px_rgba(6,20,60,.25)]" />

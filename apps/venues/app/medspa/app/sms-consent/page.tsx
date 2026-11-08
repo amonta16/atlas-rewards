@@ -45,25 +45,26 @@ export default function SmsConsentPage() {
               <label className="block text-[14px] font-medium text-[#3A4A5C]">Last name<input className={`${field} mt-1.5`} name="last_name" autoComplete="off" readOnly /></label>
             </div>
             <label className="block text-[14px] font-medium text-[#3A4A5C]">Email<input className={`${field} mt-1.5`} type="email" name="email" placeholder="you@yourspa.com" autoComplete="off" readOnly /></label>
-            <label className="block text-[14px] font-medium text-[#3A4A5C]">Mobile
-              <div className="mt-1.5 flex gap-2">
+            <fieldset className="space-y-3 rounded-2xl border border-[#0B1B2B]/10 p-4">
+              <legend className="px-1 text-[14px] font-semibold text-[#0B1B2B]">Mobile number and text messages</legend>
+              <label htmlFor="sms-mobile" className="block text-[14px] font-medium text-[#3A4A5C]">Mobile number</label>
+              <div className="flex gap-2">
                 <span className="grid h-[52px] shrink-0 place-items-center rounded-2xl border border-[#0B1B2B]/12 bg-[#F6F9FD] px-4 text-[16px] text-[#0B1B2B]">US +1</span>
-                <input className={field} type="tel" name="phone" placeholder="(555) 555-0123" autoComplete="off" readOnly />
+                <input id="sms-mobile" className={field} type="tel" name="mobile_phone" placeholder="(555) 555-0123" autoComplete="off" aria-describedby="sms-note" readOnly />
               </div>
-            </label>
-            <div className="space-y-3 pt-1">
+              <p id="sms-note" className="text-[13px] text-[#6B7A8C]">We only text this number if you tick a box below. Both are optional.</p>
               <label className="flex items-start gap-3 text-[13px] leading-snug text-[#3A4A5C]">
-                <input type="checkbox" name="sms_consent" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" defaultChecked={false} />
+                <input type="checkbox" name="sms_consent" aria-describedby="sms-note" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" defaultChecked={false} />
                 <span>{SMS_INFO_CONSENT_TEXT}</span>
               </label>
               <label className="flex items-start gap-3 text-[13px] leading-snug text-[#3A4A5C]">
-                <input type="checkbox" name="sms_marketing_consent" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" defaultChecked={false} />
+                <input type="checkbox" name="sms_marketing_consent" aria-describedby="sms-note" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" defaultChecked={false} />
                 <span>{SMS_MARKETING_CONSENT_TEXT}</span>
               </label>
               <p className="pl-7 text-[13px] text-[#6B7A8C]">
-                Both optional. <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
+                <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
               </p>
-            </div>
+            </fieldset>
             <button type="submit" className="s-btn s-btn-primary s-focus h-14 w-full text-[17px]">Start my free app preview</button>
           </form>
 

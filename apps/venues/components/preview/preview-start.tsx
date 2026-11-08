@@ -440,23 +440,26 @@ export function PreviewStart() {
           <label className="block text-[14px] font-medium text-[#3A4A5C]">Email
             <input className={`${field} mt-1.5`} type="email" inputMode="email" autoComplete="email" placeholder="you@yourspa.com" value={contact.email} onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))} />
           </label>
-          <label className="block text-[14px] font-medium text-[#3A4A5C]">Mobile
-            <div className="mt-1.5 flex gap-2">
+          {/* CP-236: the mobile number and both SMS boxes are one fieldset, so the boxes visibly (and for
+              screen readers / carrier review) refer to this number. */}
+          <fieldset className="space-y-3 rounded-2xl border border-[#0B1B2B]/10 p-4">
+            <legend className="px-1 text-[14px] font-semibold text-[#0B1B2B]">Mobile number and text messages</legend>
+            <label htmlFor="pv-mobile" className="block text-[14px] font-medium text-[#3A4A5C]">Mobile number</label>
+            <div className="flex gap-2">
               <span className="grid h-[52px] shrink-0 place-items-center rounded-2xl border border-[#0B1B2B]/12 bg-[#F6F9FD] px-4 text-[16px] text-[#0B1B2B]">US +1</span>
-              <input className={field} type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(555) 555-0123" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} />
+              <input id="pv-mobile" name="mobile_phone" className={field} type="tel" inputMode="tel" autoComplete="tel-national" placeholder="(555) 555-0123" aria-describedby="pv-sms-note" value={contact.phone} onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))} />
             </div>
-          </label>
-          <div className="space-y-3 pt-1">
+            <p id="pv-sms-note" className="text-[12.5px] text-[#6B7A8C]">We only text this number if you tick a box below. Both are optional.</p>
             <label className="flex items-start gap-3 text-[12.5px] leading-snug text-[#3A4A5C]">
-              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.consent} onChange={(e) => setContact((c) => ({ ...c, consent: e.target.checked }))} />
+              <input type="checkbox" name="sms_consent" aria-describedby="pv-sms-note" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.consent} onChange={(e) => setContact((c) => ({ ...c, consent: e.target.checked }))} />
               <span>{SMS_INFO_CONSENT_TEXT}</span>
             </label>
             <label className="flex items-start gap-3 text-[12.5px] leading-snug text-[#3A4A5C]">
-              <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.marketing} onChange={(e) => setContact((c) => ({ ...c, marketing: e.target.checked }))} />
+              <input type="checkbox" name="sms_marketing_consent" aria-describedby="pv-sms-note" className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" checked={contact.marketing} onChange={(e) => setContact((c) => ({ ...c, marketing: e.target.checked }))} />
               <span>{SMS_MARKETING_CONSENT_TEXT}</span>
             </label>
-            <p className="pl-7 text-[12.5px] text-[#6B7A8C]">Both optional. <a href={SMS_TERMS_URL} target="_blank" className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} target="_blank" className="underline">Privacy Policy</a></p>
-          </div>
+            <p className="pl-7 text-[12.5px] text-[#6B7A8C]"><a href={SMS_TERMS_URL} target="_blank" className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} target="_blank" className="underline">Privacy Policy</a></p>
+          </fieldset>
         </form>
       </StepShell>
     );

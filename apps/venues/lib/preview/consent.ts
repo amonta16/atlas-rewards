@@ -12,10 +12,10 @@
  * both stay identical, which is what carriers check.
  */
 export const SMS_INFO_CONSENT_TEXT =
-  "Text me my app preview link, answers to my questions and reminders for calls I book from Atlas Engine at this number. Msg & data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help.";
+  "Text me my app preview link, answers to my questions and reminders for calls I book from Atlas Engine at the mobile number above. Msg & data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help.";
 
 export const SMS_MARKETING_CONSENT_TEXT =
-  "Also text me occasional offers and promotions from Atlas Engine at this number. Msg & data rates may apply. Up to 4 msgs/month. Reply STOP to opt out. Consent isn't a condition of purchase.";
+  "Also text me occasional offers and promotions from Atlas Engine at the mobile number above. Msg & data rates may apply. Up to 4 msgs/month. Reply STOP to opt out. Consent isn't a condition of purchase.";
 
 export const SMS_TERMS_URL = "/legal/terms#sms";
 export const SMS_PRIVACY_URL = "/legal/privacy#sms";
