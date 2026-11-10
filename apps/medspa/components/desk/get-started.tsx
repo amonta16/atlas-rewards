@@ -10,6 +10,10 @@
  *      what going live includes, and the one button that moves them forward.
  *   4. The explainer video.
  *
+ * Once every step is done (live clinics only: a preview can't "go live" by itself),
+ * the checklist and access card disappear and the three cards + video move under the
+ * dashboard as "Your setup", so Home leads with the numbers.
+ *
  * Done-ness: on a live clinic each step reads real data (treatments, booking,
  * rewards, automated offers, Stripe payouts). A preview or the demo saves
  * nothing, so there a step counts as done once the owner has opened it
@@ -53,9 +57,9 @@ type Step = { id: string; title: string; sub: string; target?: SetupTarget; href
 const card = "rounded-[18px] bg-white shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]";
 const readSeen = (key: string): string[] => { try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; } };
 
-export function GetStarted({ api, slug, appName, cfg, goLive, isAdmin, onGo }: {
-  api: DeskApi; slug: string; appName: string; cfg: Cfg; goLive: GoLive; isAdmin: boolean; onGo: (t: SetupTarget) => void;
-}) {
+type SetupProps = { api: DeskApi; slug: string; appName: string; cfg: Cfg; goLive: GoLive; isAdmin: boolean; onGo: (t: SetupTarget) => void };
+
+function useSetup({ api, slug, cfg, goLive, onGo }: SetupProps) {
   const sandbox = goLive.kind !== "live";
   const seenKey = `atlas-setup:${slug}`;
   const hideKey = `atlas-setup-hidden:${slug}`;
@@ -107,8 +111,72 @@ export function GetStarted({ api, slug, appName, cfg, goLive, isAdmin, onGo }: {
   };
   const hide = (v: boolean) => { setHidden(v); try { localStorage.setItem(hideKey, v ? "1" : "0"); } catch { /* private mode */ } };
 
-  // A live clinic that finished setup doesn't need any of this.
-  if (goLive.kind === "live" && allDone && live) return null;
+  const byId = (id: string) => steps.find((s) => s.id === id)!;
+  // Live clinics read their data first, so the checklist never flashes on a finished desk.
+  const ready = sandbox || live !== null;
+  return { sandbox, steps, doneCount, next, allDone, go, hidden, hide, byId, ready };
+}
+type Setup = ReturnType<typeof useSetup>;
+
+/**
+ * Home with setup around the dashboard: setup on top while there's something left to do,
+ * "Your setup" (the three cards + video) underneath once it's all done.
+ */
+export function SetupHome(props: SetupProps & { children: React.ReactNode }) {
+  const setup = useSetup(props);
+  const done = setup.ready && setup.allDone;
+  return (
+    <>
+      {setup.ready && !done && <GetStarted setup={setup} {...props} />}
+      {props.children}
+      {done && <SetupFooter setup={setup} {...props} />}
+    </>
+  );
+}
+
+function SetupFooter({ setup, goLive, isAdmin }: SetupProps & { setup: Setup }) {
+  const showVideo = !EXPLAINER.internal || isAdmin || goLive.kind === "demo" || process.env.NODE_ENV !== "production";
+  return (
+    <section className="mt-6 space-y-3.5" aria-labelledby="setup-footer-h">
+      <div className="flex items-center gap-2 px-1">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-white"><IcCheck className="h-3 w-3" strokeWidth={3} /></span>
+        <h2 id="setup-footer-h" className="text-[15px] font-semibold">Your setup</h2>
+        <span className="text-[12.5px] text-sub">All {setup.steps.length} steps done. Revisit anything here.</span>
+      </div>
+      <SetupCards setup={setup} />
+      {showVideo && <div className="max-w-[560px]"><VideoCard /></div>}
+    </section>
+  );
+}
+
+function SetupCards({ setup }: { setup: Setup }) {
+  const { byId, go } = setup;
+  return (
+    <div className="grid gap-3.5 md:grid-cols-3">
+      <SetupCard title="Your treatment menu" sub="We brought in your menu from your website. Check prices, photos and recall timing." button="Review treatments" done={byId("treatments").done} onClick={() => go(byId("treatments"))} art={<ArtTreatments />} />
+      <SetupCard title="Connect your booking" sub="Send patients to the booking page you already use, or let them text you." button="Connect booking" done={byId("booking").done} onClick={() => go(byId("booking"))} art={<ArtBooking />} />
+      <SetupCard title="Set up payments" sub="Connect your bank so patients can pay by card or over time." button="Activate payments" done={byId("payouts").done} onClick={() => go(byId("payouts"))} art={<ArtPayments />} />
+    </div>
+  );
+}
+
+function VideoCard() {
+  return (
+    <section className={`${card} overflow-hidden`}>
+      <div className="relative aspect-video bg-ink">
+        <iframe className="absolute inset-0 h-full w-full" src={`https://www.youtube-nocookie.com/embed/${EXPLAINER.youtubeId}?rel=0&modestbranding=1`} title={EXPLAINER.title}
+          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen loading="lazy" />
+      </div>
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <span className="text-[13.5px] font-semibold">{EXPLAINER.title} · 3 min</span>
+        {EXPLAINER.internal && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Reference video. Only Atlas admins, the demo and local dev see it.">Placeholder</span>}
+      </div>
+    </section>
+  );
+}
+
+function GetStarted({ setup, appName, goLive, isAdmin }: SetupProps & { setup: Setup }) {
+  const { sandbox, steps, doneCount, next, allDone, go, hidden, hide } = setup;
   if (hidden) {
     return (
       <button type="button" onClick={() => hide(false)} className={`${card} mb-3.5 flex w-full items-center gap-3 px-4 py-3 text-left`}>
@@ -119,17 +187,12 @@ export function GetStarted({ api, slug, appName, cfg, goLive, isAdmin, onGo }: {
     );
   }
 
-  const byId = (id: string) => steps.find((s) => s.id === id)!;
   const showVideo = !EXPLAINER.internal || isAdmin || goLive.kind === "demo" || process.env.NODE_ENV !== "production";
 
   return (
     <div className="mb-3.5 space-y-3.5">
       {/* 1 · three onboarding cards */}
-      <div className="grid gap-3.5 md:grid-cols-3">
-        <SetupCard title="Your treatment menu" sub="We brought in your menu from your website. Check prices, photos and recall timing." button="Review treatments" done={byId("treatments").done} onClick={() => go(byId("treatments"))} art={<ArtTreatments />} />
-        <SetupCard title="Connect your booking" sub="Send patients to the booking page you already use, or let them text you." button="Connect booking" done={byId("booking").done} onClick={() => go(byId("booking"))} art={<ArtBooking />} />
-        <SetupCard title="Set up payments" sub="Connect your bank so patients can pay by card or over time." button="Activate payments" done={byId("payouts").done} onClick={() => go(byId("payouts"))} art={<ArtPayments />} />
-      </div>
+      <SetupCards setup={setup} />
 
       <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         {/* 2 · checklist */}
@@ -173,18 +236,7 @@ export function GetStarted({ api, slug, appName, cfg, goLive, isAdmin, onGo }: {
         {/* 3 · access + 4 · video */}
         <div className="min-w-0 space-y-3.5">
           <AccessCard goLive={goLive} appName={appName} doneCount={doneCount} total={steps.length} />
-          {showVideo && (
-            <section className={`${card} overflow-hidden`}>
-              <div className="relative aspect-video bg-ink">
-                <iframe className="absolute inset-0 h-full w-full" src={`https://www.youtube-nocookie.com/embed/${EXPLAINER.youtubeId}?rel=0&modestbranding=1`} title={EXPLAINER.title}
-                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen loading="lazy" />
-              </div>
-              <div className="flex items-center justify-between gap-2 px-4 py-3">
-                <span className="text-[13.5px] font-semibold">{EXPLAINER.title} · 3 min</span>
-                {EXPLAINER.internal && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Reference video. Only Atlas admins, the demo and local dev see it.">Placeholder</span>}
-              </div>
-            </section>
-          )}
+          {showVideo && <VideoCard />}
         </div>
       </div>
     </div>

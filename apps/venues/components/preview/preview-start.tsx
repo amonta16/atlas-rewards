@@ -14,6 +14,7 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
+import { ReviewQuote, ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
@@ -436,6 +437,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             <a href={SMS_CONSENT_PAGE} className="underline">See the form</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
           </p>
         </main>
+        {/* CP-239: real client reviews, near the bottom (nothing renders until there are some). */}
+        <ReviewStrip />
       </div>
     );
   }
@@ -761,6 +764,7 @@ function OfferCard({ slug, qualified }: { slug: string; qualified: boolean | nul
       <p className="mt-4 text-[13.5px] font-semibold text-[#0B1B2B]">
         {taken ? `Another med spa holds your area (one per ${TERRITORY.radiusMiles} miles). Join the waitlist and we'll tell you if it opens.` : `One med spa per ${TERRITORY.radiusMiles}-mile area.${qualified ? ` Yours is held for ${HOLD.hours} hours.` : ""}`}
       </p>
+      <ReviewQuote topic="service" className="mt-5 !p-5 shadow-none" />
       <a href={`/medspa/walkthrough/${slug}`} onClick={() => track("preview_offer_cta", { taken })} className={`${primaryBtn} mt-5`}>{taken ? "Join the waitlist" : "Book a 15-min walkthrough"}</a>
     </section>
   );

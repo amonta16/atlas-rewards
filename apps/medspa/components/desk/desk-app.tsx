@@ -35,7 +35,7 @@ import { MembershipsView, PatientsView, PayoutsView, ReviewsCard } from "./peopl
 import type { MedspaPlan } from "@/lib/plans";
 import { BuilderView, type Section as BuilderSection } from "./builder";
 import { InsightsView } from "./insights-views";
-import { GetStarted, type GoLive, type SetupTarget } from "./get-started";
+import { SetupHome, type GoLive, type SetupTarget } from "./get-started";
 import { BillingView } from "./billing-view";
 import type { BuilderData } from "@/lib/builder-data";
 
@@ -198,10 +198,11 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
           </div>
         </header>
 
-        {view === "overview" && staff.isManager && <>
-          <GetStarted api={api} slug={clinic.slug} appName={clinic.name} cfg={(builder?.cfg ?? {}) as Parameters<typeof GetStarted>[0]["cfg"]} goLive={clinic.goLive} isAdmin={staff.role === "agency_admin"} onGo={goSetup} />
-          <HomeView api={api} demo={clinic.demo} />
-        </>}
+        {view === "overview" && staff.isManager && (
+          <SetupHome api={api} slug={clinic.slug} appName={clinic.name} cfg={(builder?.cfg ?? {}) as Parameters<typeof SetupHome>[0]["cfg"]} goLive={clinic.goLive} isAdmin={staff.role === "agency_admin"} onGo={goSetup}>
+            <HomeView api={api} demo={clinic.demo} />
+          </SetupHome>
+        )}
         {view === "checkin" && <CheckIn api={api} clinic={clinic} selected={selected} onSelect={setSelected} say={say} onChanged={refreshCounts} scanTick={scanTick} />}
         {view === "patients" && <PatientsView api={api} onOpen={open} />}
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}

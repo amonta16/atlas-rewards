@@ -27,6 +27,8 @@ import { fmtMoney } from "@/lib/landing/quiz-model";
 import { REBOOK, SCENARIOS, estimateMedspa } from "@/lib/landing/medspa-quiz-model";
 import { MEDSPA_FAQ, MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
 import { Compare, ReviewsBand } from "@/components/site/site-page";
+import { ReviewQuote } from "@/components/landing/review-strip"; // CP-239
+import { reviewFor } from "@/lib/landing/site-reviews";
 import { DeskListMock } from "@/components/site/site-mocks";
 import { useSiteMotion } from "@/components/site/motion";
 // CP-202: buttons go to the funnel page; hero A/B; video placeholder; offer block
@@ -62,7 +64,9 @@ export function MedspaFunnelPage() {
         <Calculator onStart={() => start("calculator")} />
         <DeskBand />
         <HowItWorks onStart={() => start("steps")} />
+        <div className="s-wrap empty:hidden"><ReviewQuote topic="setup" className="my-4" /></div>
         <Offer onStart={() => start("offer")} />
+        <div className="s-wrap empty:hidden"><ReviewQuote topic="pricing" skip={[reviewFor("setup")?.id ?? ""]} className="my-4" /></div>
         <Included onStart={() => start("included")} />
         <Compare />
         <ReviewsBand />

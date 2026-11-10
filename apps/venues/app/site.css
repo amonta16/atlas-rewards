@@ -89,11 +89,16 @@
 @keyframes s-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
 .s-marquee { animation: s-marquee 55s linear infinite; }
 .s-marquee-wrap:hover .s-marquee { animation-play-state: paused; }
+/* CP-239: the review strip: slower, GPU-smooth, pauses on keyboard focus too */
+.s-marquee-slow { animation-duration: 70s; will-change: transform; }
+.s-marquee-wrap:focus-within .s-marquee, .s-marquee-wrap:focus .s-marquee { animation-play-state: paused; }
 .site details summary::-webkit-details-marker { display: none; }
 .site details[open] .s-plus { transform: rotate(45deg); }
 .s-plus { transition: transform .25s ease; }
 @media (prefers-reduced-motion: reduce) {
   .s-load-1, .s-load-2, .s-load-3, .s-load-4, .s-drift, .s-drift-2, .s-blob, .s-float-in, .s-float-in-2, .s-arrow, .s-marquee { animation: none !important; }
+  .s-marquee-wrap { overflow-x: auto !important; }
+  .s-marquee > [aria-hidden="true"] { display: none; }
   .s-rail-fill.s-on { animation: none !important; transform: scaleY(1); }
   .s-ping::after { display: none; }
   .s-reveal, .s-screen { transition: none !important; }

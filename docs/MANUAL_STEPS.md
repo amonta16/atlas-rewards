@@ -34,7 +34,11 @@ Leads: **Admin → App Previews** (Leads tab: name, mobile, email, the spa, the 
 New: **Admin → Lead Funnel** (visits → opt-ins → walkthroughs booked → paid, per day and per campaign) with a **Follow-up emails** tab: 3 emails after opt-in (day 1, day 3, day 12), editable timing and copy, live preview, "Send me a test". The desk Home now opens with setup cards, a 7-step checklist and a "Your access" card; Offers and Atlas Engine moved into App Builder → Journey.
 - [x] CP-238 SQL applied by Claude (2026-11-09): `funnel_visits`, `lead_email_steps` (3 emails seeded), 4 `nurture_*` columns on `app_previews`. File: `db/history/checkpoint-238-lead-funnel/cp238_lead_funnel.sql`. Visits start counting once this code is deployed.
 - [ ] Read and edit the 3 emails in Admin → Lead Funnel → Follow-up emails. Use "Send me a test" for each.
-- [ ] Vercel atlas-rewards: `MAIL_POSTAL_ADDRESS` = a real mailing address (a PO box or virtual mailbox is fine). US law (CAN-SPAM) needs it in marketing emails.
+- [ ] Vercel atlas-rewards: `MAIL_POSTAL_ADDRESS` = a physical postal address where Atlas can receive mail, e.g. `123 Main St, Suite 4, San Diego, CA 92101`. Not an email or web address. A USPS PO box or a registered virtual mailbox (iPostal1, Anytime Mailbox) works if you don't want a home address in emails. US law (CAN-SPAM) requires it in every marketing email; it prints in the small footer.
+
+## Partner reviews (CP-239)
+The review carousel and quote spots are built: bottom of `/medspa/app`, the offer card after the preview, the `/medspa` funnel (after How it works and after the offer) and `/med-spas` (after the week of reminders and after pricing), plus the existing band. They show nothing until real reviews are added.
+- [ ] In `apps/venues/lib/landing/site-reviews.ts`: set `REVIEW_PARTNER.name`, then add each review with `via: "partner"`, the client's exact words, their name/role/practice/city as they agreed, `sourceNote` (where the original lives) and `topics`. Flip `SHOW_REVIEW_SLOTS` to false once there are real ones.
 - [ ] Then turn sending on: Vercel atlas-rewards `LEAD_NURTURE_SEND` = `1`, redeploy. The cron (every 15 min) only emails owners who opted in within the last 30 days, and stops when they book, pay, unsubscribe or the preview is deleted.
 - [ ] Replace the homepage explainer video: `EXPLAINER` in `apps/medspa/components/desk/get-started.tsx` is the Dermis reference video (id `s_AEjkfhL2Q`), shown only to Atlas admins, the /demo clinic and local dev. Put the Atlas video's YouTube id there and set `internal: false`.
 

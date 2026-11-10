@@ -27,7 +27,8 @@ import { MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
 import { TESTIMONIALS } from "@/lib/landing/testimonials";
 import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
 import { DeskListMock, PhoneShell } from "./site-mocks";
-import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS } from "@/lib/landing/site-reviews";
+import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS, partnerLine, realReviews, reviewFor } from "@/lib/landing/site-reviews";
+import { ReviewQuote } from "@/components/landing/review-strip"; // CP-239
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
 // CP-196: GSAP scroll motion, wired from data-gs attributes (components/site/motion.ts).
@@ -58,7 +59,9 @@ function Page() {
         <ClientResults />
         <Desk />
         <Week />
+        <QuoteRow topic="recall" />
         <Pricing onStart={() => start("pricing")} />
+        <QuoteRow topic="pricing" skip={[reviewFor("recall")?.id ?? ""]} />
         <Compare />
         <ReviewsBand />
         <Team />
@@ -68,6 +71,11 @@ function Page() {
       <MobileBar onStart={() => start("sticky_bar")} />
     </div>
   );
+}
+
+/** CP-239: one real review beside the section it backs up (renders nothing until there is one). */
+function QuoteRow({ topic, skip }: { topic: "recall" | "pricing" | "setup"; skip?: string[] }) {
+  return <div className="s-wrap empty:hidden"><ReviewQuote topic={topic} skip={skip} className="my-4" /></div>;
 }
 
 /* ───────────── nav ───────────── */
@@ -475,8 +483,10 @@ export function Compare() {
 export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "general" } = {}) {
   // CP-191: all three Flippo's clips, playable in place (not inside the moving row).
   const videos = TESTIMONIALS.filter((t) => t.embed);
-  const real = SITE_REVIEWS.filter((r) => r.quote);
-  const cards = SHOW_REVIEW_SLOTS ? SITE_REVIEWS : real;
+  // CP-239: real = a quote (and partner reviews only once the partner is named). Slots fill in only while there are none.
+  const real = realReviews();
+  const cards = real.length ? real : SHOW_REVIEW_SLOTS ? SITE_REVIEWS.filter((r) => !r.quote) : [];
+  const partner = real.some((r) => r.via === "partner") ? partnerLine() : null;
   if (videos.length === 0 && cards.length === 0) return null;
   return (
     <section className="s-section !pt-0" aria-labelledby="reviews-title">
@@ -484,7 +494,8 @@ export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "ge
         <div className="s-ocean relative overflow-hidden rounded-[36px] pb-10 pt-16 sm:pt-24">
           <OceanBackground />
           <div className="relative px-5 text-center">
-            <h2 id="reviews-title" className="s-h2 mx-auto max-w-[16ch] text-[clamp(2.2rem,1.4rem+3.2vw,4.2rem)]">See what owners say about Atlas.</h2>
+            <h2 id="reviews-title" className="s-h2 mx-auto max-w-[16ch] text-[clamp(2.2rem,1.4rem+3.2vw,4.2rem)]">{partner ? "See what practice owners say." : "See what owners say about Atlas."}</h2>
+            {partner && <p className="mx-auto mt-4 max-w-[36rem] text-[15px] leading-relaxed text-white/80">{partner}</p>}
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               {SITE_BADGES.map((b) => (
                 <span key={b.t} className="inline-flex items-center gap-2.5 rounded-2xl bg-white/12 px-4 py-2.5 text-left ring-1 ring-white/25 backdrop-blur">
@@ -524,7 +535,8 @@ export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "ge
                     <figure key={r.id} className={cn("flex w-[340px] shrink-0 flex-col justify-between rounded-3xl p-6", r.quote ? "bg-[var(--s-ice)]" : "border border-dashed border-white/40 bg-white/10 text-white backdrop-blur")}>
                       <div>
                         <div className={cn("flex gap-0.5", r.quote ? "text-[var(--s-ink)]" : "text-white/50")}>{[0, 1, 2, 3, 4].map((n) => <Star key={n} className={cn("h-4 w-4", r.quote && r.rating && n < r.rating ? "fill-current" : "")} />)}</div>
-                        <blockquote className={cn("mt-4 text-[17px] font-semibold leading-snug", r.quote ? "text-[var(--s-ink)]" : "text-white/85")}>{r.quote ? `“${r.quote}”` : `Review slot: this fills with a real owner's words when the first ${audience === "general" ? "businesses" : "practices"} go live.`}</blockquote>
+                        {r.quote && r.title && <p className="mt-4 text-[15px] font-bold text-[var(--s-ink)]">{r.title}</p>}
+                        <blockquote className={cn("mt-4 text-[17px] font-semibold leading-snug", r.quote ? "text-[var(--s-ink)]" : "text-white/85", r.quote && r.title && "mt-2 text-[15.5px] font-medium")}>{r.quote ? `“${r.quote}”` : `Review slot: this fills with a real owner's words when the first ${audience === "general" ? "businesses" : "practices"} go live.`}</blockquote>
                       </div>
                       <figcaption className="mt-6 flex items-center gap-3">
                         <span className={cn("grid h-10 w-10 place-items-center rounded-full text-[13px] font-bold", r.quote ? "bg-[var(--s-ocean)] text-white" : "bg-white/20 text-white")}>{!r.quote && audience === "general" ? "L" : r.name[0]}</span>
