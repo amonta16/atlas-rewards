@@ -534,6 +534,8 @@ function Footer() {
           <a className="s-focus rounded hover:text-[var(--s-ink)]" href="mailto:andrew@atlas-engine.app">andrew@atlas-engine.app</a>
           <a className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/privacy">Privacy</a>
           <a className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/terms">Terms</a>
+          <a className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/ai-skin-scan">AI skin scan notice</a>
+          <a className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/privacy#choices">Your privacy choices</a>
         </span>
       </div>
     </footer>

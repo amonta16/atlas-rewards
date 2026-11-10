@@ -36,6 +36,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
           <nav className="flex items-center gap-4 text-sm">
             <Link href="/legal/privacy" className="text-zinc-600 hover:text-zinc-900">Privacy</Link>
             <Link href="/legal/terms"   className="text-zinc-600 hover:text-zinc-900">Terms</Link>
+            <Link href="/legal/ai-skin-scan" className="hidden text-zinc-600 hover:text-zinc-900 sm:inline">AI skin scan</Link>
           </nav>
         </div>
       </header>

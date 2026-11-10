@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { notifyLead, emailProspect, hashIp, EMAIL_RE, clean } from "@/lib/landing/notify";
 import { qualify, ROLES, STAGES, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
-import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
+import { sendCapiEvent, requestIp, splitName , shareBlocked } from "@/lib/landing/meta-capi";
 import { newEventId } from "@/lib/landing/funnel-sign";
 // CP-204: one med spa per area; the area is re-checked here, the browser check is only a preview.
 import { checkArea } from "@/lib/landing/territory";
@@ -156,6 +156,7 @@ export async function POST(req: Request) {
   if (verdict.qualified && eventId) {
     const n = splitName(name);
     await sendCapiEvent({
+      optedOut: shareBlocked(req),
       name: "Lead", eventId, sourceUrl: `${SITE_ORIGIN}${row.path ?? "/medspa"}`,
       user: { email, phone, firstName: n.first, lastName: n.last, fbp: row.fbp, fbc: row.fbc, ip: requestIp(req), userAgent: row.user_agent, externalId: data.id },
       customData: { content_name: "medspa_qualified", lead_type: "qualified" },

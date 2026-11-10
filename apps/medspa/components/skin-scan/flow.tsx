@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookingOptions, MedspaTreatment } from "@/lib/medspa";
 import { EDUCATE_SAMPLE } from "@/lib/educate-sample";
+import { LEGAL } from "@/lib/legal";
 import { lastScanKey, QUIZ_GOALS, simulationFor, type ConcernId, type ScanResult } from "@/lib/skin-scan";
 import { cropAround, faceBox, imageLandmarker, loadImage, mockAfter, shoot, type Shot } from "./face";
 import { GuidedCamera } from "./camera";
@@ -197,7 +198,11 @@ export function SkinScanFlow({ slug, clinicName, hero, treatments, booking }: {
           <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-[14px] p-1">
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-black" />
             <span className="text-[13px] leading-snug text-sub">
-              I agree to have my photo analyzed by AI (provided by Perfect Corp) to create my skin scan and preview. It&apos;s used only for this scan and isn&apos;t saved by {clinicName}.
+              I&apos;m 18 or older, this is a photo of me, and I agree to have it analyzed by AI (provided by Perfect Corp) to create my skin scan and preview, as described in the{" "}
+              <a href={LEGAL.skinScan} target="_blank" rel="noopener noreferrer" className="font-medium text-ink underline">AI Skin Scan &amp; Biometric Notice</a>.{" "}
+              {clinicName} and Atlas don&apos;t store the photo. Not medical advice.{" "}
+              <a href={LEGAL.privacy} target="_blank" rel="noopener noreferrer" className="underline">Privacy</a> ·{" "}
+              <a href={LEGAL.terms} target="_blank" rel="noopener noreferrer" className="underline">Terms</a>
             </span>
           </label>
           <button type="button" className="btn-ink mt-5" disabled={!consent} onClick={() => setStep("camera")}>Open camera</button>

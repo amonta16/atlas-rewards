@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { clean, EMAIL_RE, notifyLead } from "@/lib/landing/notify";
-import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
+import { sendCapiEvent, requestIp, splitName , shareBlocked } from "@/lib/landing/meta-capi";
 import { newEventId } from "@/lib/landing/funnel-sign";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { postGhlLead } from "@/lib/preview/ghl";
@@ -81,6 +81,7 @@ export async function POST(req: Request) {
 
   waitUntil(Promise.allSettled([
     sendCapiEvent({
+      optedOut: shareBlocked(req),
       name: "Lead",
       eventId,
       sourceUrl: `${SITE_ORIGIN}/medspa/app`,

@@ -177,7 +177,7 @@ export function PrecallPage(p: Props) {
           )}
         </div>
       </main>
-      <footer className="s-wrap pb-10 text-center text-[13px] text-[var(--s-ink-3)]">© {new Date().getFullYear()} Atlas Engine · Bakersfield · Morro Bay, California</footer>
+      <footer className="s-wrap pb-10 text-center text-[13px] text-[var(--s-ink-3)]">© {new Date().getFullYear()} Atlas Engine · Bakersfield · Morro Bay, California · <a className="underline" href="/legal/privacy">Privacy</a> · <a className="underline" href="/legal/terms">Terms</a> · <a className="underline" href="/legal/privacy#choices">Your privacy choices</a></footer>
     </div>
   );
 }

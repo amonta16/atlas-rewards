@@ -14,6 +14,7 @@ import {
   type ConcernId, type SavedScan, type ScanMetric, type ScanResult,
 } from "@/lib/skin-scan";
 import { ActionButton } from "../action-sheet";
+import { LEGAL } from "@/lib/legal";
 import { useGate } from "../gate";
 import { IcDown, IcNext, IcRefresh, IcSpark } from "../icons";
 
@@ -112,7 +113,7 @@ export function ScanResults({ result, before, after, afterState, goals, treatmen
 
       <div className="mt-6 px-4">
         <button type="button" onClick={onRescan} className="btn-ghost gap-2"><IcRefresh className="h-5 w-5" />Scan again</button>
-        <p className="mt-3 text-center text-[11.5px] leading-snug text-faint">Skin analysis by Perfect Corp AI. For cosmetic guidance only, not a medical diagnosis.</p>
+        <p className="mt-3 text-center text-[11.5px] leading-snug text-faint">Skin analysis by Perfect Corp AI. For cosmetic guidance only, not a medical diagnosis. The preview is an AI simulation, not a promise of results. <a href={LEGAL.skinScan} target="_blank" rel="noopener noreferrer" className="underline">How your photo is used</a></p>
       </div>
     </div>
   );

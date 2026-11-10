@@ -6,7 +6,7 @@ import { calendarConfigured, createDemoEvent, getBusy } from "@/lib/google-calen
 import { CALL_MINUTES, HOST_TZ, candidateSlots, dayKey, overlapsBusy } from "@/lib/landing/availability";
 // CP-201: the /medspa funnel gate, pre-call page token and Meta Schedule (server side).
 import { newEventId, newToken } from "@/lib/landing/funnel-sign";
-import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
+import { sendCapiEvent, requestIp, splitName , shareBlocked } from "@/lib/landing/meta-capi";
 import { HOLD, PRECALL_PREP, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 
 /**
@@ -128,6 +128,7 @@ export async function POST(req: Request) {
     if (row.schedule_event_id) {
       const n = splitName(name);
       await sendCapiEvent({
+      optedOut: shareBlocked(req),
         name: "Schedule", eventId: row.schedule_event_id, sourceUrl: `${SITE_ORIGIN}${row.path ?? "/medspa"}`,
         user: { email, phone, firstName: n.first, lastName: n.last, fbp: row.fbp, fbc: row.fbc, ip: requestIp(req), userAgent: row.user_agent, externalId: row.lead_id },
         customData: { content_name: "medspa_walkthrough" },
