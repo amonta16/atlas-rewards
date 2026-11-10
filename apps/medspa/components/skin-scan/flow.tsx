@@ -238,7 +238,7 @@ function Intro({ clinicName, hero, onStart }: { clinicName: string; hero: string
     <section className="animate-fade">
       <div className="relative aspect-[4/4.2] overflow-hidden bg-tint">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={hero} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={hero} alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_60%]" />
         <div className="ss-scanline pointer-events-none absolute inset-x-0 h-[22%]" />
         {HERO_CHIPS.map((c) => (
           <span key={c.label} className={`absolute ${c.at} flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-[12.5px] font-semibold text-ink shadow-card backdrop-blur`}
