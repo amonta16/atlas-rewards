@@ -27,7 +27,7 @@ import { RewardsView } from "./manager-views";
 import { IcCheck, IcGift, IcMore } from "../icons";
 import { MarketingView, OffersView } from "./marketing-views";
 
-export type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "oneoff" | "campaigns" | "automations" | "rewards";
+export type Section = "brand" | "clinic" | "treatments" | "skinscan" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "oneoff" | "campaigns" | "automations" | "rewards";
 type Tab = "journey" | "products" | "membership" | "rewards" | "settings";
 type Cfg = MedspaConfig & { memberships?: MedspaPlan[] };
 const shadow = "shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]";
@@ -84,7 +84,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
 
   const TABS: { id: Tab; label: string; subs: { id: Section; label: string }[] }[] = [
     { id: "journey", label: "Journey", subs: [{ id: "gifts", label: "Automated offers" }, { id: "oneoff", label: "One-time offers" }, { id: "campaigns", label: "Campaigns" }, ...(canBrand ? [{ id: "automations" as Section, label: "Automations" }] : [])] },
-    { id: "products", label: "Products", subs: [{ id: "treatments", label: "Treatments" }, { id: "shop", label: "Shop" }, { id: "results", label: "Results" }] },
+    { id: "products", label: "Products", subs: [{ id: "treatments", label: "Treatments" }, { id: "shop", label: "Shop" }, { id: "results", label: "Results" }, { id: "skinscan", label: "AI skin scan" }] },
     { id: "membership", label: "Membership", subs: [{ id: "memberships", label: "Plans" }] },
     { id: "rewards", label: "Rewards", subs: [{ id: "rewards", label: "Rewards" }] },
     { id: "settings", label: "Settings", subs: [...(canBrand ? [{ id: "brand" as Section, label: "Brand" }] : []), { id: "clinic", label: "Clinic details" }, { id: "booking", label: "Booking" }, { id: "providers", label: "Providers" }, { id: "care", label: "Care & recall" }] },
@@ -117,6 +117,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
           {section === "booking" && <BookingSection cfg={cfg} setCfg={setCfg} />}
           {section === "providers" && <ProvidersSection cfg={cfg} setCfg={setCfg} upload={upload} />}
           {section === "results" && <ResultsSection cfg={cfg} setCfg={setCfg} upload={upload} />}
+          {section === "skinscan" && <SkinScanSection cfg={cfg} setCfg={setCfg} slug={clinic.slug} defaultOn={clinic.demo} />}
           {section === "care" && <CareSection cfg={cfg} setCfg={setCfg} />}
           {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} clinicName={clinic.name} />}
           {section === "oneoff" && <OffersView api={api} say={say} offersOn={offersOn} onOpenAutomated={() => setSection("gifts")} />}
@@ -588,6 +589,24 @@ export function ResultsSection({ cfg, setCfg, upload }: { cfg: Cfg; setCfg: (c: 
 }
 
 /* ───────────────────────── Care (recall, credits, history) ───────────────────────── */
+
+/** CP-241: the AI skin scan on Home → Educate yourself (Perfect Corp analysis + preview). */
+function SkinScanSection({ cfg, setCfg, slug, defaultOn }: { cfg: Cfg; setCfg: (c: Cfg) => void; slug: string; defaultOn: boolean }) {
+  const on = cfg.skin_scan?.enabled ?? defaultOn;
+  return (
+    <Panel title="AI skin scan" sub="Patients take a selfie and get a skin score, a map of 12 skin markers, a preview of their results, and the treatments on your menu that fit them. It sits on Home under Educate yourself."
+      action={<a href={`/${slug}/skin-scan`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-full bg-page px-4 text-[13.5px] font-semibold">Try it</a>}>
+      <div className="space-y-4">
+        <Toggle on={on} onChange={(v) => setCfg({ ...cfg, skin_scan: { enabled: v } })} title="Show the skin scan in your app" sub={on ? "On: patients see it on Home under Educate yourself." : "Off: hidden from patients."} />
+        <ul className="grid gap-3 md:grid-cols-3">
+          {[["Leads with context", "Saved scans land in Skin scans on the desk with each patient's weakest areas."], ["Your menu, matched", "Recommendations come only from treatments you offer."], ["Private by design", "Photos go to the analysis and are never stored. Only scores are saved."]].map(([t, d]) => (
+            <li key={t} className="rounded-[18px] bg-page px-4 py-3.5"><p className="text-[14px] font-semibold">{t}</p><p className="mt-0.5 text-[13px] leading-snug text-sub">{d}</p></li>
+          ))}
+        </ul>
+      </div>
+    </Panel>
+  );
+}
 
 export function CareSection({ cfg, setCfg }: { cfg: Cfg; setCfg: (c: Cfg) => void }) {
   const r = cfg.recall, c = cfg.credits;

@@ -10,6 +10,7 @@
  * The /demo clinic gets an in-memory version with sample patients, so the
  * desk can be demoed (and screenshotted) without a database.
  */
+import { demoScansKey, type ConcernId, type SavedScan } from "./skin-scan";
 import { createClient } from "@atlas/core/supabase/client";
 import type { MonthlyReport } from "@atlas/core/reports/monthly";
 
@@ -113,8 +114,16 @@ export type AtlasBilling = {
   recent_payments: { amount_cents: number; type: string; status: string; description: string | null; paid_at: string | null }[];
 };
 
+/** CP-241: a patient's saved AI skin scan (scores only, no photo). */
+export type SkinScanRow = {
+  id: string; membership_id: string | null; full_name: string | null; phone: string | null; email: string | null;
+  overall: number; skin_age: number | null; metrics: { id: ConcernId; score: number }[]; goals: string[]; treatments: string[]; created_at: string;
+};
+
 export interface DeskApi {
   lookup(q: string): Promise<LookupResult>;
+  /** CP-241: saved skin scans, newest first. */
+  skinScans(): Promise<SkinScanRow[]>;
   patient(m: DeskMember): Promise<PatientDetail>;
   checkIn(m: DeskMember): Promise<{ awarded: number; balance: number }>;
   purchase(m: DeskMember, dollars: number): Promise<{ awarded: number; balance: number }>;
@@ -364,6 +373,11 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
       fail(error);
       return data as Overview;
     },
+    async skinScans() {
+      const { data, error } = await sb().rpc("medspa_skin_scans_desk", { p_business_id: businessId, p_limit: 200 });
+      fail(error);
+      return (data ?? []) as SkinScanRow[];
+    },
     async rewardsList() {
       const { data, error } = await sb().from("rewards")
         .select("id,name,description,point_cost,image_url,is_active,show_in_store,reward_type,sort_order,category,terms")
@@ -569,7 +583,7 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
 const ago = (days: number) => new Date(Date.now() - days * 864e5).toISOString();
 const ahead = (days: number) => new Date(Date.now() + days * 864e5).toISOString();
 
-export function demoDeskApi(rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[], treatments: Treatment[]): DeskApi {
+export function demoDeskApi(rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[], treatments: Treatment[], slug = "demo"): DeskApi {
   const people: DeskMember[] = [
     ["Sofia Martinez", "8055550123", 420, 9], ["Emma Chen", "8055550188", 180, 3], ["Olivia Brooks", "8055550142", 960, 14],
     ["Ava Patel", "8055550177", 60, 1], ["Mia Johnson", "8055550111", 240, 5], ["Isabella Nguyen", "8055550166", 1210, 21],
@@ -731,6 +745,23 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
           { at: ago(0.014), kind: "order", who: "Isabella", detail: "Glow Club membership", amount_cents: 9900 },
         ],
       };
+    },
+    async skinScans() {
+      await wait();
+      // Scans saved on the demo's patient view (this browser), then two examples.
+      let mine: SkinScanRow[] = [];
+      try {
+        mine = (JSON.parse(localStorage.getItem(demoScansKey(slug)) || "[]") as SavedScan[])
+          .map((r, i) => ({ ...r, id: `local${i}`, membership_id: null, email: null }));
+      } catch { /* storage unavailable */ }
+      const sample = (name: string, phone: string, overall: number, days: number, metrics: [ConcernId, number][], tx: string[]): SkinScanRow => ({
+        id: `ss-${phone}`, membership_id: null, full_name: name, phone, email: null, overall, skin_age: null,
+        metrics: metrics.map(([id, score]) => ({ id, score })), goals: [], treatments: tx, created_at: ago(days),
+      });
+      return [...mine,
+        sample("Emma Chen", "8055550188", 71, 0.4, [["lines", 58], ["texture", 64], ["pores", 69], ["redness", 81]], [treatments.find((t) => /tox|botox/i.test(t.name))?.name ?? "Neurotoxin", "Microneedling"]),
+        sample("Ava Patel", "8055550177", 78, 2, [["spots", 61], ["radiance", 66], ["hydration", 72], ["acne", 90]], ["IPL photofacial", "HydraFacial"]),
+      ];
     },
     async rewardsList() { await wait(); return rewardRows.map((r) => ({ ...r })); },
     async saveReward(r) { await wait(); if (r.id) rewardRows = rewardRows.map((x) => (x.id === r.id ? { ...r } : x)); else rewardRows = [...rewardRows, { ...r, id: `rw${Date.now()}` }]; },

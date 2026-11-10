@@ -26,7 +26,7 @@ import Link from "next/link";
 import { demoDeskApi, liveDeskApi, type ActivityRow, type DeskApi, type DeskGift, type DeskMember, type DeskVoucher, type DueRow, type LookupResult, type OrderRow, type PatientDetail, type Provider, type Treatment } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
 import { Wordmark } from "../chrome";
-import { IcBag, IcBank, IcBell, IcCard, IcChart, IcCheck, IcClock, IcClose, IcEye, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
+import { IcBag, IcBank, IcBell, IcCard, IcChart, IcCheck, IcClock, IcClose, IcEye, IcFaceScan, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
 import type { Staff } from "@/lib/staff";
 import { Card, Empty, Modal } from "./ui";
 import { RewardsView, TeamView } from "./manager-views";
@@ -37,6 +37,7 @@ import { BuilderView, type Section as BuilderSection } from "./builder";
 import { InsightsView } from "./insights-views";
 import { SetupHome, type GoLive, type SetupTarget } from "./get-started";
 import { BillingView } from "./billing-view";
+import { SkinScansView } from "./skin-scans-view";
 import type { BuilderData } from "@/lib/builder-data";
 
 const Scanner = dynamic(() => import("@yudiel/react-qr-scanner").then((m) => m.Scanner), { ssr: false });
@@ -45,6 +46,8 @@ type DeskClinic = {
   id: string; slug: string; name: string; logoUrl: string | null; heroUrl: string | null; primary: string; phone: string | null; demo: boolean;
   pointsPerDollar: number; visitPoints: number; offersOn: boolean;
   recall: { enabled: boolean; lead_days: number; followup_days: number };
+  /** CP-241: the AI skin scan is on in the patient app. */
+  skinScan: boolean;
   treatments: Treatment[]; providers: Provider[];
   rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[];
   /** CP-237: set on an instant app preview's desk (pv-…): no sign-in, nothing is saved. */
@@ -52,7 +55,7 @@ type DeskClinic = {
   /** CP-238: what access this desk has and how the owner goes live (Home → Your access). */
   goLive: GoLive;
 };
-type View = "checkin" | "patients" | "due" | "orders" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
+type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
 const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "billing"];
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
@@ -67,7 +70,7 @@ const initials = (n: string | null) => (n ?? "?").split(/\s+/).map((w) => w[0]).
 const RULE: Record<string, string> = { visit: "Check-in", purchase: "Purchase", redemption: "Reward redeemed", manual_adjust: "Points removed", reversal: "Undo", referral_referrer: "Referral", birthday: "Birthday", review: "Review" };
 
 export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: { clinic: DeskClinic; staff: Staff; builder: BuilderData | null; initialView?: View | "reports"; initialMonth?: string | null }) {
-  const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
+  const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments, clinic.slug) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
   const [view, setView] = useState<View>(() => {
     // "reports" (the monthly email's button) is a tab inside Insights.
     // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
@@ -108,6 +111,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     { id: "patients", label: "Client profiles", Icon: IcUser },
     { id: "due", label: "Patients due", Icon: IcClock, badge: counts.due },
     { id: "orders", label: "Shop orders", Icon: IcBag, badge: counts.orders },
+    { id: "skinscans", label: "Skin scans", Icon: IcFaceScan },
     ...(staff.isManager ? [
       { id: "insights" as View, label: "Insights", Icon: IcChart },
       { id: "memberships" as View, label: "Memberships", Icon: IcRefresh },
@@ -208,6 +212,8 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}
         {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} rate={clinic.pointsPerDollar} />}
         {view === "activity" && <Activity api={api} />}
+        {view === "skinscans" && <SkinScansView api={api} enabled={clinic.skinScan} clinicName={clinic.name} slug={clinic.slug} onOpen={open} say={say}
+          onSettings={staff.isManager && builder ? () => openBuilder("skinscan") : undefined} />}
         {view === "insights" && staff.isManager && <InsightsView api={api} say={say} demo={clinic.demo} clinic={{ name: clinic.name, primary: clinic.primary, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl }} initialTab={reportLink ? "reports" : "live"} initialMonth={reportLink ? initialMonth ?? null : null} />}
         {view === "billing" && staff.isManager && <BillingView api={api} demo={clinic.demo} onOpenPayouts={() => setView("payouts")} />}
         {view === "memberships" && staff.isManager && <MembershipsView api={api} say={say} plans={((builder?.cfg as { memberships?: MedspaPlan[] } | undefined)?.memberships) ?? []} onEdit={builder ? () => openBuilder("memberships") : undefined} onOpenPayouts={() => setView("payouts")} />}

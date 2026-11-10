@@ -6,11 +6,11 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookingOptions, MedspaTreatment } from "@/lib/medspa";
-import { QUIZ_GOALS, simulationFor, type ConcernId, type ScanResult } from "@/lib/skin-scan";
+import { lastScanKey, QUIZ_GOALS, simulationFor, type ConcernId, type ScanResult } from "@/lib/skin-scan";
 import { cropAround, faceBox, imageLandmarker, loadImage, mockAfter, shoot, type Shot } from "./face";
 import { GuidedCamera } from "./camera";
 import { ScanResults } from "./results";
-import { IcBack, IcCheck, IcClock, IcSpark } from "../icons";
+import { IcBack, IcCheck, IcClock } from "../icons";
 
 type Step = "intro" | "goals" | "prep" | "camera" | "analyzing" | "results";
 
@@ -40,8 +40,25 @@ export function SkinScanFlow({ slug, clinicName, hero, treatments, booking }: {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [after, setAfter] = useState<string | null>(null);
   const [afterState, setAfterState] = useState<"loading" | "ready" | "failed">("loading");
+  const [scanAt, setScanAt] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const runRef = useRef(0);
+
+  // Keep the last scan for this tab: a refresh or the sign-in round trip ("Save my results") comes straight back to it.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(lastScanKey(slug));
+      if (!raw) return;
+      const v = JSON.parse(raw) as { at: string; result: ScanResult; goals: string[]; shot: Shot; after: string | null };
+      if (Date.now() - new Date(v.at).getTime() > 2 * 3600e3) return;
+      setShot(v.shot); setResult(v.result); setGoals(v.goals); setScanAt(v.at);
+      setAfter(v.after); setAfterState(v.after ? "ready" : "failed"); setStep("results");
+    } catch { /* storage unavailable: start fresh */ }
+  }, [slug]);
+  useEffect(() => {
+    if (step !== "results" || !result || !shot || !scanAt || afterState === "loading") return;
+    try { sessionStorage.setItem(lastScanKey(slug), JSON.stringify({ at: scanAt, result, goals, shot, after })); } catch { /* too big or blocked */ }
+  }, [step, result, shot, scanAt, after, afterState, goals, slug]);
 
   const goalConcerns = Array.from(new Set(goals.flatMap((g) => QUIZ_GOALS.find((q) => q.id === g)?.concerns ?? []))) as ConcernId[];
 
@@ -72,6 +89,7 @@ export function SkinScanFlow({ slug, clinicName, hero, treatments, booking }: {
       }
       if (!live()) return;
       setResult(res);
+      setScanAt(new Date().toISOString());
       scored = true;
       setStep("results");
 
@@ -130,7 +148,7 @@ export function SkinScanFlow({ slug, clinicName, hero, treatments, booking }: {
 
       {step !== "intro" && step !== "camera" && step !== "analyzing" && (
         <header className="sticky top-0 z-30 flex h-[54px] items-center justify-between bg-white px-4" style={{ paddingTop: "env(safe-area-inset-top, 0px)", boxSizing: "content-box" }}>
-          <button type="button" onClick={() => setStep(step === "results" ? "intro" : step === "prep" ? "goals" : "intro")} className="flex items-center gap-0.5 text-[13px] font-medium text-sub">
+          <button type="button" onClick={() => { if (step === "results") { try { sessionStorage.removeItem(lastScanKey(slug)); } catch { /* ignore */ } } setStep(step === "results" ? "intro" : step === "prep" ? "goals" : "intro"); }} className="flex items-center gap-0.5 text-[13px] font-medium text-sub">
             <IcBack className="h-4 w-4" strokeWidth={2} />{step === "results" ? "Start over" : "Back"}
           </button>
           <p className="text-[15px] font-semibold">AI skin scan</p>
@@ -193,7 +211,8 @@ export function SkinScanFlow({ slug, clinicName, hero, treatments, booking }: {
       {step === "results" && result && shot && (
         <ScanResults result={result} before={shot.dataUrl} after={after} afterState={afterState} goals={goalConcerns}
           treatments={treatments} booking={booking} clinicName={clinicName} slug={slug}
-          onRescan={() => { runRef.current++; setStep("prep"); }} />
+          scanAt={scanAt}
+          onRescan={() => { runRef.current++; try { sessionStorage.removeItem(lastScanKey(slug)); } catch { /* ignore */ } setStep("prep"); }} />
       )}
     </div>
   );
@@ -230,7 +249,7 @@ function Intro({ clinicName, hero, onStart }: { clinicName: string; hero: string
         <ScanlineStyle />
       </div>
       <div className="relative -mt-6 rounded-t-[24px] bg-white px-5 pt-6">
-        <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-brand"><IcSpark className="h-3.5 w-3.5" />Free AI skin scan</span>
+        <span className="inline-flex items-center rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-brand">Free skin analysis</span>
         <h1 className="mt-3 text-[28px] font-semibold leading-[1.1] tracking-[-0.025em]">See what treatment could do for your skin</h1>
         <p className="mt-2 text-[15px] leading-snug text-sub">One quick question and a selfie. Get your skin score, 12 skin markers, an AI preview of your results, and treatments from {clinicName} matched to you.</p>
         <div className="mt-5 grid grid-cols-3 gap-2">

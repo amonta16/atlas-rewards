@@ -4,7 +4,7 @@ import { ScratchGift } from "@/components/scratch-gift";
 import { getScratchGift } from "@/lib/gifts";
 import "@fontsource/caveat/600.css";
 import { optimizedUrl } from "@atlas/core/img";
-import { activeTreatments, getClinic } from "@/lib/clinic";
+import { activeTreatments, getClinic, skinScanOn } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { bookingOptions, FINANCING_LIMITS, type FinancingMethod } from "@/lib/medspa";
 import { fromPrice, priceLabel } from "@/lib/plans";
@@ -12,8 +12,8 @@ import { TopBar, Wordmark } from "@/components/chrome";
 import { ActionButton } from "@/components/action-sheet";
 import { RecentlyViewed, type CatalogItem } from "@/components/recently-viewed";
 import { InstallCard } from "@/components/install-app";
-import { IcCalendar, IcLock, IcNext, IcPin, IcSpark } from "@/components/icons";
-import { EXAMPLE_IMG } from "@/lib/example";
+import { IcCalendar, IcLock, IcNext, IcPin } from "@/components/icons";
+import { ScanCard } from "@/components/skin-scan/scan-card";
 
 export default async function Home({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -27,6 +27,8 @@ export default async function Home({ params }: { params: { clinic: string } }) {
   const team = clinic.cfg.providers.filter((p) => p.is_active);
   const payLater = clinic.cfg.shop.enabled ? (["klarna", "affirm"] as FinancingMethod[]).filter((m) => clinic.cfg.shop.financing[m]) : [];
   const about = clinic.about || team[0]?.bio || null;
+  const scanOn = skinScanOn(clinic);
+  const guides = treatments.filter((t) => t.image_url && !/consult/i.test(t.name)).slice(0, 8);
 
   const catalog: CatalogItem[] = [
     ...treatments.map((t) => ({ key: `t:${t.id}`, name: t.name, price: fromPrice(t), image: t.image_url, href: `${base}/shop/treatment/${t.id}` })),
@@ -66,21 +68,6 @@ export default async function Home({ params }: { params: { clinic: string } }) {
       </section>
 
       {gift && <ScratchGift key={gift.savedId ?? gift.offerId} gift={gift} slug={clinic.slug} primary={clinic.primary} pointsLabel="points" fullName={patient.fullName ?? undefined} />}
-
-      {/* AI skin scan */}
-      <Link href={`${base}/skin-scan`} className="relative mx-4 mt-5 flex items-center gap-3.5 overflow-hidden rounded-[16px] bg-ink p-4 text-white transition active:scale-[0.99]">
-        <span className="relative h-[64px] w-[64px] shrink-0 overflow-hidden rounded-[12px] bg-white/10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={EXAMPLE_IMG.hero} alt="" className="h-full w-full object-cover object-[45%_40%]" />
-          <span className="absolute inset-x-0 top-1/2 h-[2px] bg-white/90 shadow-[0_0_10px_rgb(var(--p-rgb))]" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-white/60"><IcSpark className="h-3 w-3" />Free AI skin scan</span>
-          <span className="mt-0.5 block text-[15.5px] font-semibold leading-tight">See what treatment could do for you</span>
-          <span className="mt-0.5 block text-[12.5px] text-white/65">Skin score, 12 markers and an AI preview</span>
-        </span>
-        <IcNext className="h-4 w-4 shrink-0 text-white/70" strokeWidth={2.2} />
-      </Link>
 
       <InstallCard clinicName={clinic.name} slug={clinic.slug} />
 
@@ -173,6 +160,35 @@ export default async function Home({ params }: { params: { clinic: string } }) {
             </figure>
           ))}
         </Rail>
+      )}
+
+      {/* Educate yourself: the skin scan + how each treatment works */}
+      {(scanOn || guides.length > 0) && (
+        <section className="mt-8">
+          <div className="px-5">
+            <h3 className="text-[19px] font-semibold tracking-[-0.015em]">Educate yourself</h3>
+            <p className="mt-0.5 text-[13px] text-sub">Know what your skin needs, then how each treatment works.</p>
+          </div>
+          {scanOn && <div className="mx-4 mt-3"><ScanCard href={`${base}/skin-scan`} clinicName={clinic.name} /></div>}
+          {guides.length > 0 && (
+            <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-2">
+              {guides.map((t) => (
+                <Link key={t.id} href={`${base}/shop/treatment/${t.id}`} className="w-[164px] shrink-0 overflow-hidden rounded-[14px] bg-white shadow-card ring-1 ring-line">
+                  <div className="aspect-[4/3] bg-tint">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={optimizedUrl(t.image_url!, 330)} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  </div>
+                  <div className="px-3 pb-3 pt-2.5">
+                    <span className="pill-soft">{t.category}</span>
+                    <p className="mt-1.5 line-clamp-1 text-[14px] font-semibold">{t.name}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-sub">{t.description}</p>
+                    <span className="mt-1.5 inline-flex items-center gap-0.5 text-[12.5px] font-semibold text-brand">How it works <IcNext className="h-3 w-3" strokeWidth={2.4} /></span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {/* About */}

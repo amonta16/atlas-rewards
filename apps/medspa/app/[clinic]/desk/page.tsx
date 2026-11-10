@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getClinic, activeTreatments } from "@/lib/clinic";
+import { getClinic, activeTreatments, skinScanOn } from "@/lib/clinic";
 import { getStaff } from "@/lib/staff";
 import { DeskApp } from "@/components/desk/desk-app";
 import { getBuilderData } from "@/lib/builder-data";
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
  * functions as the venue app, so everything shows the same numbers.
  * ?view=reports&month=YYYY-MM is where the monthly report email lands.
  */
-const VIEWS = ["checkin", "patients", "due", "orders", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "reports", "offers", "marketing", "billing"] as const;
+const VIEWS = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "reports", "offers", "marketing", "billing"] as const;
 
 export default async function Desk({ params, searchParams }: { params: { clinic: string }; searchParams: { view?: string; month?: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -55,6 +55,7 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
           : demo
             ? { kind: "demo", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL }
             : { kind: "live", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL },
+        skinScan: skinScanOn(clinic),
         recall: { enabled: clinic.cfg.recall.enabled, lead_days: clinic.cfg.recall.lead_days, followup_days: clinic.cfg.recall.followup_days },
         treatments: activeTreatments(clinic).map((t) => ({ id: t.id, name: t.name, recall_weeks: t.recall_weeks ?? null })),
         providers: clinic.cfg.providers.filter((p) => p.is_active).map((p) => ({ id: p.id, name: p.name, treatment_ids: p.treatment_ids ?? [] })),

@@ -153,3 +153,13 @@ export function scoreWord(score: number): string {
   if (score >= 60) return "Fair";
   return "Needs care";
 }
+
+/** The demo clinic and instant previews have no database: their saved scans live in this browser, so a sales demo can scan on the phone view and see it on the desk. */
+export const demoScansKey = (slug: string) => `atlas-skin-scans:${slug}`;
+/** The last scan in this tab, so results survive a refresh and the sign-in round trip. */
+export const lastScanKey = (slug: string) => `atlas-skin-scan-last:${slug}`;
+
+export type SavedScan = {
+  overall: number; skin_age: number | null; metrics: { id: ConcernId; score: number }[];
+  goals: string[]; treatments: string[]; full_name: string | null; phone: string | null; created_at: string;
+};

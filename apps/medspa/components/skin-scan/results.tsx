@@ -5,18 +5,19 @@
  * clinic's own treatments for the weakest areas.
  */
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { optimizedUrl } from "@atlas/core/img";
 import type { BookingOptions, MedspaTreatment } from "@/lib/medspa";
 import { fromPrice } from "@/lib/plans";
 import {
-  concernDef, matchTreatments, scoreWord, WEAK_BELOW, ZONES,
-  type ConcernId, type ScanMetric, type ScanResult,
+  concernDef, demoScansKey, matchTreatments, scoreWord, WEAK_BELOW, ZONES,
+  type ConcernId, type SavedScan, type ScanMetric, type ScanResult,
 } from "@/lib/skin-scan";
 import { ActionButton } from "../action-sheet";
+import { useGate } from "../gate";
 import { IcDown, IcNext, IcRefresh, IcSpark } from "../icons";
 
-export function ScanResults({ result, before, after, afterState, goals, treatments, booking, clinicName, slug, onRescan }: {
+export function ScanResults({ result, before, after, afterState, goals, treatments, booking, clinicName, slug, scanAt, onRescan }: {
   result: ScanResult;
   /** The photo as taken (what the "after" was generated from). */
   before: string;
@@ -27,6 +28,8 @@ export function ScanResults({ result, before, after, afterState, goals, treatmen
   booking: BookingOptions;
   clinicName: string;
   slug: string;
+  /** When this scan finished: saving is once per scan. */
+  scanAt: string;
   onRescan: () => void;
 }) {
   const sorted = useMemo(() => [...result.metrics].sort((a, b) => a.score - b.score), [result.metrics]);
@@ -94,6 +97,8 @@ export function ScanResults({ result, before, after, afterState, goals, treatmen
             sheet={{ title: "Book a consultation", body: `Bring your scan to ${clinicName}. Choose how you'd like to book.` }} />
         </div>
       </section>
+
+      <SaveCard result={result} goals={goals} treatments={matches.map((m) => m.treatment.name)} slug={slug} clinicName={clinicName} scanAt={scanAt} />
 
       {/* Face map + all scores */}
       <FaceMap result={result} before={before} />
@@ -251,6 +256,60 @@ function FaceMap({ result, before }: { result: ScanResult; before: string }) {
             style={/\.jpe?g(\?|$)/i.test(u) ? { mixBlendMode: "screen" } : undefined} />
         ))}
       </div>
+    </section>
+  );
+}
+
+/**
+ * Signed in: the scan is saved to their profile so the clinic can follow up.
+ * Guests: one card to sign in and save (they come straight back to these results).
+ */
+function SaveCard({ result, goals, treatments, slug, clinicName, scanAt }: {
+  result: ScanResult; goals: ConcernId[]; treatments: string[]; slug: string; clinicName: string; scanAt: string;
+}) {
+  const { signedIn, require } = useGate();
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const flag = `atlas-skin-scan-saved:${slug}:${scanAt}`;
+  const sent = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!signedIn || !scanAt) return;
+    try { if (sessionStorage.getItem(flag)) { setState("saved"); return; } } catch { /* ignore */ }
+    // Once per scan, even when React runs this effect twice.
+    if (sent.current === flag) return;
+    sent.current = flag;
+    setState("saving");
+    fetch(`/api/${slug}/skin-scan`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", scan: { overall: result.overall, skinAge: result.skinAge, metrics: result.metrics.map((m) => ({ id: m.id, score: m.score })), goals, treatments } }),
+    }).then(async (r) => {
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error();
+      if (j.saved === "local" && j.row) {
+        // Demo / instant preview: keep it in this browser for the demo desk.
+        try {
+          const list = JSON.parse(localStorage.getItem(demoScansKey(slug)) || "[]") as SavedScan[];
+          localStorage.setItem(demoScansKey(slug), JSON.stringify([j.row, ...list].slice(0, 20)));
+        } catch { /* ignore */ }
+      }
+      try { sessionStorage.setItem(flag, "1"); } catch { /* ignore */ }
+      setState("saved");
+    }).catch(() => setState("error"));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn, scanAt]);
+
+  if (signedIn) {
+    return (
+      <p className="mx-4 mt-4 flex items-center justify-center gap-1.5 text-center text-[12.5px] text-sub">
+        {state === "saved" ? <>Saved to your profile. {clinicName} will use it to plan your visit.</> : state === "error" ? "Couldn't save your results this time." : "Saving your results…"}
+      </p>
+    );
+  }
+  return (
+    <section className="mx-4 mt-6 rounded-[16px] bg-[#F4F5F6] p-4">
+      <p className="text-[15px] font-semibold">Keep your results</p>
+      <p className="mt-0.5 text-[13px] leading-snug text-sub">Sign in to save your scan to your profile, so {clinicName} can build your plan before you come in.</p>
+      <button type="button" onClick={() => require(() => {})} className="btn-ink mt-3 h-11 text-[15px]">Save my results</button>
     </section>
   );
 }

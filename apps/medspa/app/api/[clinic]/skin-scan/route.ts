@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getClinic } from "@/lib/clinic";
+import { createClient } from "@atlas/core/supabase/server";
+import { getClinic, skinScanOn } from "@/lib/clinic";
+import { getPatient } from "@/lib/patient";
 import {
   isMock, mockAnalysis, PerfectCorpError, pollAnalysis, pollSimulation, readToken, signToken,
   startAnalysis, startSimulation, uploadSelfie,
 } from "@/lib/perfectcorp";
-import { CONCERNS, type SimKey } from "@/lib/skin-scan";
+import { CONCERNS, type ConcernId, type SimKey } from "@/lib/skin-scan";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -15,6 +17,7 @@ export const maxDuration = 30;
  *   GET  ?analysis=<task>                 → poll until the scores are ready
  *   POST {action:"preview", token, sim}   → start the "after" simulation → {simulationTask}
  *   GET  ?simulation=<task>               → poll until the preview image is ready
+ *   POST {action:"save", scan}            → signed-in patient: keep the scores for the desk's Skin scans list
  * The selfie goes straight to Perfect Corp; nothing is stored on our side.
  */
 
@@ -60,8 +63,11 @@ const PHOTO_ERRORS: Record<string, string> = {
 export async function POST(req: NextRequest, { params }: { params: { clinic: string } }) {
   const clinic = await getClinic(params.clinic).catch(() => null);
   if (!clinic) return fail("Clinic not found.", 404);
-  const body = (await req.json().catch(() => null)) as { action?: string; image?: string; hd?: boolean; token?: string; sim?: Record<string, number> } | null;
+  if (!skinScanOn(clinic)) return fail("The skin scan isn't available here.", 404);
+  const body = (await req.json().catch(() => null)) as { action?: string; image?: string; hd?: boolean; token?: string; sim?: Record<string, number>; scan?: SaveBody } | null;
   if (!body?.action) return fail("Bad request.");
+
+  if (body.action === "save") return save(clinic, body.scan);
 
   if (body.action === "start") {
     const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(body.image ?? "");
@@ -104,9 +110,39 @@ export async function POST(req: NextRequest, { params }: { params: { clinic: str
   return fail("Bad request.");
 }
 
+type SaveBody = { overall?: number; skinAge?: number | null; metrics?: { id: string; score: number }[]; goals?: string[]; treatments?: string[] };
+const CONCERN_IDS = new Set<string>(CONCERNS.map((c) => c.id));
+const int = (v: unknown, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : null);
+
+/**
+ * Keep a signed-in patient's scan (scores only: never the photo) so the desk
+ * can follow up. The demo / instant previews have no database: the browser
+ * keeps it for the demo desk instead, so we just hand back who it belongs to.
+ */
+async function save(clinic: NonNullable<Awaited<ReturnType<typeof getClinic>>>, scan: SaveBody | undefined) {
+  const patient = await getPatient(clinic);
+  if (!patient.signedIn) return fail("Please sign in to save your results.", 401);
+  const overall = int(scan?.overall, 0, 100);
+  const metrics = (scan?.metrics ?? []).filter((m) => CONCERN_IDS.has(m.id)).map((m) => ({ id: m.id as ConcernId, score: int(m.score, 0, 100) ?? 0 })).slice(0, 20);
+  if (overall === null || !metrics.length) return fail("Bad request.");
+  const row = {
+    overall, skin_age: int(scan?.skinAge, 10, 99), metrics,
+    goals: (scan?.goals ?? []).filter((g) => CONCERN_IDS.has(g)).slice(0, 12),
+    treatments: (scan?.treatments ?? []).map((t) => String(t).slice(0, 80)).slice(0, 5),
+  };
+  if (clinic.id === "example") {
+    return NextResponse.json({ saved: "local", row: { ...row, full_name: patient.fullName, phone: patient.phone, created_at: new Date().toISOString() } });
+  }
+  const { error } = await createClient().from("medspa_skin_scans").insert({
+    business_id: clinic.id, user_id: patient.userId, membership_id: patient.membershipId, ...row,
+  });
+  if (error) { console.error("[skin-scan] save", error.message); return fail("Couldn't save your results. Please try again.", 500); }
+  return NextResponse.json({ saved: true });
+}
+
 export async function GET(req: NextRequest, { params }: { params: { clinic: string } }) {
   const clinic = await getClinic(params.clinic).catch(() => null);
-  if (!clinic) return fail("Clinic not found.", 404);
+  if (!clinic || !skinScanOn(clinic)) return fail("Clinic not found.", 404);
   const analysis = req.nextUrl.searchParams.get("analysis");
   const simulation = req.nextUrl.searchParams.get("simulation");
   try {
