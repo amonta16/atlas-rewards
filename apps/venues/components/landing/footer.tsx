@@ -39,6 +39,7 @@ export function Footer() {
             { href: "/login", label: "Business log in" },
             { href: "/legal/terms", label: "Terms" },
             { href: "/legal/privacy#choices", label: "Your privacy choices" },
+            { href: "/legal/california", label: "California notice" },
             { href: "/legal/privacy", label: "Privacy" },
           ]}
         />

@@ -130,10 +130,19 @@ export default function PrivacyPage() {
       <ul className="list-disc pl-6 space-y-1.5">
         <li><strong>Essential cookies</strong> keep you signed in and remember your choices. The apps need them to work.</li>
         <li>
+          <strong>Visit counting (our marketing website only).</strong> An anonymous ID in your browser so we can count
+          visits to our sign-up pages, with the campaign link you came from. Only with your OK in the cookie banner.
+        </li>
+        <li>
           <strong>Advertising (our marketing website only).</strong> To measure our own ads, some pages on{" "}
           <em>atlas-engine.app</em> for business owners may use the Meta Pixel, which lets Meta see that you visited and
           whether you booked a call. It is never used in customer or patient apps. Under California law this can count
           as &quot;sharing&quot; for advertising; you can opt out below.
+        </li>
+        <li>
+          <strong>Your choice.</strong> The cookie banner on our website lets you accept or decline everything optional.
+          Visitors from the EU, EEA, UK and Switzerland get nothing optional until they accept; everyone else can decline
+          at any time. Global Privacy Control counts as declining. Customer and patient apps use essential cookies only.
         </li>
       </ul>
 
@@ -162,7 +171,9 @@ export default function PrivacyPage() {
           <strong>California, EU/UK and other state residents</strong> have additional rights (know, delete, correct,
           limit use of sensitive information, opt out of sharing, appeal a decision). We use sensitive information (such
           as health or face data) only to provide the service you asked for. We won&apos;t treat you differently for using
-          your rights. You can use an authorized agent.
+          your rights. You can use an authorized agent. California residents: see our{" "}
+          <a href="/legal/california" className="underline">Notice to California Residents</a>. Washington, Nevada and
+          similar states: see our <a href="/legal/health-data" className="underline">Consumer Health Data Privacy Policy</a>.
         </li>
       </ul>
 

@@ -1,7 +1,7 @@
 "use client";
 import Script from "next/script";
 import { useEffect, useState } from "react";
-import { optedOut } from "@/lib/privacy-optout";
+import { CONSENT_EVENT, trackingAllowed } from "@/lib/privacy-optout";
 
 /**
  * Meta Pixel for the ads landing page (CP-177).
@@ -10,13 +10,18 @@ import { optedOut } from "@/lib/privacy-optout";
  * lib/landing/analytics.ts sends the standard `Lead` event when a demo is
  * booked, plus every custom landing event as trackCustom.
  * Next step after launch: add the Conversions API (server-side) for iOS signal loss.
- * CP-242: never loads for visitors who opted out ("Do Not Sell or Share" on
- * /legal/privacy#choices) or whose browser sends Global Privacy Control.
+ * CP-242: loads only when trackingAllowed() (cookie banner, "Do Not Sell or
+ * Share", Global Privacy Control, opt-in for EU/UK visitors).
  */
 export function MetaPixel() {
   const id = process.env.NEXT_PUBLIC_META_PIXEL_ID;
   const [allowed, setAllowed] = useState(false);
-  useEffect(() => { setAllowed(!optedOut()); }, []);
+  useEffect(() => {
+    const check = () => setAllowed(trackingAllowed());
+    check();
+    window.addEventListener(CONSENT_EVENT, check);
+    return () => window.removeEventListener(CONSENT_EVENT, check);
+  }, []);
   if (!id || !/^\d{6,20}$/.test(id) || !allowed) return null;
   return (
     <>

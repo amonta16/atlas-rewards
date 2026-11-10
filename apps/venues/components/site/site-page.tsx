@@ -617,7 +617,7 @@ function Footer() {
         </div>
         <FooterCol title="Product" links={[["#product", "What it does"], ["#desk", "Front desk"], ["#pricing", "Pricing"]]} />
         <FooterCol title="Also from Atlas" links={[["/venues", "For entertainment venues"], ["/medspa", "Med spa recall estimate"], [IOS_APP_URL, "AE Rewards on the App Store"]]} />
-        <FooterCol title="Company" links={[["/login", "Log in"], ["/support", "Support"], ["/legal/privacy", "Privacy"], ["/legal/terms", "Terms"], ["/legal/privacy#choices", "Your privacy choices"]]} />
+        <FooterCol title="Company" links={[["/login", "Log in"], ["/support", "Support"], ["/legal/privacy", "Privacy"], ["/legal/terms", "Terms"], ["/legal/privacy#choices", "Your privacy choices"], ["/legal/california", "California notice"], ["/legal/health-data", "Consumer health data"]]} />
       </div>
       <div className="s-wrap mt-12 flex flex-col justify-between gap-3 border-t border-[var(--s-line)] pt-6 text-[13px] sm:flex-row"><span>© {new Date().getFullYear()} Atlas Engine. All rights reserved.</span><span>Bakersfield · Morro Bay, California</span></div>
     </footer>

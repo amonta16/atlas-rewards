@@ -5,9 +5,13 @@
  * visits by the same browser count as one visitor. No cookies, no names.
  */
 import { useEffect } from "react";
+import { CONSENT_EVENT, trackingAllowed } from "@/lib/privacy-optout";
 
 export function VisitBeacon({ path }: { path: string }) {
   useEffect(() => {
+    // CP-242: optional analytics: only with consent (see lib/privacy-optout).
+    const run = () => {
+    if (!trackingAllowed()) return;
     try {
       const key = `atlas-visit:${path}`;
       if (sessionStorage.getItem(key)) return;
@@ -27,6 +31,10 @@ export function VisitBeacon({ path }: { path: string }) {
         fetch("/api/landing/visit", { method: "POST", headers: { "Content-Type": "application/json" }, body, keepalive: true }).catch(() => {});
       }
     } catch { /* storage blocked: skip counting */ }
+    };
+    run();
+    window.addEventListener(CONSENT_EVENT, run);
+    return () => window.removeEventListener(CONSENT_EVENT, run);
   }, [path]);
   return null;
 }

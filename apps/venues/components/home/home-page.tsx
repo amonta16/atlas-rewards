@@ -290,6 +290,8 @@ function Footer() {
           <Link className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/privacy">Privacy</Link>
           <Link className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/terms">Terms</Link>
           <Link className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/privacy#choices">Your privacy choices</Link>
+          <Link className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/california">California notice</Link>
+          <Link className="s-focus rounded hover:text-[var(--s-ink)]" href="/legal/health-data">Consumer health data</Link>
         </nav>
       </div>
     </footer>

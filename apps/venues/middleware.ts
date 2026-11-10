@@ -96,8 +96,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url, { headers: response.headers });
   }
 
+  // CP-242: cookie-consent mode for the marketing site: opt-in for EU / EEA /
+  // UK / Swiss visitors, notice + opt-out elsewhere (lib/privacy-optout.ts).
+  if (!subdomain) {
+    const country = (request.headers.get("x-vercel-ip-country") ?? "").toUpperCase();
+    const mode = STRICT_CONSENT.has(country) ? "strict" : "notice";
+    if (request.cookies.get("atlas_geo")?.value !== mode) {
+      response.cookies.set("atlas_geo", mode, { path: "/", maxAge: 60 * 60 * 24 * 30, sameSite: "lax" });
+    }
+  }
+
   return response;
 }
+
+/** EU + EEA + UK + Switzerland: cookies beyond the essential ones need opt-in consent. */
+const STRICT_CONSENT = new Set([
+  "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+  "PL", "PT", "RO", "SK", "SI", "ES", "SE", "IS", "LI", "NO", "GB", "CH",
+]);
 
 export const config = {
   matcher: [
