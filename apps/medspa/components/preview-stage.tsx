@@ -102,12 +102,15 @@ export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }
   return (
     <div id="pv-phone" className="mx-auto w-full max-w-[418px] scroll-mt-20">
       <style>{`.pv-push{animation:pvpush .55s cubic-bezier(.2,.9,.25,1.08) both}@keyframes pvpush{0%{transform:translateY(-140%) scale(.96);opacity:0}100%{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){.pv-push{animation:none}}`}</style>
+      {/* Above the phone, not on it: on the frame it covered the status-bar icons. */}
+      <div className="mb-2.5 flex justify-center">
+        <button type="button" onClick={() => setFixOpen(true)}
+          className="rounded-full bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-ink shadow-soft ring-1 ring-line active:scale-[.98]">
+          Wrong logo or color? <span style={{ color: primary }}>Fix it</span>
+        </button>
+      </div>
       <div className="relative">
         <PhoneFrame key={frameKey} src={`/${slug}`} title={`${businessName} app preview`} overlay={banner} />
-        <button type="button" onClick={() => setFixOpen(true)}
-          className="absolute right-1 top-1 z-10 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-semibold text-ink shadow-soft ring-1 ring-line active:scale-[.98]">
-          Wrong logo or color? Fix it
-        </button>
       </div>
       {enriching && <p className="mt-3 text-center text-[13px] font-medium text-sub" role="status">Adding your treatments and photos… the app updates by itself.</p>}
       <div className="mt-4 flex flex-col items-center gap-2">

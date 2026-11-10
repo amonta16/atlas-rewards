@@ -34,6 +34,8 @@ export type GoLive = {
   /** Self-serve activation, only when checkout is switched on (PREVIEW_SHOW_CHECKOUT=1 + STRIPE_FOUNDING_CHECKOUT_URL). */
   activateUrl: string | null;
   /** Lead-magnet audit, step 4: the skip-ahead button's words on a preview ("Turn it on now, $500 setup"). */
+  /** One ask per screen: true once the desk's "Turn on the engine" bar is up, which then is the ask. */
+  walkthroughHidden?: boolean;
   activateLabel?: string;
   /** Previews only: when the preview is deleted. */
   expiresAt: string | null;
@@ -280,8 +282,14 @@ function AccessCard({ goLive, appName, doneCount, total }: { goLive: GoLive; app
         <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11.5px] font-semibold text-amber-800">{goLive.kind === "preview" ? "Free preview" : "Demo"}</span>
       </div>
       <ul className="mt-2.5 space-y-1.5 text-[13px]">
-        <li className="flex gap-2"><IcCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2.2} /><span><b>Every feature unlocked</b> to try, on this desk and in your app</span></li>
-        <li className="flex gap-2"><IcClose className="mt-0.5 h-4 w-4 shrink-0 text-faint" strokeWidth={2.2} /><span className="text-sub">Changes aren&apos;t saved and patients can&apos;t join yet</span></li>
+        {goLive.kind === "preview" ? <>
+          {/* Audit step 4: the engine is locked on a preview, so don't promise "every feature". */}
+          <li className="flex gap-2"><IcCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2.2} /><span><b>Your app and this desk</b> to try: treatments, rewards, memberships, check-in</span></li>
+          <li className="flex gap-2"><IcClose className="mt-0.5 h-4 w-4 shrink-0 text-faint" strokeWidth={2.2} /><span className="text-sub">The engine is off: reminders, offers and texts don&apos;t fire until you turn it on</span></li>
+        </> : <>
+          <li className="flex gap-2"><IcCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2.2} /><span><b>Every feature unlocked</b> to try, on this desk and in your app</span></li>
+          <li className="flex gap-2"><IcClose className="mt-0.5 h-4 w-4 shrink-0 text-faint" strokeWidth={2.2} /><span className="text-sub">Changes aren&apos;t saved and patients can&apos;t join yet</span></li>
+        </>}
         {until && <li className="flex gap-2"><IcCalendar className="mt-0.5 h-4 w-4 shrink-0 text-faint" /><span className="text-sub">Your preview is kept until <b className="text-ink">{until}</b></span></li>}
       </ul>
       <div className="mt-3 rounded-[12px] bg-[#F7F8F8] p-3">
@@ -291,7 +299,7 @@ function AccessCard({ goLive, appName, doneCount, total }: { goLive: GoLive; app
         </ul>
       </div>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
-        {activateFirst ? <>{activate}{walk}</> : <>{walk}{activate}</>}
+        {goLive.walkthroughHidden ? activate : activateFirst ? <>{activate}{walk}</> : <>{walk}{activate}</>}
       </div>
       <p className="mt-2.5 text-[12px] text-sub">
         On the call we go live together: your real treatments, rewards and payments. Questions first? <a className="font-semibold text-brand" href={`mailto:${goLive.helpEmail}`}>Email us</a>.

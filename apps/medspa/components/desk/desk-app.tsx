@@ -88,7 +88,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   useEffect(() => { try { setNudgeOff(window.sessionStorage.getItem(nudgeKey) === "1"); } catch { setNudgeOff(false); } }, [nudgeKey]);
   // The skip-ahead ("Turn it on now") only once they're verified, imported and installed.
   const ready = progress.verified && progress.csv && progress.installed;
-  const goLive = portal && !ready ? { ...clinic.goLive, activateUrl: null } : clinic.goLive;
+  const goLive = portal ? { ...clinic.goLive, activateUrl: ready ? clinic.goLive.activateUrl : null, walkthroughHidden: !!imported } : clinic.goLive;
   const [view, setView] = useState<View>(() => {
     // "reports" (the monthly email's button) is a tab inside Insights.
     // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
@@ -178,8 +178,13 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
           {goLive.kind !== "live" ? (
             <div className="rounded-[14px] bg-brand/[.08] p-4">
               <p className="text-[14px] font-semibold">{goLive.kind === "preview" ? "You're on a free preview" : "This is the demo"}</p>
-              <p className="mt-1 text-[12.5px] leading-snug text-sub">Book a 15-minute walkthrough and we switch your app on with you.</p>
-              <a href={goLive.walkthroughUrl} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1 border-b border-brand/40 pb-0.5 text-[13px] font-semibold text-brand">Book a walkthrough <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
+              {goLive.kind === "preview" ? (
+                // One ask per screen: on a preview the banner, the Home card or the bar carries it.
+                <p className="mt-1 text-[12.5px] leading-snug text-sub">Reminders, offers and texts are off until you turn the engine on.</p>
+              ) : <>
+                <p className="mt-1 text-[12.5px] leading-snug text-sub">Book a 15-minute walkthrough and we switch your app on with you.</p>
+                <a href={goLive.walkthroughUrl} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1 border-b border-brand/40 pb-0.5 text-[13px] font-semibold text-brand">Book a walkthrough <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
+              </>}
             </div>
           ) : (
             <div className="rounded-[14px] bg-brand/[.08] p-4">
@@ -204,7 +209,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
               <b>This is {clinic.name}&apos;s front desk, in preview.</b>{" "}
               <span className="text-sub">Try anything: nothing is sent to patients until you turn the engine on. Saved until {new Date(clinic.preview.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.</span>
             </p>
-            {!imported && <a href={clinic.preview.walkthroughUrl} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-[13px] font-semibold text-white">Book a walkthrough</a>}
+            {!imported && !(view === "overview" && staff.isManager) && <a href={clinic.preview.walkthroughUrl} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-[13px] font-semibold text-white">Book a walkthrough</a>}
           </div>
         )}
         <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
