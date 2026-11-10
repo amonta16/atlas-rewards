@@ -29,6 +29,7 @@ import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
 import { DeskListMock, PhoneShell } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS, partnerLine, realReviews, reviewFor } from "@/lib/landing/site-reviews";
 import { ReviewQuote } from "@/components/landing/review-strip"; // CP-239
+import { ReviewImageMarquee, useReviewImages } from "@/components/landing/review-images"; // CP-240
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
 // CP-196: GSAP scroll motion, wired from data-gs attributes (components/site/motion.ts).
@@ -485,9 +486,11 @@ export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "ge
   const videos = TESTIMONIALS.filter((t) => t.embed);
   // CP-239: real = a quote (and partner reviews only once the partner is named). Slots fill in only while there are none.
   const real = realReviews();
-  const cards = real.length ? real : SHOW_REVIEW_SLOTS ? SITE_REVIEWS.filter((r) => !r.quote) : [];
+  // CP-240: review screenshots from Admin → Reviews take the slots' place (slots only show once we know there are none).
+  const shots = useReviewImages(audience);
+  const cards = real.length ? real : SHOW_REVIEW_SLOTS && shots.ready && shots.images.length === 0 ? SITE_REVIEWS.filter((r) => !r.quote) : [];
   const partner = real.some((r) => r.via === "partner") ? partnerLine() : null;
-  if (videos.length === 0 && cards.length === 0) return null;
+  if (videos.length === 0 && cards.length === 0 && shots.images.length === 0) return null;
   return (
     <section className="s-section !pt-0" aria-labelledby="reviews-title">
       <div className="s-wrap">
@@ -522,12 +525,15 @@ export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "ge
                   </figure>
                 ))}
               </div>
-              <p className="s-small mt-4 text-center text-white/80">Flippo&apos;s is an arcade and batting cage, the first business on Atlas. {audience === "general" ? "More owners are next" : "Med spa owners are next"}{real.length === 0 ? "; their words land below as they come in" : ""}.</p>
+              <p className="s-small mt-4 text-center text-white/80">Flippo&apos;s is an arcade and batting cage, the first business on Atlas. {audience === "general" ? "More owners are next" : "Med spa owners are next"}{real.length === 0 && shots.images.length === 0 ? "; their words land below as they come in" : ""}.</p>
             </div>
           )}
 
+          {/* CP-240: review screenshots, sliding left → right. */}
+          <ReviewImageMarquee images={shots.images} tone="dark" className="relative mt-12" />
+
           {/* Cards slide across; pause on hover. The whole set renders twice so the loop has no seam. */}
-          <div className="s-marquee-wrap relative mt-12 overflow-hidden">
+          {cards.length > 0 && <div className="s-marquee-wrap relative mt-12 overflow-hidden">
             <div className="s-marquee flex w-max gap-4 px-4">
               {[0, 1].map((pass) => (
                 <div key={pass} className="flex gap-4" aria-hidden={pass === 1}>
@@ -547,7 +553,7 @@ export function ReviewsBand({ audience = "medspa" }: { audience?: "medspa" | "ge
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </section>

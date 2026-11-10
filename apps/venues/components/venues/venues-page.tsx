@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { optimizedUrl } from "@/lib/img";
 import { LIB } from "@/lib/landing/live-app-data";
 import { track } from "@/lib/landing/analytics";
+import { ReviewImageMarquee, useReviewImages } from "@/components/landing/review-images"; // CP-240
 import { VENUES_FAQ, VENUES_OFFER, VENUES_PROOF, VENUES_STACK, VENUES_TESTIMONIALS, type VenueTestimonial } from "@/lib/landing/venues-offer";
 import { LiveApp, type LiveEvent } from "@/components/landing/live-app/live-app";
 import { LandingProviders, useLanding } from "@/components/landing/landing-providers";
@@ -306,6 +307,7 @@ function TryIt() {
 function Proof() {
   const isProd = process.env.NODE_ENV === "production";
   const items = VENUES_TESTIMONIALS.filter((t) => t.embed || !isProd);
+  const { images: shots } = useReviewImages("venues");
   return (
     <section className="lpv-section" aria-labelledby="proof-title">
       <div className="lpv-container">
@@ -322,6 +324,10 @@ function Proof() {
             ))}
           </ul>
         )}
+      </div>
+      {/* CP-240: review screenshots from Admin → Reviews (shown on "Entertainment venues"), sliding left → right. */}
+      <ReviewImageMarquee images={shots} tone="dark" className="mt-12" />
+      <div className="lpv-container">
         <div className="mx-auto mt-14 grid max-w-4xl gap-4 sm:grid-cols-2">
           {VENUES_PROOF.map((p) => (
             <Reveal key={p.big} className="lpv-card p-6">

@@ -91,3 +91,13 @@
   .lpv * { transition-duration: .01ms !important; }
 }
 @media (max-width: 639px) { .lpv-eyebrow::before { display: none; } }
+
+/* CP-240: review-screenshot strip (same rules as app/site.css) */
+@keyframes s-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+.s-marquee { animation: s-marquee 55s linear infinite; }
+.s-marquee-wrap:hover .s-marquee, .s-marquee-wrap:focus-within .s-marquee { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .s-marquee { animation: none !important; }
+  .s-marquee-wrap { overflow-x: auto !important; }
+  .s-marquee > [aria-hidden="true"] { display: none; }
+}

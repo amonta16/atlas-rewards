@@ -6,9 +6,14 @@
  *                            becomes a plain swipeable row.
  *   <ReviewQuote topic=… />  one review that backs up the section it sits next to.
  * Both render nothing until there's a real review (lib/landing/site-reviews.ts).
+ *
+ * CP-240: the strip also slides the review screenshots uploaded in Admin → Reviews
+ * (left → right, above any written quotes). It shows as soon as either exists.
  */
 import { Star } from "lucide-react";
 import { partnerLine, realReviews, reviewFor, type ReviewTopic, type SiteReview } from "@/lib/landing/site-reviews";
+import { ReviewImageMarquee, useReviewImages } from "@/components/landing/review-images";
+import type { ReviewPlacement } from "@/lib/landing/review-images";
 
 const initials = (n: string) => n.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
@@ -33,19 +38,22 @@ function Who({ r }: { r: SiteReview }) {
   );
 }
 
-export function ReviewStrip({ title = "What practice owners say" }: { title?: string }) {
+export function ReviewStrip({ title = "What practice owners say", on = "medspa" }: { title?: string; on?: ReviewPlacement }) {
   const reviews = realReviews();
-  if (reviews.length === 0) return null;
+  const { images } = useReviewImages(on);
+  if (reviews.length === 0 && images.length === 0) return null;
   const partner = reviews.some((r) => r.via === "partner") ? partnerLine() : null;
   // Short lists repeat inside each pass so the loop never shows a gap on wide screens.
-  const pass = reviews.length >= 5 ? reviews : Array.from({ length: Math.ceil(5 / reviews.length) }, () => reviews).flat();
+  const pass = reviews.length === 0 ? [] : reviews.length >= 5 ? reviews : Array.from({ length: Math.ceil(5 / reviews.length) }, () => reviews).flat();
   return (
     <section aria-labelledby="pv-reviews" className="border-t border-[#0B1B2B]/8 bg-[#F6F9FD] py-14 sm:py-20">
       <div className="s-wrap text-center">
         <h2 id="pv-reviews" className="text-[clamp(1.7rem,1.2rem+1.8vw,2.6rem)] font-bold tracking-[-0.03em] text-[#0B1B2B]">{title}</h2>
         {partner && <p className="mx-auto mt-3 max-w-[38rem] text-[15px] leading-relaxed text-[#3A4A5C]">{partner}</p>}
       </div>
-      <div className="s-marquee-wrap relative mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]" tabIndex={0} aria-label="Client reviews, scrolling. Hover or focus to pause.">
+      {/* CP-240: uploaded review screenshots */}
+      <ReviewImageMarquee images={images} className="mt-10" />
+      {pass.length > 0 && <div className="s-marquee-wrap relative mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]" tabIndex={0} aria-label="Client reviews, scrolling. Hover or focus to pause.">
         <div className="s-marquee s-marquee-slow flex w-max gap-4 px-2">
           {[0, 1].map((p) => (
             <div key={p} className="flex gap-4" aria-hidden={p === 1}>
@@ -62,7 +70,7 @@ export function ReviewStrip({ title = "What practice owners say" }: { title?: st
             </div>
           ))}
         </div>
-      </div>
+      </div>}
     </section>
   );
 }

@@ -36,6 +36,10 @@ New: **Admin → Lead Funnel** (visits → opt-ins → walkthroughs booked → p
 - [ ] Read and edit the 3 emails in Admin → Lead Funnel → Follow-up emails. Use "Send me a test" for each.
 - [ ] Vercel atlas-rewards: `MAIL_POSTAL_ADDRESS` = a physical postal address where Atlas can receive mail, e.g. `123 Main St, Suite 4, San Diego, CA 92101`. Not an email or web address. A USPS PO box or a registered virtual mailbox (iPostal1, Anytime Mailbox) works if you don't want a home address in emails. US law (CAN-SPAM) requires it in every marketing email; it prints in the small footer.
 
+## Review screenshots (CP-240)
+Admin → **Reviews**: drop review screenshots (or a whole folder), tick which pages each shows on (Med spa pages / All-business home / Entertainment venues), drag to reorder, hide or delete. They slide left → right in the ocean review band (`/`, `/med-spas`, `/medspa`), in the strip right under the hero of the lead magnet (`/medspa/app`) and in the venues "In their words" section. Once any screenshot is live on a page, that page's dashed "Review slot" cards disappear. Sites pick up changes within ~60 s.
+- [ ] Run `db/history/checkpoint-240-review-images/cp240_review_images.sql` in the Supabase SQL editor (table `site_review_images` + public bucket `site-reviews`). Until then Admin → Reviews shows "Has the CP-240 SQL been applied?" and the sites look exactly as before.
+
 ## Partner reviews (CP-239)
 The review carousel and quote spots are built: bottom of `/medspa/app`, the offer card after the preview, the `/medspa` funnel (after How it works and after the offer) and `/med-spas` (after the week of reminders and after pricing), plus the existing band. They show nothing until real reviews are added.
 - [ ] In `apps/venues/lib/landing/site-reviews.ts`: set `REVIEW_PARTNER.name`, then add each review with `via: "partner"`, the client's exact words, their name/role/practice/city as they agreed, `sourceNote` (where the original lives) and `topics`. Flip `SHOW_REVIEW_SLOTS` to false once there are real ones.
