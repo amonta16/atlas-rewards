@@ -5,8 +5,17 @@
  * columns are found by name: full name or first + last, phone, email, last visit date, last
  * treatment, visit count. A last treatment that matches a menu item with "due again" weeks puts
  * the patient on Patients due. Pure functions, no React: tested in apps/venues/tests.
+ *
+ * Self-contained on purpose: no imports. The venues app typechecks its tests (which import this
+ * file) during its Vercel build, where med spa-only packages such as @atlas/core aren't installed.
+ * These shapes match DeskMember / DueRow / Treatment in ./desk-api, so they're used as those.
  */
-import type { DeskMember, DueRow, Treatment } from "./desk-api";
+type DeskMember = {
+  membership_id: string; user_id: string; full_name: string | null; email: string | null; phone: string | null;
+  points_balance: number; tier: string | null; joined_at: string | null; visit_count: number | null;
+};
+type DueRow = DeskMember & { treatment_name: string; performed_at: string; due_at: string; has_upcoming_booking: boolean };
+type Treatment = { id: string; name: string; recall_weeks: number | null };
 
 export const MAX_ROWS = 5000;
 
