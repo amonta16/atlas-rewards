@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { finishWithFallbacks, isStale } from "@/lib/preview/build";
-import { getPreviewBySlug, isExpired, medspaOrigin, previewUrl, SLUG_RE } from "@/lib/preview/store";
+import { getPreviewBySlug, isExpired, medspaOrigin, previewUrl, progressOf, SLUG_RE } from "@/lib/preview/store";
 
 /**
  * GET /api/preview/status?slug=pv-… — CP-232 · the progress screen polls this.
@@ -11,7 +11,8 @@ import { getPreviewBySlug, isExpired, medspaOrigin, previewUrl, SLUG_RE } from "
  * treatments/photos are still coming (build phase 2). Also readable from the preview
  * page on the med spa origin (CORS), which uses it to refresh the app when they land.
  * Step 3 of the lead-magnet audit adds `zip` (from Google, to prefill the unlock gate) and
- * `unlocked` (the gate was already answered). Never the email.
+ * `unlocked` (the gate was already answered). Never the email. Step 4 adds `progress`
+ * ({ verified, csv, installed }: the skip-ahead button needs all three) and `desk_seen`.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
       };
     }
     const enriching = status === "ready" && !row.built_at && !isStale({ status: "building", updated_at: row.updated_at });
-    return NextResponse.json({ status, url: previewUrl(row.slug), found, enriching, zip: row.area_zip ?? null, unlocked: !!row.contact_at }, { headers: { ...h, "Cache-Control": "no-store" } });
+    return NextResponse.json({ status, url: previewUrl(row.slug), found, enriching, zip: row.area_zip ?? null, unlocked: !!row.contact_at, progress: progressOf(row), desk_seen: !!row.desk_first_at }, { headers: { ...h, "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[preview] status failed", e);
     return NextResponse.json({ error: "Couldn't check right now." }, { status: 500 });

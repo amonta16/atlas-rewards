@@ -44,6 +44,8 @@ export type PreviewRow = {
   // CP-234
   booking_system: string | null; offered: string[]; challenges: string[]; priorities: string[];
   quiz_at: string | null; phone_verified_at: string | null; landing_lead_id: string | null;
+  // CP-242 (audit step 4; undefined until that migration is applied)
+  verified_at?: string | null; csv_imported_at?: string | null; csv_count?: number | null; app_installed_at?: string | null; desk_first_at?: string | null;
 };
 
 export type PreviewTeamMember = { name: string; title: string; photo_url: string | null };
@@ -76,6 +78,11 @@ export function medspaOrigin(): string {
 
 export function previewUrl(slug: string): string {
   return `${medspaOrigin()}/p/${slug}`;
+}
+
+/** Audit step 4: the three things that unlock "Turn it on now" on the preview desk. */
+export function progressOf(row: Pick<PreviewRow, "verified_at" | "csv_imported_at" | "app_installed_at">) {
+  return { verified: !!row.verified_at, csv: !!row.csv_imported_at, installed: !!row.app_installed_at };
 }
 
 /** CP-237: the preview's front desk (opens in preview mode, no sign-in; nothing is saved). */

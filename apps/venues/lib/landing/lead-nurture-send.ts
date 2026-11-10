@@ -17,7 +17,8 @@ import { emailProspect } from "./notify";
 import { SITE_ORIGIN } from "./medspa-funnel";
 import { sign } from "./funnel-sign";
 import { renderStep, type EmailStep } from "./lead-nurture";
-import { deskUrl, previewDb, previewUrl } from "@/lib/preview/store";
+import { previewDb, previewUrl } from "@/lib/preview/store";
+import { verifiedDeskUrl } from "@/lib/preview/verify-link";
 
 const H = 3600_000;
 
@@ -86,7 +87,7 @@ export async function runLeadNurture(now = Date.now()) {
       first_name: String(r.contact_name ?? "").trim().split(/\s+/)[0] || String(r.business_name),
       spa_name: String(r.business_name),
       app_link: previewUrl(String(r.slug)),
-      desk_link: deskUrl(String(r.slug)),
+      desk_link: verifiedDeskUrl(String(r.slug), r.contact_email ? String(r.contact_email) : null),
       walkthrough_link: `${SITE_ORIGIN}/medspa/walkthrough/${r.slug}`,
       expires_on: new Date(r.expires_at as string).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "America/Los_Angeles" }),
     }, { unsubscribeUrl: unsub, postalAddress: process.env.MAIL_POSTAL_ADDRESS ?? null });

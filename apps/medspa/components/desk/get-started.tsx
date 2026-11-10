@@ -33,6 +33,8 @@ export type GoLive = {
   walkthroughUrl: string;
   /** Self-serve activation, only when checkout is switched on (PREVIEW_SHOW_CHECKOUT=1 + STRIPE_FOUNDING_CHECKOUT_URL). */
   activateUrl: string | null;
+  /** Lead-magnet audit, step 4: the skip-ahead button's words on a preview ("Turn it on now, $500 setup"). */
+  activateLabel?: string;
   /** Previews only: when the preview is deleted. */
   expiresAt: string | null;
   helpEmail: string;
@@ -270,7 +272,7 @@ function AccessCard({ goLive, appName, doneCount, total }: { goLive: GoLive; app
   // the owner has done most of setup; then "Activate" leads and the walkthrough stays as the safety net.
   const activateFirst = !!goLive.activateUrl && doneCount >= Math.ceil(total / 2);
   const walk = <a href={goLive.walkthroughUrl} target="_blank" rel="noopener noreferrer" className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-[13.5px] font-semibold ${activateFirst ? "bg-white text-ink ring-1 ring-line" : "bg-brand text-white"}`}>Book a 15-min walkthrough</a>;
-  const activate = goLive.activateUrl && <a href={goLive.activateUrl} target="_blank" rel="noopener noreferrer" className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-[13.5px] font-semibold ${activateFirst ? "bg-brand text-white" : "bg-white text-ink ring-1 ring-line"}`}>Activate {appName}</a>;
+  const activate = goLive.activateUrl && <a href={goLive.activateUrl} target="_blank" rel="noopener noreferrer" className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-[13.5px] font-semibold ${activateFirst ? "bg-brand text-white" : "bg-white text-ink ring-1 ring-line"}`}>{goLive.activateLabel ?? `Activate ${appName}`}</a>;
   return (
     <section className={`${card} p-4`} aria-labelledby="access-h">
       <div className="flex items-center justify-between gap-2">

@@ -1,4 +1,7 @@
 import Link from "next/link";
+
+/** Audit step 4: a preview app opened from the Home Screen tells the venue site (skip-ahead gate). */
+const VENUE_SITE = (process.env.VENUE_APP_ORIGIN || "https://www.atlas-engine.app").replace(/\/$/, "");
 import { NotifyCard } from "@/components/notifications";
 import { ScratchGift } from "@/components/scratch-gift";
 import { getScratchGift } from "@/lib/gifts";
@@ -69,7 +72,7 @@ export default async function Home({ params }: { params: { clinic: string } }) {
 
       {gift && <ScratchGift key={gift.savedId ?? gift.offerId} gift={gift} slug={clinic.slug} primary={clinic.primary} pointsLabel="points" fullName={patient.fullName ?? undefined} />}
 
-      <InstallCard clinicName={clinic.name} slug={clinic.slug} />
+      <InstallCard clinicName={clinic.name} slug={clinic.slug} reportTo={clinic.preview ? VENUE_SITE : undefined} />
 
       {patient.signedIn && <NotifyCard clinicId={clinic.id} clinicName={clinic.name} slug={clinic.slug} demo={clinic.isExample && clinic.id === "example"} />}
 

@@ -583,12 +583,18 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
 const ago = (days: number) => new Date(Date.now() - days * 864e5).toISOString();
 const ahead = (days: number) => new Date(Date.now() + days * 864e5).toISOString();
 
-export function demoDeskApi(rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[], treatments: Treatment[], slug = "demo"): DeskApi {
-  const people: DeskMember[] = [
+/**
+ * `imported` (lead-magnet audit, step 4): a preview desk with the owner's own patient list (from a
+ * CSV, kept in their browser) shows those patients and who's due instead of the sample people.
+ */
+export function demoDeskApi(rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[], treatments: Treatment[], slug = "demo",
+  imported: { members: DeskMember[]; due: DueRow[] } | null = null): DeskApi {
+  const sample: DeskMember[] = [
     ["Sofia Martinez", "8055550123", 420, 9], ["Emma Chen", "8055550188", 180, 3], ["Olivia Brooks", "8055550142", 960, 14],
     ["Ava Patel", "8055550177", 60, 1], ["Mia Johnson", "8055550111", 240, 5], ["Isabella Nguyen", "8055550166", 1210, 21],
   ].map(([n, p, pts, v], i) => ({ membership_id: `m${i}`, user_id: `u${i}`, full_name: n as string, email: null, phone: p as string,
     points_balance: pts as number, tier: null, joined_at: ago(200 - i * 25), visit_count: v as number }));
+  const people: DeskMember[] = imported?.members.length ? imported.members.map((m) => ({ ...m })) : sample;
   const ledgers = new Map<string, LedgerRow[]>(people.map((m) => [m.membership_id, [
     { delta: 50, rule_type: "visit", notes: null, created_at: ago(12) }, { delta: 180, rule_type: "purchase", notes: "$180.00 purchase", created_at: ago(12) },
   ]]));
@@ -703,6 +709,7 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     },
     async due() {
       await wait();
+      if (imported?.members.length) return imported.due.map((d) => ({ ...d }));
       return [
         { ...people[0], treatment_name: treatments[0]?.name ?? "Neurotoxin", performed_at: ago(84), due_at: ago(0), has_upcoming_booking: false },
         { ...people[3], treatment_name: "HydraFacial", performed_at: ago(30), due_at: ahead(2), has_upcoming_booking: false },
@@ -734,7 +741,7 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
       const sales = [152, 188, 176, 241, 263, 248, 310, 355, 332, 428, 512, 612];
       const joins = [9, 14, 11, 18, 22, 19, 25, 27, 24, 31, 34, 38];
       return {
-        patients: 412, members_paid: 186, visits_total: 1536, visits_30d: 168, sales_cents_total: 4_830_000, sales_cents_30d: 612_000, auto_offers_active: 7,
+        patients: imported?.members.length ?? 412, members_paid: 186, visits_total: 1536, visits_30d: 168, sales_cents_total: 4_830_000, sales_cents_30d: 612_000, auto_offers_active: 7,
         monthly: months.map((m, i) => ({ month: m, visits: visits[i], sales_cents: sales[i] * 1000, joins: joins[i] })),
         activity: [
           { at: ago(0.002), kind: "order", who: "Sofia", detail: "Morpheus8, 3 sessions", amount_cents: 300000 },

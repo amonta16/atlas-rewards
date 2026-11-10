@@ -26,6 +26,7 @@ import { Modal } from "./ui";
 import { RewardsView } from "./manager-views";
 import { IcCheck, IcGift, IcMore } from "../icons";
 import { MarketingView, OffersView } from "./marketing-views";
+import { EngineGate, LockPill, useEngineLocked } from "./engine-lock";
 
 export type Section = "brand" | "clinic" | "treatments" | "skinscan" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "oneoff" | "campaigns" | "automations" | "rewards";
 type Tab = "journey" | "products" | "membership" | "rewards" | "settings";
@@ -618,7 +619,7 @@ export function CareSection({ cfg, setCfg }: { cfg: Cfg; setCfg: (c: Cfg) => voi
     <>
       <Panel title="Recall reminders" sub="When a treatment's results start to fade, patients get a nudge to book. Each treatment's 'due again' weeks decide when.">
         <div className="space-y-4">
-          <Toggle on={r.enabled} onChange={(v) => setR({ enabled: v })} title="Send recall reminders" />
+          <EngineGate badge="right"><Toggle on={r.enabled} onChange={(v) => setR({ enabled: v })} title="Send recall reminders" /></EngineGate>
           <div className="grid gap-4 md:grid-cols-3">
             <Field label="First reminder (days before due)"><Text value={String(r.lead_days)} onChange={(v) => setR({ lead_days: parseInt(v.replace(/\D/g, "") || "0", 10) })} inputMode="numeric" /></Field>
             <Field label="Follow-up (days after due)"><Text value={String(r.followup_days)} onChange={(v) => setR({ followup_days: parseInt(v.replace(/\D/g, "") || "0", 10) })} inputMode="numeric" /></Field>
@@ -671,6 +672,7 @@ export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; s
   const [edit, setEdit] = useState<GiftOffer | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const locked = useEngineLocked(); // preview desk: the offers can be read and edited, never switched on
   const load = () => { api.giftOffers().then(setRows).catch((e) => { say((e as Error).message); setRows([]); }); };
   useEffect(() => { load(); api.rewardsList().then((r) => setRewards(r.filter((x) => x.is_active))).catch(() => {}); }, [api]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async (g: GiftOffer, msg: string) => { setBusy(true); try { await api.saveGiftOffer(g); say(msg); setEdit(null); load(); } catch (e) { say((e as Error).message); } setBusy(false); };
@@ -713,7 +715,7 @@ export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; s
             {rows.map((g) => {
               const on = current?.template_id === g.template_id;
               return (
-                <li key={g.template_id} onClick={() => setPicked(g.template_id)} className={`grid cursor-pointer grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto_28px] items-center gap-3 rounded-[10px] border px-3 py-2 transition ${on ? "border-brand/30 bg-brand/[.06]" : "border-transparent bg-[#F7F8F8] hover:bg-page"}`}>
+                <li key={g.template_id} onClick={() => setPicked(g.template_id)} className={`grid cursor-pointer grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto_28px] items-center gap-3 rounded-[10px] border px-3 py-2 transition ${on ? "border-brand/30 bg-brand/[.06]" : "border-transparent bg-[#F7F8F8] hover:bg-page"} ${locked ? "grayscale [&>span]:opacity-60" : ""}`}>
                   <span className="flex min-w-0 items-center gap-2.5">
                     <span className="h-8 w-11 shrink-0 overflow-hidden rounded-[6px] bg-[#E4E6E8]">
                       {img(g) && (
@@ -724,10 +726,10 @@ export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; s
                     <span className={`truncate text-[13px] font-medium ${on ? "text-brand" : ""}`}>{g.custom_title || g.name}</span>
                   </span>
                   <span className={`truncate text-[13px] ${on ? "font-medium text-brand" : "text-sub"}`} title={`${WHEN[g.trigger_type] ?? g.trigger_type}`}>{giftLine(g, rewards)}</span>
-                  <button type="button" disabled={busy} onClick={(e) => { e.stopPropagation(); save({ ...g, is_active: !g.is_active }, g.is_active ? `${g.custom_title || g.name} is off` : `${g.custom_title || g.name} is on`); }}
+                  {locked ? <LockPill className="w-[74px]" /> : <button type="button" disabled={busy} onClick={(e) => { e.stopPropagation(); save({ ...g, is_active: !g.is_active }, g.is_active ? `${g.custom_title || g.name} is off` : `${g.custom_title || g.name} is on`); }}
                     className={`inline-flex h-6 w-[74px] items-center justify-center gap-1 rounded-full text-[11.5px] font-semibold ring-1 ${g.is_active ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-white text-faint ring-line"}`}>
                     {g.is_active ? <><IcCheck className="h-3.5 w-3.5" />Active</> : "Off"}
-                  </button>
+                  </button>}
                   <button type="button" aria-label={`Edit ${g.name}`} onClick={(e) => { e.stopPropagation(); setEdit({ ...g }); }} className="grid h-7 w-7 place-items-center rounded-full text-sub hover:bg-white"><IcMore className="h-4 w-4" /></button>
                 </li>
               );
@@ -760,7 +762,7 @@ export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; s
               </Field>
             )}
             {edit.discount_type === "points_bonus" && <Field label="Bonus points"><Text value={String(edit.discount_value ?? "")} onChange={(v) => setEdit({ ...edit, discount_value: parseInt(v.replace(/\D/g, "") || "0", 10) })} inputMode="numeric" /></Field>}
-            <Toggle on={edit.is_active} onChange={(v) => setEdit({ ...edit, is_active: v })} title="On" sub="Sends automatically when it's due" />
+            <EngineGate badge="right"><Toggle on={edit.is_active} onChange={(v) => setEdit({ ...edit, is_active: v })} title="On" sub="Sends automatically when it's due" /></EngineGate>
           </div>
           <button type="button" className="btn-ink mt-6" disabled={busy || (edit.discount_type === "reward" && !edit.gift_reward_id)} onClick={() => save(edit, `${edit.custom_title || edit.name} saved`)}>{busy ? "Saving…" : "Save gift"}</button>
         </Modal>
