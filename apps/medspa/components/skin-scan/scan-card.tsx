@@ -11,8 +11,7 @@ const W = S.width, H = S.height;
 /** The first 36 points trace the face outline. */
 const OVAL = S.pts.slice(0, 36).map(([x, y]) => `${x * W},${y * H}`).join(" ");
 const LOOP = 9; // seconds
-/** Vertical slice of the photo to show (fractions of its height): brows to just under the chin. */
-const FRAME: [number, number] = [0.25, 0.9];
+const FRAME = S.frame;
 
 export function ScanCard({ href, clinicName }: { href: string; clinicName: string }) {
   const hasAfter = !!S.after;
@@ -20,7 +19,7 @@ export function ScanCard({ href, clinicName }: { href: string; clinicName: strin
   return (
     <Link href={href} className={`ss-card group block overflow-hidden rounded-[20px] text-white shadow-[0_18px_40px_-22px_rgb(var(--p-rgb)/.75)] transition active:scale-[0.99] ${hasAfter ? "ss-ba" : ""}`}
       style={{ background: "linear-gradient(150deg, rgb(var(--p-rgb)) 0%, color-mix(in srgb, rgb(var(--p-rgb)) 58%, #0B0D12) 100%)" }}>
-      {/* Frame: eyebrows to chin. The photo and the points share one box, so they always line up. */}
+      {/* The photo and the points share one box, so they always line up. */}
       <div className="relative overflow-hidden bg-ink" style={{ aspectRatio: `${W} / ${Math.round(H * (FRAME[1] - FRAME[0]))}` }}>
         <div className="absolute inset-x-0" style={{ aspectRatio: `${W} / ${H}`, top: `${(-FRAME[0] / (FRAME[1] - FRAME[0])) * 100}%` }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}

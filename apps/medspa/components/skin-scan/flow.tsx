@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookingOptions, MedspaTreatment } from "@/lib/medspa";
+import { EDUCATE_SAMPLE } from "@/lib/educate-sample";
 import { lastScanKey, QUIZ_GOALS, simulationFor, type ConcernId, type ScanResult } from "@/lib/skin-scan";
 import { cropAround, faceBox, imageLandmarker, loadImage, mockAfter, shoot, type Shot } from "./face";
 import { GuidedCamera } from "./camera";
@@ -226,11 +227,11 @@ function Progress({ n }: { n: 1 | 2 }) {
   );
 }
 
-const HERO_CHIPS: { label: string; score: number; at: string; delay: number }[] = [
-  { label: "Texture", score: 82, at: "left-[7%] top-[24%]", delay: 0.5 },
-  { label: "Radiance", score: 77, at: "right-[6%] top-[40%]", delay: 1.1 },
-  { label: "Pores", score: 71, at: "left-[10%] top-[60%]", delay: 1.7 },
-];
+// Her real "before" scores from the sample scan (lib/educate-sample), placed by the features they measure.
+const HERO_CHIPS: { label: string; score: number; at: string; delay: number }[] = EDUCATE_SAMPLE.chips.map((c, i) => ({
+  label: c.label, score: c.before, delay: 0.5 + i * 0.6,
+  at: ["right-[5%] top-[14%]", "left-[4%] top-[40%]", "right-[6%] top-[58%]"][i] ?? "left-[4%] top-[70%]",
+}));
 
 /** Intro: the clinic's hero photo with a scan sweeping over it and a few marker chips popping in. */
 function Intro({ clinicName, hero, onStart }: { clinicName: string; hero: string; onStart: () => void }) {
