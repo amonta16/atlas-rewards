@@ -12,7 +12,8 @@ import { TopBar, Wordmark } from "@/components/chrome";
 import { ActionButton } from "@/components/action-sheet";
 import { RecentlyViewed, type CatalogItem } from "@/components/recently-viewed";
 import { InstallCard } from "@/components/install-app";
-import { IcCalendar, IcLock, IcNext, IcPin } from "@/components/icons";
+import { IcCalendar, IcLock, IcNext, IcPin, IcSpark } from "@/components/icons";
+import { EXAMPLE_IMG } from "@/lib/example";
 
 export default async function Home({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -65,6 +66,21 @@ export default async function Home({ params }: { params: { clinic: string } }) {
       </section>
 
       {gift && <ScratchGift key={gift.savedId ?? gift.offerId} gift={gift} slug={clinic.slug} primary={clinic.primary} pointsLabel="points" fullName={patient.fullName ?? undefined} />}
+
+      {/* AI skin scan */}
+      <Link href={`${base}/skin-scan`} className="relative mx-4 mt-5 flex items-center gap-3.5 overflow-hidden rounded-[16px] bg-ink p-4 text-white transition active:scale-[0.99]">
+        <span className="relative h-[64px] w-[64px] shrink-0 overflow-hidden rounded-[12px] bg-white/10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={EXAMPLE_IMG.hero} alt="" className="h-full w-full object-cover object-[45%_40%]" />
+          <span className="absolute inset-x-0 top-1/2 h-[2px] bg-white/90 shadow-[0_0_10px_rgb(var(--p-rgb))]" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-white/60"><IcSpark className="h-3 w-3" />Free AI skin scan</span>
+          <span className="mt-0.5 block text-[15.5px] font-semibold leading-tight">See what treatment could do for you</span>
+          <span className="mt-0.5 block text-[12.5px] text-white/65">Skin score, 12 markers and an AI preview</span>
+        </span>
+        <IcNext className="h-4 w-4 shrink-0 text-white/70" strokeWidth={2.2} />
+      </Link>
 
       <InstallCard clinicName={clinic.name} slug={clinic.slug} />
 
