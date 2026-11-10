@@ -4,6 +4,7 @@ import { emailProspect, notifyLead } from "@/lib/landing/notify";
 import { CALL_MINUTES } from "@/lib/landing/availability";
 import { FOLLOWUPS, PRECALL_PREP, REMINDERS, SITE_ORIGIN, TERRITORY } from "@/lib/landing/medspa-funnel";
 import { sign } from "@/lib/landing/funnel-sign";
+import { runLeadNurture } from "@/lib/landing/lead-nurture-send";
 
 /**
  * GET /api/landing/reminders — CP-201 · Vercel Cron, every 15 minutes (vercel.json).
@@ -16,6 +17,8 @@ import { sign } from "@/lib/landing/funnel-sign";
  *      Showed / No-show / Paid. Paid sends Meta "Purchase" (see /api/landing/outcome).
  * CP-205: leads who held their area (or qualified) but never picked a time get up to
  * three emails tied to the 48-hour hold (see step 4).
+ * CP-238: step 5, the lead-magnet follow-up emails (lib/landing/lead-nurture-send.ts),
+ * off until LEAD_NURTURE_SEND=1. Edited in Admin → Lead funnel.
  * Every step stamps a column first, so a retry can never double-send.
  */
 export const runtime = "nodejs";
@@ -153,5 +156,8 @@ export async function GET(req: Request) {
     out.followup++;
   }
 
-  return NextResponse.json({ ok: true, ...out });
+  // 5) CP-238: lead-magnet follow-up emails. Never lets a failure here break the steps above.
+  const nurture = await runLeadNurture(now).catch((e) => { console.error("[reminders] nurture failed", e); return null; });
+
+  return NextResponse.json({ ok: true, ...out, nurture });
 }

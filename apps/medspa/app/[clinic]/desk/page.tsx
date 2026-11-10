@@ -7,6 +7,10 @@ import { getBuilderData } from "@/lib/builder-data";
 
 export const metadata = { title: "Front desk", robots: { index: false, follow: false } };
 const SITE = (process.env.VENUE_APP_ORIGIN || "https://www.atlas-engine.app").replace(/\/$/, "");
+/** CP-238: self-serve activation, the same switch as the preview page's "Go live" (CP-234). Off = the walkthrough is the only way. */
+const CHECKOUT = process.env.PREVIEW_SHOW_CHECKOUT === "1" ? process.env.STRIPE_FOUNDING_CHECKOUT_URL || null : null;
+const activateUrl = (slug: string) => (CHECKOUT ? `${CHECKOUT}${CHECKOUT.includes("?") ? "&" : "?"}client_reference_id=${encodeURIComponent(slug)}` : null);
+const HELP_EMAIL = "andrew@atlas-engine.app";
 export const dynamic = "force-dynamic";
 
 /**
@@ -45,6 +49,12 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
         pointsPerDollar: clinic.pointsPerDollar, visitPoints: clinic.visitPoints, offersOn: clinic.offersOn, demo,
         // CP-237: an instant preview's desk says so, and links back to the app and the walkthrough.
         preview: clinic.preview ? { walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}`, expiresAt: clinic.preview.expiresAt } : null,
+        // CP-238: Home → Your access. The demo clinic books through the main /medspa calendar.
+        goLive: clinic.preview
+          ? { kind: "preview", walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}`, activateUrl: activateUrl(clinic.slug), expiresAt: clinic.preview.expiresAt, helpEmail: HELP_EMAIL }
+          : demo
+            ? { kind: "demo", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL }
+            : { kind: "live", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL },
         recall: { enabled: clinic.cfg.recall.enabled, lead_days: clinic.cfg.recall.lead_days, followup_days: clinic.cfg.recall.followup_days },
         treatments: activeTreatments(clinic).map((t) => ({ id: t.id, name: t.name, recall_weeks: t.recall_weeks ?? null })),
         providers: clinic.cfg.providers.filter((p) => p.is_active).map((p) => ({ id: p.id, name: p.name, treatment_ids: p.treatment_ids ?? [] })),

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PreviewStart } from "@/components/preview/preview-start";
 import { MetaPixel } from "@/components/venues/meta-pixel";
+import { VisitBeacon } from "@/components/landing/visit-beacon";
 import { siteFontClass } from "@/lib/landing/site-fonts";
 import "../../site.css";
 
@@ -27,6 +28,8 @@ export default function Page() {
   return (
     <>
       <MetaPixel />
+      {/* CP-238: counts the visit for Admin → Lead funnel. */}
+      <VisitBeacon path="/medspa/app" />
       <div className={siteFontClass}>
         {/* CP-237: the A2P number, for "Take your app on the go" on the finishing step. */}
         <PreviewStart smsNumber={process.env.PREVIEW_SMS_NUMBER ?? null} />

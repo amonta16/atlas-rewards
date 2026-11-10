@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet, Workflow, Smartphone, Filter } from "lucide-react";
+import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet, Workflow, Smartphone, Filter, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +28,8 @@ const NAV: NavItem[] = [
   { href: "/agency/funnels",      label: "Funnels",      icon: <Filter className="h-4 w-4" />, adminOnly: true },
   // CP-232: instant app previews (ads lead magnet). Admin gate in the page.
   { href: "/agency/previews",     label: "App Previews", icon: <Smartphone className="h-4 w-4" />, adminOnly: true },
+  // CP-238: lead magnet visits → opt-ins → bookings → paid, and the follow-up emails. Admin gate in the page.
+  { href: "/agency/lead-funnel",  label: "Lead Funnel",  icon: <TrendingUp className="h-4 w-4" />, adminOnly: true },
   // CP-33: White Label tab hidden from sidebar — placeholder until we
   // actually build out the master Atlas brand splash. The route file
   // (/agency/white-label/page.tsx) is still there if we re-enable it.

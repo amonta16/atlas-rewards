@@ -9,8 +9,13 @@
  *   Client profiles· every patient
  *   Patients due   · who's due for their next treatment (recall)
  *   Shop summary   · Shop orders to take payment for / hand over
- *   Insights · Offers · Memberships · Atlas Engine · App Builder · Payouts ·
- *   Billing · Team: managers
+ *   Insights · Memberships · App Builder: managers
+ *   Payouts · Billing · Team: managers, in the quieter group under the main nav
+ *
+ * CP-238: Offers and Atlas Engine are no longer sidebar tabs. One-time offers,
+ * automated offers and campaigns all live in App Builder → Journey
+ * (?view=offers / ?view=marketing still land there). Home opens with the
+ * "Get started" cards, checklist and access card for new owners.
  *
  * All reads and writes go through lib/desk-api.ts (the same database
  * functions as the patient app and the manager portal).
@@ -21,7 +26,7 @@ import Link from "next/link";
 import { demoDeskApi, liveDeskApi, type ActivityRow, type DeskApi, type DeskGift, type DeskMember, type DeskVoucher, type DueRow, type LookupResult, type OrderRow, type PatientDetail, type Provider, type Treatment } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
 import { Wordmark } from "../chrome";
-import { IcBag, IcBank, IcBell, IcCard, IcChart, IcCheck, IcClock, IcClose, IcEngine, IcEye, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcTag, IcUser } from "../icons";
+import { IcBag, IcBank, IcBell, IcCard, IcChart, IcCheck, IcClock, IcClose, IcEye, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
 import type { Staff } from "@/lib/staff";
 import { Card, Empty, Modal } from "./ui";
 import { RewardsView, TeamView } from "./manager-views";
@@ -30,7 +35,7 @@ import { MembershipsView, PatientsView, PayoutsView, ReviewsCard } from "./peopl
 import type { MedspaPlan } from "@/lib/plans";
 import { BuilderView, type Section as BuilderSection } from "./builder";
 import { InsightsView } from "./insights-views";
-import { MarketingView, OffersView } from "./marketing-views";
+import { GetStarted, type GoLive, type SetupTarget } from "./get-started";
 import { BillingView } from "./billing-view";
 import type { BuilderData } from "@/lib/builder-data";
 
@@ -44,6 +49,8 @@ type DeskClinic = {
   rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[];
   /** CP-237: set on an instant app preview's desk (pv-…): no sign-in, nothing is saved. */
   preview?: { walkthroughUrl: string; expiresAt: string } | null;
+  /** CP-238: what access this desk has and how the owner goes live (Home → Your access). */
+  goLive: GoLive;
 };
 type View = "checkin" | "patients" | "due" | "orders" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
 const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "billing"];
@@ -63,11 +70,12 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
   const [view, setView] = useState<View>(() => {
     // "reports" (the monthly email's button) is a tab inside Insights.
-    const wanted = initialView === "reports" ? "insights" : initialView;
+    // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
+    const wanted = initialView === "reports" ? "insights" : initialView === "offers" || initialView === "marketing" ? "builder" : initialView;
     if (wanted && (staff.isManager || !MANAGER_ONLY.includes(wanted))) return wanted;
     return staff.isManager ? "overview" : "checkin";
   });
-  const [builderSection, setBuilderSection] = useState<BuilderSection>("gifts");
+  const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "marketing" ? "campaigns" : "gifts");
   const [reportLink, setReportLink] = useState(initialView === "reports");
   useEffect(() => { if (view !== "insights") setReportLink(false); }, [view]);
   const openBuilder = (s: BuilderSection) => { setBuilderSection(s); setView("builder"); };
@@ -91,58 +99,72 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
 
   const open = (m: DeskMember) => { setSelected(m); setView("checkin"); };
   const scanNow = () => { setView("checkin"); setScanTick((n) => n + 1); };
-  const NAV: { id: View; label: string; Icon: typeof IcUser; badge?: number }[] = [
+  const goSetup = (t: SetupTarget) => (t === "payouts" ? setView("payouts") : openBuilder(t));
+  type NavItem = { id: View; label: string; Icon: typeof IcUser; badge?: number };
+  // CP-238: a short main list (Dermis-style) and a quieter account group under it.
+  const NAV: NavItem[] = [
     ...(staff.isManager ? [{ id: "overview" as View, label: "Home", Icon: IcHome }] : []),
     { id: "checkin", label: "Check in", Icon: IcQr, badge: counts.reviews },
     { id: "patients", label: "Client profiles", Icon: IcUser },
     { id: "due", label: "Patients due", Icon: IcClock, badge: counts.due },
-    { id: "orders", label: "Shop summary", Icon: IcBag, badge: counts.orders },
+    { id: "orders", label: "Shop orders", Icon: IcBag, badge: counts.orders },
     ...(staff.isManager ? [
       { id: "insights" as View, label: "Insights", Icon: IcChart },
-      { id: "offers" as View, label: "Offers", Icon: IcTag },
       { id: "memberships" as View, label: "Memberships", Icon: IcRefresh },
-      { id: "marketing" as View, label: "Atlas Engine", Icon: IcEngine },
       ...(builder ? [{ id: "builder" as View, label: "App Builder", Icon: IcSpark }] : []),
-      { id: "payouts" as View, label: "Payouts", Icon: IcBank },
-      { id: "billing" as View, label: "Billing", Icon: IcCard },
-      { id: "team" as View, label: "Team", Icon: IcPeople },
     ] : [{ id: "activity" as View, label: "Activity", Icon: IcSpark }]),
   ];
+  const ACCOUNT: NavItem[] = staff.isManager ? [
+    { id: "payouts", label: "Payouts", Icon: IcBank },
+    { id: "billing", label: "Billing", Icon: IcCard },
+    { id: "team", label: "Team", Icon: IcPeople },
+  ] : [];
   const hour = new Date().getHours();
   const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"} 👋`;
-  const title = view === "overview" ? greeting : view === "rewards" ? "Rewards" : NAV.find((n) => n.id === view)?.label;
+  const title = view === "overview" ? greeting : view === "rewards" ? "Rewards" : [...NAV, ...ACCOUNT].find((n) => n.id === view)?.label;
+  const navButton = ({ id, label, Icon, badge }: NavItem, quiet = false) => {
+    const on = view === id || (id === "builder" && view === "rewards");
+    return (
+      <button key={id} type="button" onClick={() => (id === "builder" && view !== "builder" ? openBuilder("gifts") : setView(id))} aria-current={on ? "page" : undefined}
+        className={`flex shrink-0 items-center gap-3 rounded-[12px] border px-3.5 transition ${quiet ? "py-2 text-[13.5px]" : "py-2.5 text-[14.5px]"} ${on ? "border-brand/30 bg-white font-semibold text-brand shadow-[0_2px_10px_-6px_rgba(23,27,38,.25)]" : `border-transparent font-medium ${quiet ? "text-sub" : "text-[#3F4450]"} hover:bg-white hover:text-ink`}`}>
+        <Icon className={quiet ? "h-[17px] w-[17px]" : "h-[19px] w-[19px]"} strokeWidth={1.6} />
+        <span className="flex-1 whitespace-nowrap text-left">{label}</span>
+        {!!badge && <span className={`min-w-[20px] rounded-full px-1.5 py-px text-center text-[11px] font-bold ${on ? "bg-brand text-white" : "bg-[#E9EBED] text-sub"}`}>{badge}</span>}
+        {on && !badge && <IcNext className="hidden h-3.5 w-3.5 lg:block" strokeWidth={2.2} />}
+      </button>
+    );
+  };
   const alerts = counts.due + counts.orders + counts.reviews;
 
   return (
     <div className="min-h-[100dvh] bg-[#F6F7F7] text-ink lg:flex">
       {/* Sidebar */}
-      <aside className="border-b border-line bg-[#FBFBFB] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[236px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2 px-5 py-4 lg:px-6 lg:pt-6">
+      <aside className="border-b border-line bg-[#F9FAFA] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[256px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
+        <div className="flex items-center gap-2.5 px-5 py-4 lg:px-7 lg:pt-7">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/atlas-icon-512.png" alt="" className="h-8 w-8 rounded-[9px]" />
-          <span className="text-[17px] font-bold tracking-[-0.01em]">Atlas</span>
+          <img src="/atlas-icon-512.png" alt="" className="h-9 w-9 rounded-[10px]" />
+          <span className="text-[20px] font-bold tracking-[-0.02em]">Atlas</span>
         </div>
-        <nav aria-label="Desk" className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-3 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-0.5 lg:overflow-y-auto lg:px-4">
-          {NAV.map(({ id, label, Icon, badge }) => {
-            const on = view === id || (id === "builder" && view === "rewards");
-            return (
-              <button key={id} type="button" onClick={() => (id === "builder" && view !== "builder" ? openBuilder("gifts") : setView(id))} aria-current={on ? "page" : undefined}
-                className={`flex shrink-0 items-center gap-2.5 rounded-[10px] border px-3 py-2 text-[13.5px] font-medium transition ${on ? "border-brand/25 bg-brand/[.07] text-brand" : "border-transparent text-[#4A4F5C] hover:bg-page hover:text-ink"}`}>
-                <Icon className="h-[17px] w-[17px]" strokeWidth={1.6} />
-                <span className="flex-1 whitespace-nowrap text-left">{label}</span>
-                {!!badge && <span className={`min-w-[20px] rounded-full px-1.5 py-px text-center text-[11px] font-bold ${on ? "bg-brand text-white" : "bg-[#E9EBED] text-sub"}`}>{badge}</span>}
-                {on && !badge && <IcNext className="hidden h-3.5 w-3.5 lg:block" strokeWidth={2.2} />}
-              </button>
-            );
-          })}
+        <nav aria-label="Desk" className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-5 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-y-auto lg:px-4">
+          {NAV.map((n) => navButton(n))}
+          {ACCOUNT.length > 0 && <span aria-hidden className="mx-1 shrink-0 self-stretch border-l border-line lg:mx-3.5 lg:my-3 lg:border-l-0 lg:border-t" />}
+          {ACCOUNT.map((n) => navButton(n, true))}
         </nav>
         <div className="mt-auto hidden shrink-0 space-y-3 px-4 pb-5 pt-3 lg:block">
-          <div className="truncate rounded-[10px] border border-line bg-white px-3 py-2 text-[12.5px] font-semibold italic">{clinic.name}</div>
-          <div className="rounded-[12px] bg-brand/[.07] p-3.5">
-            <p className="text-[13px] font-semibold italic">Need support?</p>
-            <p className="mt-1 text-[12px] leading-snug text-sub">Check our support page for tutorials or help.</p>
-            <a href="https://www.atlas-engine.app/support" target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-semibold italic text-brand">View more <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
-          </div>
+          <div className="truncate rounded-[12px] border border-line bg-white px-3.5 py-2.5 text-[13.5px] font-semibold">{clinic.name}</div>
+          {clinic.goLive.kind !== "live" ? (
+            <div className="rounded-[14px] bg-brand/[.08] p-4">
+              <p className="text-[14px] font-semibold">{clinic.goLive.kind === "preview" ? "You're on a free preview" : "This is the demo"}</p>
+              <p className="mt-1 text-[12.5px] leading-snug text-sub">Book a 15-minute walkthrough and we switch your app on with you.</p>
+              <a href={clinic.goLive.walkthroughUrl} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1 border-b border-brand/40 pb-0.5 text-[13px] font-semibold text-brand">Book a walkthrough <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
+            </div>
+          ) : (
+            <div className="rounded-[14px] bg-brand/[.08] p-4">
+              <p className="text-[14px] font-semibold">Need help?</p>
+              <p className="mt-1 text-[12.5px] leading-snug text-sub">Tutorials, or a person to set it up with you.</p>
+              <a href="https://www.atlas-engine.app/support" target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1 border-b border-brand/40 pb-0.5 text-[13px] font-semibold text-brand">Get support <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
+            </div>
+          )}
           <div className="px-1">
             <p className="truncate text-[13px] font-semibold">{staff.name}</p>
             <p className="text-[12px] text-faint">{staff.role === "business_staff" ? "Front desk" : staff.role === "agency_admin" ? "Atlas admin" : "Manager"}{clinic.preview ? " · preview, nothing is saved" : clinic.demo ? " · demo, nothing is saved" : ""}</p>
@@ -176,20 +198,22 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
           </div>
         </header>
 
-        {view === "overview" && staff.isManager && <HomeView api={api} demo={clinic.demo} />}
+        {view === "overview" && staff.isManager && <>
+          <GetStarted api={api} slug={clinic.slug} appName={clinic.name} cfg={(builder?.cfg ?? {}) as Parameters<typeof GetStarted>[0]["cfg"]} goLive={clinic.goLive} isAdmin={staff.role === "agency_admin"} onGo={goSetup} />
+          <HomeView api={api} demo={clinic.demo} />
+        </>}
         {view === "checkin" && <CheckIn api={api} clinic={clinic} selected={selected} onSelect={setSelected} say={say} onChanged={refreshCounts} scanTick={scanTick} />}
         {view === "patients" && <PatientsView api={api} onOpen={open} />}
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}
         {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} rate={clinic.pointsPerDollar} />}
         {view === "activity" && <Activity api={api} />}
         {view === "insights" && staff.isManager && <InsightsView api={api} say={say} demo={clinic.demo} clinic={{ name: clinic.name, primary: clinic.primary, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl }} initialTab={reportLink ? "reports" : "live"} initialMonth={reportLink ? initialMonth ?? null : null} />}
-        {view === "offers" && staff.isManager && <OffersView api={api} say={say} offersOn={clinic.offersOn} onOpenAutomated={builder ? () => openBuilder("gifts") : undefined} />}
-        {view === "marketing" && staff.isManager && <MarketingView api={api} recall={clinic.recall} onOpenCare={builder ? () => openBuilder("care") : undefined} onOpenOffers={builder ? () => openBuilder("gifts") : undefined} onOpenInsights={() => setView("insights")} />}
         {view === "billing" && staff.isManager && <BillingView api={api} demo={clinic.demo} onOpenPayouts={() => setView("payouts")} />}
         {view === "memberships" && staff.isManager && <MembershipsView api={api} say={say} plans={((builder?.cfg as { memberships?: MedspaPlan[] } | undefined)?.memberships) ?? []} onEdit={builder ? () => openBuilder("memberships") : undefined} onOpenPayouts={() => setView("payouts")} />}
         {view === "payouts" && staff.isManager && <PayoutsView api={api} slug={clinic.slug} demo={clinic.demo} />}
         {view === "rewards" && staff.isManager && <RewardsView api={api} say={say} />}
-        {view === "builder" && builder && <BuilderView key={builderSection} initialSection={builderSection} clinic={{ id: clinic.id, slug: clinic.slug, name: clinic.name, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} api={api} />}
+        {view === "builder" && builder && <BuilderView key={builderSection} initialSection={builderSection} clinic={{ id: clinic.id, slug: clinic.slug, name: clinic.name, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} api={api}
+          offersOn={clinic.offersOn} recall={clinic.recall} onOpenInsights={() => setView("insights")} />}
         {view === "team" && staff.isManager && <TeamView api={api} say={say} deskUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}/desk` : `/${clinic.slug}/desk`} />}
       </main>
 

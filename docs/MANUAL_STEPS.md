@@ -30,6 +30,14 @@ Leads: **Admin → App Previews** (Leads tab: name, mobile, email, the spa, the 
 - [ ] Optional: `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` on atlas-rewards (rate limits shared across instances). `GHL_INBOUND_WEBHOOK_URL` only if you ever want leads copied into GHL; not needed.
 - [ ] Test: open `/medspa/app`, pick a real spa, fill the form while it builds, check the preview, and see the lead in Admin → App Previews and in your inbox.
 
+## Lead funnel + follow-up emails (CP-238)
+New: **Admin → Lead Funnel** (visits → opt-ins → walkthroughs booked → paid, per day and per campaign) with a **Follow-up emails** tab: 3 emails after opt-in (day 1, day 3, day 12), editable timing and copy, live preview, "Send me a test". The desk Home now opens with setup cards, a 7-step checklist and a "Your access" card; Offers and Atlas Engine moved into App Builder → Journey.
+- [x] CP-238 SQL applied by Claude (2026-11-09): `funnel_visits`, `lead_email_steps` (3 emails seeded), 4 `nurture_*` columns on `app_previews`. File: `db/history/checkpoint-238-lead-funnel/cp238_lead_funnel.sql`. Visits start counting once this code is deployed.
+- [ ] Read and edit the 3 emails in Admin → Lead Funnel → Follow-up emails. Use "Send me a test" for each.
+- [ ] Vercel atlas-rewards: `MAIL_POSTAL_ADDRESS` = a real mailing address (a PO box or virtual mailbox is fine). US law (CAN-SPAM) needs it in marketing emails.
+- [ ] Then turn sending on: Vercel atlas-rewards `LEAD_NURTURE_SEND` = `1`, redeploy. The cron (every 15 min) only emails owners who opted in within the last 30 days, and stops when they book, pay, unsubscribe or the preview is deleted.
+- [ ] Replace the homepage explainer video: `EXPLAINER` in `apps/medspa/components/desk/get-started.tsx` is the Dermis reference video (id `s_AEjkfhL2Q`), shown only to Atlas admins, the /demo clinic and local dev. Put the Atlas video's YouTube id there and set `internal: false`.
+
 ## Go live: med spa app
 Claude already did: created the Vercel project `atlas-medspa`, set it to `apps/medspa`, added the public env vars
 (Supabase URL + anon key, root domain, VAPID public key, venue origin), added `med.atlas-engine.app`, and deployed.

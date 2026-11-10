@@ -1,6 +1,7 @@
 "use client";
 /**
- * Desk → Offers and Desk → Atlas Engine (managers), moved from the old portal.
+ * App Builder → Journey → One-time offers and → Campaigns (managers).
+ * CP-238: these were the Desk → Offers and Desk → Atlas Engine tabs.
  *
  *   Offers       · one-time promos (upsert_offer, delete_offer). Patients get
  *                  the newest one as the scratch gift on Home and claim it with
@@ -85,7 +86,7 @@ export function OffersView({ api, say, offersOn, onOpenAutomated }: { api: DeskA
           })}
         </div>
       )}
-      {onOpenAutomated && <button type="button" onClick={onOpenAutomated} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand">Birthday, holiday and win-back gifts are in App Builder → Automated Offers <IcNext className="h-3 w-3" strokeWidth={2.4} /></button>}
+      {onOpenAutomated && <button type="button" onClick={onOpenAutomated} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand">Birthday, holiday and win-back gifts are in Automated offers <IcNext className="h-3 w-3" strokeWidth={2.4} /></button>}
       {edit && <OfferModal api={api} init={edit} onClose={() => setEdit(null)} onSaved={(msg) => { setEdit(null); say(msg); load(); }} />}
     </div>
   );
@@ -170,8 +171,8 @@ export function MarketingView({ api, recall, onOpenCare, onOpenOffers, onOpenIns
         <div className="flex items-start gap-3.5">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-white/10 ring-1 ring-white/20"><IcEngine className="h-6 w-6" /></span>
           <div className="min-w-0">
-            <p className="text-[11.5px] font-semibold uppercase tracking-[0.14em] text-white/60">Your marketing engine</p>
-            <h2 className="text-[22px] font-bold leading-tight">Atlas Engine</h2>
+            <p className="text-[11.5px] font-semibold uppercase tracking-[0.14em] text-white/60">Atlas Engine</p>
+            <h2 className="text-[22px] font-bold leading-tight">Campaigns</h2>
             <p className="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-white/75">Two engines fill your book: the <b className="text-white">always-on</b> one inside the patient app, and the <b className="text-white">ad engine</b> that feeds it new patients. Run the first from here today; plan the second with your Atlas partner.</p>
           </div>
         </div>
@@ -180,9 +181,9 @@ export function MarketingView({ api, recall, onOpenCare, onOpenOffers, onOpenIns
       <section>
         <h2 className="mb-2 text-[13.5px] font-semibold">Always-on · live in the patient app</h2>
         <div className="grid gap-3.5 md:grid-cols-3">
-          <EngineCard title="Recall messages" on={recall.enabled} onClick={onOpenCare} foot="App Builder → Care & recall"
+          <EngineCard title="Recall messages" on={recall.enabled} onClick={onOpenCare} foot="Settings → Care & recall"
             body={recall.enabled ? `Every treatment has a due window; patients hear from you ${recall.lead_days} days before, again ${recall.followup_days} days after.` : "Off. Turn it on and every logged treatment chases its own rebooking."} />
-          <EngineCard title="Automated offers" on={active.length > 0} onClick={onOpenOffers} foot="App Builder → Automated Offers"
+          <EngineCard title="Automated offers" on={active.length > 0} onClick={onOpenOffers} foot="Journey → Automated offers"
             body={offers == null ? "…" : active.length > 0 ? `${active.length} running: ${active.slice(0, 3).map((o) => o.name).join(", ")}${active.length > 3 ? "…" : ""}.` : "None running. Birthday, holiday and win-back offers are one switch each."} />
           <EngineCard title="Win-back" on onClick={onOpenInsights} foot="Insights → Inactive patients"
             body="Patients who haven't visited in 30 to 90 days get a one-tap &quot;we miss you&quot; with bonus points or a free reward." />

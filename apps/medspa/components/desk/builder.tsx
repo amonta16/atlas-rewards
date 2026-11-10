@@ -10,6 +10,11 @@
  *   Memberships  · plans (medspa_config.memberships)
  *   Shop         · on/off, how patients pay, pay over time, items
  *   Booking      · the one way patients book
+ *
+ * CP-238: the first tab is Journey, every follow-up in one place:
+ *   Automated offers (birthday, holiday, win-back gifts) · One-time offers
+ *   (scratch-card promos, was Desk → Offers) · Campaigns (recall, win-back and
+ *   the ad plan, was Desk → Atlas Engine) · Automations (Atlas admins).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@atlas/core/supabase/client";
@@ -20,17 +25,19 @@ import type { DeskApi, GiftOffer, Journey, RewardRow } from "@/lib/desk-api";
 import { Modal } from "./ui";
 import { RewardsView } from "./manager-views";
 import { IcCheck, IcGift, IcMore } from "../icons";
+import { MarketingView, OffersView } from "./marketing-views";
 
-export type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "automations" | "rewards";
-type Tab = "offers" | "products" | "membership" | "rewards" | "settings";
+export type Section = "brand" | "clinic" | "treatments" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "oneoff" | "campaigns" | "automations" | "rewards";
+type Tab = "journey" | "products" | "membership" | "rewards" | "settings";
 type Cfg = MedspaConfig & { memberships?: MedspaPlan[] };
 const shadow = "shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]";
 const dollars = (c: number | null | undefined) => (c == null ? "" : String(c / 100));
 const toCents = (v: string) => { const n = parseFloat(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? Math.round(n * 100) : null; };
 const price = (c: number | null | undefined) => (c == null || c <= 0 ? "No price yet" : `$${(c / 100).toLocaleString("en-US")}`);
 
-export function BuilderView({ clinic, canBrand, initial, say, api, initialSection = "gifts" }: {
+export function BuilderView({ clinic, canBrand, initial, say, api, initialSection = "gifts", offersOn, recall, onOpenInsights }: {
   clinic: { id: string; slug: string; name: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void; api: DeskApi; initialSection?: Section;
+  offersOn: boolean; recall: { enabled: boolean; lead_days: number; followup_days: number }; onOpenInsights: () => void;
 }) {
   const [d, setD] = useState<BuilderData>(initial);
   const [cfg, setCfg] = useState<Cfg>(() => readMedspaConfig(initial.cfg) as Cfg);
@@ -76,7 +83,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
   }
 
   const TABS: { id: Tab; label: string; subs: { id: Section; label: string }[] }[] = [
-    { id: "offers", label: "Offers", subs: [{ id: "gifts", label: "Automated Offers" }, ...(canBrand ? [{ id: "automations" as Section, label: "Journeys" }] : [])] },
+    { id: "journey", label: "Journey", subs: [{ id: "gifts", label: "Automated offers" }, { id: "oneoff", label: "One-time offers" }, { id: "campaigns", label: "Campaigns" }, ...(canBrand ? [{ id: "automations" as Section, label: "Automations" }] : [])] },
     { id: "products", label: "Products", subs: [{ id: "treatments", label: "Treatments" }, { id: "shop", label: "Shop" }, { id: "results", label: "Results" }] },
     { id: "membership", label: "Membership", subs: [{ id: "memberships", label: "Plans" }] },
     { id: "rewards", label: "Rewards", subs: [{ id: "rewards", label: "Rewards" }] },
@@ -112,6 +119,8 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
           {section === "results" && <ResultsSection cfg={cfg} setCfg={setCfg} upload={upload} />}
           {section === "care" && <CareSection cfg={cfg} setCfg={setCfg} />}
           {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} clinicName={clinic.name} />}
+          {section === "oneoff" && <OffersView api={api} say={say} offersOn={offersOn} onOpenAutomated={() => setSection("gifts")} />}
+          {section === "campaigns" && <MarketingView api={api} recall={recall} onOpenCare={() => setSection("care")} onOpenOffers={() => setSection("gifts")} onOpenInsights={onOpenInsights} />}
           {section === "automations" && <AutomationsSection api={api} say={say} />}
           {section === "rewards" && <RewardsView api={api} say={say} />}
         </div>
