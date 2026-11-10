@@ -7,7 +7,7 @@
  *   → 6-digit texted code (only when PREVIEW_VERIFY_PHONE=1 and Twilio is set)
  *   → booking software → what you offer (pre-ticked from their website)
  *   → what's holding you back (2) → top priorities (2)
- *   → "Finishing your app…" → "{First}, your app is ready." → med.atlas-engine.app/p/<slug>
+ *   → "Finishing your app…" → straight into med.atlas-engine.app/p/<slug> (no extra tap)
  *
  * Search and the build go through our server only (keys stay private). Every
  * request failure ends on a clear message with a way forward, never a blank page.
@@ -27,8 +27,11 @@ type Suggestion = { placeId: string; main: string; secondary: string };
 type Step = "search" | "contact" | "code" | "booking" | "offer" | "challenges" | "priorities" | "finishing" | "ready" | "error";
 
 const POLL_MS = 2500;
-/** The scan screen runs at least this long, so the owner watches their app come together (CP-235). */
-const SCAN_MS = 22_000;
+/**
+ * The scan screen's minimum run. Was 22 s (CP-235); the lead-magnet audit cut it to a short
+ * reveal: the app opens the moment its brand is live (build phase 1), never padded.
+ */
+const SCAN_MS = 3_500;
 
 /** What the build found on their site (from /api/preview/status once ready). */
 type Found = { site: string | null; logo: string | null; color: string | null; treatments: number; treatmentNames: string[]; photos: number; team: number; font: string | null };
@@ -127,6 +130,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   const [preview, setPreview] = useState<{ slug: string; url: string } | null>(null);
   const [built, setBuilt] = useState(false);
   const [found, setFound] = useState<Found | null>(null);
+  const [enriching, setEnriching] = useState(false);
   // contact + code
   const [contact, setContact] = useState({ first: "", last: "", email: "", phone: "", consent: false, marketing: false });
   const [code, setCode] = useState("");
@@ -209,9 +213,10 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         if (stop) return;
         try {
           const r = await fetch(`/api/preview/status?slug=${encodeURIComponent(preview.slug)}`, { cache: "no-store" });
-          const j = (await r.json().catch(() => ({}))) as { status?: string; found?: Found | null };
+          const j = (await r.json().catch(() => ({}))) as { status?: string; found?: Found | null; enriching?: boolean };
           if (r.ok && (j.status === "ready" || j.status === "expired")) {
             setFound(j.found ?? null);
+            setEnriching(!!j.enriching);
             setBuilt(true);
             return;
           }
@@ -237,9 +242,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   useEffect(() => {
     if (step !== "finishing" || !built || pct < 96) return;
     setPct(100);
-    const t = setTimeout(() => { setStep("ready"); track("preview_ready", { contact: true }); }, 1100);
+    const t = setTimeout(() => {
+      setStep("ready");
+      track("preview_ready", { contact: true });
+      // Straight into their app: the "ready" screen below only shows while the page loads.
+      if (preview) window.location.assign(preview.url);
+    }, 900);
     return () => clearTimeout(t);
-  }, [step, built, pct]);
+  }, [step, built, pct, preview]);
 
   const start = useCallback(async (s: Suggestion) => {
     setSuggestions([]);
@@ -630,7 +640,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
       { at: 4, doing: f?.site ? `Reading ${f.site}` : "Reading your website", done: f?.site ? `Read ${f.site}` : "Read your website" },
       { at: 20, doing: "Finding your logo", done: f?.logo ? "Found your logo" : "Made your monogram" },
       { at: 36, doing: "Matching your brand color", done: "Matched your brand color" },
-      { at: 52, doing: "Pulling your treatments", done: f?.treatments ? `Added ${f.treatments} of your treatments` : "Added a starter menu" },
+      { at: 52, doing: "Pulling your treatments", done: f?.treatments ? `Added ${f.treatments} of your treatments` : enriching ? "Your treatments are on their way" : "Added a starter menu" },
       { at: 68, doing: "Adding your photos", done: f?.photos ? `Added ${f.photos} of your photos` : "Added photos" },
       { at: 82, doing: "Setting up rewards and memberships", done: "Rewards and memberships ready" },
     ];

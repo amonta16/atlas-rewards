@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { finishWithFallbacks, isStale } from "@/lib/preview/build";
-import { getPreviewBySlug, isExpired, previewUrl, SLUG_RE } from "@/lib/preview/store";
+import { getPreviewBySlug, isExpired, medspaOrigin, previewUrl, SLUG_RE } from "@/lib/preview/store";
 
 /**
  * GET /api/preview/status?slug=pv-… — CP-232 · the progress screen polls this.
- * { status: "building" | "ready" | "expired", url }. The slug is a random id, not
+ * { status: "building" | "ready" | "expired", url, enriching }. The slug is a random id, not
  * personal data. A build stuck past STALE_BUILD_MS is finished with fallbacks
- * here, so the visitor never waits forever.
+ * here, so the visitor never waits forever. `enriching`: the brand is live and the
+ * treatments/photos are still coming (build phase 2). Also readable from the preview
+ * page on the med spa origin (CORS), which uses it to refresh the app when they land.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +17,16 @@ export const dynamic = "force-dynamic";
 // a preview read once as "building" would stay "building" (seen live on 2026-11-07).
 export const fetchCache = "force-no-store";
 
+function cors(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin");
+  const allowed = medspaOrigin();
+  return origin === allowed ? { "Access-Control-Allow-Origin": allowed, Vary: "Origin" } : { Vary: "Origin" };
+}
+
 export async function GET(req: Request) {
   const rl = await rateLimit(clientKey(req, "pv-status"), 240, 600);
   if (!rl.ok) return tooMany(rl.retryAfter);
+  const h = cors(req);
   const slug = new URL(req.url).searchParams.get("slug") ?? "";
   if (!SLUG_RE.test(slug)) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
@@ -46,7 +55,8 @@ export async function GET(req: Request) {
         font: row.font_family,
       };
     }
-    return NextResponse.json({ status, url: previewUrl(row.slug), found }, { headers: { "Cache-Control": "no-store" } });
+    const enriching = status === "ready" && !row.built_at && !isStale({ status: "building", updated_at: row.updated_at });
+    return NextResponse.json({ status, url: previewUrl(row.slug), found, enriching }, { headers: { ...h, "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[preview] status failed", e);
     return NextResponse.json({ error: "Couldn't check right now." }, { status: 500 });

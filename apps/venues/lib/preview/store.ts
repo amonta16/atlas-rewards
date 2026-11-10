@@ -34,7 +34,7 @@ export type PreviewRow = {
   lat: number | null; lng: number | null; phone: string | null; website: string | null;
   logo_url: string | null; logo_is_monogram: boolean; colors: PreviewColors | Record<string, never>;
   treatments: PreviewTreatment[]; treatments_are_examples: boolean; source: "manual" | "auto";
-  status: "building" | "ready" | "failed" | "claimed"; build_error: string | null;
+  status: "building" | "ready" | "failed" | "claimed"; build_error: string | null; built_at: string | null;
   area_open: boolean | null; area_zip: string | null; expires_at: string; created_at: string; updated_at: string;
   utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; utm_content: string | null; utm_term: string | null;
   fbp: string | null; fbc: string | null;

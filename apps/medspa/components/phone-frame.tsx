@@ -46,7 +46,8 @@ function hideScrollbars(e: React.SyntheticEvent<HTMLIFrameElement>) {
   }
 }
 
-export function PhoneFrame({ src, title }: { src: string; title: string }) {
+/** `overlay` draws over the app in screen coordinates (390 × 844), e.g. a push notification banner. */
+export function PhoneFrame({ src, title, overlay }: { src: string; title: string; overlay?: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<number | null>(null);
 
@@ -92,6 +93,7 @@ export function PhoneFrame({ src, title }: { src: string; title: string }) {
               loading="eager"
               onLoad={hideScrollbars}
             />
+            {overlay}
             <div aria-hidden className="pointer-events-none absolute bottom-[8px] left-1/2 z-30 h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-black/85" />
           </div>
         </div>

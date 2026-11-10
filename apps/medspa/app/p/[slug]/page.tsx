@@ -2,16 +2,19 @@ import type { Metadata } from "next";
 import QRCode from "react-qr-code";
 import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib/preview";
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
-import { PhoneFrame } from "@/components/phone-frame";
+import { CtaBar, PreviewStage } from "@/components/preview-stage";
 import { OFFER } from "@/lib/offer";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
  *
  * Their real app (/<slug>, the same screens patients use) runs inside a phone
- * frame; around it: a "Preview, not live yet" badge, a QR code to open it on
- * their phone, "Text me my app" and "Go live". noindex/nofollow. Expired,
- * missing, still-building and lookup-failure states each get a friendly page.
+ * frame. Lead-magnet audit, step 2 (this page is the whole funnel): a "Preview mode,
+ * engine off" banner on top; two equal buttons always on screen on a phone
+ * ([Book 15 min, turn it on live] [Just look around]); a one-tap logo/color fix;
+ * a tappable test push. "Text me my app" and the QR code sit further down.
+ * noindex/nofollow. Expired, missing, still-building and lookup-failure states
+ * each get a friendly page.
  */
 export const dynamic = "force-dynamic";
 
@@ -76,23 +79,32 @@ export default async function PreviewPage({ params }: { params: { slug: string }
   const expires = new Date(row.expires_at).toLocaleDateString("en-US", { month: "long", day: "numeric" });
   const pitch = pitchFor(row.priorities);
 
+  const logoUrl = !row.logo_is_monogram && row.logo_url ? row.logo_url : null;
+  const taken = row.area_open === false;
+
   return (
     <Shell>
-      <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-2 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
-        {/* The real app, in a phone frame */}
-        <div className="mx-auto w-full max-w-[418px]">
-          <PhoneFrame src={`/${slug}`} title={`${row.business_name} app preview`} />
-          <p className="mt-4 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
+      {/* Visible, not buried: what they're looking at is the app with the engine switched off. */}
+      <div className="sticky top-0 z-40 border-y border-amber-200 bg-amber-50/95 backdrop-blur" role="status">
+        <p className="mx-auto flex max-w-6xl items-center gap-2 px-5 py-2 text-[13.5px] font-semibold text-amber-900">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden />
+          Preview mode — engine off.
+          <span className="font-normal text-amber-900/80">Reminders, offers and points don&apos;t send yet.</span>
+        </p>
+      </div>
+      <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-4 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
+        {/* The real app, in a phone frame, with the logo fix and the test push */}
+        <div>
+          <PreviewStage slug={slug} businessName={row.business_name} logoUrl={logoUrl} primary={primary} apiOrigin={SITE} />
+          <p className="mt-3 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
         </div>
 
         {/* The pitch */}
         <section className="lg:pt-8">
-          <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-[12.5px] font-semibold text-amber-900">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-600" aria-hidden /> Preview · not live yet
-          </span>
-          <h1 className="mt-4 text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px]">
+          <h1 className="text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px]">
             {row.business_name}, this is your app.
           </h1>
+          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}`} primary={primary} taken={taken} />
           <p className="mt-4 max-w-[34rem] text-[17px] leading-relaxed text-sub">
             Your name, your colors and your treatments. {pitch.line}
           </p>
