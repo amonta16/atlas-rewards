@@ -251,7 +251,7 @@ function ClinicSection({ d, set }: { d: BuilderData; set: (p: Partial<BuilderDat
         <Field label="Phone"><Text value={d.phone} onChange={(v) => set({ phone: v })} inputMode="tel" placeholder="(805) 555-0142" /></Field>
         <Field label="Address"><Text value={d.address} onChange={(v) => set({ address: v })} placeholder="123 Main St, San Luis Obispo, CA" /></Field>
         <Field label="Google review link" hint="Patients earn points for a review."><Text value={d.google_review_url} onChange={(v) => set({ google_review_url: v })} inputMode="url" placeholder="https://g.page/r/…" /></Field>
-        <Field label="Welcome line" hint="Optional short line for new patients."><Text value={d.welcome_message} onChange={(v) => set({ welcome_message: v })} placeholder="Welcome! Your rewards start today." /></Field>
+        <Field label="Welcome line" hint="Optional short line for new patients."><Text value={d.welcome_message} onChange={(v) => set({ welcome_message: v })} placeholder={`Welcome to ${d.name || "our clinic"}! Your rewards start today.`} /></Field>
       </div>
     </Panel>
   );

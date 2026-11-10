@@ -57,8 +57,8 @@ export function SkinScansView({ api, enabled, clinicName, slug, onOpen, onSettin
         <div className="grid gap-3 xl:grid-cols-2">
           {rows.map((r) => {
             const weak = [...r.metrics].sort((a, b) => a.score - b.score).slice(0, 3);
-            const first = r.full_name?.split(/\s+/)[0] ?? "there";
-            const text = `Hi ${first}, it's ${clinicName}. Thanks for doing your skin scan! Want us to walk you through your results and the best place to start?`;
+            const first = r.full_name?.split(/\s+/)[0];
+            const text = `Hi${first ? ` ${first}` : ""}, it's ${clinicName}. Thanks for doing your skin scan! Want us to walk you through your results and the best place to start?`;
             return (
               <article key={r.id} className="rounded-[24px] bg-white p-5 shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
                 <div className="flex items-start gap-3.5">

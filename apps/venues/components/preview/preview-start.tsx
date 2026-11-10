@@ -16,12 +16,12 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
-import { ReviewQuote, ReviewStrip } from "@/components/landing/review-strip"; // CP-239
+import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
 import { TrioVideo } from "@/components/landing/trio-video";
-import { FOUNDING, GUARANTEES, HOLD, MONTHLY_PRICE, OFFER_NAME, SETUP_STACK, TERRITORY } from "@/lib/landing/medspa-funnel";
+import { FOUNDING } from "@/lib/landing/medspa-funnel";
 import { detectPlatform, e164, type Platform } from "@/lib/preview/sms";
 import { SMS_CONSENT_PAGE, SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 
@@ -434,7 +434,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             </ul>
             {/* CP-237: the offer, up front. Numbers from lib/landing/medspa-funnel.ts. */}
             <p className="mt-4 max-w-[34rem] text-[14.5px] leading-relaxed text-[#3A4A5C]">
-              The preview is free. If you want it live, {FOUNDING.active ? <>our first {FOUNDING.spots} med spas pay a <b className="text-[#0B1B2B]">{usd(FOUNDING.setupFounding)} setup</b> <span className="line-through decoration-rose-400/80">{usd(FOUNDING.setupFull)}</span></> : <>setup is <b className="text-[#0B1B2B]">{usd(FOUNDING.setupFull)}</b></>} and one flat monthly plan. One med spa per {TERRITORY.radiusMiles}-mile area.
+              {/* Audit step 5: no scarcity here; their area isn't known yet. */}
+              The preview is free. If you want it live, setup is <b className="text-[#0B1B2B]">{usd(FOUNDING.active ? FOUNDING.setupFounding : FOUNDING.setupFull)}</b> and one flat monthly plan.
             </p>
 
           </div>
@@ -725,17 +726,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
     );
   }
   if (step === "ready" && preview) {
-    const desk = preview.url.replace(`/p/${preview.slug}`, `/${preview.slug}/desk`);
     return (
       <StepShell step="ready" title={spa ? `${spa.main}'s app is ready.` : "Your app is ready."}>
         <div className="flex flex-col items-center pt-6 text-center">
           <span className="grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-[#39A0FF] to-[#06318F] text-white shadow-[0_20px_40px_-20px_rgba(6,49,143,.8)]"><Check className="h-10 w-10" aria-hidden /></span>
           <p className="mt-6 max-w-[30ch] text-[17px] text-[#3A4A5C]">{spa?.main ?? "Your spa"}&apos;s own patient app, with your logo, colors and treatments.</p>
+          {/* Audit step 5: one ask. This screen only shows while their app loads. */}
           <a href={preview.url} className={`${primaryBtn} mt-8`}>Open my app</a>
-          {/* CP-237: the preview's front desk (same link as the welcome email). */}
-          <a href={desk} className="s-focus mt-4 text-[15px] font-semibold text-[#0B5FD6] underline-offset-4 hover:underline">Open my front desk</a>
         </div>
-        <OfferCard slug={preview.slug} qualified={qualified} />
       </StepShell>
     );
   }
@@ -744,40 +742,3 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
 
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-/**
- * CP-237 · the offer, stated plainly where the owner first sees their app. Every number comes
- * from lib/landing/medspa-funnel.ts (the same source as the /medspa offer section and FAQ).
- */
-function OfferCard({ slug, qualified }: { slug: string; qualified: boolean | null }) {
-  const taken = qualified === false;
-  return (
-    <section aria-labelledby="pv-offer" className="mt-10 rounded-[24px] border border-[#0B1B2B]/10 bg-[#F6F9FD] p-5 text-left sm:p-6">
-      <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#0B5FD6]">{FOUNDING.active ? `Want it live? First ${FOUNDING.spots} med spas` : "Want it live?"}</p>
-      <h2 id="pv-offer" className="mt-1.5 text-[22px] font-bold leading-tight tracking-[-0.02em] text-[#0B1B2B]">{FOUNDING.active ? `The ${OFFER_NAME}` : "Your setup"}</h2>
-      <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-1">
-        {FOUNDING.active && <span className="pb-1 text-[16px] font-semibold text-[#8A97A8] line-through decoration-rose-400/80">{usd(FOUNDING.setupFull)}</span>}
-        <span className="text-[40px] font-extrabold leading-none tracking-tight text-[#0B1B2B]">{usd(FOUNDING.active ? FOUNDING.setupFounding : FOUNDING.setupFull)}</span>
-        <span className="pb-1 text-[14px] text-[#3A4A5C]">one-time setup</span>
-      </div>
-      <p className="mt-2 text-[13.5px] leading-snug text-[#3A4A5C]">
-        {MONTHLY_PRICE ? `Then ${usd(MONTHLY_PRICE)} a month, month to month.` : "Then one flat monthly plan, month to month, quoted on your walkthrough."} No percentage of your treatment revenue.
-        {FOUNDING.active ? ` Founding price in exchange for ${FOUNDING.trade}.` : ""}
-      </p>
-      <ul className="mt-4 space-y-2">
-        {SETUP_STACK.map((s) => (
-          <li key={s.title} className="flex items-start gap-2.5 text-[14.5px] leading-snug text-[#0B1B2B]">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0B5FD6]" strokeWidth={3} aria-hidden />{s.title}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4 space-y-1.5 border-t border-[#0B1B2B]/8 pt-4">
-        {GUARANTEES.map((g) => <p key={g.id} className="text-[13.5px] leading-snug text-[#3A4A5C]"><b className="text-[#0B1B2B]">{g.title}</b> {g.short}.</p>)}
-      </div>
-      <p className="mt-4 text-[13.5px] font-semibold text-[#0B1B2B]">
-        {taken ? `Another med spa holds your area (one per ${TERRITORY.radiusMiles} miles). Join the waitlist and we'll tell you if it opens.` : `One med spa per ${TERRITORY.radiusMiles}-mile area.${qualified ? ` Yours is held for ${HOLD.hours} hours.` : ""}`}
-      </p>
-      <ReviewQuote topic="service" className="mt-5 !p-5 shadow-none" />
-      <a href={`/medspa/walkthrough/${slug}`} onClick={() => track("preview_offer_cta", { taken })} className={`${primaryBtn} mt-5`}>{taken ? "Join the waitlist" : "Book a 15-min walkthrough"}</a>
-    </section>
-  );
-}

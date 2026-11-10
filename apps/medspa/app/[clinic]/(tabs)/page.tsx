@@ -52,7 +52,7 @@ export default async function Home({ params }: { params: { clinic: string } }) {
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/5 to-black/20" />
           <div className="absolute left-5 right-5 top-5 animate-rise">
             <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.015em] text-white">
-              {patient.signedIn ? `Welcome back, ${patient.firstName ?? "there"}!` : "Welcome, Guest!"}
+              {patient.signedIn ? (patient.firstName ? `Welcome back, ${patient.firstName}!` : `Welcome back to ${clinic.name}!`) : `Welcome to ${clinic.name}`}
             </h2>
             <p className="mt-0.5 text-[15px] text-white/70">{clinic.name}</p>
           </div>

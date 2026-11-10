@@ -106,7 +106,7 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
   const first = esc(firstName || row.business_name); // no name since the audit's step 3 gate: their spa's name, never "there"
   const app = previewUrl(row.slug);
   const desk = verifiedDeskUrl(row.slug, row.contact_email); // audit step 4: opening it marks the email verified
-  const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}`;
+  // Audit step 5: one ask. The welcome email's job is opening the desk; turning it on lives there.
   const brand = hex((row.colors as { primary?: string } | null)?.primary);
   const logo = row.logo_is_monogram ? null : hosted(row.logo_url);
   const hero = hosted(row.hero_url);
@@ -133,9 +133,8 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
     ...rows.map((r) => `• ${r.t}: ${r.d}`),
     "",
     `See the patient app: ${app}`,
-    `Want it live? Book a 15-minute walkthrough: ${walkthrough}`,
     "",
-    `This is a preview, saved until ${until}. Nothing you try reaches patients until you go live. Questions? Just reply.`,
+    `This is a preview, saved until ${until}. Nothing you try reaches patients until you turn the engine on.`,
     "",
     "Andrew, Atlas Engine",
   ].join("\n");
@@ -183,13 +182,10 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
 
       <tr><td align="center" style="font-size:15px;color:#3A4A5C;padding-bottom:12px;">See what your patients see:</td></tr>
       <tr><td align="center" style="padding-bottom:22px;">${pill(app, `Open ${spa}&#39;s app`, false)}</td></tr>
-      <tr><td style="padding-top:14px;border-top:1px solid #E6EBF2;"></td></tr>
-      <tr><td align="center" style="font-size:15px;color:#3A4A5C;padding-bottom:8px;">Want it live at your front desk?</td></tr>
-      <tr><td align="center"><a href="${walkthrough}" style="font-size:15px;font-weight:700;color:${brand};text-decoration:underline;">Book a 15-minute walkthrough</a></td></tr>
     </table>
   </td></tr>
   <tr><td style="padding:18px 8px 0;font-size:13px;line-height:1.55;color:#6B7A8C;text-align:center;">
-    This is a preview, saved until ${esc(until)}. Nothing you try reaches patients until you go live.<br>Questions? Just reply to this email.<br>Andrew, Atlas Engine &middot; <a href="${SITE_ORIGIN}" style="color:#6B7A8C;">atlas-engine.app</a>
+    This is a preview, saved until ${esc(until)}. Nothing you try reaches patients until you turn the engine on.<br>Andrew, Atlas Engine &middot; <a href="${SITE_ORIGIN}" style="color:#6B7A8C;">atlas-engine.app</a>
   </td></tr>
 </table></td></tr></table></body></html>`;
 

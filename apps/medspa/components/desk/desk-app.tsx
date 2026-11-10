@@ -141,7 +141,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     { id: "team", label: "Team", Icon: IcPeople },
   ] : [];
   const hour = new Date().getHours();
-  const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"} 👋`;
+  const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${clinic.name}`;
   const title = view === "overview" ? greeting : view === "rewards" ? "Rewards" : [...NAV, ...ACCOUNT].find((n) => n.id === view)?.label;
   const navButton = ({ id, label, Icon, badge }: NavItem, quiet = false) => {
     const on = view === id || (id === "builder" && view === "rewards");
@@ -203,7 +203,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
               <b>This is {clinic.name}&apos;s front desk, in preview.</b>{" "}
               <span className="text-sub">Try anything: nothing is sent to patients until you turn the engine on. Saved until {new Date(clinic.preview.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.</span>
             </p>
-            <a href={clinic.preview.walkthroughUrl} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-[13px] font-semibold text-white">Book a walkthrough</a>
+            {!imported && <a href={clinic.preview.walkthroughUrl} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-[13px] font-semibold text-white">Book a walkthrough</a>}
           </div>
         )}
         <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -636,7 +636,7 @@ function Due({ api, clinic, onOpen }: { api: DeskApi; clinic: DeskClinic; onOpen
     <ul className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
       {sorted.map((r, i) => {
         const overdue = new Date(r.due_at).getTime() < Date.now();
-        const sms = r.phone ? `sms:${r.phone}?body=${encodeURIComponent(`Hi ${(r.full_name ?? "").split(" ")[0] || "there"}! It's about time for your next ${r.treatment_name} at ${clinic.name}. Want us to find you a time?`)}` : null;
+        const sms = r.phone ? `sms:${r.phone}?body=${encodeURIComponent(`Hi${(r.full_name ?? "").split(" ")[0] ? ` ${(r.full_name ?? "").split(" ")[0]}` : ""}! It's about time for your next ${r.treatment_name} at ${clinic.name}. Want us to find you a time?`)}` : null;
         return (
           <li key={`${r.membership_id}-${i}`} className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 last:border-0">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-page text-[14px] font-semibold">{initials(r.full_name)}</span>

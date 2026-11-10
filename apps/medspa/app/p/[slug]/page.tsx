@@ -84,6 +84,8 @@ export default async function PreviewPage({ params }: { params: { slug: string }
 
   const logoUrl = !row.logo_is_monogram && row.logo_url ? row.logo_url : null;
   const taken = row.area_open === false;
+  // Audit step 5: scarcity ("first 10", "one per area") only when we know the area is open.
+  const open = row.area_open === true;
 
   return (
     <Shell>
@@ -128,9 +130,10 @@ export default async function PreviewPage({ params }: { params: { slug: string }
             </p>
           )}
 
-          {/* CP-237: the offer, stated plainly before the buttons (numbers in lib/offer.ts, mirrored from the venue site). */}
-          <section aria-labelledby="pv-offer" className="mt-8 max-w-[34rem] rounded-[24px] bg-white p-5 shadow-soft sm:p-6">
-            <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{OFFER.foundingActive ? `Want it live? First ${OFFER.spots} med spas` : "Want it live?"}</p>
+          {/* CP-237: the offer, stated plainly (numbers in lib/offer.ts, mirrored from the venue site).
+              Step 5: not shown at all on a taken area (the bar's button is the waitlist there). */}
+          {!taken && <section aria-labelledby="pv-offer" className="mt-8 max-w-[34rem] rounded-[24px] bg-white p-5 shadow-soft sm:p-6">
+            <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{OFFER.foundingActive && open ? `Want it live? First ${OFFER.spots} med spas` : "Want it live?"}</p>
             <h2 id="pv-offer" className="mt-1.5 text-[22px] font-semibold leading-tight tracking-[-0.015em]">{OFFER.foundingActive ? `The ${OFFER.name}` : "Your setup"}</h2>
             <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
               {OFFER.foundingActive && <span className="pb-1 text-[16px] font-semibold text-sub line-through">${OFFER.setupFull.toLocaleString("en-US")}</span>}
@@ -147,21 +150,15 @@ export default async function PreviewPage({ params }: { params: { slug: string }
             <ul className="mt-4 space-y-1 border-t border-line pt-3 text-[13px] text-sub">
               {OFFER.guarantees.map((g) => <li key={g}>{g}.</li>)}
             </ul>
-            <p className="mt-3 text-[13.5px] font-semibold">
-              {row.area_open === false ? `Another med spa holds your area (one per ${OFFER.radiusMiles} miles). Join the waitlist below.` : `One med spa per ${OFFER.radiusMiles}-mile area.`}
-            </p>
-          </section>
+            {open && <p className="mt-3 text-[13.5px] font-semibold">One med spa per {OFFER.radiusMiles}-mile area.</p>}
+          </section>}
 
           <PreviewActions
             slug={slug}
             businessName={row.business_name}
             primary={primary}
             smsNumber={process.env.PREVIEW_SMS_NUMBER ?? process.env.GHL_SMS_NUMBER ?? null}
-            walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}`}
-            // CP-234: self-serve checkout stays hidden until a monthly price is set (PREVIEW_SHOW_CHECKOUT=1).
-            checkoutUrl={process.env.PREVIEW_SHOW_CHECKOUT === "1" ? process.env.STRIPE_FOUNDING_CHECKOUT_URL ?? null : null}
             apiOrigin={SITE}
-            areaOpen={row.area_open}
           />
 
           <div className="mt-10 hidden items-center gap-5 rounded-[24px] bg-white p-5 shadow-soft sm:flex">

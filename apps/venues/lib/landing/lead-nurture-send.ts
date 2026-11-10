@@ -16,7 +16,7 @@
 import { emailProspect } from "./notify";
 import { SITE_ORIGIN } from "./medspa-funnel";
 import { sign } from "./funnel-sign";
-import { renderStep, type EmailStep } from "./lead-nurture";
+import { avgTicket, dollars, renderStep, type EmailStep } from "./lead-nurture";
 import { previewDb, previewUrl } from "@/lib/preview/store";
 import { verifiedDeskUrl } from "@/lib/preview/verify-link";
 
@@ -38,7 +38,7 @@ export async function runLeadNurture(now = Date.now()) {
   if (!steps?.length) return out;
   const db = previewDb();
   const { data: rows, error } = await db.from("app_previews")
-    .select("id, slug, business_name, contact_name, contact_email, contact_at, expires_at, status, nurture_step, landing_lead_id")
+    .select("id, slug, business_name, contact_name, contact_email, contact_at, expires_at, status, nurture_step, landing_lead_id, treatments, treatments_are_examples")
     .not("contact_at", "is", null).not("contact_email", "is", null)
     .is("nurture_unsubscribed_at", null).is("nurture_stopped_at", null).is("claimed_at", null)
     .lt("nurture_step", steps.length)
@@ -81,6 +81,7 @@ export async function runLeadNurture(now = Date.now()) {
     const { data: claimed } = await db.from("app_previews").update({ nurture_step: last + 1, nurture_last_at: new Date(now).toISOString() }).eq("id", r.id).eq("nurture_step", n).select("id");
     if (!claimed?.length) continue;
     const unsub = unsubscribeUrl(String(r.id));
+    const ticket = avgTicket(r.treatments as Array<{ price_cents?: number | null }> | null, !!r.treatments_are_examples);
     const mail = renderStep(step, {
       // Audit step 3: the gate asks email + zip only, so most owners have no name. Their spa's name
       // reads better than "there" ("Glow Aesthetics, saw you clicking around").
@@ -90,6 +91,9 @@ export async function runLeadNurture(now = Date.now()) {
       desk_link: verifiedDeskUrl(String(r.slug), r.contact_email ? String(r.contact_email) : null),
       walkthrough_link: `${SITE_ORIGIN}/medspa/walkthrough/${r.slug}`,
       expires_on: new Date(r.expires_at as string).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "America/Los_Angeles" }),
+      // No real menu: say so rather than pass a typical price off as theirs.
+      avg_ticket: ticket.fromMenu ? dollars(ticket.cents) : `${dollars(ticket.cents)} (a typical med spa visit)`,
+      ten_rebooks: dollars(ticket.cents * 10),
     }, { unsubscribeUrl: unsub, postalAddress: process.env.MAIL_POSTAL_ADDRESS ?? null });
     await emailProspect(String(r.contact_email), mail.subject, mail.text, mail.html, {
       "List-Unsubscribe": `<${unsub}>`,
