@@ -39,6 +39,7 @@ import { SetupHome, type GoLive, type SetupTarget } from "./get-started";
 import { BillingView } from "./billing-view";
 import { SkinScansView } from "./skin-scans-view";
 import { EngineLockProvider } from "./engine-lock";
+import { previewEvent } from "@/lib/preview-event";
 import { FirstLoginVideo, ImportCard, InstallNudge, loadImported, PatientImport, TurnOnBar, usePreviewProgress, type Imported, type PortalConfig } from "./preview-portal";
 import type { BuilderData } from "@/lib/builder-data";
 
@@ -222,7 +223,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
 
         {view === "overview" && staff.isManager && portal && (
           <>
-            {firstVisit && portal.vsl && !videoOff && <FirstLoginVideo src={portal.vsl.src} captions={portal.vsl.captions} onClose={() => setVideoOff(true)} />}
+            {firstVisit && portal.vsl && !videoOff && <FirstLoginVideo src={portal.vsl.src} captions={portal.vsl.captions} onClose={() => setVideoOff(true)} onPlay={() => previewEvent(portal.apiOrigin, clinic.slug, "vsl_played")} />}
             {!imported && <ImportCard onOpen={() => setImportOpen(true)} />}
             {visits >= 2 && !progress.installed && !nudgeOff && (
               <InstallNudge clinicName={clinic.name} appUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}` : `/${clinic.slug}`}

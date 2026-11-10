@@ -114,7 +114,7 @@ export async function runLeadSequence(now = Date.now()) {
     const v = valuesFor(r, {
       app: previewUrl(r.slug),
       desk: verifiedDeskUrl(r.slug, r.contact_email),
-      walkthrough: `${SITE_ORIGIN}/medspa/walkthrough/${r.slug}`,
+      walkthrough: `${SITE_ORIGIN}/medspa/walkthrough/${r.slug}?src=${st.channel}`,
     });
 
     if (plan.action === "task") {

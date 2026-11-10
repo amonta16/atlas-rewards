@@ -10,6 +10,8 @@ import { loadSequence } from "@/lib/landing/lead-sequence-run";
 import { previewUrl } from "@/lib/preview/store";
 import { smsSendEnabled } from "@/lib/preview/twilio-sms";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { EVENT_LABEL, MIN_RENDERS_TO_JUDGE, PREVIEW_EVENTS, RENDER_TO_BOOK_RED, renderToBook, type PreviewEvent } from "@/lib/preview/events";
+import type { EventsData } from "@/components/agency/lead-events";
 
 /**
  * /agency/lead-funnel — CP-238 · the lead magnet (atlas-engine.app/medspa/app), end to end.
@@ -27,6 +29,32 @@ export const fetchCache = "force-no-store";
 const DAY = 86_400_000;
 const RANGES = [7, 30, 90] as const;
 const BOOKED = ["booked", "showed", "no_show", "paid"];
+
+/**
+ * Audit step 7: the ten lead-magnet events for previews first SHOWN in the range (the app_rendered
+ * cohort; build_started counts builds in the range). One row per preview per event, so these are
+ * "previews that did X", never inflated by reloads.
+ */
+async function loadEvents(since: string): Promise<EventsData> {
+  const counts = Object.fromEntries(PREVIEW_EVENTS.map((e) => [e, 0])) as Record<PreviewEvent, number>;
+  const empty: EventsData = { missing: true, counts, rtb: renderToBook(0, 0), bookSrc: [], order: PREVIEW_EVENTS.map((id) => ({ id, label: EVENT_LABEL[id] })), redLine: RENDER_TO_BOOK_RED, minRenders: MIN_RENDERS_TO_JUDGE };
+  const { data, error } = await previewDb().from("preview_events").select("preview_id, event, first_at, meta").gte("first_at", since).limit(50000);
+  if (error) return empty;
+  const rows = (data ?? []) as Array<{ preview_id: string; event: PreviewEvent; meta: Record<string, unknown> | null }>;
+  const rendered = new Set(rows.filter((r) => r.event === "app_rendered").map((r) => r.preview_id));
+  const src = new Map<string, number>();
+  for (const r of rows) {
+    if (r.event === "build_started") { counts.build_started++; continue; }
+    if (!rendered.has(r.preview_id)) continue; // cohort: apps shown in this range
+    counts[r.event]++;
+    if (r.event === "book_clicked") for (const k of Object.keys(r.meta ?? {})) if (k.startsWith("src_")) src.set(k.slice(4), (src.get(k.slice(4)) ?? 0) + 1);
+  }
+  return {
+    ...empty, missing: false, counts,
+    rtb: renderToBook(counts.app_rendered, counts.book_clicked),
+    bookSrc: Array.from(src, ([s, n]) => ({ src: s, n })).sort((a, b) => b.n - a.n),
+  };
+}
 
 async function load(days: number): Promise<FunnelData> {
   const db = previewDb();
@@ -96,6 +124,7 @@ async function load(days: number): Promise<FunnelData> {
     campaigns: Array.from(camp, ([name, x]) => ({ name, visitors: x.visitors.size, optins: x.optins, booked: x.booked, paid: x.paid })).sort((a, b) => b.optins - a.optins || b.visitors - a.visitors).slice(0, 12),
     recent: optins.slice(0, 25),
     notes,
+    events: await loadEvents(since),
   };
 }
 

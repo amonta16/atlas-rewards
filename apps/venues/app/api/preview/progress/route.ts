@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordEvent } from "@/lib/preview/events";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { notifyLead } from "@/lib/landing/notify";
 import { getPreviewBySlug, isExpired, medspaOrigin, previewDb, previewUrl, progressOf, SLUG_RE } from "@/lib/preview/store";
@@ -67,6 +68,9 @@ export async function POST(req: Request) {
     if (error) { console.error("[preview] progress save failed", slug, event, error.message); return reply(500, { error: "Couldn't save." }); }
   }
   const next = { ...row, ...update };
+  // Audit step 7: the funnel events (each visit / import / install counts; the first one is the funnel step).
+  const ev = event === "desk_visit" ? "portal_login" : event === "csv_imported" ? "csv_imported" : event === "app_installed" ? "app_installed" : null;
+  if (ev) await recordEvent(row.id, ev, ev === "csv_imported" ? { count: Number(update.csv_count ?? next.csv_count ?? 0) } : {});
 
   // Tell Andrew the moments that matter, once each.
   if (update[col] && event !== "desk_visit") {

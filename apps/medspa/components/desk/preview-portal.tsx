@@ -172,10 +172,10 @@ export function TurnOnBar({ href }: { href: string }) {
   );
 }
 
-export function FirstLoginVideo({ src, captions, onClose }: { src: string; captions: string | null; onClose: () => void }) {
+export function FirstLoginVideo({ src, captions, onClose, onPlay }: { src: string; captions: string | null; onClose: () => void; onPlay?: () => void }) {
   return (
     <section className="relative mb-5 overflow-hidden rounded-[18px] bg-black">
-      <video className="block aspect-video w-full" src={src} autoPlay muted playsInline controls preload="auto" crossOrigin="anonymous" onEnded={onClose}>
+      <video className="block aspect-video w-full" src={src} autoPlay muted playsInline controls preload="auto" crossOrigin="anonymous" onEnded={onClose} onPlay={onPlay}>
         {captions && <track kind="captions" src={captions} srcLang="en" label="English" default />}
       </video>
       <button type="button" onClick={onClose} aria-label="Close video" className="absolute right-2.5 top-2.5 grid h-9 w-9 place-items-center rounded-full bg-black/55 text-white"><IcClose className="h-4 w-4" /></button>

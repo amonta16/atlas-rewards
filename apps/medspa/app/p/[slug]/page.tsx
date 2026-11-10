@@ -110,7 +110,7 @@ export default async function PreviewPage({ params }: { params: { slug: string }
           <h1 className="text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px]">
             {row.business_name}, this is your app.
           </h1>
-          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}`} primary={primary} taken={taken} />
+          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=page`} primary={primary} taken={taken} />
           <p className="mt-4 max-w-[34rem] text-[17px] leading-relaxed text-sub">
             Your name, your colors and your treatments. {pitch.line}
           </p>

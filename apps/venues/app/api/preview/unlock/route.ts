@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordEvent } from "@/lib/preview/events";
 import { waitUntil } from "@vercel/functions";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { clean, EMAIL_RE, notifyLead } from "@/lib/landing/notify";
@@ -118,5 +119,6 @@ export async function POST(req: Request) {
     first ? sendWelcomeEmail(row.slug) : Promise.resolve(false),
   ]));
 
+  await recordEvent(row.id, "gate_submitted", { zip_corrected: zip !== row.area_zip });
   return reply(200, { ok: true, event_id: eventId, area_open: areaOpen, desk_url: deskUrl(row.slug) });
 }

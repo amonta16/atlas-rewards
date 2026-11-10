@@ -1,6 +1,6 @@
 -- CP-243 (lead-magnet audit, step 6): the follow-up SEQUENCE — texts, emails and call tasks on one
 -- clock, edited in Admin → Lead funnel → Sequence, with every lead's follow-through visible.
--- NOT APPLIED YET. Until it is, the cron keeps running the CP-238 email-only sequence.
+-- Applied to production 2026-11-10 as migration cp243_lead_sequence (the cron switches over once the step 6 code is deployed).
 --
 --   lead_sequence_steps   the schedule: one row per step (channel, minutes after opt-in, copy or
 --                         call script, on/off). Seeded with the audit's schedule:

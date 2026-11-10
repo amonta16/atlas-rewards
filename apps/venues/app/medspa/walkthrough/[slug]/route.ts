@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordEvent } from "@/lib/preview/events";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
 import { getPreviewBySlug, SLUG_RE } from "@/lib/preview/store";
 
@@ -14,12 +15,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export async function GET(_req: Request, { params }: { params: { slug: string } }) {
+export async function GET(req: Request, { params }: { params: { slug: string } }) {
   const slug = (params.slug ?? "").toLowerCase();
   if (!SLUG_RE.test(slug)) return NextResponse.redirect(`${SITE_ORIGIN}/medspa/start?from=preview`, 302);
   // Audit step 6: ?pv= links the lead /medspa/start creates to this preview, so booking stops its follow-up.
   const fallback = NextResponse.redirect(`${SITE_ORIGIN}/medspa/start?from=preview&pv=${slug}`, 302);
   const row = await getPreviewBySlug(slug).catch(() => null);
+  // Audit step 7: every "Book 15 min" (the page, emails, texts, the desk) lands here. ?src= says which.
+  const src = (new URL(req.url).searchParams.get("src") ?? "other").replace(/[^a-z_]/g, "").slice(0, 20) || "other";
+  if (row) await recordEvent(row.id, "book_clicked", { [`src_${src}`]: true, last_src: src });
   const leadId = (row as { landing_lead_id?: string | null } | null)?.landing_lead_id;
   if (!row || !leadId || row.area_open === false) return fallback;
   return NextResponse.redirect(`${SITE_ORIGIN}/medspa/start?lead=${leadId}&from=preview`, 302);

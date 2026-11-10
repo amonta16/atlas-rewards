@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordEvent } from "@/lib/preview/events";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 import { NEUTRAL_PALETTE, paletteFromSeed, parseColor, type PreviewColors } from "@/lib/preview/colors";
 import { fetchFirstLogo, normalizeLogo } from "@/lib/preview/logo";
@@ -89,5 +90,6 @@ export async function POST(req: Request) {
   if (!Object.keys(update).length) return reply(400, { error: "Upload a logo or pick a color." });
   const { error } = await previewDb().from("app_previews").update(update).eq("id", row.id);
   if (error) { console.error("[preview] brand fix failed", slug, error.message); return reply(500, { error: "Couldn't save. Please try again." }); }
+  await recordEvent(row.id, "brand_overridden", { logo: "logo_url" in update, color: "colors" in update });
   return reply(200, { ok: true, logo_url: update.logo_url ?? row.logo_url, colors: update.colors ?? row.colors });
 }

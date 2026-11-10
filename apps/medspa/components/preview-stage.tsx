@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PhoneFrame } from "./phone-frame";
+import { previewEvent } from "@/lib/preview-event";
 
 type Push = "idle" | "show" | "done";
 
@@ -34,6 +35,9 @@ export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }
   const [help, setHelp] = useState<string | null>(null);
   const [fixOpen, setFixOpen] = useState(false);
   const reload = useCallback(() => { setFrameKey((k) => k + 1); router.refresh(); }, [router]);
+
+  // Audit step 7: their app is on screen (the render-to-book denominator).
+  useEffect(() => { previewEvent(apiOrigin, slug, "app_rendered"); }, [apiOrigin, slug]);
 
   // Build phase 2: brand is live, treatments and photos still coming. Reload once they land.
   useEffect(() => {
@@ -56,6 +60,7 @@ export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }
   }, [apiOrigin, slug, reload]);
 
   async function testPush() {
+    previewEvent(apiOrigin, slug, "notif_previewed");
     setHelp(null);
     setPush("show");
     window.setTimeout(() => setPush((p) => (p === "show" ? "done" : p)), 6000);

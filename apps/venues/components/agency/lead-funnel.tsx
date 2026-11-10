@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Loader2, Mail, MousePointerClick, Send, UserPlus, CalendarCheck, BadgeDollarSign, RotateCcw } from "lucide-react";
 import { DEFAULT_STEPS, MERGE_TAGS, SAMPLE_VALUES, describeDelay, renderStep, type EmailStep } from "@/lib/landing/lead-nurture";
 import { FollowThrough, SequenceEditor, type FollowData, type SequenceProps } from "./lead-sequence";
+import { RenderToBookPanel, type EventsData } from "./lead-events";
 
 export type OptinRow = {
   id: string; slug: string; spa: string; name: string | null; email: string | null; at: string; campaign: string | null;
@@ -22,6 +23,8 @@ export type FunnelData = {
   daily: { day: string; visitors: number; optins: number }[];
   campaigns: { name: string; visitors: number; optins: number; booked: number; paid: number }[];
   recent: OptinRow[]; notes: string[];
+  /** Audit step 7: the lead magnet's own events and the render-to-book rate. */
+  events: EventsData;
 };
 
 const card = "rounded-xl border border-slate-200 bg-white";
@@ -90,6 +93,8 @@ function Overview({ d }: { d: FunnelData }) {
         <p className="text-xs text-slate-500">Bookings and payments follow the owners who opted in during this range.</p>
       </div>
       {d.notes.map((n) => <p key={n} className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"><AlertTriangle className="h-4 w-4 shrink-0" />{n}</p>)}
+
+      <RenderToBookPanel d={d.events} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile Icon={MousePointerClick} label="Landing-page visitors" value={fmt(d.visitors)} sub={d.visits == null ? "Not tracked yet" : `${fmt(d.visits)} visits`} />

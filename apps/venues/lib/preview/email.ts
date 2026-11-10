@@ -28,7 +28,7 @@ export function previewEmail(row: Pick<PreviewRow, "slug" | "business_name" | "l
   const spa = esc(row.business_name);
   const first = esc(firstName || row.business_name); // no name since the audit's step 3 gate: their spa's name, never "there"
   const url = previewUrl(row.slug);
-  const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}`;
+  const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}?src=email`;
   const brand = hex((row.colors as { primary?: string } | null)?.primary);
   const logo = row.logo_is_monogram ? null : hosted(row.logo_url);
   const hero = hosted(row.hero_url);

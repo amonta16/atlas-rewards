@@ -1,6 +1,5 @@
 -- CP-242 (lead-magnet audit, step 4): the preview portal's progress, for the skip-ahead button.
--- NOT APPLIED YET. Apply to production before deploying step 4 (the code tolerates the columns
--- being missing: /api/preview/progress answers 503 and the status endpoint reports false).
+-- Applied to production 2026-11-10 as migration cp242_preview_progress.
 --
 -- · verified_at       the owner opened their front desk from the signed link in our email
 --                     (proves the email is theirs)
