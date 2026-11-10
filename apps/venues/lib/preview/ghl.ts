@@ -19,6 +19,8 @@ export type GhlPreviewLead = {
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
+  /** The owner's zip from the unlock gate (prefilled from Google, they can correct it). */
+  zip?: string | null;
   area_open?: boolean | null;
   source?: "manual" | "auto";
   utm_source?: string | null;

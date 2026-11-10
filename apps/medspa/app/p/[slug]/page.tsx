@@ -3,6 +3,7 @@ import QRCode from "react-qr-code";
 import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib/preview";
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { CtaBar, PreviewStage } from "@/components/preview-stage";
+import { PreviewGate } from "@/components/preview-gate";
 import { OFFER } from "@/lib/offer";
 
 /**
@@ -13,6 +14,8 @@ import { OFFER } from "@/lib/offer";
  * engine off" banner on top; two equal buttons always on screen on a phone
  * ([Book 15 min, turn it on live] [Just look around]); a one-tap logo/color fix;
  * a tappable test push. "Text me my app" and the QR code sit further down.
+ * Step 3: the lead is asked for here, after the app is on screen (PreviewGate: email + zip,
+ * on scroll-past or 45 s). Nothing is asked before this page.
  * noindex/nofollow. Expired, missing, still-building and lookup-failure states
  * each get a friendly page.
  */
@@ -96,6 +99,7 @@ export default async function PreviewPage({ params }: { params: { slug: string }
         {/* The real app, in a phone frame, with the logo fix and the test push */}
         <div>
           <PreviewStage slug={slug} businessName={row.business_name} logoUrl={logoUrl} primary={primary} apiOrigin={SITE} />
+          <PreviewGate slug={slug} businessName={row.business_name} primary={primary} apiOrigin={SITE} />
           <p className="mt-3 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
         </div>
 

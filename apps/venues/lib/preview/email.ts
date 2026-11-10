@@ -25,7 +25,7 @@ const PITCH: Record<string, string> = {
 
 export function previewEmail(row: Pick<PreviewRow, "slug" | "business_name" | "logo_url" | "logo_is_monogram" | "hero_url" | "colors" | "expires_at" | "priorities">, firstName: string) {
   const spa = esc(row.business_name);
-  const first = esc(firstName || "there");
+  const first = esc(firstName || row.business_name); // no name since the audit's step 3 gate: their spa's name, never "there"
   const url = previewUrl(row.slug);
   const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}`;
   const brand = hex((row.colors as { primary?: string } | null)?.primary);
@@ -37,7 +37,7 @@ export function previewEmail(row: Pick<PreviewRow, "slug" | "business_name" | "l
   const subject = `${row.business_name}'s app is ready`;
 
   const text = [
-    `Hi ${firstName || "there"},`,
+    `Hi ${firstName || row.business_name},`,
     "",
     `Your preview of ${row.business_name}'s own patient app is ready:`,
     url,
@@ -102,7 +102,7 @@ type WelcomeRow = Pick<PreviewRow, "slug" | "business_name" | "logo_url" | "logo
  */
 export function welcomeEmail(row: WelcomeRow, firstName: string) {
   const spa = esc(row.business_name);
-  const first = esc(firstName || "there");
+  const first = esc(firstName || row.business_name); // no name since the audit's step 3 gate: their spa's name, never "there"
   const app = previewUrl(row.slug);
   const desk = deskUrl(row.slug);
   const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}`;
@@ -122,7 +122,7 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
   ];
 
   const text = [
-    `Hi ${firstName || "there"},`,
+    `Hi ${firstName || row.business_name},`,
     "",
     `${row.business_name}'s app is ready, and so is your front desk: the screen your team uses to check patients in and set up the app.`,
     "",

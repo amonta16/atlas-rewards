@@ -81,7 +81,9 @@ export async function runLeadNurture(now = Date.now()) {
     if (!claimed?.length) continue;
     const unsub = unsubscribeUrl(String(r.id));
     const mail = renderStep(step, {
-      first_name: String(r.contact_name ?? "").trim().split(/\s+/)[0] || "there",
+      // Audit step 3: the gate asks email + zip only, so most owners have no name. Their spa's name
+      // reads better than "there" ("Glow Aesthetics, saw you clicking around").
+      first_name: String(r.contact_name ?? "").trim().split(/\s+/)[0] || String(r.business_name),
       spa_name: String(r.business_name),
       app_link: previewUrl(String(r.slug)),
       desk_link: deskUrl(String(r.slug)),

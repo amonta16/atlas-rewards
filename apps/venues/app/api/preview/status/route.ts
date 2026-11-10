@@ -10,6 +10,8 @@ import { getPreviewBySlug, isExpired, medspaOrigin, previewUrl, SLUG_RE } from "
  * here, so the visitor never waits forever. `enriching`: the brand is live and the
  * treatments/photos are still coming (build phase 2). Also readable from the preview
  * page on the med spa origin (CORS), which uses it to refresh the app when they land.
+ * Step 3 of the lead-magnet audit adds `zip` (from Google, to prefill the unlock gate) and
+ * `unlocked` (the gate was already answered). Never the email.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +58,7 @@ export async function GET(req: Request) {
       };
     }
     const enriching = status === "ready" && !row.built_at && !isStale({ status: "building", updated_at: row.updated_at });
-    return NextResponse.json({ status, url: previewUrl(row.slug), found, enriching }, { headers: { ...h, "Cache-Control": "no-store" } });
+    return NextResponse.json({ status, url: previewUrl(row.slug), found, enriching, zip: row.area_zip ?? null, unlocked: !!row.contact_at }, { headers: { ...h, "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[preview] status failed", e);
     return NextResponse.json({ error: "Couldn't check right now." }, { status: 500 });

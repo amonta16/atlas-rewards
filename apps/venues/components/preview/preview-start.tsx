@@ -2,12 +2,14 @@
 /**
  * PreviewStart — CP-232/233/234 · /medspa/app, step by step:
  *
- *   search your spa (the build starts right away, in the background)
- *   → "Where should we send your app?"  first/last name, email, mobile   ← the lead (Meta "Lead")
- *   → 6-digit texted code (only when PREVIEW_VERIFY_PHONE=1 and Twilio is set)
- *   → booking software → what you offer (pre-ticked from their website)
- *   → what's holding you back (2) → top priorities (2)
- *   → "Finishing your app…" → straight into med.atlas-engine.app/p/<slug> (no extra tap)
+ *   search your spa (the build starts right away)
+ *   → a short reveal while the brand goes live (SCAN_MS)
+ *   → straight into med.atlas-engine.app/p/<slug> (no extra tap)
+ *
+ * Lead-magnet audit, step 3: nothing is asked before the app is on screen. The lead is
+ * captured on the app page itself (email + zip, on scroll-past or 45 s: PreviewGate in
+ * apps/medspa, POST /api/preview/unlock). The contact, code and quiz steps below are no
+ * longer reached from the search; they stay for the portal (step 4) to reuse.
  *
  * Search and the build go through our server only (keys stay private). Every
  * request failure ends on a clear message with a way forward, never a blank page.
@@ -244,7 +246,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
     setPct(100);
     const t = setTimeout(() => {
       setStep("ready");
-      track("preview_ready", { contact: true });
+      track("preview_ready", { contact: false });
       // Straight into their app: the "ready" screen below only shows while the page loads.
       if (preview) window.location.assign(preview.url);
     }, 900);
@@ -258,14 +260,15 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
     setBuilt(false);
     setFound(null);
     setError(null);
-    setStep("contact");
+    setPct(0);
+    setStep("finishing"); // audit step 3: no form before the app
     track("preview_search", { selected: true });
     try {
       const r = await fetch("/api/preview/start", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ place_id: s.placeId, session: session.current, hp: hp.current?.value || undefined, ...attr.current }),
       });
-      const j = (await r.json().catch(() => ({}))) as { slug?: string; status?: string; url?: string; error?: string };
+      const j = (await r.json().catch(() => ({}))) as { slug?: string; status?: string; url?: string; error?: string; area_open?: boolean | null };
       if (!r.ok || !j.slug || !j.url) {
         track("preview_failed", { reason: String(r.status) });
         setError({ message: r.status === 429 ? "You've built a few previews already. Please wait a few minutes and try again." : j.error ?? "Something went wrong on our side. Please try again.", retry: s });
@@ -273,6 +276,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         return;
       }
       setPreview({ slug: j.slug, url: j.url });
+      setQualified(typeof j.area_open === "boolean" ? j.area_open : null);
       session.current = newSession();
       track("preview_started", {});
     } catch {
@@ -441,10 +445,9 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             <figcaption className="mt-1 text-center text-[13px] text-[#6B7A8C] lg:w-[122%]">Three med spa apps, each built from the practice&apos;s own website.</figcaption>
           </figure>
           <p className="max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C] lg:col-start-1 lg:row-start-2 lg:mt-8">
-            Text messages are optional. On the next step there are two separate unchecked boxes: one for your app link and
-            call reminders (&ldquo;{SMS_INFO_CONSENT_TEXT}&rdquo;) and one for offers (&ldquo;{SMS_MARKETING_CONSENT_TEXT}&rdquo;).
-            Your app is emailed either way.{" "}
-            <a href={SMS_CONSENT_PAGE} className="underline">See the form</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
+            No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
+            (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}
+            <a href={SMS_CONSENT_PAGE} className="underline">SMS consent</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
           </p>
         </main>
         {/* CP-239: real client reviews, near the bottom (nothing renders until there are some). */}
@@ -627,7 +630,6 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   }
 
   /* ───────────── finishing → ready ───────────── */
-  const first = contact.first.trim() || "Your";
   if (step === "finishing") {
     // CP-237: Dermis-style hand-off after the last question. A few seconds of "Optimizing… N%",
     // then "{First}, we're almost done…" with the progress bar, time left, OR, and "Take your app
@@ -647,11 +649,11 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
     const isDone = (i: number) => pct >= items[i].at + 12 && (built || i === 0);
     const stage = Math.max(0, items.findIndex((_, i) => !isDone(i)));
     const showLogo = isDone(1), showColor = isDone(2), showMenu = isDone(3);
-    const name = contact.first.trim();
+    const name = spa?.main ?? ""; // their spa, not a first name (no form before the app since step 3)
     const optimizing = pct < 14;
     const secsLeft = Math.max(1, Math.ceil((SCAN_MS * (96 - Math.min(pct, 96))) / 96 / 1000));
     const spaName = spa?.main ?? "my spa";
-    const smsBody = preview ? `Hi! I'm waiting on my ${spaName} app (${preview.slug}). Here's the email I used: ${contact.email.trim()}` : "";
+    const smsBody = preview ? `Hi! I'm waiting on my ${spaName} app (${preview.slug}).` : "";
     const sms = smsNumber && preview && platform !== "desktop" ? `sms:${smsNumber}${platform === "ios" ? "&" : "?"}body=${encodeURIComponent(smsBody)}` : null;
     const phone = (
       <div className="relative">
@@ -690,7 +692,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
           ) : (
             <>
               <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.025em] text-[#0B1B2B]">
-                {pct >= 100 ? (name ? `${name}, it's ready!` : "It's ready!") : name ? `${name}, we're almost done…` : "We're almost done…"}
+                {pct >= 100 ? (name ? `${name}, it's ready!` : "It's ready!") : name ? `Building ${name}'s app…` : "We're almost done…"}
               </h1>
               <div className="mt-8">{phone}</div>
               <div className="mt-8 w-full">
@@ -725,10 +727,10 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   if (step === "ready" && preview) {
     const desk = preview.url.replace(`/p/${preview.slug}`, `/${preview.slug}/desk`);
     return (
-      <StepShell step="ready" title={`${first === "Your" ? "Your" : `${first}, your`} app is ready.`}>
+      <StepShell step="ready" title={spa ? `${spa.main}'s app is ready.` : "Your app is ready."}>
         <div className="flex flex-col items-center pt-6 text-center">
           <span className="grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-[#39A0FF] to-[#06318F] text-white shadow-[0_20px_40px_-20px_rgba(6,49,143,.8)]"><Check className="h-10 w-10" aria-hidden /></span>
-          <p className="mt-6 max-w-[30ch] text-[17px] text-[#3A4A5C]">{spa?.main ?? "Your spa"}&apos;s own patient app, with your logo, colors and treatments. We also emailed you the link.</p>
+          <p className="mt-6 max-w-[30ch] text-[17px] text-[#3A4A5C]">{spa?.main ?? "Your spa"}&apos;s own patient app, with your logo, colors and treatments.</p>
           <a href={preview.url} className={`${primaryBtn} mt-8`}>Open my app</a>
           {/* CP-237: the preview's front desk (same link as the welcome email). */}
           <a href={desk} className="s-focus mt-4 text-[15px] font-semibold text-[#0B5FD6] underline-offset-4 hover:underline">Open my front desk</a>
