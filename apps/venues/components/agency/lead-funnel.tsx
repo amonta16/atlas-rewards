@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Loader2, Mail, MousePointerClick, Send, UserPlus, CalendarCheck, BadgeDollarSign, RotateCcw } from "lucide-react";
 import { DEFAULT_STEPS, MERGE_TAGS, SAMPLE_VALUES, describeDelay, renderStep, type EmailStep } from "@/lib/landing/lead-nurture";
+import { FollowThrough, SequenceEditor, type FollowData, type SequenceProps } from "./lead-sequence";
 
 export type OptinRow = {
   id: string; slug: string; spa: string; name: string | null; email: string | null; at: string; campaign: string | null;
@@ -34,21 +35,34 @@ const STAGE: Record<OptinRow["stage"], { label: string; cls: string }> = {
   lost: { label: "Not a fit", cls: "bg-slate-100 text-slate-500" },
 };
 
-export function LeadFunnel({ data, steps, stepsSaved, reached, sending, hasPostal, initialTab }: {
-  data: FunnelData; steps: EmailStep[]; stepsSaved: boolean; reached: Record<number, number>; sending: boolean; hasPostal: boolean; initialTab: "overview" | "emails";
+export type FunnelTab = "overview" | "emails" | "sequence" | "follow";
+
+/**
+ * Audit step 6: with CP-243 applied the follow-up is the multi-channel Sequence plus Follow-through
+ * (every lead's steps and the call tasks); before it, the CP-238 Follow-up emails tab as it was.
+ */
+export function LeadFunnel({ data, steps, stepsSaved, reached, sending, hasPostal, initialTab, sequence, follow }: {
+  data: FunnelData; steps: EmailStep[]; stepsSaved: boolean; reached: Record<number, number>; sending: boolean; hasPostal: boolean; initialTab: FunnelTab;
+  sequence: SequenceProps | null; follow: FollowData | null;
 }) {
-  const [tab, setTab] = useState(initialTab);
+  const tabs: Array<[FunnelTab, string]> = sequence
+    ? [["overview", "Overview"], ["sequence", `Sequence · ${sequence.steps.length} steps`], ["follow", `Follow-through${follow?.tasks.length ? ` · ${follow.tasks.length} calls` : ""}`]]
+    : [["overview", "Overview"], ["emails", `Follow-up emails · ${steps.length}`]];
+  const [tab, setTab] = useState<FunnelTab>(tabs.some(([id]) => id === initialTab) ? initialTab : initialTab === "emails" && sequence ? "sequence" : "overview");
   return (
     <div className="mt-6">
       <div className="flex gap-6 border-b border-slate-200" role="tablist">
-        {([["overview", "Overview"], ["emails", `Follow-up emails · ${steps.length}`]] as const).map(([id, label]) => (
+        {tabs.map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             className={`relative pb-2.5 text-sm ${tab === id ? "font-semibold text-sky-700" : "text-slate-500 hover:text-slate-900"}`}>
             {label}{tab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-sky-600" />}
           </button>
         ))}
       </div>
-      {tab === "overview" ? <Overview d={data} /> : <Emails steps={steps} stepsSaved={stepsSaved} reached={reached} sending={sending} hasPostal={hasPostal} />}
+      {tab === "overview" && <Overview d={data} />}
+      {tab === "emails" && <Emails steps={steps} stepsSaved={stepsSaved} reached={reached} sending={sending} hasPostal={hasPostal} />}
+      {tab === "sequence" && sequence && <SequenceEditor {...sequence} />}
+      {tab === "follow" && sequence && (follow ? <FollowThrough data={follow} steps={sequence.steps} /> : <p className="mt-5 text-sm text-slate-500">Follow-through needs the CP-243 SQL.</p>)}
     </div>
   );
 }
@@ -122,7 +136,7 @@ function Overview({ d }: { d: FunnelData }) {
         <div className="flex items-center justify-between px-5 pt-4"><h2 className="text-sm font-semibold text-slate-900">Latest opt-ins</h2><Link href="/agency/previews" className="text-xs font-medium text-sky-700 hover:underline">All previews →</Link></div>
         <div className="overflow-x-auto">
           <table className="mt-2 w-full min-w-[720px] text-sm">
-            <thead className="text-left text-xs text-slate-500"><tr><th className="px-5 py-2 font-medium">Owner</th><th className="px-3 py-2 font-medium">Opted in</th><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Stage</th><th className="px-5 py-2 font-medium">Follow-up emails</th></tr></thead>
+            <thead className="text-left text-xs text-slate-500"><tr><th className="px-5 py-2 font-medium">Owner</th><th className="px-3 py-2 font-medium">Opted in</th><th className="px-3 py-2 font-medium">Campaign</th><th className="px-3 py-2 font-medium">Stage</th><th className="px-5 py-2 font-medium">Follow-up</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {d.recent.length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-center text-slate-500">No opt-ins in this range.</td></tr>}
               {d.recent.map((o) => (
@@ -131,7 +145,7 @@ function Overview({ d }: { d: FunnelData }) {
                   <td className="px-3 py-2.5 text-slate-600">{new Date(o.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
                   <td className="px-3 py-2.5 text-slate-600">{o.campaign ?? "—"}</td>
                   <td className="px-3 py-2.5"><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STAGE[o.stage].cls}`}>{STAGE[o.stage].label}</span></td>
-                  <td className="px-5 py-2.5 text-slate-600">{o.emails == null ? "—" : `${o.emails} sent`}{o.emailsStopped ? <span className="ml-1.5 text-xs text-slate-500">· {o.emailsStopped}</span> : ""}</td>
+                  <td className="px-5 py-2.5 text-slate-600">{o.emails == null ? "—" : `${o.emails} step${o.emails === 1 ? "" : "s"} done`}{o.emailsStopped ? <span className="ml-1.5 text-xs text-slate-500">· {o.emailsStopped}</span> : ""}</td>
                 </tr>
               ))}
             </tbody>

@@ -40,7 +40,7 @@ export async function runLeadNurture(now = Date.now()) {
   const { data: rows, error } = await db.from("app_previews")
     .select("id, slug, business_name, contact_name, contact_email, contact_at, expires_at, status, nurture_step, landing_lead_id, treatments, treatments_are_examples")
     .not("contact_at", "is", null).not("contact_email", "is", null)
-    .is("nurture_unsubscribed_at", null).is("nurture_stopped_at", null).is("claimed_at", null)
+    .is("nurture_unsubscribed_at", null).is("nurture_stopped_at", null)
     .lt("nurture_step", steps.length)
     .gte("contact_at", new Date(now - 30 * 24 * H).toISOString())
     .limit(200);
@@ -56,7 +56,8 @@ export async function runLeadNurture(now = Date.now()) {
   }
 
   for (const r of rows) {
-    const stopNow = (r.landing_lead_id && booked.has(String(r.landing_lead_id))) || Date.parse(r.expires_at as string) < now || r.status === "claimed";
+    // Audit step 6: "claimed" only means they texted us or tapped "Text me my app", not that they paid.
+    const stopNow = (r.landing_lead_id && booked.has(String(r.landing_lead_id))) || Date.parse(r.expires_at as string) < now;
     if (stopNow) {
       await db.from("app_previews").update({ nurture_stopped_at: new Date(now).toISOString() }).eq("id", r.id);
       out.stopped++;

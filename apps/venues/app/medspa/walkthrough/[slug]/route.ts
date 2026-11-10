@@ -16,8 +16,9 @@ export const fetchCache = "force-no-store";
 
 export async function GET(_req: Request, { params }: { params: { slug: string } }) {
   const slug = (params.slug ?? "").toLowerCase();
-  const fallback = NextResponse.redirect(`${SITE_ORIGIN}/medspa/start?from=preview`, 302);
-  if (!SLUG_RE.test(slug)) return fallback;
+  if (!SLUG_RE.test(slug)) return NextResponse.redirect(`${SITE_ORIGIN}/medspa/start?from=preview`, 302);
+  // Audit step 6: ?pv= links the lead /medspa/start creates to this preview, so booking stops its follow-up.
+  const fallback = NextResponse.redirect(`${SITE_ORIGIN}/medspa/start?from=preview&pv=${slug}`, 302);
   const row = await getPreviewBySlug(slug).catch(() => null);
   const leadId = (row as { landing_lead_id?: string | null } | null)?.landing_lead_id;
   if (!row || !leadId || row.area_open === false) return fallback;

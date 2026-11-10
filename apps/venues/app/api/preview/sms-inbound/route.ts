@@ -57,6 +57,17 @@ export async function POST(req: Request) {
 
   const from = e164(params.From ?? "");
   const body = (params.Body ?? "").trim();
+
+  // Audit step 6: ANY reply from an owner in the follow-up sequence (STOP, a question, "send me my
+  // app") ends the sequence's texts for them. Andrew gets the message; emails and calls carry on.
+  if (from) {
+    const db = previewDb();
+    const { data: inSeq } = await db.from("app_previews").select("id, business_name").eq("contact_phone", from).gt("seq_step", 0).is("sms_stopped_at", null).limit(5);
+    if (inSeq?.length) {
+      await db.from("app_previews").update({ sms_stopped_at: new Date().toISOString() }).in("id", inSeq.map((r) => r.id));
+      await notifyLead(`Text reply: ${inSeq.map((r) => r.business_name).join(", ")}`, [["From", from], ["Message", body.slice(0, 500)], ["Follow-up texts", "stopped (they replied)"]]).catch(() => false);
+    }
+  }
   if (!from || OPT_WORDS.test(body)) return twiml();
 
   const rl = await rateLimit(`sms-in:${from}`, 5, 3600);

@@ -8,6 +8,7 @@ import { CALL_MINUTES, HOST_TZ, candidateSlots, dayKey, overlapsBusy } from "@/l
 import { newEventId, newToken } from "@/lib/landing/funnel-sign";
 import { sendCapiEvent, requestIp, splitName , shareBlocked } from "@/lib/landing/meta-capi";
 import { HOLD, PRECALL_PREP, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { cancelSequence } from "@/lib/landing/lead-sequence-run";
 
 /**
  * POST /api/landing/demo-request — CP-100, CP-189
@@ -125,6 +126,9 @@ export async function POST(req: Request) {
     // CP-205: booking keeps the area held through the call plus HOLD.afterCallHours.
     const holdUntil = slotStart ? new Date(slotStart.getTime() + HOLD.afterCallHours * 3600_000).toISOString() : null;
     await supabase.from("landing_leads").update({ status: "booked", demo_request_id: data.id, ...(holdUntil ? { hold_expires_at: holdUntil } : {}) }).eq("id", row.lead_id);
+    // Audit step 6: a lead-magnet owner who books gets no more follow-up (texts, emails, call tasks).
+    const { data: pv } = await supabase.from("app_previews").select("id").eq("landing_lead_id", row.lead_id).limit(1);
+    if (pv?.[0]) await cancelSequence(String(pv[0].id), "booked").catch((e) => console.error("[landing] cancel sequence failed", e));
     if (row.schedule_event_id) {
       const n = splitName(name);
       await sendCapiEvent({
