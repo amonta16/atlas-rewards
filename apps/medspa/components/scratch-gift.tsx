@@ -125,18 +125,26 @@ export function giftValueLine(g: Pick<MsScratchGift, "discountType" | "discountV
   const v = g.discountValue ?? 0;
   switch (g.discountType) {
     case "reward": return g.rewardName ?? "A treat on us";
-    case "points_bonus": return v > 0 ? `+${v.toLocaleString()} ${pointsLabel}` : "Bonus points";
+    case "points_bonus": return v > 0 ? `+${v.toLocaleString("en-US")} ${pointsLabel}` : "Bonus points"; // fixed locale: same on server and browser
     case "percent": return v > 0 ? `${v}% off your next visit` : "A little something";
     case "flat_cents": return v > 0 ? `$${(v / 100).toFixed(v % 100 ? 2 : 0)} off your next visit` : "A little something";
     default: return g.rewardName ?? "A little something for you";
   }
 }
 
-function expiresLabel(iso: string | null) {
+/**
+ * "Claim by Nov 17". The server and the first browser render must print the same text, or React
+ * throws a hydration error (#418/#423/#425) and re-renders the whole page: with the viewer's own
+ * locale and time zone, "Nov 18" (server, UTC) ≠ "Nov 17" (browser, Pacific) every US evening.
+ * So the first render uses a fixed locale and zone (US Pacific, where the clinics are), and once
+ * mounted it switches to the viewer's zone, which usually prints the same date anyway.
+ */
+const FIRST_RENDER_TZ = "America/Los_Angeles";
+function expiresLabel(iso: string | null, viewerZone: boolean) {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return `Claim by ${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+  return `Claim by ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(viewerZone ? {} : { timeZone: FIRST_RENDER_TZ }) })}`;
 }
 
 function storeKey(g: MsScratchGift) { return `ms-scratched-${g.savedId ?? g.offerId}`; }
@@ -168,7 +176,9 @@ export function ScratchGift({ gift, slug, primary, pointsLabel, fullName, demo: 
   const [showCode, setShowCode] = useState(false);
   const isPoints = gift.discountType === "points_bonus";
   const value = giftValueLine(gift, pointsLabel);
-  const exp = expiresLabel(gift.expiresAt);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const exp = expiresLabel(gift.expiresAt, mounted);
 
   // Already scratched on this phone earlier → skip straight to Claim.
   // Demo / example gifts start covered on every load (CP-213).
