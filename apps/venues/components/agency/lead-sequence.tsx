@@ -288,7 +288,7 @@ export function FollowThrough({ data, steps }: { data: FollowData; steps: SeqSte
               {data.leads.length === 0 && <tr><td colSpan={steps.length + 2} className="px-5 py-6 text-center text-slate-500">Nobody has unlocked an app in the last 30 days.</td></tr>}
               {data.leads.map((l) => (
                 <tr key={l.id}>
-                  <td className="px-5 py-2.5"><span className="flex items-center gap-1.5 font-medium text-slate-900">{l.spa}{l.bonus && <span className="rounded-full bg-amber-100 px-1.5 py-px text-[10.5px] font-semibold text-amber-900" title="Booked inside the 4-hour window: launch videos, launch kit and software audit are owed">Bonus owed</span>}</span><span className="block text-xs text-slate-500">{l.email ?? "—"} · {fmt(l.optedAt)}</span></td>
+                  <td className="px-5 py-2.5"><span className="flex items-center gap-1.5 font-medium text-slate-900">{l.spa}{l.bonus && <span className="rounded-full bg-amber-100 px-1.5 py-px text-[10.5px] font-semibold text-amber-900" title="Booked inside the 4-hour window: launch videos, front-desk banner and software audit are owed">Bonus owed</span>}</span><span className="block text-xs text-slate-500">{l.email ?? "—"} · {fmt(l.optedAt)}</span></td>
                   {steps.map((s, i) => {
                     const c = l.log[s.step];
                     const dueTime = Date.parse(l.optedAt) + s.delay_minutes * 60_000;

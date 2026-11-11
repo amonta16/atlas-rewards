@@ -4,8 +4,7 @@ import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { CtaBar, PreviewStage } from "@/components/preview-stage";
 import { PreviewGate } from "@/components/preview-gate";
-import { BonusStack, PreviewTopBar } from "@/components/launch-bonus";
-import { OFFER } from "@/lib/offer";
+import { BonusDetails, BonusTiles, PreviewTopBar } from "@/components/launch-bonus";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
@@ -87,19 +86,20 @@ export default async function PreviewPage({ params }: { params: { slug: string }
 
   const logoUrl = !row.logo_is_monogram && row.logo_url ? row.logo_url : null;
   const taken = row.area_open === false;
-  // Audit step 5: scarcity ("first 10", "one per area") only when we know the area is open.
-  const open = row.area_open === true;
+
+  const brand = { primary, logoUrl, businessName: row.business_name, appUrl: `${SELF}/${slug}` };
+  const reviews = await getReviewImages();
 
   return (
     <Shell>
-      {/* Visible, not buried: the launch-bonus countdown (while it runs) over "Preview mode — engine off." */}
+      {/* CP-245: "3 launch bonuses end in 03:59:12" while the 4-hour window runs (nothing after). */}
       <PreviewTopBar apiOrigin={SITE} slug={slug} enabled={!taken} />
       <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-4 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
-        {/* The real app, in a phone frame, with the logo fix and the test push */}
+        {/* The real app, in a phone frame, with the logo fix; the bonus tiles right under it */}
         <div>
           <PreviewStage slug={slug} businessName={row.business_name} logoUrl={logoUrl} primary={primary} apiOrigin={SITE} />
           <PreviewGate slug={slug} businessName={row.business_name} primary={primary} apiOrigin={SITE} />
-          <p className="mt-3 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
+          <BonusTiles apiOrigin={SITE} slug={slug} enabled={!taken} brand={brand} />
         </div>
 
         {/* The pitch */}
@@ -121,36 +121,12 @@ export default async function PreviewPage({ params }: { params: { slug: string }
               </li>
             ))}
           </ul>
-          <BonusStack apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} primary={primary} enabled={!taken} />
 
           {row.treatments_are_examples && (
             <p className="mt-4 max-w-[34rem] rounded-2xl bg-white p-4 text-[14.5px] text-sub shadow-soft">
               We couldn&apos;t read a treatment menu on your website, so these are example treatments. Your real menu goes in when you go live.
             </p>
           )}
-
-          {/* CP-237: the offer, stated plainly (numbers in lib/offer.ts, mirrored from the venue site).
-              Step 5: not shown at all on a taken area (the bar's button is the waitlist there). */}
-          {!taken && <section aria-labelledby="pv-offer" className="mt-8 max-w-[34rem] rounded-[24px] bg-white p-5 shadow-soft sm:p-6">
-            <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{OFFER.foundingActive && open ? `Want it live? First ${OFFER.spots} med spas` : "Want it live?"}</p>
-            <h2 id="pv-offer" className="mt-1.5 text-[22px] font-semibold leading-tight tracking-[-0.015em]">{OFFER.foundingActive ? `The ${OFFER.name}` : "Your setup"}</h2>
-            <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
-              {OFFER.foundingActive && <span className="pb-1 text-[16px] font-semibold text-sub line-through">${OFFER.setupFull.toLocaleString("en-US")}</span>}
-              <span className="text-[38px] font-bold leading-none tracking-tight">${(OFFER.foundingActive ? OFFER.setupFounding : OFFER.setupFull).toLocaleString("en-US")}</span>
-              <span className="pb-1 text-[14px] text-sub">one-time setup</span>
-            </div>
-            <p className="mt-2 text-[13.5px] leading-snug text-sub">
-              {OFFER.monthlyPrice ? `Then $${OFFER.monthlyPrice} a month, month to month.` : "Then one flat monthly plan, month to month, quoted on your walkthrough."} No percentage of your treatment revenue.
-              {OFFER.foundingActive ? ` Founding price in exchange for ${OFFER.trade}.` : ""}
-            </p>
-            <ul className="mt-4 grid gap-1.5 sm:grid-cols-2">
-              {OFFER.includes.map((t) => <li key={t} className="flex items-start gap-2 text-[14px] text-ink"><span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: primary }} aria-hidden />{t}</li>)}
-            </ul>
-            <ul className="mt-4 space-y-1 border-t border-line pt-3 text-[13px] text-sub">
-              {OFFER.guarantees.map((g) => <li key={g}>{g}.</li>)}
-            </ul>
-            {open && <p className="mt-3 text-[13.5px] font-semibold">One med spa per {OFFER.radiusMiles}-mile area.</p>}
-          </section>}
 
           <PreviewActions
             slug={slug}
@@ -171,6 +147,42 @@ export default async function PreviewPage({ params }: { params: { slug: string }
           </div>
         </section>
       </main>
+
+      {/* The bottom of the page: the bonuses in full, then real reviews */}
+      <div className="mx-auto max-w-6xl px-5 pb-36 lg:pb-20">
+        <BonusDetails apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} enabled={!taken} brand={brand} />
+        <Reviews images={reviews} />
+      </div>
     </Shell>
+  );
+}
+
+/** CP-245: the real review screenshots from Admin → Reviews (placement "med spa pages"), at the very bottom. */
+type ReviewImage = { id: string; url: string; width: number | null; height: number | null; alt: string };
+async function getReviewImages(): Promise<ReviewImage[]> {
+  try {
+    const r = await fetch(`${SITE}/api/site-reviews?on=medspa`, { next: { revalidate: 300 } });
+    if (!r.ok) return [];
+    const j = (await r.json()) as { images?: ReviewImage[] };
+    return (j.images ?? []).filter((i) => /^https:\/\//.test(i.url)).slice(0, 24);
+  } catch { return []; }
+}
+
+function Reviews({ images }: { images: ReviewImage[] }) {
+  if (!images.length) return null;
+  return (
+    <section aria-labelledby="pv-reviews" className="mt-12">
+      <h2 id="pv-reviews" className="text-center text-[22px] font-semibold tracking-[-0.015em]">What practice owners say</h2>
+      <ul className="no-scrollbar -mx-5 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 lg:mx-0 lg:flex-wrap lg:justify-center lg:overflow-visible lg:px-0">
+        {images.map((img) => (
+          <li key={img.id} className="shrink-0 snap-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={img.url} alt={img.alt || "A review of Atlas"} loading="lazy" decoding="async"
+              width={img.width ?? undefined} height={img.height ?? undefined}
+              className="h-[300px] w-auto max-w-[82vw] rounded-[18px] bg-white object-contain shadow-soft ring-1 ring-line lg:h-[340px]" />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

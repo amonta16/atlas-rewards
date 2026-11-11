@@ -39,11 +39,11 @@ export const LAUNCH_BONUS = {
   active: true,
   hours: 4,
   bonuses: [
-    { id: "videos", icon: "film", title: "Your app, in 3 launch videos",
+    { id: "videos", icon: "film", short: "3 launch videos", title: "Your app, in 3 launch videos",
       detail: "Short vertical videos of your own app on a phone, made for Reels, TikTok and Stories. Post them the day you launch.", value: 1500 },
-    { id: "kit", icon: "megaphone", title: "Done-for-you patient launch kit",
-      detail: "6 Instagram posts and stories, plus the email and the text that tell your patients the app is live.", value: 750 },
-    { id: "audit", icon: "receipt", title: "Software cost audit",
+    { id: "banner", icon: "banner", short: "Front-desk banner", title: "Custom front-desk banner",
+      detail: "A roll-up banner in your colors with your logo and a QR code to your app, designed, printed and shipped to your front desk. Patients scan it while they wait.", value: 250 },
+    { id: "audit", icon: "receipt", short: "Software audit", title: "Software cost audit",
       detail: "We go through every tool you pay for (booking, texts, reviews, loyalty, memberships) and show what Atlas replaces, with your monthly savings in writing.", value: 500 },
-  ] as Array<{ id: string; icon: "film" | "megaphone" | "receipt"; title: string; detail: string; value: number }>,
+  ] as Array<{ id: string; icon: "film" | "banner" | "receipt"; short: string; title: string; detail: string; value: number }>,
 };

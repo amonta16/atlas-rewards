@@ -4,9 +4,7 @@
  *
  *   PreviewStage  the phone, plus
  *     · "Wrong logo or color? Fix it": one tap, always there (a wrong logo kills "this is mine")
- *     · "Send me a test push": a tappable notification from their spa slides onto the phone;
- *       where the browser can show a real one (Android, desktop, an installed iPhone app) it
- *       fires for real; an iPhone in Safari gets the Add to Home Screen instruction in place
+ *     · (the test push was removed in CP-245: the launch-bonus tiles sit under the phone now)
  *     · while the build is still adding treatments (phase 2), the app reloads itself when they land
  *   CtaBar  two equal buttons, always on screen on a phone: [Book 15 min] [Just look around]
  *
@@ -18,22 +16,12 @@ import { PhoneFrame } from "./phone-frame";
 import { previewEvent } from "@/lib/preview-event";
 import { useBonusClock } from "./launch-bonus";
 
-type Push = "idle" | "show" | "done";
-
-const PUSH_BODY = "Time for your touch-up? Book this week and earn double points.";
-
-function initials(name: string) {
-  return name.replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "A";
-}
-
 export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }: {
   slug: string; businessName: string; logoUrl: string | null; primary: string; apiOrigin: string;
 }) {
   const router = useRouter();
   const [frameKey, setFrameKey] = useState(0);
   const [enriching, setEnriching] = useState(false);
-  const [push, setPush] = useState<Push>("idle");
-  const [help, setHelp] = useState<string | null>(null);
   const [fixOpen, setFixOpen] = useState(false);
   const reload = useCallback(() => { setFrameKey((k) => k + 1); router.refresh(); }, [router]);
 
@@ -60,49 +48,8 @@ export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }
     return () => { stop = true; };
   }, [apiOrigin, slug, reload]);
 
-  async function testPush() {
-    previewEvent(apiOrigin, slug, "notif_previewed");
-    setHelp(null);
-    setPush("show");
-    window.setTimeout(() => setPush((p) => (p === "show" ? "done" : p)), 6000);
-    // The real thing where the browser allows it
-    const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
-    const standalone = window.matchMedia?.("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-      if (ios && !standalone) setHelp("On iPhone, notifications arrive once the app is on the Home Screen: tap Share, then Add to Home Screen, and open it from there.");
-      return;
-    }
-    try {
-      const perm = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
-      if (perm !== "granted") { setHelp("Notifications are blocked for this site. Allow them in your browser settings to get the real one."); return; }
-      const reg = await navigator.serviceWorker.register("/sw-push.js");
-      await navigator.serviceWorker.ready;
-      await reg.showNotification(businessName, { body: PUSH_BODY, icon: logoUrl ?? "/atlas-icon-512.png", badge: "/icons/icon-192.png", tag: "pv-demo", data: { url: `/p/${slug}` } });
-    } catch {
-      if (ios && !standalone) setHelp("On iPhone, notifications arrive once the app is on the Home Screen: tap Share, then Add to Home Screen.");
-    }
-  }
-
-  const banner = push === "show" && (
-    <button type="button" onClick={() => setPush("done")} aria-label={`Notification from ${businessName}: ${PUSH_BODY}`}
-      className="pv-push absolute left-[10px] right-[10px] top-[56px] z-40 flex items-start gap-3 rounded-[24px] bg-white/85 p-[13px] text-left shadow-[0_18px_40px_-14px_rgba(0,0,0,.45)] ring-1 ring-black/5 backdrop-blur-xl">
-      <span className="grid h-[38px] w-[38px] shrink-0 place-items-center overflow-hidden rounded-[10px] text-[14px] font-bold text-white" style={{ background: logoUrl ? "#fff" : primary }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-contain p-[3px]" /> : initials(businessName)}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-[15px] font-semibold text-black">{businessName}</span>
-          <span className="shrink-0 text-[13px] text-black/45">now</span>
-        </span>
-        <span className="mt-0.5 block text-[15px] leading-snug text-black/85">{PUSH_BODY}</span>
-      </span>
-    </button>
-  );
-
   return (
     <div id="pv-phone" className="mx-auto w-full max-w-[418px] scroll-mt-20">
-      <style>{`.pv-push{animation:pvpush .55s cubic-bezier(.2,.9,.25,1.08) both}@keyframes pvpush{0%{transform:translateY(-140%) scale(.96);opacity:0}100%{transform:none;opacity:1}}@media (prefers-reduced-motion:reduce){.pv-push{animation:none}}`}</style>
       {/* Above the phone, not on it: on the frame it covered the status-bar icons. */}
       <div className="mb-2.5 flex justify-center">
         <button type="button" onClick={() => setFixOpen(true)}
@@ -111,16 +58,9 @@ export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }
         </button>
       </div>
       <div className="relative">
-        <PhoneFrame key={frameKey} src={`/${slug}`} title={`${businessName} app preview`} overlay={banner} />
+        <PhoneFrame key={frameKey} src={`/${slug}`} title={`${businessName} app preview`} />
       </div>
       {enriching && <p className="mt-3 text-center text-[13px] font-medium text-sub" role="status">Adding your treatments and photos… the app updates by itself.</p>}
-      <div className="mt-4 flex flex-col items-center gap-2">
-        <button type="button" onClick={testPush} className="inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-[14.5px] font-semibold text-ink shadow-soft ring-1 ring-line active:scale-[.98]">
-          <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: primary }} />
-          Send me a test push from {businessName.length > 28 ? "my spa" : businessName}
-        </button>
-        {help && <p className="max-w-[34ch] rounded-2xl bg-white p-3 text-center text-[13px] leading-snug text-sub shadow-soft" role="status">{help}</p>}
-      </div>
       {fixOpen && <BrandFix slug={slug} primary={primary} apiOrigin={apiOrigin} onClose={() => setFixOpen(false)} onSaved={() => { setFixOpen(false); reload(); }} />}
     </div>
   );

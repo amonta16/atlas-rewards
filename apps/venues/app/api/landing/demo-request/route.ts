@@ -115,7 +115,7 @@ export async function POST(req: Request) {
     if (b?.bonus_deadline_at) {
       const inTime = Date.now() <= Date.parse(b.bonus_deadline_at);
       if (inTime && !b.bonus_claimed_at) await supabase.from("app_previews").update({ bonus_claimed_at: new Date().toISOString() }).eq("id", b.id);
-      bonusLine = inTime || b.bonus_claimed_at ? "YES: booked inside the 4-hour window. Owed: launch videos, launch kit, software audit." : `No (window ended ${new Date(b.bonus_deadline_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} PT)`;
+      bonusLine = inTime || b.bonus_claimed_at ? "YES: booked inside the 4-hour window. Owed: launch videos, front-desk banner, software audit." : `No (window ended ${new Date(b.bonus_deadline_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} PT)`;
     }
   }
 
