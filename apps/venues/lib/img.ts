@@ -1,36 +1,34 @@
 /**
- * img — CP-164 · serve phone-sized images instead of the originals
+ * img — serve stored images as-is (no Supabase Storage image transforms)
  *
- * Reward / offer / booking photos are uploaded straight from camera rolls:
- * the average reward image in storage is 1.4 MB and the biggest are 18 MB
- * PNGs, then drawn into a 180px-wide card. That is the "images load slow".
+ * CP-164 rewrote every Supabase public object URL to the paid
+ * /storage/v1/render/image/ endpoint so camera-roll photos (avg 1.4 MB, up to
+ * 18 MB) were resized on the fly. Supabase bills that per origin image
+ * transformed each billing period (Pro includes 100), and every reward,
+ * offer, hero, logo and library photo a visitor saw counted.
  *
- * Supabase Storage (Pro plan) resizes on the fly at
- *   /storage/v1/render/image/public/<bucket>/<path>?width=…&quality=…
- * and caches the result at the CDN edge. optimizedUrl() rewrites a public
- * object URL into that form; anything that isn't a Supabase public object
- * URL (data:, other hosts, already-transformed) passes through untouched.
- *
- * Widths are CSS pixels; pass the rendered width and we request 1× and 2×
- * for the srcset so retina phones stay crisp without shipping 4000px files.
+ * CP-241: images are now made small when they are stored instead —
+ *   · every upload path runs shrinkImage() (max 1600px, WebP/JPEG ~150–350 KB)
+ *   · scripts/shrink-stored-images.mjs downsized everything already in storage
+ * so optimizedUrl() hands back the plain object URL. It also turns any
+ * render/image URL that was saved into the database back into the object URL.
+ * Call sites keep their width/quality arguments; they are ignored now.
  */
 
 const OBJECT = "/storage/v1/object/public/";
 const RENDER = "/storage/v1/render/image/public/";
 
-export function optimizedUrl(url: string | null | undefined, width = 800, quality = 75): string {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function optimizedUrl(url: string | null | undefined, _width = 800, _quality = 75): string {
   if (!url) return "";
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\//.test(url)) return url;
-  if (!url.includes(OBJECT)) return url;
-  // SVG / GIF: leave alone (transform would rasterize / drop animation).
-  if (/\.(svg|gif)(\?|$)/i.test(url)) return url;
-  const base = url.replace(OBJECT, RENDER).split("?")[0];
-  const w = Math.max(64, Math.min(2000, Math.round(width)));
-  return `${base}?width=${w}&quality=${quality}&resize=contain`;
+  if (url.includes(RENDER) && /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\//.test(url)) {
+    return url.replace(RENDER, OBJECT).split("?")[0];
+  }
+  return url;
 }
 
-/** 1× + 2× candidates for a given CSS width. */
-export function optimizedSrcSet(url: string | null | undefined, width = 800, quality = 75): string | undefined {
-  if (!url || optimizedUrl(url, width, quality) === url) return undefined;
-  return `${optimizedUrl(url, width, quality)} 1x, ${optimizedUrl(url, width * 2, Math.max(55, quality - 10))} 2x`;
+/** No srcset: there is one stored size per image now. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function optimizedSrcSet(_url: string | null | undefined, _width = 800, _quality = 75): string | undefined {
+  return undefined;
 }

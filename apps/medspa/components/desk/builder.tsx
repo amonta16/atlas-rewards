@@ -18,6 +18,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@atlas/core/supabase/client";
+import { shrinkImage } from "@atlas/core/shrink-image";
 import type { BuilderData } from "@/lib/builder-data";
 import { BOOKING_METHOD_LABEL, MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, cleanUrl, newId, readMedspaConfig, type BookingMethod, type MedspaConfig, type MedspaShopItem, type MedspaTreatment } from "@/lib/medspa";
 import type { MedspaPlan } from "@/lib/plans";
@@ -52,8 +53,11 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
     window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
-  async function upload(file: File, bucket: "business-heroes" | "business-logos", folder: string): Promise<string | null> {
-    if (clinic.demo) return URL.createObjectURL(file);
+  async function upload(raw: File, bucket: "business-heroes" | "business-logos", folder: string): Promise<string | null> {
+    if (clinic.demo) return URL.createObjectURL(raw);
+    // Shrink before upload so the app can show the stored file as-is
+    // (no paid Supabase image transform). Logos stay small, heroes 1600px.
+    const file = await shrinkImage(raw, bucket === "business-logos" ? 1024 : 1600);
     const sb = createClient();
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
     const path = `${clinic.id}/${folder}/${Date.now()}.${ext}`;

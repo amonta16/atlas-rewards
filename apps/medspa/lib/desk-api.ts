@@ -11,6 +11,7 @@
  * desk can be demoed (and screenshotted) without a database.
  */
 import { createClient } from "@atlas/core/supabase/client";
+import { shrinkImage } from "@atlas/core/shrink-image";
 import type { MonthlyReport } from "@atlas/core/reports/monthly";
 
 export type DeskMember = {
@@ -392,8 +393,9 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
       const { error } = await sb().rpc("delete_reward", { p_id: id, p_business_id: businessId });
       fail(error);
     },
-    async uploadImage(file, bucket = "reward-images") {
+    async uploadImage(raw, bucket = "reward-images") {
       const s = sb();
+      const file = await shrinkImage(raw);   // stored small, served as-is (no paid image transform)
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${businessId}/${Date.now()}.${ext}`;
       const { error } = await s.storage.from(bucket).upload(path, file, { upsert: true, cacheControl: "31536000", contentType: file.type || undefined });
