@@ -2,16 +2,25 @@ import type { Metadata } from "next";
 import QRCode from "react-qr-code";
 import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib/preview";
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
-import { PhoneFrame } from "@/components/phone-frame";
+import { CtaBar, PreviewStage } from "@/components/preview-stage";
+import { PreviewGate } from "@/components/preview-gate";
+import { BonusStack, PreviewTopBar } from "@/components/launch-bonus";
 import { OFFER } from "@/lib/offer";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
  *
  * Their real app (/<slug>, the same screens patients use) runs inside a phone
- * frame; around it: a "Preview, not live yet" badge, a QR code to open it on
- * their phone, "Text me my app" and "Go live". noindex/nofollow. Expired,
- * missing, still-building and lookup-failure states each get a friendly page.
+ * frame. Lead-magnet audit, step 2 (this page is the whole funnel): a "Preview mode,
+ * engine off" banner on top; two equal buttons always on screen on a phone
+ * ([Book 15 min, turn it on live] [Just look around]); a one-tap logo/color fix;
+ * a tappable test push. "Text me my app" and the QR code sit further down.
+ * CP-245: a 4-hour launch bonus (book the walkthrough in time, get 3 bonuses): a countdown bar on
+ * top and the bonus stack under the pitch, gone when the window ends; not on a taken area.
+ * Step 3: the lead is asked for here, after the app is on screen (PreviewGate: email + zip,
+ * on scroll-past or 45 s). Nothing is asked before this page.
+ * noindex/nofollow. Expired, missing, still-building and lookup-failure states
+ * each get a friendly page.
  */
 export const dynamic = "force-dynamic";
 
@@ -76,23 +85,29 @@ export default async function PreviewPage({ params }: { params: { slug: string }
   const expires = new Date(row.expires_at).toLocaleDateString("en-US", { month: "long", day: "numeric" });
   const pitch = pitchFor(row.priorities);
 
+  const logoUrl = !row.logo_is_monogram && row.logo_url ? row.logo_url : null;
+  const taken = row.area_open === false;
+  // Audit step 5: scarcity ("first 10", "one per area") only when we know the area is open.
+  const open = row.area_open === true;
+
   return (
     <Shell>
-      <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-2 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
-        {/* The real app, in a phone frame */}
-        <div className="mx-auto w-full max-w-[418px]">
-          <PhoneFrame src={`/${slug}`} title={`${row.business_name} app preview`} />
-          <p className="mt-4 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
+      {/* Visible, not buried: the launch-bonus countdown (while it runs) over "Preview mode — engine off." */}
+      <PreviewTopBar apiOrigin={SITE} slug={slug} enabled={!taken} />
+      <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-4 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
+        {/* The real app, in a phone frame, with the logo fix and the test push */}
+        <div>
+          <PreviewStage slug={slug} businessName={row.business_name} logoUrl={logoUrl} primary={primary} apiOrigin={SITE} />
+          <PreviewGate slug={slug} businessName={row.business_name} primary={primary} apiOrigin={SITE} />
+          <p className="mt-3 text-center text-[13px] text-sub">Tap around. This is the app your patients would use.</p>
         </div>
 
         {/* The pitch */}
         <section className="lg:pt-8">
-          <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-[12.5px] font-semibold text-amber-900">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-600" aria-hidden /> Preview · not live yet
-          </span>
-          <h1 className="mt-4 text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px]">
+          <h1 className="text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px]">
             {row.business_name}, this is your app.
           </h1>
+          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=page`} primary={primary} taken={taken} bonus={{ apiOrigin: SITE, slug }} />
           <p className="mt-4 max-w-[34rem] text-[17px] leading-relaxed text-sub">
             Your name, your colors and your treatments. {pitch.line}
           </p>
@@ -106,15 +121,18 @@ export default async function PreviewPage({ params }: { params: { slug: string }
               </li>
             ))}
           </ul>
+          <BonusStack apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} primary={primary} enabled={!taken} />
+
           {row.treatments_are_examples && (
             <p className="mt-4 max-w-[34rem] rounded-2xl bg-white p-4 text-[14.5px] text-sub shadow-soft">
               We couldn&apos;t read a treatment menu on your website, so these are example treatments. Your real menu goes in when you go live.
             </p>
           )}
 
-          {/* CP-237: the offer, stated plainly before the buttons (numbers in lib/offer.ts, mirrored from the venue site). */}
-          <section aria-labelledby="pv-offer" className="mt-8 max-w-[34rem] rounded-[24px] bg-white p-5 shadow-soft sm:p-6">
-            <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{OFFER.foundingActive ? `Want it live? First ${OFFER.spots} med spas` : "Want it live?"}</p>
+          {/* CP-237: the offer, stated plainly (numbers in lib/offer.ts, mirrored from the venue site).
+              Step 5: not shown at all on a taken area (the bar's button is the waitlist there). */}
+          {!taken && <section aria-labelledby="pv-offer" className="mt-8 max-w-[34rem] rounded-[24px] bg-white p-5 shadow-soft sm:p-6">
+            <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{OFFER.foundingActive && open ? `Want it live? First ${OFFER.spots} med spas` : "Want it live?"}</p>
             <h2 id="pv-offer" className="mt-1.5 text-[22px] font-semibold leading-tight tracking-[-0.015em]">{OFFER.foundingActive ? `The ${OFFER.name}` : "Your setup"}</h2>
             <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
               {OFFER.foundingActive && <span className="pb-1 text-[16px] font-semibold text-sub line-through">${OFFER.setupFull.toLocaleString("en-US")}</span>}
@@ -131,21 +149,15 @@ export default async function PreviewPage({ params }: { params: { slug: string }
             <ul className="mt-4 space-y-1 border-t border-line pt-3 text-[13px] text-sub">
               {OFFER.guarantees.map((g) => <li key={g}>{g}.</li>)}
             </ul>
-            <p className="mt-3 text-[13.5px] font-semibold">
-              {row.area_open === false ? `Another med spa holds your area (one per ${OFFER.radiusMiles} miles). Join the waitlist below.` : `One med spa per ${OFFER.radiusMiles}-mile area.`}
-            </p>
-          </section>
+            {open && <p className="mt-3 text-[13.5px] font-semibold">One med spa per {OFFER.radiusMiles}-mile area.</p>}
+          </section>}
 
           <PreviewActions
             slug={slug}
             businessName={row.business_name}
             primary={primary}
             smsNumber={process.env.PREVIEW_SMS_NUMBER ?? process.env.GHL_SMS_NUMBER ?? null}
-            walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}`}
-            // CP-234: self-serve checkout stays hidden until a monthly price is set (PREVIEW_SHOW_CHECKOUT=1).
-            checkoutUrl={process.env.PREVIEW_SHOW_CHECKOUT === "1" ? process.env.STRIPE_FOUNDING_CHECKOUT_URL ?? null : null}
             apiOrigin={SITE}
-            areaOpen={row.area_open}
           />
 
           <div className="mt-10 hidden items-center gap-5 rounded-[24px] bg-white p-5 shadow-soft sm:flex">

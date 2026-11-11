@@ -9,7 +9,8 @@
  */
 import { emailProspect } from "@/lib/landing/notify";
 import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
-import { deskUrl, getPreviewBySlug, previewUrl, type PreviewRow } from "./store";
+import { getPreviewBySlug, previewUrl, type PreviewRow } from "./store";
+import { verifiedDeskUrl } from "./verify-link";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const hosted = (u: string | null | undefined) => (u && /^https:\/\/[a-z0-9-]+\.supabase\.(co|in)\//.test(u) ? u : null);
@@ -25,9 +26,9 @@ const PITCH: Record<string, string> = {
 
 export function previewEmail(row: Pick<PreviewRow, "slug" | "business_name" | "logo_url" | "logo_is_monogram" | "hero_url" | "colors" | "expires_at" | "priorities">, firstName: string) {
   const spa = esc(row.business_name);
-  const first = esc(firstName || "there");
+  const first = esc(firstName || row.business_name); // no name since the audit's step 3 gate: their spa's name, never "there"
   const url = previewUrl(row.slug);
-  const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}`;
+  const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}?src=email`;
   const brand = hex((row.colors as { primary?: string } | null)?.primary);
   const logo = row.logo_is_monogram ? null : hosted(row.logo_url);
   const hero = hosted(row.hero_url);
@@ -37,7 +38,7 @@ export function previewEmail(row: Pick<PreviewRow, "slug" | "business_name" | "l
   const subject = `${row.business_name}'s app is ready`;
 
   const text = [
-    `Hi ${firstName || "there"},`,
+    `Hi ${firstName || row.business_name},`,
     "",
     `Your preview of ${row.business_name}'s own patient app is ready:`,
     url,
@@ -92,7 +93,7 @@ export function previewEmail(row: Pick<PreviewRow, "slug" | "business_name" | "l
 
 /* ───────────── CP-237 · the welcome email, sent when the owner finishes the funnel ───────────── */
 
-type WelcomeRow = Pick<PreviewRow, "slug" | "business_name" | "logo_url" | "logo_is_monogram" | "hero_url" | "colors" | "expires_at" | "treatments" | "treatments_are_examples">;
+type WelcomeRow = Pick<PreviewRow, "slug" | "business_name" | "logo_url" | "logo_is_monogram" | "hero_url" | "colors" | "expires_at" | "treatments" | "treatments_are_examples"> & { contact_email?: string | null };
 
 /**
  * "Your app is ready. Open your front desk." Their logo and banner photo, a big
@@ -102,10 +103,10 @@ type WelcomeRow = Pick<PreviewRow, "slug" | "business_name" | "logo_url" | "logo
  */
 export function welcomeEmail(row: WelcomeRow, firstName: string) {
   const spa = esc(row.business_name);
-  const first = esc(firstName || "there");
+  const first = esc(firstName || row.business_name); // no name since the audit's step 3 gate: their spa's name, never "there"
   const app = previewUrl(row.slug);
-  const desk = deskUrl(row.slug);
-  const walkthrough = `${SITE_ORIGIN}/medspa/walkthrough/${row.slug}`;
+  const desk = verifiedDeskUrl(row.slug, row.contact_email); // audit step 4: opening it marks the email verified
+  // Audit step 5: one ask. The welcome email's job is opening the desk; turning it on lives there.
   const brand = hex((row.colors as { primary?: string } | null)?.primary);
   const logo = row.logo_is_monogram ? null : hosted(row.logo_url);
   const hero = hosted(row.hero_url);
@@ -122,7 +123,7 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
   ];
 
   const text = [
-    `Hi ${firstName || "there"},`,
+    `Hi ${firstName || row.business_name},`,
     "",
     `${row.business_name}'s app is ready, and so is your front desk: the screen your team uses to check patients in and set up the app.`,
     "",
@@ -132,9 +133,8 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
     ...rows.map((r) => `• ${r.t}: ${r.d}`),
     "",
     `See the patient app: ${app}`,
-    `Want it live? Book a 15-minute walkthrough: ${walkthrough}`,
     "",
-    `This is a preview, saved until ${until}. Nothing you try reaches patients until you go live. Questions? Just reply.`,
+    `This is a preview, saved until ${until}. Nothing you try reaches patients until you turn the engine on.`,
     "",
     "Andrew, Atlas Engine",
   ].join("\n");
@@ -169,7 +169,7 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
             </tr></table>
           </td></tr>
           ${rows.map((r, i) => `<tr><td style="padding:0 8px;">
-            <a href="${desk}?view=${r.view}" style="display:block;text-decoration:none;color:#0B1B2B;${i ? "border-top:1px solid #EEF1F5;" : ""}">
+            <a href="${desk}${desk.includes("?") ? "&amp;" : "?"}view=${r.view}" style="display:block;text-decoration:none;color:#0B1B2B;${i ? "border-top:1px solid #EEF1F5;" : ""}">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
                 <td width="36" valign="middle" style="padding:12px 0 12px 8px;"><div style="width:26px;height:26px;border-radius:9px;background:${brand};color:#FFFFFF;font-size:13px;line-height:26px;text-align:center;font-weight:700;">${i + 1}</div></td>
                 <td valign="middle" style="padding:12px 6px;"><div style="font-size:15px;font-weight:700;color:#0B1B2B;">${esc(r.t)}</div><div style="font-size:13px;line-height:1.4;color:#6B7A8C;padding-top:2px;">${esc(r.d)}</div></td>
@@ -182,13 +182,10 @@ export function welcomeEmail(row: WelcomeRow, firstName: string) {
 
       <tr><td align="center" style="font-size:15px;color:#3A4A5C;padding-bottom:12px;">See what your patients see:</td></tr>
       <tr><td align="center" style="padding-bottom:22px;">${pill(app, `Open ${spa}&#39;s app`, false)}</td></tr>
-      <tr><td style="padding-top:14px;border-top:1px solid #E6EBF2;"></td></tr>
-      <tr><td align="center" style="font-size:15px;color:#3A4A5C;padding-bottom:8px;">Want it live at your front desk?</td></tr>
-      <tr><td align="center"><a href="${walkthrough}" style="font-size:15px;font-weight:700;color:${brand};text-decoration:underline;">Book a 15-minute walkthrough</a></td></tr>
     </table>
   </td></tr>
   <tr><td style="padding:18px 8px 0;font-size:13px;line-height:1.55;color:#6B7A8C;text-align:center;">
-    This is a preview, saved until ${esc(until)}. Nothing you try reaches patients until you go live.<br>Questions? Just reply to this email.<br>Andrew, Atlas Engine &middot; <a href="${SITE_ORIGIN}" style="color:#6B7A8C;">atlas-engine.app</a>
+    This is a preview, saved until ${esc(until)}. Nothing you try reaches patients until you turn the engine on.<br>Andrew, Atlas Engine &middot; <a href="${SITE_ORIGIN}" style="color:#6B7A8C;">atlas-engine.app</a>
   </td></tr>
 </table></td></tr></table></body></html>`;
 

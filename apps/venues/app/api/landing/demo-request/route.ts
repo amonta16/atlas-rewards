@@ -6,8 +6,9 @@ import { calendarConfigured, createDemoEvent, getBusy } from "@/lib/google-calen
 import { CALL_MINUTES, HOST_TZ, candidateSlots, dayKey, overlapsBusy } from "@/lib/landing/availability";
 // CP-201: the /medspa funnel gate, pre-call page token and Meta Schedule (server side).
 import { newEventId, newToken } from "@/lib/landing/funnel-sign";
-import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
+import { sendCapiEvent, requestIp, splitName , shareBlocked } from "@/lib/landing/meta-capi";
 import { HOLD, PRECALL_PREP, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { cancelSequence } from "@/lib/landing/lead-sequence-run";
 
 /**
  * POST /api/landing/demo-request — CP-100, CP-189
@@ -106,6 +107,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Couldn't save your request — please email us directly." }, { status: 500 });
   }
 
+  // CP-245: booked inside their 4-hour launch-bonus window? Then the bonuses are owed.
+  let bonusLine: string | null = null;
+  if (row.lead_id) {
+    const { data: pvb } = await supabase.from("app_previews").select("id, bonus_deadline_at, bonus_claimed_at").eq("landing_lead_id", row.lead_id).limit(1);
+    const b = pvb?.[0] as { id: string; bonus_deadline_at: string | null; bonus_claimed_at: string | null } | undefined;
+    if (b?.bonus_deadline_at) {
+      const inTime = Date.now() <= Date.parse(b.bonus_deadline_at);
+      if (inTime && !b.bonus_claimed_at) await supabase.from("app_previews").update({ bonus_claimed_at: new Date().toISOString() }).eq("id", b.id);
+      bonusLine = inTime || b.bonus_claimed_at ? "YES: booked inside the 4-hour window. Owed: launch videos, launch kit, software audit." : `No (window ended ${new Date(b.bonus_deadline_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} PT)`;
+    }
+  }
+
   const sent = await notifyLead(`Demo booked — ${business}`, [
     ["Name", name],
     ["Business", business],
@@ -116,6 +129,7 @@ export async function POST(req: Request) {
     ["Best time", row.preferred_time],
     ["Notes", row.notes],
     ["Source", row.source],
+    ["Launch bonus", bonusLine],
   ]);
   if (sent) await supabase.from("landing_demo_requests").update({ notified_at: new Date().toISOString() }).eq("id", data.id);
 
@@ -125,9 +139,13 @@ export async function POST(req: Request) {
     // CP-205: booking keeps the area held through the call plus HOLD.afterCallHours.
     const holdUntil = slotStart ? new Date(slotStart.getTime() + HOLD.afterCallHours * 3600_000).toISOString() : null;
     await supabase.from("landing_leads").update({ status: "booked", demo_request_id: data.id, ...(holdUntil ? { hold_expires_at: holdUntil } : {}) }).eq("id", row.lead_id);
+    // Audit step 6: a lead-magnet owner who books gets no more follow-up (texts, emails, call tasks).
+    const { data: pv } = await supabase.from("app_previews").select("id").eq("landing_lead_id", row.lead_id).limit(1);
+    if (pv?.[0]) await cancelSequence(String(pv[0].id), "booked").catch((e) => console.error("[landing] cancel sequence failed", e));
     if (row.schedule_event_id) {
       const n = splitName(name);
       await sendCapiEvent({
+      optedOut: shareBlocked(req),
         name: "Schedule", eventId: row.schedule_event_id, sourceUrl: `${SITE_ORIGIN}${row.path ?? "/medspa"}`,
         user: { email, phone, firstName: n.first, lastName: n.last, fbp: row.fbp, fbc: row.fbc, ip: requestIp(req), userAgent: row.user_agent, externalId: row.lead_id },
         customData: { content_name: "medspa_walkthrough" },

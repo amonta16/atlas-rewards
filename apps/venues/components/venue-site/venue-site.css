@@ -1,0 +1,68 @@
+/* Venue website (/<slug>/site). Scoped under .vs-root so nothing leaks into the app. */
+
+.vs-root {
+  --vs-ink: #0b2540;
+  --vs-blue: #0284c7;
+  --vs-sky: #3cc8f2;
+  --vs-sky-soft: #e8f7fd;
+  --vs-paper: #f5fbfe;
+  --vs-line: rgba(11, 37, 64, 0.1);
+  --vs-red: #e8344a;
+  --vs-sun: #ffd23f;
+  background: #ffffff;
+  color: var(--vs-ink);
+  font-family: var(--font-vs-body), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+.vs-root .font-display {
+  font-family: var(--font-vs-display), var(--font-vs-body), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+.vs-root ::selection { background: var(--vs-sun); color: var(--vs-ink); }
+.vs-root :focus-visible { outline: 3px solid var(--vs-sky); outline-offset: 2px; border-radius: 12px; }
+.vs-root section[id] { scroll-margin-top: 84px; }
+
+/* Concentric rings — the motif from Flippo's reels. */
+.vs-rings {
+  background:
+    radial-gradient(circle at var(--rx, 85%) var(--ry, 20%),
+      transparent 0 60px, rgba(255,255,255,.16) 60px 110px, transparent 110px 170px,
+      rgba(255,255,255,.12) 170px 230px, transparent 230px 300px, rgba(255,255,255,.08) 300px 380px, transparent 380px),
+    linear-gradient(160deg, #46d2f5 0%, #1fb2ea 45%, #0a8fd1 100%);
+}
+
+/* Diagonal stripe used under section labels. */
+.vs-tag {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .35rem .8rem; border-radius: 999px;
+  font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  background: var(--vs-sky-soft); color: var(--vs-blue);
+}
+
+/* Scroll reveal (only once JS confirms it can reveal — no invisible content without JS). */
+.vs-js .vs-reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1); }
+.vs-js .vs-reveal.is-in { opacity: 1; transform: none; }
+.vs-js .vs-reveal[data-delay="1"] { transition-delay: .08s; }
+.vs-js .vs-reveal[data-delay="2"] { transition-delay: .16s; }
+.vs-js .vs-reveal[data-delay="3"] { transition-delay: .24s; }
+
+/* Booking sheet. */
+@keyframes vs-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes vs-up { from { transform: translateY(40px); opacity: .4 } to { transform: none; opacity: 1 } }
+@keyframes vs-zoom { from { transform: translate(-50%, -48%) scale(.97); opacity: 0 } to { transform: translate(-50%, -50%) scale(1); opacity: 1 } }
+@keyframes vs-pop { 0% { transform: scale(.6) } 60% { transform: scale(1.1) } 100% { transform: scale(1) } }
+.vs-fade-in { animation: vs-fade .2s ease-out; }
+.vs-sheet { animation: vs-up .32s cubic-bezier(.22,1,.36,1); }
+@media (min-width: 768px) { .vs-sheet { animation: vs-zoom .28s cubic-bezier(.22,1,.36,1); } }
+.vs-pop { animation: vs-pop .5s cubic-bezier(.22,1,.36,1); }
+
+/* Marquee of activities under the hero. */
+@keyframes vs-marquee { to { transform: translateX(-50%) } }
+.vs-marquee { animation: vs-marquee 38s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vs-sheet, .vs-fade-in, .vs-pop, .vs-marquee { animation: none !important; }
+  .vs-root * { scroll-behavior: auto !important; }
+}
+html:has(.vs-root) { scroll-behavior: smooth; }

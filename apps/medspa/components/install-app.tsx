@@ -81,8 +81,18 @@ function Sheet({ clinicName, slug, device, onClose }: { clinicName: string; slug
 }
 
 /** Home, phones only. */
-export function InstallCard({ clinicName, slug }: { clinicName: string; slug: string }) {
+export function InstallCard({ clinicName, slug, reportTo }: { clinicName: string; slug: string; reportTo?: string }) {
   const { ready, installed, device, prompt, clearPrompt } = useInstall();
+  // Lead-magnet audit, step 4: an instant preview's app running from the Home Screen counts as
+  // "installed" for the owner's skip-ahead button. Once per phone.
+  useEffect(() => {
+    if (!installed || !reportTo || !slug.startsWith("pv-")) return;
+    const k = `pv-installed-sent:${slug}`;
+    try { if (localStorage.getItem(k)) return; } catch { /* still send */ }
+    fetch(`${reportTo}/api/preview/progress`, { method: "POST", mode: "cors", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, event: "app_installed" }) })
+      .then((r) => { if (r.ok) { try { localStorage.setItem(k, "1"); } catch { /* fine */ } } })
+      .catch(() => {});
+  }, [installed, reportTo, slug]);
   const key = `ms_install_dismissed_${slug}`;
   const [hidden, setHidden] = useState(true);
   const [open, setOpen] = useState(false);

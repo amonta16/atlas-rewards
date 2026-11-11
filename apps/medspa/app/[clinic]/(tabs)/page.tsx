@@ -1,10 +1,13 @@
 import Link from "next/link";
+
+/** Audit step 4: a preview app opened from the Home Screen tells the venue site (skip-ahead gate). */
+const VENUE_SITE = (process.env.VENUE_APP_ORIGIN || "https://www.atlas-engine.app").replace(/\/$/, "");
 import { NotifyCard } from "@/components/notifications";
 import { ScratchGift } from "@/components/scratch-gift";
 import { getScratchGift } from "@/lib/gifts";
 import "@fontsource/caveat/600.css";
 import { optimizedUrl } from "@atlas/core/img";
-import { activeTreatments, getClinic } from "@/lib/clinic";
+import { activeTreatments, getClinic, skinScanOn } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { bookingOptions, FINANCING_LIMITS, type FinancingMethod } from "@/lib/medspa";
 import { fromPrice, priceLabel } from "@/lib/plans";
@@ -13,6 +16,7 @@ import { ActionButton } from "@/components/action-sheet";
 import { RecentlyViewed, type CatalogItem } from "@/components/recently-viewed";
 import { InstallCard } from "@/components/install-app";
 import { IcCalendar, IcLock, IcNext, IcPin } from "@/components/icons";
+import { ScanCard } from "@/components/skin-scan/scan-card";
 
 export default async function Home({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -26,6 +30,8 @@ export default async function Home({ params }: { params: { clinic: string } }) {
   const team = clinic.cfg.providers.filter((p) => p.is_active);
   const payLater = clinic.cfg.shop.enabled ? (["klarna", "affirm"] as FinancingMethod[]).filter((m) => clinic.cfg.shop.financing[m]) : [];
   const about = clinic.about || team[0]?.bio || null;
+  const scanOn = skinScanOn(clinic);
+  const guides = treatments.filter((t) => t.image_url && !/consult/i.test(t.name)).slice(0, 8);
 
   const catalog: CatalogItem[] = [
     ...treatments.map((t) => ({ key: `t:${t.id}`, name: t.name, price: fromPrice(t), image: t.image_url, href: `${base}/shop/treatment/${t.id}` })),
@@ -46,7 +52,7 @@ export default async function Home({ params }: { params: { clinic: string } }) {
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/5 to-black/20" />
           <div className="absolute left-5 right-5 top-5 animate-rise">
             <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.015em] text-white">
-              {patient.signedIn ? `Welcome back, ${patient.firstName ?? "there"}!` : "Welcome, Guest!"}
+              {patient.signedIn ? (patient.firstName ? `Welcome back, ${patient.firstName}!` : `Welcome back to ${clinic.name}!`) : `Welcome to ${clinic.name}`}
             </h2>
             <p className="mt-0.5 text-[15px] text-white/70">{clinic.name}</p>
           </div>
@@ -66,7 +72,7 @@ export default async function Home({ params }: { params: { clinic: string } }) {
 
       {gift && <ScratchGift key={gift.savedId ?? gift.offerId} gift={gift} slug={clinic.slug} primary={clinic.primary} pointsLabel="points" fullName={patient.fullName ?? undefined} />}
 
-      <InstallCard clinicName={clinic.name} slug={clinic.slug} />
+      <InstallCard clinicName={clinic.name} slug={clinic.slug} reportTo={clinic.preview ? VENUE_SITE : undefined} />
 
       {patient.signedIn && <NotifyCard clinicId={clinic.id} clinicName={clinic.name} slug={clinic.slug} demo={clinic.isExample && clinic.id === "example"} />}
 
@@ -157,6 +163,35 @@ export default async function Home({ params }: { params: { clinic: string } }) {
             </figure>
           ))}
         </Rail>
+      )}
+
+      {/* Educate yourself: the skin scan + how each treatment works */}
+      {(scanOn || guides.length > 0) && (
+        <section className="mt-8">
+          <div className="px-5">
+            <h3 className="text-[19px] font-semibold tracking-[-0.015em]">Educate yourself</h3>
+            <p className="mt-0.5 text-[13px] text-sub">Know what your skin needs, then how each treatment works.</p>
+          </div>
+          {scanOn && <div className="mx-4 mt-3"><ScanCard href={`${base}/skin-scan`} clinicName={clinic.name} /></div>}
+          {guides.length > 0 && (
+            <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-2">
+              {guides.map((t) => (
+                <Link key={t.id} href={`${base}/shop/treatment/${t.id}`} className="w-[164px] shrink-0 overflow-hidden rounded-[14px] bg-white shadow-card ring-1 ring-line">
+                  <div className="aspect-[4/3] bg-tint">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={optimizedUrl(t.image_url!, 330)} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  </div>
+                  <div className="px-3 pb-3 pt-2.5">
+                    <span className="pill-soft">{t.category}</span>
+                    <p className="mt-1.5 line-clamp-1 text-[14px] font-semibold">{t.name}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-sub">{t.description}</p>
+                    <span className="mt-1.5 inline-flex items-center gap-0.5 text-[12.5px] font-semibold text-brand">How it works <IcNext className="h-3 w-3" strokeWidth={2.4} /></span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {/* About */}

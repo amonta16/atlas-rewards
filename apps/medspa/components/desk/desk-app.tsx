@@ -26,7 +26,7 @@ import Link from "next/link";
 import { demoDeskApi, liveDeskApi, type ActivityRow, type DeskApi, type DeskGift, type DeskMember, type DeskVoucher, type DueRow, type LookupResult, type OrderRow, type PatientDetail, type Provider, type Treatment } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
 import { Wordmark } from "../chrome";
-import { IcBag, IcBank, IcBell, IcCard, IcChart, IcCheck, IcClock, IcClose, IcEye, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
+import { IcBag, IcBank, IcBell, IcCard, IcChart, IcCheck, IcClock, IcClose, IcEye, IcFaceScan, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
 import type { Staff } from "@/lib/staff";
 import { Card, Empty, Modal } from "./ui";
 import { RewardsView, TeamView } from "./manager-views";
@@ -37,6 +37,10 @@ import { BuilderView, type Section as BuilderSection } from "./builder";
 import { InsightsView } from "./insights-views";
 import { SetupHome, type GoLive, type SetupTarget } from "./get-started";
 import { BillingView } from "./billing-view";
+import { SkinScansView } from "./skin-scans-view";
+import { EngineLockProvider } from "./engine-lock";
+import { previewEvent } from "@/lib/preview-event";
+import { FirstLoginVideo, ImportCard, InstallNudge, loadImported, PatientImport, TurnOnBar, usePreviewProgress, type Imported, type PortalConfig } from "./preview-portal";
 import type { BuilderData } from "@/lib/builder-data";
 
 const Scanner = dynamic(() => import("@yudiel/react-qr-scanner").then((m) => m.Scanner), { ssr: false });
@@ -45,14 +49,18 @@ type DeskClinic = {
   id: string; slug: string; name: string; logoUrl: string | null; heroUrl: string | null; primary: string; phone: string | null; demo: boolean;
   pointsPerDollar: number; visitPoints: number; offersOn: boolean;
   recall: { enabled: boolean; lead_days: number; followup_days: number };
+  /** CP-241: the AI skin scan is on in the patient app. */
+  skinScan: boolean;
   treatments: Treatment[]; providers: Provider[];
   rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[];
   /** CP-237: set on an instant app preview's desk (pv-…): no sign-in, nothing is saved. */
   preview?: { walkthroughUrl: string; expiresAt: string } | null;
+  /** Lead-magnet audit, step 4: set on a preview desk. */
+  portal?: PortalConfig | null;
   /** CP-238: what access this desk has and how the owner goes live (Home → Your access). */
   goLive: GoLive;
 };
-type View = "checkin" | "patients" | "due" | "orders" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
+type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
 const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "billing"];
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
@@ -67,7 +75,20 @@ const initials = (n: string | null) => (n ?? "?").split(/\s+/).map((w) => w[0]).
 const RULE: Record<string, string> = { visit: "Check-in", purchase: "Purchase", redemption: "Reward redeemed", manual_adjust: "Points removed", reversal: "Undo", referral_referrer: "Referral", birthday: "Birthday", review: "Review" };
 
 export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: { clinic: DeskClinic; staff: Staff; builder: BuilderData | null; initialView?: View | "reports"; initialMonth?: string | null }) {
-  const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic]);
+  // Audit step 4: a preview desk can show the owner's own patients (CSV, kept in this browser).
+  const [imported, setImported] = useState<Imported | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  useEffect(() => { if (clinic.portal) setImported(loadImported(clinic.slug)); }, [clinic.portal, clinic.slug]);
+  const api = useMemo<DeskApi>(() => (clinic.demo ? demoDeskApi(clinic.rewards, clinic.treatments, clinic.slug, imported) : liveDeskApi(clinic.id, clinic.slug, clinic.pointsPerDollar)), [clinic, imported]);
+  const portal = clinic.portal ?? null;
+  const { progress, firstVisit, visits, mark } = usePreviewProgress(clinic.slug, portal);
+  const [videoOff, setVideoOff] = useState(false);
+  const nudgeKey = `pv-install-nudge-off:${clinic.slug}`;
+  const [nudgeOff, setNudgeOff] = useState(true);
+  useEffect(() => { try { setNudgeOff(window.sessionStorage.getItem(nudgeKey) === "1"); } catch { setNudgeOff(false); } }, [nudgeKey]);
+  // The skip-ahead ("Turn it on now") only once they're verified, imported and installed.
+  const ready = progress.verified && progress.csv && progress.installed;
+  const goLive = portal ? { ...clinic.goLive, activateUrl: ready ? clinic.goLive.activateUrl : null, walkthroughHidden: !!imported } : clinic.goLive;
   const [view, setView] = useState<View>(() => {
     // "reports" (the monthly email's button) is a tab inside Insights.
     // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
@@ -108,6 +129,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     { id: "patients", label: "Client profiles", Icon: IcUser },
     { id: "due", label: "Patients due", Icon: IcClock, badge: counts.due },
     { id: "orders", label: "Shop orders", Icon: IcBag, badge: counts.orders },
+    { id: "skinscans", label: "Skin scans", Icon: IcFaceScan },
     ...(staff.isManager ? [
       { id: "insights" as View, label: "Insights", Icon: IcChart },
       { id: "memberships" as View, label: "Memberships", Icon: IcRefresh },
@@ -120,7 +142,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     { id: "team", label: "Team", Icon: IcPeople },
   ] : [];
   const hour = new Date().getHours();
-  const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"} 👋`;
+  const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${clinic.name}`;
   const title = view === "overview" ? greeting : view === "rewards" ? "Rewards" : [...NAV, ...ACCOUNT].find((n) => n.id === view)?.label;
   const navButton = ({ id, label, Icon, badge }: NavItem, quiet = false) => {
     const on = view === id || (id === "builder" && view === "rewards");
@@ -137,7 +159,8 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   const alerts = counts.due + counts.orders + counts.reviews;
 
   return (
-    <div className="min-h-[100dvh] bg-[#F6F7F7] text-ink lg:flex">
+    <EngineLockProvider locked={!!clinic.preview}>
+    <div className={`min-h-[100dvh] bg-[#F6F7F7] text-ink lg:flex ${portal && imported ? "pb-14" : ""}`}>
       {/* Sidebar */}
       <aside className="border-b border-line bg-[#F9FAFA] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[256px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2.5 px-5 py-4 lg:px-7 lg:pt-7">
@@ -152,11 +175,16 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
         </nav>
         <div className="mt-auto hidden shrink-0 space-y-3 px-4 pb-5 pt-3 lg:block">
           <div className="truncate rounded-[12px] border border-line bg-white px-3.5 py-2.5 text-[13.5px] font-semibold">{clinic.name}</div>
-          {clinic.goLive.kind !== "live" ? (
+          {goLive.kind !== "live" ? (
             <div className="rounded-[14px] bg-brand/[.08] p-4">
-              <p className="text-[14px] font-semibold">{clinic.goLive.kind === "preview" ? "You're on a free preview" : "This is the demo"}</p>
-              <p className="mt-1 text-[12.5px] leading-snug text-sub">Book a 15-minute walkthrough and we switch your app on with you.</p>
-              <a href={clinic.goLive.walkthroughUrl} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1 border-b border-brand/40 pb-0.5 text-[13px] font-semibold text-brand">Book a walkthrough <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
+              <p className="text-[14px] font-semibold">{goLive.kind === "preview" ? "You're on a free preview" : "This is the demo"}</p>
+              {goLive.kind === "preview" ? (
+                // One ask per screen: on a preview the banner, the Home card or the bar carries it.
+                <p className="mt-1 text-[12.5px] leading-snug text-sub">Reminders, offers and texts are off until you turn the engine on.</p>
+              ) : <>
+                <p className="mt-1 text-[12.5px] leading-snug text-sub">Book a 15-minute walkthrough and we switch your app on with you.</p>
+                <a href={goLive.walkthroughUrl} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1 border-b border-brand/40 pb-0.5 text-[13px] font-semibold text-brand">Book a walkthrough <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
+              </>}
             </div>
           ) : (
             <div className="rounded-[14px] bg-brand/[.08] p-4">
@@ -179,9 +207,9 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
           <div role="note" className="mb-5 flex flex-col gap-3 rounded-[16px] border border-brand/20 bg-brand/[.06] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[13.5px] leading-snug text-ink">
               <b>This is {clinic.name}&apos;s front desk, in preview.</b>{" "}
-              <span className="text-sub">Try anything: nothing is saved and nothing reaches patients until you go live. Saved until {new Date(clinic.preview.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.</span>
+              <span className="text-sub">Try anything: nothing is sent to patients until you turn the engine on. Saved until {new Date(clinic.preview.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.</span>
             </p>
-            <a href={clinic.preview.walkthroughUrl} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-[13px] font-semibold text-white">Book a walkthrough</a>
+            {!imported && !(view === "overview" && staff.isManager) && <a href={clinic.preview.walkthroughUrl} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-brand px-4 text-[13px] font-semibold text-white">Book a walkthrough</a>}
           </div>
         )}
         <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -198,8 +226,24 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
           </div>
         </header>
 
+        {view === "overview" && staff.isManager && portal && (
+          <>
+            {firstVisit && portal.vsl && !videoOff && <FirstLoginVideo src={portal.vsl.src} captions={portal.vsl.captions} onClose={() => setVideoOff(true)} onPlay={() => previewEvent(portal.apiOrigin, clinic.slug, "vsl_played")} />}
+            {!imported && <ImportCard onOpen={() => setImportOpen(true)} />}
+            {visits >= 2 && !progress.installed && !nudgeOff && (
+              <InstallNudge clinicName={clinic.name} appUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}` : `/${clinic.slug}`}
+                onClose={() => { setNudgeOff(true); try { window.sessionStorage.setItem(nudgeKey, "1"); } catch { /* fine */ } }} />
+            )}
+          </>
+        )}
+        {view === "patients" && portal && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] bg-white px-4 py-3 shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]">
+            <p className="text-[13.5px] text-sub">{imported ? <><b className="text-ink">{imported.members.length.toLocaleString("en-US")} of your patients</b>, from your file. It stays on this computer.</> : "These are sample patients. Import yours to see them here."}</p>
+            <button type="button" onClick={() => setImportOpen(true)} className="h-9 rounded-full bg-ink px-4 text-[13px] font-semibold text-white">{imported ? "Import again" : "Import patients"}</button>
+          </div>
+        )}
         {view === "overview" && staff.isManager && (
-          <SetupHome api={api} slug={clinic.slug} appName={clinic.name} cfg={(builder?.cfg ?? {}) as Parameters<typeof SetupHome>[0]["cfg"]} goLive={clinic.goLive} isAdmin={staff.role === "agency_admin"} onGo={goSetup}>
+          <SetupHome api={api} slug={clinic.slug} appName={clinic.name} cfg={(builder?.cfg ?? {}) as Parameters<typeof SetupHome>[0]["cfg"]} goLive={goLive} isAdmin={staff.role === "agency_admin"} onGo={goSetup}>
             <HomeView api={api} demo={clinic.demo} />
           </SetupHome>
         )}
@@ -208,6 +252,8 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}
         {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} rate={clinic.pointsPerDollar} />}
         {view === "activity" && <Activity api={api} />}
+        {view === "skinscans" && <SkinScansView api={api} enabled={clinic.skinScan} clinicName={clinic.name} slug={clinic.slug} onOpen={open} say={say}
+          onSettings={staff.isManager && builder ? () => openBuilder("skinscan") : undefined} />}
         {view === "insights" && staff.isManager && <InsightsView api={api} say={say} demo={clinic.demo} clinic={{ name: clinic.name, primary: clinic.primary, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl }} initialTab={reportLink ? "reports" : "live"} initialMonth={reportLink ? initialMonth ?? null : null} />}
         {view === "billing" && staff.isManager && <BillingView api={api} demo={clinic.demo} onOpenPayouts={() => setView("payouts")} />}
         {view === "memberships" && staff.isManager && <MembershipsView api={api} say={say} plans={((builder?.cfg as { memberships?: MedspaPlan[] } | undefined)?.memberships) ?? []} onEdit={builder ? () => openBuilder("memberships") : undefined} onOpenPayouts={() => setView("payouts")} />}
@@ -217,6 +263,12 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
           offersOn={clinic.offersOn} recall={clinic.recall} onOpenInsights={() => setView("insights")} />}
         {view === "team" && staff.isManager && <TeamView api={api} say={say} deskUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}/desk` : `/${clinic.slug}/desk`} />}
       </main>
+
+      {importOpen && portal && (
+        <PatientImport slug={clinic.slug} clinicName={clinic.name} treatments={clinic.treatments} onClose={() => setImportOpen(false)}
+          onDone={(v) => { setImported(v); setImportOpen(false); mark("csv_imported", v.members.length); say(`${v.members.length.toLocaleString("en-US")} patients imported`); refreshCounts(); setView("patients"); }} />
+      )}
+      {portal && imported && <TurnOnBar href={portal.walkthroughUrl} />}
 
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-[70] flex -translate-x-1/2 animate-rise items-center gap-4 rounded-full bg-ink py-3 pl-5 pr-3 text-[14.5px] text-white shadow-2xl">
@@ -228,6 +280,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
         </div>
       )}
     </div>
+    </EngineLockProvider>
   );
 }
 
@@ -589,7 +642,7 @@ function Due({ api, clinic, onOpen }: { api: DeskApi; clinic: DeskClinic; onOpen
     <ul className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
       {sorted.map((r, i) => {
         const overdue = new Date(r.due_at).getTime() < Date.now();
-        const sms = r.phone ? `sms:${r.phone}?body=${encodeURIComponent(`Hi ${(r.full_name ?? "").split(" ")[0] || "there"}! It's about time for your next ${r.treatment_name} at ${clinic.name}. Want us to find you a time?`)}` : null;
+        const sms = r.phone ? `sms:${r.phone}?body=${encodeURIComponent(`Hi${(r.full_name ?? "").split(" ")[0] ? ` ${(r.full_name ?? "").split(" ")[0]}` : ""}! It's about time for your next ${r.treatment_name} at ${clinic.name}. Want us to find you a time?`)}` : null;
         return (
           <li key={`${r.membership_id}-${i}`} className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 last:border-0">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-page text-[14px] font-semibold">{initials(r.full_name)}</span>

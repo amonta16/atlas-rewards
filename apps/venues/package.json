@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "vapid": "node scripts/generate-vapid.mjs",
-    "test": "node --import tsx --test tests/machine-secret.test.mjs tests/session-handoff.test.mjs tests/preview-ssrf.test.ts tests/preview-brand.test.ts tests/preview-quiz.test.ts"
+    "test": "node --import tsx --test tests/machine-secret.test.mjs tests/session-handoff.test.mjs tests/preview-ssrf.test.ts tests/preview-brand.test.ts tests/preview-quiz.test.ts tests/preview-patient-csv.test.ts tests/preview-copy.test.ts tests/lead-sequence.test.ts tests/preview-events.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
@@ -17,6 +17,7 @@
     "@capacitor/core": "^7.0.0",
     "@capacitor/preferences": "^7.0.0",
     "@capacitor/push-notifications": "^7.0.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/figtree": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/hanken-grotesk": "^5.3.0",

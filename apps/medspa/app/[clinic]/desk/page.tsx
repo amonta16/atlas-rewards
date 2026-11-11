@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getClinic, activeTreatments } from "@/lib/clinic";
+import { getClinic, activeTreatments, skinScanOn } from "@/lib/clinic";
 import { getStaff } from "@/lib/staff";
 import { DeskApp } from "@/components/desk/desk-app";
 import { getBuilderData } from "@/lib/builder-data";
+import { OFFER } from "@/lib/offer";
 
 export const metadata = { title: "Front desk", robots: { index: false, follow: false } };
 const SITE = (process.env.VENUE_APP_ORIGIN || "https://www.atlas-engine.app").replace(/\/$/, "");
@@ -11,6 +12,9 @@ const SITE = (process.env.VENUE_APP_ORIGIN || "https://www.atlas-engine.app").re
 const CHECKOUT = process.env.PREVIEW_SHOW_CHECKOUT === "1" ? process.env.STRIPE_FOUNDING_CHECKOUT_URL || null : null;
 const activateUrl = (slug: string) => (CHECKOUT ? `${CHECKOUT}${CHECKOUT.includes("?") ? "&" : "?"}client_reference_id=${encodeURIComponent(slug)}` : null);
 const HELP_EMAIL = "andrew@atlas-engine.app";
+/** Audit step 4: the 45 s first-login video (muted, captioned). Unset = no video. */
+const VSL = process.env.PREVIEW_DESK_VSL_URL ? { src: process.env.PREVIEW_DESK_VSL_URL, captions: process.env.PREVIEW_DESK_VSL_VTT || null } : null;
+const SETUP = OFFER.foundingActive ? OFFER.setupFounding : OFFER.setupFull;
 export const dynamic = "force-dynamic";
 
 /**
@@ -18,7 +22,7 @@ export const dynamic = "force-dynamic";
  * functions as the venue app, so everything shows the same numbers.
  * ?view=reports&month=YYYY-MM is where the monthly report email lands.
  */
-const VIEWS = ["checkin", "patients", "due", "orders", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "reports", "offers", "marketing", "billing"] as const;
+const VIEWS = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "reports", "offers", "marketing", "billing"] as const;
 
 export default async function Desk({ params, searchParams }: { params: { clinic: string }; searchParams: { view?: string; month?: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -48,13 +52,16 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
         id: clinic.id, slug: clinic.slug, name: clinic.name, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl, primary: clinic.primary, phone: clinic.phone,
         pointsPerDollar: clinic.pointsPerDollar, visitPoints: clinic.visitPoints, offersOn: clinic.offersOn, demo,
         // CP-237: an instant preview's desk says so, and links back to the app and the walkthrough.
-        preview: clinic.preview ? { walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}`, expiresAt: clinic.preview.expiresAt } : null,
+        preview: clinic.preview ? { walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk`, expiresAt: clinic.preview.expiresAt } : null,
+        // Audit step 4: the preview portal (progress, patient import, video, install nudge).
+        portal: clinic.preview ? { apiOrigin: SITE, walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk_bar`, vsl: VSL } : null,
         // CP-238: Home → Your access. The demo clinic books through the main /medspa calendar.
         goLive: clinic.preview
-          ? { kind: "preview", walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}`, activateUrl: activateUrl(clinic.slug), expiresAt: clinic.preview.expiresAt, helpEmail: HELP_EMAIL }
+          ? { kind: "preview", walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk`, activateUrl: activateUrl(clinic.slug), activateLabel: `Turn it on now, $${SETUP.toLocaleString("en-US")} setup`, expiresAt: clinic.preview.expiresAt, helpEmail: HELP_EMAIL }
           : demo
             ? { kind: "demo", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL }
             : { kind: "live", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL },
+        skinScan: skinScanOn(clinic),
         recall: { enabled: clinic.cfg.recall.enabled, lead_days: clinic.cfg.recall.lead_days, followup_days: clinic.cfg.recall.followup_days },
         treatments: activeTreatments(clinic).map((t) => ({ id: t.id, name: t.name, recall_weeks: t.recall_weeks ?? null })),
         providers: clinic.cfg.providers.filter((p) => p.is_active).map((p) => ({ id: p.id, name: p.name, treatment_ids: p.treatment_ids ?? [] })),

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DeskApi, DeskOffer, GiftOffer } from "@/lib/desk-api";
 import { IcEngine, IcNext, IcTag } from "../icons";
 import { Empty, Modal } from "./ui";
+import { EngineGate } from "./engine-lock";
 
 const card = "rounded-[16px] bg-white shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]";
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -180,14 +181,14 @@ export function MarketingView({ api, recall, onOpenCare, onOpenOffers, onOpenIns
 
       <section>
         <h2 className="mb-2 text-[13.5px] font-semibold">Always-on · live in the patient app</h2>
-        <div className="grid gap-3.5 md:grid-cols-3">
+        <EngineGate className="rounded-[16px]"><div className="grid gap-3.5 md:grid-cols-3">
           <EngineCard title="Recall messages" on={recall.enabled} onClick={onOpenCare} foot="Settings → Care & recall"
             body={recall.enabled ? `Every treatment has a due window; patients hear from you ${recall.lead_days} days before, again ${recall.followup_days} days after.` : "Off. Turn it on and every logged treatment chases its own rebooking."} />
           <EngineCard title="Automated offers" on={active.length > 0} onClick={onOpenOffers} foot="Journey → Automated offers"
             body={offers == null ? "…" : active.length > 0 ? `${active.length} running: ${active.slice(0, 3).map((o) => o.name).join(", ")}${active.length > 3 ? "…" : ""}.` : "None running. Birthday, holiday and win-back offers are one switch each."} />
           <EngineCard title="Win-back" on onClick={onOpenInsights} foot="Insights → Inactive patients"
             body="Patients who haven't visited in 30 to 90 days get a one-tap &quot;we miss you&quot; with bonus points or a free reward." />
-        </div>
+        </div></EngineGate>
       </section>
 
       <section className={`${card} p-4`}>

@@ -58,7 +58,7 @@ export function MedspaStartPage() {
           </div>
         </div>
       </main>
-      <footer className="relative z-10 pb-8 text-center text-[12.5px] text-white/70">© {new Date().getFullYear()} Atlas Engine · <a className="hover:text-white" href="/legal/privacy">Privacy</a> · <a className="hover:text-white" href="/legal/terms">Terms</a></footer>
+      <footer className="relative z-10 pb-8 text-center text-[12.5px] text-white/70">© {new Date().getFullYear()} Atlas Engine · <a className="hover:text-white" href="/legal/privacy">Privacy</a> · <a className="hover:text-white" href="/legal/terms">Terms</a> · <a className="hover:text-white" href="/legal/privacy#choices">Your privacy choices</a> · <a className="hover:text-white" href="/legal/california">California notice</a> · <a className="hover:text-white" href="/legal/health-data">Consumer health data</a></footer>
     </div>
   );
 }

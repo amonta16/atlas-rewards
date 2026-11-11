@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verify } from "@/lib/landing/funnel-sign";
-import { sendCapiEvent, splitName } from "@/lib/landing/meta-capi";
+import { sendCapiEvent, splitName, capiConfigured } from "@/lib/landing/meta-capi";
 import { DEFAULT_PURCHASE_VALUE, FOUNDING, SITE_ORIGIN, TERRITORY } from "@/lib/landing/medspa-funnel";
 import { lookupZip } from "@/lib/landing/territory";
 
@@ -82,7 +82,9 @@ export async function GET(req: Request) {
       user: { email: r.email, phone: r.phone, firstName: n.first, lastName: n.last, fbp: r.fbp, fbc: r.fbc, userAgent: r.user_agent, externalId: r.lead_id ?? id },
       customData: { currency: "USD", value: value ?? DEFAULT_PURCHASE_VALUE, content_name: "atlas_medspa_plan" },
     });
-    capi = ok ? "<p>Meta got the Purchase event, so the ads learn who actually buys.</p>" : "<p>Saved. Meta's Conversions API isn't set up yet (META_CAPI_TOKEN), so no Purchase event was sent.</p>";
+    capi = ok ? "<p>Meta got the Purchase event, so the ads learn who actually buys.</p>"
+      : !capiConfigured() ? "<p>Saved. Meta's Conversions API isn't set up yet (META_CAPI_TOKEN), so no Purchase event was sent.</p>"
+      : "<p>Saved. No Purchase event was sent to Meta: this lead didn't come through Meta tracking or opted out of sharing.</p>";
   }
 
   const sig = u.searchParams.get("s") ?? "";

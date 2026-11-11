@@ -578,7 +578,9 @@ function AboutYou({ headRef, source, leadId, first, answers, onBack, onResult }:
     try {
       const r = await fetch("/api/landing/lead", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...fd, role, stage, lead_id: leadId, treatments, ...answers, source, path: window.location.pathname, ...utms(), ...metaIds() }),
+        body: JSON.stringify({ ...fd, role, stage, lead_id: leadId, treatments, ...answers, source, path: window.location.pathname, ...utms(), ...metaIds(),
+          // Audit step 6: came from a lead-magnet preview's "Book 15 min".
+          preview_slug: new URLSearchParams(window.location.search).get("pv") || undefined }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "Something went wrong. Please try again.");

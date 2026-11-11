@@ -5,6 +5,7 @@ import { CALL_MINUTES } from "@/lib/landing/availability";
 import { FOLLOWUPS, PRECALL_PREP, REMINDERS, SITE_ORIGIN, TERRITORY } from "@/lib/landing/medspa-funnel";
 import { sign } from "@/lib/landing/funnel-sign";
 import { runLeadNurture } from "@/lib/landing/lead-nurture-send";
+import { runLeadSequence } from "@/lib/landing/lead-sequence-run";
 
 /**
  * GET /api/landing/reminders — CP-201 · Vercel Cron, every 15 minutes (vercel.json).
@@ -156,8 +157,11 @@ export async function GET(req: Request) {
     out.followup++;
   }
 
-  // 5) CP-238: lead-magnet follow-up emails. Never lets a failure here break the steps above.
-  const nurture = await runLeadNurture(now).catch((e) => { console.error("[reminders] nurture failed", e); return null; });
+  // 5) Lead-magnet follow-up. Audit step 6: the multi-channel sequence (texts, emails, call tasks)
+  // once CP-243 is applied; until then the CP-238 email-only sequence. Never both, and a failure
+  // here never breaks the steps above.
+  const sequence = await runLeadSequence(now).catch((e) => { console.error("[reminders] sequence failed", e); return undefined; });
+  const nurture = sequence === null ? await runLeadNurture(now).catch((e) => { console.error("[reminders] nurture failed", e); return null; }) : null;
 
-  return NextResponse.json({ ok: true, ...out, nurture });
+  return NextResponse.json({ ok: true, ...out, sequence: sequence ?? null, nurture });
 }

@@ -274,7 +274,7 @@ export function BookingCalendar({
             <input name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
             {error && <p role="alert" className="col-span-full text-sm text-rose-600">{error}</p>}
             <div className="col-span-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-slate-500">20-minute video call · no contract, no pressure.</p>
+              <p className="text-xs text-slate-500">20-minute video call · no contract, no pressure. By booking you agree to our <a href="/legal/terms" target="_blank" className="underline">Terms</a> and <a href="/legal/privacy" target="_blank" className="underline">Privacy Policy</a>.</p>
               <button type="submit" disabled={state === "sending"} className="lp-focus lp-cta-primary inline-flex h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#1f5f8b] px-6 font-semibold text-white hover:bg-[#174a6e] disabled:opacity-60">
                 {state === "sending" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
                 Confirm {fmtTime(slot.startsAt)}

@@ -13,6 +13,7 @@ import type { DeskApi, InactivePatient, InsightsV3, InsightsWeek, ReportArchiveR
 import { formatPhone } from "@/lib/format";
 import { IcGift, IcGoogle, IcHeart, IcMail, IcPeople } from "../icons";
 import { Modal } from "./ui";
+import { EngineGate } from "./engine-lock";
 
 const card = "rounded-[16px] bg-white shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]";
 const input = "h-10 w-full rounded-[10px] bg-[#F4F5F6] px-3 text-[13.5px] outline-none placeholder:text-faint focus:ring-2 focus:ring-brand/30";
@@ -314,7 +315,7 @@ function Inactive({ api, say }: { api: DeskApi; say: (t: string) => void }) {
           <select aria-label="Days away" value={days} onChange={(e) => setDays(Number(e.target.value))} className="h-8 rounded-[8px] border border-line bg-white px-2 text-[12.5px] outline-none">
             {WINDOWS.map((d) => <option key={d} value={d}>{d} days</option>)}
           </select>
-          {!!rows?.length && <button type="button" onClick={() => setComposer("all")} className="h-8 rounded-full bg-brand px-3.5 text-[12.5px] font-semibold text-white">Send to all {rows.length}</button>}
+          {!!rows?.length && <EngineGate badge="none" className="rounded-full"><button type="button" onClick={() => setComposer("all")} className="h-8 rounded-full bg-brand px-3.5 text-[12.5px] font-semibold text-white">Send to all {rows.length}</button></EngineGate>}
         </div>
       </div>
       {err ? <p className="py-8 text-center text-[13.5px] text-red-600">{err}</p>
@@ -329,7 +330,7 @@ function Inactive({ api, say }: { api: DeskApi; say: (t: string) => void }) {
                   <span className="block truncate text-[13.5px] font-medium">{m.full_name ?? m.email ?? "Patient"}</span>
                   <span className="block truncate text-[12px] text-sub">{m.last_visit_at ? `Last seen ${date(m.last_visit_at)} (${Math.round(Number(m.days_since_last))} days ago)` : m.joined_at ? `Never checked in · joined ${date(m.joined_at)}` : "Never checked in"}{m.phone ? ` · ${formatPhone(m.phone)}` : ""}</span>
                 </span>
-                <button type="button" onClick={() => setComposer(m)} className="h-8 shrink-0 rounded-full bg-white px-3 text-[12.5px] font-semibold ring-1 ring-line">We miss you</button>
+                <EngineGate badge="none" className="shrink-0 rounded-full"><button type="button" onClick={() => setComposer(m)} className="h-8 shrink-0 rounded-full bg-white px-3 text-[12.5px] font-semibold ring-1 ring-line">We miss you</button></EngineGate>
               </li>
             ))}
           </ul>

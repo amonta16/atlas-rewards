@@ -561,6 +561,10 @@ function Footer() {
           <a className="ms-focus hover:text-white" href="mailto:andrew@atlas-engine.app">andrew@atlas-engine.app</a>
           <a className="ms-focus hover:text-white" href="/legal/privacy">Privacy</a>
           <a className="ms-focus hover:text-white" href="/legal/terms">Terms</a>
+          <a className="ms-focus hover:text-white" href="/legal/ai-skin-scan">AI skin scan notice</a>
+          <a className="ms-focus hover:text-white" href="/legal/privacy#choices">Your privacy choices</a>
+          <a className="ms-focus hover:text-white" href="/legal/california">California notice</a>
+          <a className="ms-focus hover:text-white" href="/legal/health-data">Consumer health data</a>
         </span>
       </div>
     </footer>

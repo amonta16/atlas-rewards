@@ -10,6 +10,7 @@
  * The /demo clinic gets an in-memory version with sample patients, so the
  * desk can be demoed (and screenshotted) without a database.
  */
+import { demoScansKey, type ConcernId, type SavedScan } from "./skin-scan";
 import { createClient } from "@atlas/core/supabase/client";
 import { shrinkImage } from "@atlas/core/shrink-image";
 import type { MonthlyReport } from "@atlas/core/reports/monthly";
@@ -114,8 +115,16 @@ export type AtlasBilling = {
   recent_payments: { amount_cents: number; type: string; status: string; description: string | null; paid_at: string | null }[];
 };
 
+/** CP-241: a patient's saved AI skin scan (scores only, no photo). */
+export type SkinScanRow = {
+  id: string; membership_id: string | null; full_name: string | null; phone: string | null; email: string | null;
+  overall: number; skin_age: number | null; metrics: { id: ConcernId; score: number }[]; goals: string[]; treatments: string[]; created_at: string;
+};
+
 export interface DeskApi {
   lookup(q: string): Promise<LookupResult>;
+  /** CP-241: saved skin scans, newest first. */
+  skinScans(): Promise<SkinScanRow[]>;
   patient(m: DeskMember): Promise<PatientDetail>;
   checkIn(m: DeskMember): Promise<{ awarded: number; balance: number }>;
   purchase(m: DeskMember, dollars: number): Promise<{ awarded: number; balance: number }>;
@@ -365,6 +374,11 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
       fail(error);
       return data as Overview;
     },
+    async skinScans() {
+      const { data, error } = await sb().rpc("medspa_skin_scans_desk", { p_business_id: businessId, p_limit: 200 });
+      fail(error);
+      return (data ?? []) as SkinScanRow[];
+    },
     async rewardsList() {
       const { data, error } = await sb().from("rewards")
         .select("id,name,description,point_cost,image_url,is_active,show_in_store,reward_type,sort_order,category,terms")
@@ -571,12 +585,18 @@ export function liveDeskApi(businessId: string, slug: string, purchasePerDollar:
 const ago = (days: number) => new Date(Date.now() - days * 864e5).toISOString();
 const ahead = (days: number) => new Date(Date.now() + days * 864e5).toISOString();
 
-export function demoDeskApi(rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[], treatments: Treatment[]): DeskApi {
-  const people: DeskMember[] = [
+/**
+ * `imported` (lead-magnet audit, step 4): a preview desk with the owner's own patient list (from a
+ * CSV, kept in their browser) shows those patients and who's due instead of the sample people.
+ */
+export function demoDeskApi(rewards: { id: string; name: string; point_cost: number; image_url: string | null; description: string | null }[], treatments: Treatment[], slug = "demo",
+  imported: { members: DeskMember[]; due: DueRow[] } | null = null): DeskApi {
+  const sample: DeskMember[] = [
     ["Sofia Martinez", "8055550123", 420, 9], ["Emma Chen", "8055550188", 180, 3], ["Olivia Brooks", "8055550142", 960, 14],
     ["Ava Patel", "8055550177", 60, 1], ["Mia Johnson", "8055550111", 240, 5], ["Isabella Nguyen", "8055550166", 1210, 21],
   ].map(([n, p, pts, v], i) => ({ membership_id: `m${i}`, user_id: `u${i}`, full_name: n as string, email: null, phone: p as string,
     points_balance: pts as number, tier: null, joined_at: ago(200 - i * 25), visit_count: v as number }));
+  const people: DeskMember[] = imported?.members.length ? imported.members.map((m) => ({ ...m })) : sample;
   const ledgers = new Map<string, LedgerRow[]>(people.map((m) => [m.membership_id, [
     { delta: 50, rule_type: "visit", notes: null, created_at: ago(12) }, { delta: 180, rule_type: "purchase", notes: "$180.00 purchase", created_at: ago(12) },
   ]]));
@@ -691,6 +711,7 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     },
     async due() {
       await wait();
+      if (imported?.members.length) return imported.due.map((d) => ({ ...d }));
       return [
         { ...people[0], treatment_name: treatments[0]?.name ?? "Neurotoxin", performed_at: ago(84), due_at: ago(0), has_upcoming_booking: false },
         { ...people[3], treatment_name: "HydraFacial", performed_at: ago(30), due_at: ahead(2), has_upcoming_booking: false },
@@ -722,7 +743,7 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
       const sales = [152, 188, 176, 241, 263, 248, 310, 355, 332, 428, 512, 612];
       const joins = [9, 14, 11, 18, 22, 19, 25, 27, 24, 31, 34, 38];
       return {
-        patients: 412, members_paid: 186, visits_total: 1536, visits_30d: 168, sales_cents_total: 4_830_000, sales_cents_30d: 612_000, auto_offers_active: 7,
+        patients: imported?.members.length ?? 412, members_paid: 186, visits_total: 1536, visits_30d: 168, sales_cents_total: 4_830_000, sales_cents_30d: 612_000, auto_offers_active: 7,
         monthly: months.map((m, i) => ({ month: m, visits: visits[i], sales_cents: sales[i] * 1000, joins: joins[i] })),
         activity: [
           { at: ago(0.002), kind: "order", who: "Sofia", detail: "Morpheus8, 3 sessions", amount_cents: 300000 },
@@ -733,6 +754,23 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
           { at: ago(0.014), kind: "order", who: "Isabella", detail: "Glow Club membership", amount_cents: 9900 },
         ],
       };
+    },
+    async skinScans() {
+      await wait();
+      // Scans saved on the demo's patient view (this browser), then two examples.
+      let mine: SkinScanRow[] = [];
+      try {
+        mine = (JSON.parse(localStorage.getItem(demoScansKey(slug)) || "[]") as SavedScan[])
+          .map((r, i) => ({ ...r, id: `local${i}`, membership_id: null, email: null }));
+      } catch { /* storage unavailable */ }
+      const sample = (name: string, phone: string, overall: number, days: number, metrics: [ConcernId, number][], tx: string[]): SkinScanRow => ({
+        id: `ss-${phone}`, membership_id: null, full_name: name, phone, email: null, overall, skin_age: null,
+        metrics: metrics.map(([id, score]) => ({ id, score })), goals: [], treatments: tx, created_at: ago(days),
+      });
+      return [...mine,
+        sample("Emma Chen", "8055550188", 71, 0.4, [["lines", 58], ["texture", 64], ["pores", 69], ["redness", 81]], [treatments.find((t) => /tox|botox/i.test(t.name))?.name ?? "Neurotoxin", "Microneedling"]),
+        sample("Ava Patel", "8055550177", 78, 2, [["spots", 61], ["radiance", 66], ["hydration", 72], ["acne", 90]], ["IPL photofacial", "HydraFacial"]),
+      ];
     },
     async rewardsList() { await wait(); return rewardRows.map((r) => ({ ...r })); },
     async saveReward(r) { await wait(); if (r.id) rewardRows = rewardRows.map((x) => (x.id === r.id ? { ...r } : x)); else rewardRows = [...rewardRows, { ...r, id: `rw${Date.now()}` }]; },

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordEvent } from "@/lib/preview/events";
 import { waitUntil } from "@vercel/functions";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { clean } from "@/lib/landing/notify";
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
 
   // Cache hit: same spa, same preview.
   if (cached && !isExpired(cached) && cached.status !== "failed") {
+    waitUntil(recordEvent(cached.id, "build_started", { cached: true }));
     return NextResponse.json({ slug: cached.slug, status: cached.status, url: previewUrl(cached.slug), area_open: cached.area_open, cached: true }, { headers: { "Cache-Control": "no-store" } });
   }
 
@@ -124,6 +126,7 @@ export async function POST(req: Request) {
   }
 
   waitUntil(buildPreview(row.id));
+  waitUntil(recordEvent(row.id, "build_started", { cached: false }));
   waitUntil(Promise.allSettled([
     postGhlLead({
       event: "app_preview_created",

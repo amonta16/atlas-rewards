@@ -11,6 +11,12 @@
  * Every step is optional. Whatever fails falls back (monogram, neutral palette,
  * example menu, our photos) and the row ALWAYS ends "ready", so the visitor gets
  * an app. `build_error` keeps a short note of what fell back, for the admin page.
+ *
+ * Two phases (lead-magnet audit, step 2): the BRAND (name, logo, colors, font) is
+ * written and the row marked "ready" the moment it is known (a few seconds), with the
+ * example menu standing in; the site read, treatments and photos then fill in and set
+ * `built_at`. `built_at` null on a ready row = still adding treatments (/api/preview/status
+ * reports it as `enriching`).
  */
 import { NEUTRAL_PALETTE, cssBrandColors, dominantColors, paletteFromSeed, themeColorFromHtml, type PreviewColors } from "./colors";
 import { findTags, imageCandidates, inlineCss, pageText, pickFont, serviceLinks, stylesheetLinks, teamLinks, absolutize, type ImageCandidate } from "./html";
@@ -50,6 +56,8 @@ export type ComputedPreview = {
 type Uploaders = {
   logo?: (png: Buffer) => Promise<string | null>;
   photo?: (jpeg: Buffer, kind: PhotoKind) => Promise<string | null>;
+  /** Called once the brand is known, before the slow site read. */
+  brand?: (b: { logoUrl: string | null; colors: PreviewColors; font: string | null }) => Promise<void>;
 };
 
 /** The heavy lifting. No DB writes, so the admin route and tests can reuse it. */
@@ -109,6 +117,11 @@ export async function computePreview(input: { businessName: string; website: str
 
   // Font
   const font = home ? pickFont(home.html) : null;
+
+  // The brand is all the "this is mine" moment needs: publish it now, finish the rest behind it.
+  if (up.brand) {
+    try { await up.brand({ logoUrl, colors, font }); } catch (e) { notes.push(`brand: ${e instanceof Error ? e.message : "early write failed"}`); }
+  }
 
   // Read the site
   const pages = home ? [{ ...home, label: "home" }, ...(await morePages)] : [];
@@ -182,10 +195,25 @@ export async function buildPreview(id: string, ov: BuildOverrides = {}): Promise
   const { data } = await db.from("app_previews").select("id, slug, business_name, website, status").eq("id", id).maybeSingle();
   const row = data as Pick<PreviewRow, "id" | "slug" | "business_name" | "website" | "status"> | null;
   if (!row) return;
+  let branded = false;
   try {
     const r = await computePreview({ businessName: row.business_name, website: row.website, slug: row.slug }, ov, {
       logo: (png) => uploadLogo(row.slug, png),
       photo: (jpeg, kind) => uploadPhoto(row.slug, jpeg, kind),
+      // Phase 1: the app goes live with their brand and the example menu; built_at stays null until phase 2.
+      brand: async (b) => {
+        const { error } = await db.from("app_previews").update({
+          logo_url: b.logoUrl,
+          logo_is_monogram: !b.logoUrl,
+          colors: b.colors,
+          font_family: b.font,
+          treatments: EXAMPLE_TREATMENTS,
+          treatments_are_examples: true,
+          status: "ready",
+        }).eq("id", id).eq("status", "building");
+        if (error) throw error;
+        branded = true;
+      },
     });
     const { error } = await db.from("app_previews").update({
       logo_url: r.logoUrl,
@@ -204,7 +232,13 @@ export async function buildPreview(id: string, ov: BuildOverrides = {}): Promise
     if (error) throw error;
   } catch (e) {
     console.error("[preview] build failed", id, e);
-    await finishWithFallbacks(id, e instanceof Error ? e.message : "build failed");
+    const reason = e instanceof Error ? e.message : "build failed";
+    if (branded) {
+      // The brand is already live: keep it, just stop the "adding treatments" state.
+      await db.from("app_previews").update({ built_at: new Date().toISOString(), build_error: `fallback after brand: ${reason}`.slice(0, 500) }).eq("id", id);
+    } else {
+      await finishWithFallbacks(id, reason);
+    }
   }
 }
 

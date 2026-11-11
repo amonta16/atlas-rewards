@@ -6,6 +6,7 @@ import { NativeShell } from "@/components/native/native-shell";
 import { BootWatchdogScript } from "@/components/ui/boot-watchdog";
 import { HydrationMark } from "@/components/ui/hydration-mark";
 import { OfflineGuard } from "@/components/ui/offline-guard";
+import { CookieBanner } from "@/components/legal/cookie-banner";
 export const metadata: Metadata = {
   metadataBase: new URL("https://atlas-engine.app"),
   title: {
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <BootWatchdogScript />
         <HydrationMark />
         <OfflineGuard />
+        <CookieBanner />
         {/* CP-31: app-wide toaster — every alert() should migrate to this. */}
         {/* CP-76: native shell glue — renders nothing on the web/PWA. */}
         <NativeShell />

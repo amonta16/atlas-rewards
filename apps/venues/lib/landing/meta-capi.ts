@@ -39,6 +39,15 @@ export function capiConfigured(): boolean {
   return !!process.env.META_CAPI_TOKEN && /^\d{6,20}$/.test(process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "");
 }
 
+/**
+ * CP-242: the visitor said "Do Not Sell or Share" (our opt-out cookie) or
+ * their browser sends Global Privacy Control (Sec-GPC: 1).
+ */
+export function shareBlocked(req: Request): boolean {
+  if (req.headers.get("sec-gpc") === "1") return true;
+  return /(?:^|;\s*)atlas_no_share=1(?:;|$)/.test(req.headers.get("cookie") ?? "");
+}
+
 export async function sendCapiEvent(e: {
   name: CapiEventName;
   eventId: string;
@@ -47,7 +56,16 @@ export async function sendCapiEvent(e: {
   customData?: Record<string, string | number | undefined>;
   /** "website" for things the visitor did; "system_generated" for Andrew's Paid click. */
   actionSource?: "website" | "system_generated";
+  /** CP-242: true when the visitor opted out of sharing (see shareBlocked). */
+  optedOut?: boolean;
 }): Promise<boolean> {
+  // CP-242: never share an opted-out visitor. Also skip anyone without Meta's own
+  // browser ids (_fbp / fbclid): the Pixel only sets those for visitors who
+  // weren't opted out, which also covers events sent later (Paid / outcome).
+  if (e.optedOut || (!e.user.fbp && !e.user.fbc)) {
+    console.info(`[capi] skipped ${e.name} (${e.eventId}): ${e.optedOut ? "opted out" : "no Meta browser id"}`);
+    return false;
+  }
   const pixel = process.env.NEXT_PUBLIC_META_PIXEL_ID;
   const token = process.env.META_CAPI_TOKEN;
   if (!token || !pixel || !/^\d{6,20}$/.test(pixel)) {

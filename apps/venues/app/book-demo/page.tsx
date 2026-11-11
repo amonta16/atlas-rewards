@@ -52,6 +52,9 @@ export default function BookDemoPage() {
         >
           Start the 1-minute quiz <ArrowRight className="h-4 w-4" aria-hidden />
         </QuizLauncher>
+        <p className="mt-16 text-xs text-slate-500">
+          © {new Date().getFullYear()} Atlas Engine · <a className="underline" href="/legal/privacy">Privacy</a> · <a className="underline" href="/legal/terms">Terms</a> · <a className="underline" href="/legal/privacy#choices">Your privacy choices</a>
+        </p>
       </main>
     </div>
     </LandingProviders>

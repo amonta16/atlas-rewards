@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getClinic } from "@/lib/clinic";
+import { getClinic, skinScanOn } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { TopBar } from "@/components/chrome";
 import { formatPhone } from "@/lib/format";
@@ -94,6 +94,9 @@ export default async function Profile({ params, searchParams }: { params: { clin
       <div className="mx-6 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-sub">
         <a href={`${SITE}/legal/terms`} target="_blank" rel="noopener noreferrer">Terms of Service</a>
         <a href={`${SITE}/legal/privacy`} target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+        {skinScanOn(clinic) && <a href={`${SITE}/legal/ai-skin-scan`} target="_blank" rel="noopener noreferrer">AI skin scan notice</a>}
+        <a href={`${SITE}/legal/health-data`} target="_blank" rel="noopener noreferrer">Consumer health data</a>
+        <a href={`${SITE}/legal/california`} target="_blank" rel="noopener noreferrer">California notice</a>
         {patient.signedIn && <a href={`${SITE}/account/delete`} target="_blank" rel="noopener noreferrer">Delete account</a>}
       </div>
       <p className="mx-6 mt-6 text-[12px] text-faint">Powered by Atlas</p>

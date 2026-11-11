@@ -3,13 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 import { previewDb } from "@/lib/preview/store";
 import { DEFAULT_STEPS, type EmailStep } from "@/lib/landing/lead-nurture";
 import { loadSteps } from "@/lib/landing/lead-nurture-send";
-import { LeadFunnel, type FunnelData, type OptinRow } from "@/components/agency/lead-funnel";
+import { LeadFunnel, type FunnelData, type FunnelTab, type OptinRow } from "@/components/agency/lead-funnel";
+import type { CallTask, FollowData, FollowLead, LogCell } from "@/components/agency/lead-sequence";
+import { DEFAULT_SEQUENCE, fill, valuesFor, type SeqStep } from "@/lib/landing/lead-sequence";
+import { loadSequence } from "@/lib/landing/lead-sequence-run";
+import { previewUrl } from "@/lib/preview/store";
+import { smsSendEnabled } from "@/lib/preview/twilio-sms";
+import { SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
+import { EVENT_LABEL, MIN_RENDERS_TO_JUDGE, PREVIEW_EVENTS, RENDER_TO_BOOK_RED, renderToBook, type PreviewEvent } from "@/lib/preview/events";
+import type { EventsData } from "@/components/agency/lead-events";
 
 /**
  * /agency/lead-funnel — CP-238 · the lead magnet (atlas-engine.app/medspa/app), end to end.
  *   Overview         visits → previews built → opt-ins → walkthroughs booked → showed → paid,
  *                    per day, per campaign, and the latest opt-ins.
- *   Follow-up emails the 3-step sequence: timing, copy, preview, on/off.
+ *   Follow-up emails the 3-step sequence: timing, copy, preview, on/off (until CP-243).
+ *   Sequence         audit step 6: texts, emails and call tasks on one clock, each editable.
+ *   Follow-through   every lead's steps (sent / skipped and why / cancelled) and the calls to make.
  * Cohort view: every number after "visits" follows the owners who opted in inside the range.
  * agency_admin only (checked here; the sidebar flag is cosmetic).
  */
@@ -19,6 +29,32 @@ export const fetchCache = "force-no-store";
 const DAY = 86_400_000;
 const RANGES = [7, 30, 90] as const;
 const BOOKED = ["booked", "showed", "no_show", "paid"];
+
+/**
+ * Audit step 7: the ten lead-magnet events for previews first SHOWN in the range (the app_rendered
+ * cohort; build_started counts builds in the range). One row per preview per event, so these are
+ * "previews that did X", never inflated by reloads.
+ */
+async function loadEvents(since: string): Promise<EventsData> {
+  const counts = Object.fromEntries(PREVIEW_EVENTS.map((e) => [e, 0])) as Record<PreviewEvent, number>;
+  const empty: EventsData = { missing: true, counts, rtb: renderToBook(0, 0), bookSrc: [], order: PREVIEW_EVENTS.map((id) => ({ id, label: EVENT_LABEL[id] })), redLine: RENDER_TO_BOOK_RED, minRenders: MIN_RENDERS_TO_JUDGE };
+  const { data, error } = await previewDb().from("preview_events").select("preview_id, event, first_at, meta").gte("first_at", since).limit(50000);
+  if (error) return empty;
+  const rows = (data ?? []) as Array<{ preview_id: string; event: PreviewEvent; meta: Record<string, unknown> | null }>;
+  const rendered = new Set(rows.filter((r) => r.event === "app_rendered").map((r) => r.preview_id));
+  const src = new Map<string, number>();
+  for (const r of rows) {
+    if (r.event === "build_started") { counts.build_started++; continue; }
+    if (!rendered.has(r.preview_id)) continue; // cohort: apps shown in this range
+    counts[r.event]++;
+    if (r.event === "book_clicked") for (const k of Object.keys(r.meta ?? {})) if (k.startsWith("src_")) src.set(k.slice(4), (src.get(k.slice(4)) ?? 0) + 1);
+  }
+  return {
+    ...empty, missing: false, counts,
+    rtb: renderToBook(counts.app_rendered, counts.book_clicked),
+    bookSrc: Array.from(src, ([s, n]) => ({ src: s, n })).sort((a, b) => b.n - a.n),
+  };
+}
 
 async function load(days: number): Promise<FunnelData> {
   const db = previewDb();
@@ -49,7 +85,8 @@ async function load(days: number): Promise<FunnelData> {
 
   const optins: OptinRow[] = optRows.map((r) => {
     const l = r.landing_lead_id ? leads.get(String(r.landing_lead_id)) : undefined;
-    const paid = l?.status === "paid" || !!r.claimed_at;
+    // Audit step 6: claimed_at is set by "Text me my app", so it isn't a payment.
+    const paid = l?.status === "paid";
     const showed = paid || l?.status === "showed";
     const booked = showed || !!l?.demo_request_id || BOOKED.includes(String(l?.status ?? ""));
     return {
@@ -87,7 +124,54 @@ async function load(days: number): Promise<FunnelData> {
     campaigns: Array.from(camp, ([name, x]) => ({ name, visitors: x.visitors.size, optins: x.optins, booked: x.booked, paid: x.paid })).sort((a, b) => b.optins - a.optins || b.visitors - a.visitors).slice(0, 12),
     recent: optins.slice(0, 25),
     notes,
+    events: await loadEvents(since),
   };
+}
+
+/** Audit step 6: every lead's follow-through and the open call tasks. null until CP-243 is applied. */
+async function loadFollow(steps: SeqStep[]): Promise<FollowData | null> {
+  const db = previewDb();
+  const since = new Date(Date.now() - 30 * DAY).toISOString();
+  const base = "id, slug, business_name, phone, contact_name, contact_email, contact_phone, contact_marketing_consent_at, contact_at, expires_at, seq_step, sms_stopped_at, seq_stopped_reason, nurture_stopped_at, nurture_unsubscribed_at, treatments, treatments_are_examples";
+  const q = (cols: string) => db.from("app_previews").select(cols).not("contact_at", "is", null).gte("contact_at", since).order("contact_at", { ascending: false }).limit(200);
+  // CP-245's bonus_claimed_at, when that migration is in; the page works without it.
+  let res = await q(`${base}, bonus_claimed_at`);
+  if (res.error) res = await q(base);
+  const { data: rows, error } = res;
+  if (error) return null;
+  const list = (rows ?? []) as unknown as Array<Record<string, unknown>>;
+  const ids = list.map((r) => String(r.id));
+  const logs = new Map<string, Record<number, LogCell>>();
+  const open: Array<{ id: string; preview_id: string; step: number; due_at: string }> = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await db.from("lead_sequence_log").select("id, preview_id, step, status, reason, outcome, at, due_at").in("preview_id", ids.slice(i, i + 200));
+    for (const l of (data ?? []) as Array<{ id: string; preview_id: string; step: number; status: LogCell["status"]; reason: string | null; outcome: LogCell["outcome"]; at: string; due_at: string }>) {
+      if (!logs.has(l.preview_id)) logs.set(l.preview_id, {});
+      logs.get(l.preview_id)![l.step] = { status: l.status, reason: l.reason, outcome: l.outcome, at: l.at, dueAt: l.due_at };
+      if (l.status === "task_open") open.push(l);
+    }
+  }
+  const byId = new Map(list.map((r) => [String(r.id), r]));
+  const leads: FollowLead[] = list.map((r) => ({
+    id: String(r.id), slug: String(r.slug), spa: String(r.business_name), email: (r.contact_email as string | null) ?? null, optedAt: String(r.contact_at),
+    nextStep: Number(r.seq_step ?? 0),
+    stopped: r.nurture_stopped_at ? String(r.seq_stopped_reason ?? "stopped") : null,
+    smsStopped: !!r.sms_stopped_at, smsOk: !!r.contact_phone && !!r.contact_marketing_consent_at, unsubscribed: !!r.nurture_unsubscribed_at,
+    log: logs.get(String(r.id)) ?? {},
+    bonus: !!r.bonus_claimed_at,
+  }));
+  const tasks: CallTask[] = open.sort((a, b) => a.due_at.localeCompare(b.due_at)).flatMap((t) => {
+    const r = byId.get(t.preview_id);
+    const st = steps.find((s) => s.step === t.step);
+    if (!r || !st) return [];
+    const v = valuesFor(r as unknown as Parameters<typeof valuesFor>[0], { app: previewUrl(String(r.slug)), desk: "", walkthrough: `${SITE_ORIGIN}/medspa/walkthrough/${r.slug}` });
+    return [{
+      logId: t.id, previewId: t.preview_id, spa: String(r.business_name), step: t.step, name: st.name,
+      phone: (r.contact_phone as string | null) ?? (r.phone as string | null) ?? null,
+      whose: r.contact_phone ? "Owner's mobile" : "Business line (Google)", dueAt: t.due_at, script: fill(st.body, v), appUrl: previewUrl(String(r.slug)),
+    }];
+  });
+  return { leads, tasks, now: Date.now() };
 }
 
 export default async function LeadFunnelPage({ searchParams }: { searchParams: { d?: string; tab?: string } }) {
@@ -98,8 +182,13 @@ export default async function LeadFunnelPage({ searchParams }: { searchParams: {
   if (!roleRows?.length) redirect("/agency");
 
   const days = RANGES.find((r) => String(r) === searchParams.d) ?? 30;
-  const [data, saved] = await Promise.all([load(days), loadSteps().catch(() => null)]);
+  const [data, saved, seqSaved] = await Promise.all([load(days), loadSteps().catch(() => null), loadSequence().catch(() => null)]);
   const steps: EmailStep[] = saved?.length ? saved : DEFAULT_STEPS;
+  // Audit step 6: the multi-channel sequence (CP-243). The editor shows the starting schedule until then.
+  const seqSteps: SeqStep[] = seqSaved?.length ? seqSaved : DEFAULT_SEQUENCE;
+  const follow = seqSaved ? await loadFollow(seqSteps) : null;
+  const seqReached: Record<number, number> = {};
+  for (const l of follow?.leads ?? []) for (const [k, c] of Object.entries(l.log)) if (c.status === "sent" || c.status === "task_done" || c.status === "task_open" || c.status === "would_send") seqReached[Number(k)] = (seqReached[Number(k)] ?? 0) + 1;
 
   // How many owners reached each step (all time, last 30 days of opt-ins is plenty).
   const reached: Record<number, number> = {};
@@ -119,7 +208,9 @@ export default async function LeadFunnelPage({ searchParams }: { searchParams: {
         reached={reached}
         sending={process.env.LEAD_NURTURE_SEND === "1"}
         hasPostal={!!process.env.MAIL_POSTAL_ADDRESS}
-        initialTab={searchParams.tab === "emails" ? "emails" : "overview"}
+        initialTab={(["emails", "sequence", "follow"] as FunnelTab[]).find((t) => t === searchParams.tab) ?? "overview"}
+        sequence={{ steps: seqSteps, saved: !!seqSaved, emailLive: process.env.LEAD_NURTURE_SEND === "1", smsLive: smsSendEnabled(), hasPostal: !!process.env.MAIL_POSTAL_ADDRESS, reached: seqReached }}
+        follow={follow}
       />
     </div>
   );

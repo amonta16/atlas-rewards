@@ -299,6 +299,8 @@ export type MedspaConfig = {
   shop: MedspaShop;
   /** CP-207: how "Book" works (scheduling links, call / text fallback). */
   booking: MedspaBooking;
+  /** CP-241: the AI skin scan (Home → Educate yourself). Off for live clinics until the owner turns it on in App Builder. */
+  skin_scan?: { enabled: boolean };
   /** CP-214: filled from the example clinic (lib/medspa-example). Example apps
    *  always show the example gift and use the demo checkout (no real charge). */
   example?: boolean;

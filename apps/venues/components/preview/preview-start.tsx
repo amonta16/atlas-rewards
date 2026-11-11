@@ -2,24 +2,26 @@
 /**
  * PreviewStart — CP-232/233/234 · /medspa/app, step by step:
  *
- *   search your spa (the build starts right away, in the background)
- *   → "Where should we send your app?"  first/last name, email, mobile   ← the lead (Meta "Lead")
- *   → 6-digit texted code (only when PREVIEW_VERIFY_PHONE=1 and Twilio is set)
- *   → booking software → what you offer (pre-ticked from their website)
- *   → what's holding you back (2) → top priorities (2)
- *   → "Finishing your app…" → "{First}, your app is ready." → med.atlas-engine.app/p/<slug>
+ *   search your spa (the build starts right away)
+ *   → a short reveal while the brand goes live (SCAN_MS)
+ *   → straight into med.atlas-engine.app/p/<slug> (no extra tap)
+ *
+ * Lead-magnet audit, step 3: nothing is asked before the app is on screen. The lead is
+ * captured on the app page itself (email + zip, on scroll-past or 45 s: PreviewGate in
+ * apps/medspa, POST /api/preview/unlock). The contact, code and quiz steps below are no
+ * longer reached from the search; they stay for the portal (step 4) to reuse.
  *
  * Search and the build go through our server only (keys stay private). Every
  * request failure ends on a clear message with a way forward, never a blank page.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
-import { ReviewQuote, ReviewStrip } from "@/components/landing/review-strip"; // CP-239
+import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
 import { TrioVideo } from "@/components/landing/trio-video";
-import { FOUNDING, GUARANTEES, HOLD, MONTHLY_PRICE, OFFER_NAME, SETUP_STACK, TERRITORY } from "@/lib/landing/medspa-funnel";
+import { FOUNDING } from "@/lib/landing/medspa-funnel";
 import { detectPlatform, e164, type Platform } from "@/lib/preview/sms";
 import { SMS_CONSENT_PAGE, SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 
@@ -27,8 +29,11 @@ type Suggestion = { placeId: string; main: string; secondary: string };
 type Step = "search" | "contact" | "code" | "booking" | "offer" | "challenges" | "priorities" | "finishing" | "ready" | "error";
 
 const POLL_MS = 2500;
-/** The scan screen runs at least this long, so the owner watches their app come together (CP-235). */
-const SCAN_MS = 22_000;
+/**
+ * The scan screen's minimum run. Was 22 s (CP-235); the lead-magnet audit cut it to a short
+ * reveal: the app opens the moment its brand is live (build phase 1), never padded.
+ */
+const SCAN_MS = 3_500;
 
 /** What the build found on their site (from /api/preview/status once ready). */
 type Found = { site: string | null; logo: string | null; color: string | null; treatments: number; treatmentNames: string[]; photos: number; team: number; font: string | null };
@@ -127,6 +132,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   const [preview, setPreview] = useState<{ slug: string; url: string } | null>(null);
   const [built, setBuilt] = useState(false);
   const [found, setFound] = useState<Found | null>(null);
+  const [enriching, setEnriching] = useState(false);
   // contact + code
   const [contact, setContact] = useState({ first: "", last: "", email: "", phone: "", consent: false, marketing: false });
   const [code, setCode] = useState("");
@@ -209,9 +215,10 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         if (stop) return;
         try {
           const r = await fetch(`/api/preview/status?slug=${encodeURIComponent(preview.slug)}`, { cache: "no-store" });
-          const j = (await r.json().catch(() => ({}))) as { status?: string; found?: Found | null };
+          const j = (await r.json().catch(() => ({}))) as { status?: string; found?: Found | null; enriching?: boolean };
           if (r.ok && (j.status === "ready" || j.status === "expired")) {
             setFound(j.found ?? null);
+            setEnriching(!!j.enriching);
             setBuilt(true);
             return;
           }
@@ -237,9 +244,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   useEffect(() => {
     if (step !== "finishing" || !built || pct < 96) return;
     setPct(100);
-    const t = setTimeout(() => { setStep("ready"); track("preview_ready", { contact: true }); }, 1100);
+    const t = setTimeout(() => {
+      setStep("ready");
+      track("preview_ready", { contact: false });
+      // Straight into their app: the "ready" screen below only shows while the page loads.
+      if (preview) window.location.assign(preview.url);
+    }, 900);
     return () => clearTimeout(t);
-  }, [step, built, pct]);
+  }, [step, built, pct, preview]);
 
   const start = useCallback(async (s: Suggestion) => {
     setSuggestions([]);
@@ -248,14 +260,15 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
     setBuilt(false);
     setFound(null);
     setError(null);
-    setStep("contact");
+    setPct(0);
+    setStep("finishing"); // audit step 3: no form before the app
     track("preview_search", { selected: true });
     try {
       const r = await fetch("/api/preview/start", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ place_id: s.placeId, session: session.current, hp: hp.current?.value || undefined, ...attr.current }),
       });
-      const j = (await r.json().catch(() => ({}))) as { slug?: string; status?: string; url?: string; error?: string };
+      const j = (await r.json().catch(() => ({}))) as { slug?: string; status?: string; url?: string; error?: string; area_open?: boolean | null };
       if (!r.ok || !j.slug || !j.url) {
         track("preview_failed", { reason: String(r.status) });
         setError({ message: r.status === 429 ? "You've built a few previews already. Please wait a few minutes and try again." : j.error ?? "Something went wrong on our side. Please try again.", retry: s });
@@ -263,6 +276,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         return;
       }
       setPreview({ slug: j.slug, url: j.url });
+      setQualified(typeof j.area_open === "boolean" ? j.area_open : null);
       session.current = newSession();
       track("preview_started", {});
     } catch {
@@ -420,7 +434,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             </ul>
             {/* CP-237: the offer, up front. Numbers from lib/landing/medspa-funnel.ts. */}
             <p className="mt-4 max-w-[34rem] text-[14.5px] leading-relaxed text-[#3A4A5C]">
-              The preview is free. If you want it live, {FOUNDING.active ? <>our first {FOUNDING.spots} med spas pay a <b className="text-[#0B1B2B]">{usd(FOUNDING.setupFounding)} setup</b> <span className="line-through decoration-rose-400/80">{usd(FOUNDING.setupFull)}</span></> : <>setup is <b className="text-[#0B1B2B]">{usd(FOUNDING.setupFull)}</b></>} and one flat monthly plan. One med spa per {TERRITORY.radiusMiles}-mile area.
+              {/* Audit step 5: no scarcity here; their area isn't known yet. */}
+              The preview is free. If you want it live, setup is <b className="text-[#0B1B2B]">{usd(FOUNDING.active ? FOUNDING.setupFounding : FOUNDING.setupFull)}</b> and one flat monthly plan.
             </p>
 
           </div>
@@ -431,10 +446,9 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             <figcaption className="mt-1 text-center text-[13px] text-[#6B7A8C] lg:w-[122%]">Three med spa apps, each built from the practice&apos;s own website.</figcaption>
           </figure>
           <p className="max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C] lg:col-start-1 lg:row-start-2 lg:mt-8">
-            Text messages are optional. On the next step there are two separate unchecked boxes: one for your app link and
-            call reminders (&ldquo;{SMS_INFO_CONSENT_TEXT}&rdquo;) and one for offers (&ldquo;{SMS_MARKETING_CONSENT_TEXT}&rdquo;).
-            Your app is emailed either way.{" "}
-            <a href={SMS_CONSENT_PAGE} className="underline">See the form</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
+            No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
+            (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}
+            <a href={SMS_CONSENT_PAGE} className="underline">SMS consent</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
           </p>
         </main>
         {/* CP-239: real client reviews, near the bottom (nothing renders until there are some). */}
@@ -617,7 +631,6 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   }
 
   /* ───────────── finishing → ready ───────────── */
-  const first = contact.first.trim() || "Your";
   if (step === "finishing") {
     // CP-237: Dermis-style hand-off after the last question. A few seconds of "Optimizing… N%",
     // then "{First}, we're almost done…" with the progress bar, time left, OR, and "Take your app
@@ -630,18 +643,18 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
       { at: 4, doing: f?.site ? `Reading ${f.site}` : "Reading your website", done: f?.site ? `Read ${f.site}` : "Read your website" },
       { at: 20, doing: "Finding your logo", done: f?.logo ? "Found your logo" : "Made your monogram" },
       { at: 36, doing: "Matching your brand color", done: "Matched your brand color" },
-      { at: 52, doing: "Pulling your treatments", done: f?.treatments ? `Added ${f.treatments} of your treatments` : "Added a starter menu" },
+      { at: 52, doing: "Pulling your treatments", done: f?.treatments ? `Added ${f.treatments} of your treatments` : enriching ? "Your treatments are on their way" : "Added a starter menu" },
       { at: 68, doing: "Adding your photos", done: f?.photos ? `Added ${f.photos} of your photos` : "Added photos" },
       { at: 82, doing: "Setting up rewards and memberships", done: "Rewards and memberships ready" },
     ];
     const isDone = (i: number) => pct >= items[i].at + 12 && (built || i === 0);
     const stage = Math.max(0, items.findIndex((_, i) => !isDone(i)));
     const showLogo = isDone(1), showColor = isDone(2), showMenu = isDone(3);
-    const name = contact.first.trim();
+    const name = spa?.main ?? ""; // their spa, not a first name (no form before the app since step 3)
     const optimizing = pct < 14;
     const secsLeft = Math.max(1, Math.ceil((SCAN_MS * (96 - Math.min(pct, 96))) / 96 / 1000));
     const spaName = spa?.main ?? "my spa";
-    const smsBody = preview ? `Hi! I'm waiting on my ${spaName} app (${preview.slug}). Here's the email I used: ${contact.email.trim()}` : "";
+    const smsBody = preview ? `Hi! I'm waiting on my ${spaName} app (${preview.slug}).` : "";
     const sms = smsNumber && preview && platform !== "desktop" ? `sms:${smsNumber}${platform === "ios" ? "&" : "?"}body=${encodeURIComponent(smsBody)}` : null;
     const phone = (
       <div className="relative">
@@ -680,7 +693,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
           ) : (
             <>
               <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.025em] text-[#0B1B2B]">
-                {pct >= 100 ? (name ? `${name}, it's ready!` : "It's ready!") : name ? `${name}, we're almost done…` : "We're almost done…"}
+                {pct >= 100 ? (name ? `${name}, it's ready!` : "It's ready!") : name ? `Building ${name}'s app…` : "We're almost done…"}
               </h1>
               <div className="mt-8">{phone}</div>
               <div className="mt-8 w-full">
@@ -713,17 +726,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
     );
   }
   if (step === "ready" && preview) {
-    const desk = preview.url.replace(`/p/${preview.slug}`, `/${preview.slug}/desk`);
     return (
-      <StepShell step="ready" title={`${first === "Your" ? "Your" : `${first}, your`} app is ready.`}>
+      <StepShell step="ready" title={spa ? `${spa.main}'s app is ready.` : "Your app is ready."}>
         <div className="flex flex-col items-center pt-6 text-center">
           <span className="grid h-20 w-20 place-items-center rounded-full bg-gradient-to-br from-[#39A0FF] to-[#06318F] text-white shadow-[0_20px_40px_-20px_rgba(6,49,143,.8)]"><Check className="h-10 w-10" aria-hidden /></span>
-          <p className="mt-6 max-w-[30ch] text-[17px] text-[#3A4A5C]">{spa?.main ?? "Your spa"}&apos;s own patient app, with your logo, colors and treatments. We also emailed you the link.</p>
+          <p className="mt-6 max-w-[30ch] text-[17px] text-[#3A4A5C]">{spa?.main ?? "Your spa"}&apos;s own patient app, with your logo, colors and treatments.</p>
+          {/* Audit step 5: one ask. This screen only shows while their app loads. */}
           <a href={preview.url} className={`${primaryBtn} mt-8`}>Open my app</a>
-          {/* CP-237: the preview's front desk (same link as the welcome email). */}
-          <a href={desk} className="s-focus mt-4 text-[15px] font-semibold text-[#0B5FD6] underline-offset-4 hover:underline">Open my front desk</a>
         </div>
-        <OfferCard slug={preview.slug} qualified={qualified} />
       </StepShell>
     );
   }
@@ -732,40 +742,3 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
 
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-/**
- * CP-237 · the offer, stated plainly where the owner first sees their app. Every number comes
- * from lib/landing/medspa-funnel.ts (the same source as the /medspa offer section and FAQ).
- */
-function OfferCard({ slug, qualified }: { slug: string; qualified: boolean | null }) {
-  const taken = qualified === false;
-  return (
-    <section aria-labelledby="pv-offer" className="mt-10 rounded-[24px] border border-[#0B1B2B]/10 bg-[#F6F9FD] p-5 text-left sm:p-6">
-      <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#0B5FD6]">{FOUNDING.active ? `Want it live? First ${FOUNDING.spots} med spas` : "Want it live?"}</p>
-      <h2 id="pv-offer" className="mt-1.5 text-[22px] font-bold leading-tight tracking-[-0.02em] text-[#0B1B2B]">{FOUNDING.active ? `The ${OFFER_NAME}` : "Your setup"}</h2>
-      <div className="mt-4 flex flex-wrap items-end gap-x-3 gap-y-1">
-        {FOUNDING.active && <span className="pb-1 text-[16px] font-semibold text-[#8A97A8] line-through decoration-rose-400/80">{usd(FOUNDING.setupFull)}</span>}
-        <span className="text-[40px] font-extrabold leading-none tracking-tight text-[#0B1B2B]">{usd(FOUNDING.active ? FOUNDING.setupFounding : FOUNDING.setupFull)}</span>
-        <span className="pb-1 text-[14px] text-[#3A4A5C]">one-time setup</span>
-      </div>
-      <p className="mt-2 text-[13.5px] leading-snug text-[#3A4A5C]">
-        {MONTHLY_PRICE ? `Then ${usd(MONTHLY_PRICE)} a month, month to month.` : "Then one flat monthly plan, month to month, quoted on your walkthrough."} No percentage of your treatment revenue.
-        {FOUNDING.active ? ` Founding price in exchange for ${FOUNDING.trade}.` : ""}
-      </p>
-      <ul className="mt-4 space-y-2">
-        {SETUP_STACK.map((s) => (
-          <li key={s.title} className="flex items-start gap-2.5 text-[14.5px] leading-snug text-[#0B1B2B]">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0B5FD6]" strokeWidth={3} aria-hidden />{s.title}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-4 space-y-1.5 border-t border-[#0B1B2B]/8 pt-4">
-        {GUARANTEES.map((g) => <p key={g.id} className="text-[13.5px] leading-snug text-[#3A4A5C]"><b className="text-[#0B1B2B]">{g.title}</b> {g.short}.</p>)}
-      </div>
-      <p className="mt-4 text-[13.5px] font-semibold text-[#0B1B2B]">
-        {taken ? `Another med spa holds your area (one per ${TERRITORY.radiusMiles} miles). Join the waitlist and we'll tell you if it opens.` : `One med spa per ${TERRITORY.radiusMiles}-mile area.${qualified ? ` Yours is held for ${HOLD.hours} hours.` : ""}`}
-      </p>
-      <ReviewQuote topic="service" className="mt-5 !p-5 shadow-none" />
-      <a href={`/medspa/walkthrough/${slug}`} onClick={() => track("preview_offer_cta", { taken })} className={`${primaryBtn} mt-5`}>{taken ? "Join the waitlist" : "Book a 15-min walkthrough"}</a>
-    </section>
-  );
-}

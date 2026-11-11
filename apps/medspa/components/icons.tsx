@@ -26,6 +26,8 @@ export const IcOut = (p: P) => base(<><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 
 export const IcSwap = (p: P) => base(<path d="M7 7h12l-3-3M17 17H5l3 3" />, p);
 /** Scan tab: viewfinder corners with a dashed centre line. */
 export const IcScan = (p: P) => base(<><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" /><path d="M8 12h1.5M11.25 12h1.5M14.5 12H16" /></>, p);
+/** Skin scan: viewfinder corners around a face. */
+export const IcFaceScan = (p: P) => base(<><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" /><path d="M9 7.8c0-.9 1.3-1.8 3-1.8s3 .9 3 1.8V11c0 2.2-1.4 4-3 4s-3-1.8-3-4z" /><path d="M10.6 10.2h.01M13.4 10.2h.01M10.9 12.7c.7.5 1.5.5 2.2 0" /></>, p);
 export const IcLock = (p: P) => base(<><rect x="5.5" y="10.5" width="13" height="9.5" rx="2" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></>, p);
 export const IcPeople = (p: P) => base(<><circle cx="9.5" cy="8.5" r="3.2" /><path d="M3.5 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5" /><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.8c1.6.7 2.7 2.3 3 4.7" /></>, p);
 export const IcBell = (p: P) => base(<><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z" /><path d="M10 20.5a2.2 2.2 0 0 0 4 0" /></>, p);

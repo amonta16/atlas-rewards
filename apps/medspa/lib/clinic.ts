@@ -148,3 +148,8 @@ export function treatmentById(c: Clinic, id: string) {
 export function activeTreatments(c: Clinic) {
   return c.cfg.treatments.filter((t) => t.is_active);
 }
+
+/** CP-241: is the AI skin scan on? Live clinics opt in from App Builder; the demo and instant previews show it by default. */
+export function skinScanOn(c: Clinic): boolean {
+  return c.cfg.skin_scan?.enabled ?? c.isExample;
+}

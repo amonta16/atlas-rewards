@@ -467,6 +467,9 @@ export default function JoinPage() {
             </div>
           </div>
         )}
+        <p className="relative mt-6 text-center text-xs text-white/75">
+          <a className="underline" href="/legal/terms">Terms</a> · <a className="underline" href="/legal/privacy">Privacy</a>
+        </p>
       </div>
     </main>
   );

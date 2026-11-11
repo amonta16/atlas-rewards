@@ -17,7 +17,7 @@ import { KioskWaiverClient } from "@/components/customer/kiosk-waiver-client";
  */
 export const dynamic = "force-dynamic";
 
-export default async function KioskPage({ params }: { params: { business: string } }) {
+export default async function KioskPage({ params, searchParams }: { params: { business: string }; searchParams?: { from?: string } }) {
   const business = await getBusinessBySlug(params.business);
   if (!business) notFound();
 
@@ -44,5 +44,6 @@ export default async function KioskPage({ params }: { params: { business: string
     );
   }
 
-  return <KioskWaiverClient business={business} waiver={waiver} />;
+  // CP-245: ?from=site — opened from the venue website on the guest's own phone, not the counter tablet.
+  return <KioskWaiverClient business={business} waiver={waiver} mode={searchParams?.from === "site" ? "web" : "kiosk"} />;
 }

@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit, clientKey, tooMany } from "@/lib/rate-limit";
 import { notifyLead, emailProspect, hashIp, EMAIL_RE, clean } from "@/lib/landing/notify";
 import { qualify, ROLES, STAGES, SITE_ORIGIN } from "@/lib/landing/medspa-funnel";
-import { sendCapiEvent, requestIp, splitName } from "@/lib/landing/meta-capi";
+import { sendCapiEvent, requestIp, splitName , shareBlocked } from "@/lib/landing/meta-capi";
 import { newEventId } from "@/lib/landing/funnel-sign";
 // CP-204: one med spa per area; the area is re-checked here, the browser check is only a preview.
 import { checkArea } from "@/lib/landing/territory";
@@ -132,6 +132,20 @@ export async function POST(req: Request) {
     data = ins;
   }
 
+  // Audit step 6: link a lead-magnet preview to this lead (once), so its booking ends the follow-up
+  // sequence. The owner's name and mobile go on the preview too (for the call tasks; never for texts:
+  // this form has no SMS consent).
+  const pvSlug = typeof b.preview_slug === "string" && /^pv-[a-z0-9-]{3,64}$/.test(b.preview_slug) ? b.preview_slug : null;
+  if (pvSlug) {
+    const { data: pv } = await supabase.from("app_previews").select("id, landing_lead_id, contact_name, contact_phone").eq("slug", pvSlug).maybeSingle();
+    if (pv && !pv.landing_lead_id) {
+      const { error: linkErr } = await supabase.from("app_previews").update({
+        landing_lead_id: data.id, ...(pv.contact_name ? {} : { contact_name: name }), ...(pv.contact_phone ? {} : { contact_phone: `+1${phoneDigits.slice(-10)}` }),
+      }).eq("id", pv.id);
+      if (linkErr) console.error("[lead] preview link failed", linkErr.message);
+    }
+  }
+
   const roleLabel = ROLES.find((r) => r.id === role)?.label ?? role;
   const stageLabel = STAGES.find((s) => s.id === stage)?.label ?? stage;
   const sent = await notifyLead(`${verdict.qualified ? "QUALIFIED, call now" : "Not a fit (nurture)"}: ${business}`, [
@@ -156,6 +170,7 @@ export async function POST(req: Request) {
   if (verdict.qualified && eventId) {
     const n = splitName(name);
     await sendCapiEvent({
+      optedOut: shareBlocked(req),
       name: "Lead", eventId, sourceUrl: `${SITE_ORIGIN}${row.path ?? "/medspa"}`,
       user: { email, phone, firstName: n.first, lastName: n.last, fbp: row.fbp, fbc: row.fbc, ip: requestIp(req), userAgent: row.user_agent, externalId: data.id },
       customData: { content_name: "medspa_qualified", lead_type: "qualified" },

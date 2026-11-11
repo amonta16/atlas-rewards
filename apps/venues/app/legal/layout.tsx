@@ -36,13 +36,20 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
           <nav className="flex items-center gap-4 text-sm">
             <Link href="/legal/privacy" className="text-zinc-600 hover:text-zinc-900">Privacy</Link>
             <Link href="/legal/terms"   className="text-zinc-600 hover:text-zinc-900">Terms</Link>
+            <Link href="/legal/ai-skin-scan" className="hidden text-zinc-600 hover:text-zinc-900 sm:inline">AI skin scan</Link>
           </nav>
         </div>
       </header>
       <main className="max-w-3xl mx-auto px-5 py-10">{children}</main>
       <footer className="border-t bg-white" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="max-w-3xl mx-auto px-5 py-6 text-xs text-zinc-500 flex items-center justify-between">
-          <span>© {new Date().getFullYear()} Atlas Engine</span>
+          <span className="flex flex-wrap gap-x-3 gap-y-1">
+            <span>© {new Date().getFullYear()} Atlas Engine</span>
+            <Link href="/legal/california" className="underline">California notice</Link>
+            <Link href="/legal/health-data" className="underline">Consumer health data</Link>
+            <Link href="/legal/ai-skin-scan" className="underline">AI skin scan</Link>
+            <Link href="/legal/privacy#choices" className="underline">Your privacy choices</Link>
+          </span>
           <span>Questions? <a href="mailto:hello@atlas-engine.app" className="underline">hello@atlas-engine.app</a></span>
         </div>
       </footer>
