@@ -4,7 +4,7 @@ import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { CtaBar, PreviewStage } from "@/components/preview-stage";
 import { PreviewGate } from "@/components/preview-gate";
-import { BonusDetails, BonusTiles, PreviewTopBar } from "@/components/launch-bonus";
+import { BonusDetails, BonusTiles, PreviewTopBar, type OwnerMode } from "@/components/launch-bonus";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
@@ -57,7 +57,7 @@ function Notice({ title, body, cta }: { title: string; body: string; cta?: { hre
   );
 }
 
-export default async function PreviewPage({ params }: { params: { slug: string } }) {
+export default async function PreviewPage({ params, searchParams }: { params: { slug: string }; searchParams?: Record<string, string | string[] | undefined> }) {
   const slug = (params.slug ?? "").toLowerCase();
   if (!PREVIEW_SLUG_RE.test(slug)) return <Notice title="We couldn't find that preview" body="Check the link, or build a new preview in about a minute." cta={{ href: `${SITE}/medspa/app`, label: "Build my app preview" }} />;
 
@@ -88,18 +88,21 @@ export default async function PreviewPage({ params }: { params: { slug: string }
   const taken = row.area_open === false;
 
   const brand = { primary, logoUrl, businessName: row.business_name, appUrl: `${SELF}/${slug}` };
-  const reviews = await getReviewImages();
+  const [reviews, ownerKey] = await Promise.all([getReviewImages(), ownerViewKey(slug, searchParams?.owner)]);
+  const b = searchParams?.bonus;
+  const owner: OwnerMode = ownerKey ? (b === "ended" || b === "claimed" ? b : "live") : null;
 
   return (
     <Shell>
       {/* CP-245: "3 launch bonuses end in 03:59:12" while the 4-hour window runs (nothing after). */}
-      <PreviewTopBar apiOrigin={SITE} slug={slug} enabled={!taken} />
+      <PreviewTopBar apiOrigin={SITE} slug={slug} enabled={!taken} owner={owner} />
+      {ownerKey && <OwnerBar slug={slug} k={ownerKey} mode={owner} taken={taken} />}
       <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-4 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
         {/* The real app, in a phone frame, with the logo fix; the bonus tiles right under it */}
         <div>
-          <PreviewStage slug={slug} businessName={row.business_name} logoUrl={logoUrl} primary={primary} apiOrigin={SITE} />
-          <PreviewGate slug={slug} businessName={row.business_name} primary={primary} apiOrigin={SITE} />
-          <BonusTiles apiOrigin={SITE} slug={slug} enabled={!taken} brand={brand} />
+          <PreviewStage slug={slug} businessName={row.business_name} logoUrl={logoUrl} primary={primary} apiOrigin={SITE} owner={!!ownerKey} />
+          {!ownerKey && <PreviewGate slug={slug} businessName={row.business_name} primary={primary} apiOrigin={SITE} />}
+          <BonusTiles apiOrigin={SITE} slug={slug} enabled={!taken} brand={brand} owner={owner} />
         </div>
 
         {/* The pitch */}
@@ -107,7 +110,7 @@ export default async function PreviewPage({ params }: { params: { slug: string }
           <h1 className="text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px]">
             {row.business_name}, this is your app.
           </h1>
-          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=page`} primary={primary} taken={taken} bonus={{ apiOrigin: SITE, slug }} />
+          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=page`} primary={primary} taken={taken} bonus={{ apiOrigin: SITE, slug, owner }} />
           <p className="mt-4 max-w-[34rem] text-[17px] leading-relaxed text-sub">
             Your name, your colors and your treatments. {pitch.line}
           </p>
@@ -150,7 +153,7 @@ export default async function PreviewPage({ params }: { params: { slug: string }
 
       {/* The bottom of the page: the bonuses in full, then real reviews */}
       <div className="mx-auto max-w-6xl px-5 pb-36 lg:pb-20">
-        <BonusDetails apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} enabled={!taken} brand={brand} />
+        <BonusDetails apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} enabled={!taken} brand={brand} owner={owner} />
         <Reviews images={reviews} />
       </div>
     </Shell>
@@ -184,5 +187,38 @@ function Reviews({ images }: { images: ReviewImage[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/**
+ * CP-245.4 · the owner view: Admin's "Owner view" link adds ?owner=<key>. The venue site checks the
+ * key (an HMAC of the slug only it can make); a wrong or missing key is just the normal page.
+ */
+async function ownerViewKey(slug: string, k: string | string[] | undefined): Promise<string | null> {
+  if (typeof k !== "string" || !/^[A-Za-z0-9_-]{16,64}$/.test(k)) return null;
+  try {
+    const r = await fetch(`${SITE}/api/preview/owner-check?slug=${encodeURIComponent(slug)}&k=${encodeURIComponent(k)}`, { cache: "no-store" });
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean };
+    return r.ok && j.ok === true ? k : null;
+  } catch { return null; }
+}
+
+/** A thin strip only in the owner view: what this is, and the three bonus states to look at. */
+function OwnerBar({ slug, k, mode, taken }: { slug: string; k: string; mode: OwnerMode; taken: boolean }) {
+  const states: { id: NonNullable<OwnerMode>; label: string }[] = [{ id: "live", label: "Live" }, { id: "ended", label: "Ended" }, { id: "claimed", label: "Booked" }];
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 text-amber-950">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-2 text-[12.5px]">
+        <span><b>Owner view.</b> {taken ? "Area taken, so no bonus here." : "Demo clock, only you see this. Nothing is recorded."}</span>
+        {!taken && (
+          <span className="flex gap-1">
+            {states.map((s) => (
+              <a key={s.id} href={`/p/${slug}?owner=${encodeURIComponent(k)}${s.id === "live" ? "" : `&bonus=${s.id}`}`}
+                className={`rounded-full px-2.5 py-0.5 font-semibold ${mode === s.id ? "bg-amber-900 text-white" : "bg-white ring-1 ring-amber-200"}`}>{s.label}</a>
+            ))}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

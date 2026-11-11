@@ -14,10 +14,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PhoneFrame } from "./phone-frame";
 import { previewEvent } from "@/lib/preview-event";
-import { useBonusClock } from "./launch-bonus";
+import { useBonusState, type OwnerMode } from "./launch-bonus";
 
-export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }: {
-  slug: string; businessName: string; logoUrl: string | null; primary: string; apiOrigin: string;
+export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin, owner = false }: {
+  slug: string; businessName: string; logoUrl: string | null; primary: string; apiOrigin: string; owner?: boolean;
 }) {
   const router = useRouter();
   const [frameKey, setFrameKey] = useState(0);
@@ -26,7 +26,8 @@ export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin }
   const reload = useCallback(() => { setFrameKey((k) => k + 1); router.refresh(); }, [router]);
 
   // Audit step 7: their app is on screen (the render-to-book denominator).
-  useEffect(() => { previewEvent(apiOrigin, slug, "app_rendered"); }, [apiOrigin, slug]);
+  // Not in the owner view (CP-245.4): that's Andrew looking, not the owner.
+  useEffect(() => { if (!owner) previewEvent(apiOrigin, slug, "app_rendered"); }, [apiOrigin, slug, owner]);
 
   // Build phase 2: brand is live, treatments and photos still coming. Reload once they land.
   useEffect(() => {
@@ -153,9 +154,9 @@ function BrandFix({ slug, primary, apiOrigin, onClose, onSaved }: { slug: string
  * Two equal buttons, side by side, always on screen on a phone (a bar at the bottom); inline
  * on a computer. No third option. A taken area swaps Book for the waitlist.
  */
-export function CtaBar({ walkthroughUrl, primary, taken, bonus }: { walkthroughUrl: string; primary: string; taken: boolean; bonus?: { apiOrigin: string; slug: string } }) {
+export function CtaBar({ walkthroughUrl, primary, taken, bonus }: { walkthroughUrl: string; primary: string; taken: boolean; bonus?: { apiOrigin: string; slug: string; owner?: OwnerMode } }) {
   // CP-245: while the launch-bonus window runs, Book says what booking now earns.
-  const left = useBonusClock(bonus?.apiOrigin ?? "", bonus?.slug ?? "", !!bonus && !taken);
+  const { left, claimed } = useBonusState(bonus?.apiOrigin ?? "", bonus?.slug ?? "", !!bonus && !taken, bonus?.owner ?? null);
   const look = () => {
     const el = document.getElementById("pv-phone");
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -168,7 +169,7 @@ export function CtaBar({ walkthroughUrl, primary, taken, bonus }: { walkthroughU
         <a href={walkthroughUrl} className={`${btn} text-white`} style={{ background: primary }}>
           {taken ? <span className="text-[15.5px] font-semibold">Join the waitlist</span> : <>
             <span className="text-[15.5px] font-semibold">Book 15 min</span>
-            <span className="text-[12px] font-medium opacity-85">{left !== null ? "+ 3 free launch bonuses" : "turn it on live"}</span>
+            <span className="text-[12px] font-medium opacity-85">{claimed ? "bonuses locked in" : left !== null ? "+ 3 free launch bonuses" : "turn it on live"}</span>
           </>}
         </a>
         <button type="button" onClick={look} className={`${btn} bg-white text-ink ring-1 ring-line`}>

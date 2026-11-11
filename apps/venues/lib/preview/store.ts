@@ -1,7 +1,7 @@
 /**
  * lib/preview/store.ts — CP-232 · app_previews rows, slugs and URLs (server only).
  */
-import { randomBytes, createHash } from "crypto";
+import { randomBytes, createHash, createHmac, timingSafeEqual } from "crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { PreviewColors } from "./colors";
 import type { PreviewTreatment } from "./treatments";
@@ -80,6 +80,25 @@ export function medspaOrigin(): string {
 
 export function previewUrl(slug: string): string {
   return `${medspaOrigin()}/p/${slug}`;
+}
+
+/**
+ * CP-245.4 · the owner view: /p/<slug>?owner=<key> shows the full launch bonus on a 4-hour demo
+ * clock (or its ended / booked states) and records nothing. Only Admin hands out the key, an HMAC
+ * of the slug, so a prospect can't guess one; the med spa page checks it at /api/preview/owner-check.
+ */
+export function ownerViewKey(slug: string): string {
+  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return secret ? createHmac("sha256", secret).update(`owner-view:${slug}`).digest("base64url").slice(0, 24) : "";
+}
+export function ownerViewUrl(slug: string): string | null {
+  const k = ownerViewKey(slug);
+  return k ? `${previewUrl(slug)}?owner=${k}` : null;
+}
+export function isOwnerViewKey(slug: string, key: string): boolean {
+  const want = ownerViewKey(slug);
+  if (!want || key.length !== want.length) return false;
+  return timingSafeEqual(Buffer.from(key), Buffer.from(want));
 }
 
 /** Audit step 4: the three things that unlock "Turn it on now" on the preview desk. */

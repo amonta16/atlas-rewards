@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PreviewsAdmin, type AdminPreviewRow } from "@/components/preview/previews-admin";
-import { previewDb, previewUrl } from "@/lib/preview/store";
+import { ownerViewUrl, previewDb, previewUrl } from "@/lib/preview/store";
 
 /**
  * /agency/previews — CP-232 · instant app previews: make one by hand, see recent ones.
@@ -24,7 +24,7 @@ export default async function PreviewsPage() {
     .select("id, slug, business_name, website, phone, source, status, build_error, area_open, treatments_are_examples, logo_is_monogram, contact_name, contact_phone, contact_email, contact_at, booking_system, challenges, priorities, quiz_at, phone_verified_at, landing_lead_id, claimed_at, created_at, expires_at, utm_campaign, utm_content")
     .order("created_at", { ascending: false })
     .limit(200);
-  const rows: AdminPreviewRow[] = ((data ?? []) as Omit<AdminPreviewRow, "url">[]).map((r) => ({ ...r, url: previewUrl(r.slug) }));
+  const rows: AdminPreviewRow[] = ((data ?? []) as Omit<AdminPreviewRow, "url" | "owner_url">[]).map((r) => ({ ...r, url: previewUrl(r.slug), owner_url: ownerViewUrl(r.slug) }));
 
   return (
     <div className="mx-auto max-w-6xl p-6 lg:p-8">

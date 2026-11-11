@@ -11,7 +11,7 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { labelOf } from "@/lib/preview/quiz";
 
 export type AdminPreviewRow = {
-  id: string; slug: string; url: string; business_name: string; website: string | null; source: string; status: string;
+  id: string; slug: string; url: string; owner_url: string | null; business_name: string; website: string | null; source: string; status: string;
   build_error: string | null; area_open: boolean | null; treatments_are_examples: boolean; logo_is_monogram: boolean;
   phone: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null; contact_at: string | null;
   booking_system: string | null; challenges: string[] | null; priorities: string[] | null; quiz_at: string | null; phone_verified_at: string | null; landing_lead_id: string | null;
@@ -115,6 +115,7 @@ export function PreviewsAdmin({ rows }: { rows: AdminPreviewRow[] }) {
                   <td className="px-4 py-3">
                     <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-slate-900 hover:underline">{r.business_name}<ExternalLink className="h-3.5 w-3.5" /></a>
                     <div className="text-xs text-slate-500">{r.website ?? "no website"} · {r.source}</div>
+                    {r.owner_url && <a href={r.owner_url} target="_blank" rel="noreferrer" title="Their page with the launch bonus on a demo clock. Only you see it; nothing is recorded. Don't send this link to the owner." className="mt-0.5 inline-block text-xs font-medium text-sky-700 hover:underline">Owner view</a>}
                   </td>
                   <td className="px-4 py-3">{expired ? "expired" : r.status}{r.claimed_at && <div className="text-xs text-emerald-700">claimed</div>}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">

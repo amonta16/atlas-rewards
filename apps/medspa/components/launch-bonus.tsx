@@ -10,7 +10,8 @@
  *   useBonusClock  the shared clock: the deadline comes from the venue site (first time they saw
  *                  their app + 4 h, stored there, so a refresh never restarts it)
  *
- * The deadline is real: when it passes every piece disappears and the page goes back to normal.
+ * The deadline is real: when it passes the countdown pieces disappear and one quiet line says when
+ * they ended (BonusLine); booked in time, it says they're locked in.
  * Booking inside it is what earns the bonuses (checked at booking, /api/landing/demo-request).
  * No bonus on a taken area (the page's ask is the waitlist there).
  */
@@ -21,42 +22,69 @@ import { previewEvent } from "@/lib/preview-event";
 
 /* ───────────── the clock (one per page, shared) ───────────── */
 
+/**
+ * CP-245.4 · owner view (/p/<slug>?owner=<key from Admin>, checked on the server): a local demo of
+ * one state, recording nothing. "live" = a fresh 4-hour clock, "ended" = ended 50 min ago,
+ * "claimed" = booked. On a Vercel preview or localhost, ?bonus_demo[=ended|claimed] does the same.
+ */
+export type OwnerMode = "live" | "ended" | "claimed" | null;
+
 let deadline: number | null = null;
+let claimed = false;
 let loaded = false;
 let now = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
 const subs = new Set<() => void>();
 const emit = () => subs.forEach((f) => f());
 
-function start(apiOrigin: string, slug: string) {
+function start(apiOrigin: string, slug: string, owner: OwnerMode) {
   if (loaded) return;
   loaded = true;
-  // Design check on a Vercel preview (never on atlas-engine.app): ?bonus_demo shows a local 4-hour
-  // window without the venue site. It records nothing and earns nothing: bookings are checked on the server.
-  const demo = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("bonus_demo") && /\.vercel\.app$|^localhost$/.test(window.location.hostname);
-  const reply = demo ? Promise.resolve({ bonus_deadline: new Date(Date.now() + LAUNCH_BONUS.hours * 3_600_000 - 2_000).toISOString() }) : previewEvent(apiOrigin, slug, "app_rendered");
+  const q = new URLSearchParams(window.location.search);
+  const devDemo = q.has("bonus_demo") && /\.vercel\.app$|^localhost$/.test(window.location.hostname) ? (q.get("bonus_demo") || "live") : null;
+  const mode: OwnerMode = owner ?? (devDemo === "ended" || devDemo === "claimed" ? devDemo : devDemo ? "live" : null);
+  const H = LAUNCH_BONUS.hours * 3_600_000;
+  const reply: Promise<Record<string, unknown> | null> = mode
+    ? Promise.resolve({ bonus_deadline: new Date(mode === "live" ? Date.now() + H - 2_000 : Date.now() - 50 * 60_000).toISOString(), bonus_claimed: mode === "claimed" })
+    : previewEvent(apiOrigin, slug, "app_rendered");
   reply.then((j) => {
     const t = typeof j?.bonus_deadline === "string" ? Date.parse(j.bonus_deadline) : NaN;
     deadline = Number.isFinite(t) ? t : null;
+    claimed = !!deadline && j?.bonus_claimed === true;
     now = Date.now();
-    if (deadline && deadline > now && !timer) timer = setInterval(() => { now = Date.now(); emit(); if (deadline && now >= deadline && timer) { clearInterval(timer); timer = null; } }, 1000);
+    if (deadline && deadline > now && !claimed && !timer) timer = setInterval(() => { now = Date.now(); emit(); if (deadline && now >= deadline && timer) { clearInterval(timer); timer = null; } }, 1000);
     emit();
   });
 }
 
-type Clock = { left: number | null }; // ms left; null = no bonus (loading, none, or ended)
-const NONE: Clock = { left: null };
-let snap: Clock = NONE;
-function read(): Clock {
-  const left = deadline && now < deadline ? deadline - now : null;
-  if (left === null ? snap.left !== null : snap.left === null || Math.floor(left / 1000) !== Math.floor(snap.left / 1000)) snap = { left };
+/** left: ms to go (window running); endedAt: when it ended (missed); claimed: booked in time. All empty = no bonus. */
+export type BonusState = { left: number | null; endedAt: number | null; claimed: boolean };
+const NONE: BonusState = { left: null, endedAt: null, claimed: false };
+let snap: BonusState = NONE;
+function read(): BonusState {
+  const left = !claimed && deadline && now < deadline ? deadline - now : null;
+  const endedAt = !claimed && deadline && now >= deadline ? deadline : null;
+  const sec = (v: number | null) => (v === null ? null : Math.floor(v / 1000));
+  if (sec(left) !== sec(snap.left) || endedAt !== snap.endedAt || claimed !== snap.claimed) snap = { left, endedAt, claimed };
   return snap;
 }
 
-export function useBonusClock(apiOrigin: string, slug: string, enabled = true): number | null {
+export function useBonusState(apiOrigin: string, slug: string, enabled = true, owner: OwnerMode = null): BonusState {
   const c = useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f); }, read, () => NONE);
-  useEffect(() => { if (enabled && LAUNCH_BONUS.active) start(apiOrigin, slug); }, [apiOrigin, slug, enabled]);
-  return enabled && LAUNCH_BONUS.active ? c.left : null;
+  useEffect(() => { if (enabled && LAUNCH_BONUS.active) start(apiOrigin, slug, owner); }, [apiOrigin, slug, enabled, owner]);
+  return enabled && LAUNCH_BONUS.active ? c : NONE;
+}
+export function useBonusClock(apiOrigin: string, slug: string, enabled = true, owner: OwnerMode = null): number | null {
+  return useBonusState(apiOrigin, slug, enabled, owner).left;
+}
+
+/** "today at 8:49 AM", "yesterday at 8:49 AM", "on Nov 9 at 8:49 AM" (viewer's clock; client only). */
+function endedLabel(at: number) {
+  const d = new Date(at);
+  const t = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (d.toDateString() === new Date().toDateString()) return `today at ${t}`;
+  if (d.toDateString() === new Date(Date.now() - 86_400_000).toDateString()) return `yesterday at ${t}`;
+  return `on ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${t}`;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -77,8 +105,8 @@ type Brand = { primary: string; logoUrl: string | null; businessName: string; ap
 /* ───────────── top bar ───────────── */
 
 /** Sticky top bar while the window runs: "3 launch bonuses end in 03:59:12 →". Nothing after it ends. */
-export function PreviewTopBar({ apiOrigin, slug, enabled }: { apiOrigin: string; slug: string; enabled: boolean }) {
-  const left = useBonusClock(apiOrigin, slug, enabled);
+export function PreviewTopBar({ apiOrigin, slug, enabled, owner = null }: { apiOrigin: string; slug: string; enabled: boolean; owner?: OwnerMode }) {
+  const left = useBonusClock(apiOrigin, slug, enabled, owner);
   if (left === null) return null;
   const n = LAUNCH_BONUS.bonuses.length;
   return (
@@ -101,8 +129,10 @@ export function PreviewTopBar({ apiOrigin, slug, enabled }: { apiOrigin: string;
  * Right under the phone, small: three pictures (a real app video, their own banner, the audit) with a
  * shine sweeping across, a short title and "$1,500 FREE". Tapping one jumps to the full details.
  */
-export function BonusTiles({ apiOrigin, slug, enabled, brand }: { apiOrigin: string; slug: string; enabled: boolean; brand: Brand }) {
-  const left = useBonusClock(apiOrigin, slug, enabled);
+export function BonusTiles({ apiOrigin, slug, enabled, brand, owner = null }: { apiOrigin: string; slug: string; enabled: boolean; brand: Brand; owner?: OwnerMode }) {
+  const { left, endedAt, claimed } = useBonusState(apiOrigin, slug, enabled, owner);
+  if (claimed) return <BonusLine kind="claimed" brand={brand} />;
+  if (endedAt !== null) return <BonusLine kind="ended" at={endedAt} brand={brand} />;
   if (left === null) return null;
   return (
     <section id="pv-bonus" aria-labelledby="pv-bonus-tiles-h" className="mx-auto mt-5 w-full max-w-[418px] scroll-mt-16">
@@ -135,10 +165,38 @@ export function BonusTiles({ apiOrigin, slug, enabled, brand }: { apiOrigin: str
   );
 }
 
+/**
+ * CP-245.4 · after the window, in the tiles' place: one quiet line instead of a blank, so the deadline
+ * reads as real ("ended today at 8:49 AM"). Booked in time: "locked in".
+ */
+function BonusLine({ kind, at, brand }: { kind: "ended" | "claimed"; at?: number; brand: Brand }) {
+  const n = LAUNCH_BONUS.bonuses.length;
+  const ended = kind === "ended";
+  return (
+    <section aria-label={ended ? "Launch bonuses ended" : "Launch bonuses locked in"} className="mx-auto mt-5 flex w-full max-w-[418px] items-center gap-3.5 rounded-[18px] bg-white py-2.5 pl-3 pr-4 shadow-soft ring-1 ring-line">
+      <span aria-hidden className={`flex shrink-0 pl-1 ${ended ? "opacity-60 grayscale" : ""}`}>
+        {LAUNCH_BONUS.bonuses.map((b, i) => (
+          <span key={b.id} className="-ml-2.5 block h-[50px] w-[40px] overflow-hidden rounded-[8px] bg-white shadow-[0_2px_6px_-2px_rgba(0,0,0,.3)] ring-2 ring-white first:ml-0" style={{ zIndex: n - i, transform: `rotate(${(i - 1) * 7}deg)` }}>
+            <BonusPicture kind={b.icon} brand={brand} still />
+          </span>
+        ))}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-[14px] font-semibold leading-snug">
+          {ended ? `Your ${n} launch bonuses ended ${at ? endedLabel(at) : ""}` : <>Your {n} launch bonuses are locked in<svg viewBox="0 0 12 12" className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden><path d="M2.5 6.2 5 8.6l4.5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></>}
+        </span>
+        <span className="mt-0.5 block text-[12.5px] leading-snug text-sub">
+          {ended ? `They were held for ${LAUNCH_BONUS.hours} hours after you first opened your app. A call still turns your app on.` : "Launch videos, desk banner and software audit. We'll go over them on your call."}
+        </span>
+      </span>
+    </section>
+  );
+}
+
 /* ───────────── full details at the bottom ───────────── */
 
-export function BonusDetails({ apiOrigin, slug, walkthroughUrl, enabled, brand }: { apiOrigin: string; slug: string; walkthroughUrl: string; enabled: boolean; brand: Brand }) {
-  const left = useBonusClock(apiOrigin, slug, enabled);
+export function BonusDetails({ apiOrigin, slug, walkthroughUrl, enabled, brand, owner = null }: { apiOrigin: string; slug: string; walkthroughUrl: string; enabled: boolean; brand: Brand; owner?: OwnerMode }) {
+  const left = useBonusClock(apiOrigin, slug, enabled, owner);
   const [ends, setEnds] = useState<string | null>(null);
   useEffect(() => {
     if (left === null) return;
@@ -200,7 +258,9 @@ export function BonusDetails({ apiOrigin, slug, walkthroughUrl, enabled, brand }
 
 /* ───────────── the pictures ───────────── */
 
-function BonusPicture({ kind, brand }: { kind: "film" | "banner" | "receipt"; brand: Brand }) {
+function BonusPicture({ kind, brand, still = false }: { kind: "film" | "banner" | "receipt"; brand: Brand; still?: boolean }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  if (kind === "film" && still) return <img src="/bonus/app-videos.jpg" alt="" className="block h-full w-full object-cover" />;
   if (kind === "film") {
     // A real app on a real phone render (the medspa-trio loop, MedSpa SLO's membership screen).
     return <video className="block h-full w-full object-cover" src="/bonus/app-videos.mp4" poster="/bonus/app-videos.jpg" autoPlay muted loop playsInline preload="metadata" aria-label="A launch video of a med spa app" />;
