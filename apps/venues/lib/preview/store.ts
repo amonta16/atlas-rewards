@@ -46,6 +46,8 @@ export type PreviewRow = {
   quiz_at: string | null; phone_verified_at: string | null; landing_lead_id: string | null;
   // CP-242 (audit step 4; undefined until that migration is applied)
   verified_at?: string | null; csv_imported_at?: string | null; csv_count?: number | null; app_installed_at?: string | null; desk_first_at?: string | null;
+  // CP-245 (launch bonus)
+  bonus_deadline_at?: string | null; bonus_claimed_at?: string | null;
 };
 
 export type PreviewTeamMember = { name: string; title: string; photo_url: string | null };

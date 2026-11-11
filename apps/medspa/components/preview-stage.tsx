@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PhoneFrame } from "./phone-frame";
 import { previewEvent } from "@/lib/preview-event";
+import { useBonusClock } from "./launch-bonus";
 
 type Push = "idle" | "show" | "done";
 
@@ -212,7 +213,9 @@ function BrandFix({ slug, primary, apiOrigin, onClose, onSaved }: { slug: string
  * Two equal buttons, side by side, always on screen on a phone (a bar at the bottom); inline
  * on a computer. No third option. A taken area swaps Book for the waitlist.
  */
-export function CtaBar({ walkthroughUrl, primary, taken }: { walkthroughUrl: string; primary: string; taken: boolean }) {
+export function CtaBar({ walkthroughUrl, primary, taken, bonus }: { walkthroughUrl: string; primary: string; taken: boolean; bonus?: { apiOrigin: string; slug: string } }) {
+  // CP-245: while the launch-bonus window runs, Book says what booking now earns.
+  const left = useBonusClock(bonus?.apiOrigin ?? "", bonus?.slug ?? "", !!bonus && !taken);
   const look = () => {
     const el = document.getElementById("pv-phone");
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -225,7 +228,7 @@ export function CtaBar({ walkthroughUrl, primary, taken }: { walkthroughUrl: str
         <a href={walkthroughUrl} className={`${btn} text-white`} style={{ background: primary }}>
           {taken ? <span className="text-[15.5px] font-semibold">Join the waitlist</span> : <>
             <span className="text-[15.5px] font-semibold">Book 15 min</span>
-            <span className="text-[12px] font-medium opacity-85">turn it on live</span>
+            <span className="text-[12px] font-medium opacity-85">{left !== null ? "+ 3 free launch bonuses" : "turn it on live"}</span>
           </>}
         </a>
         <button type="button" onClick={look} className={`${btn} bg-white text-ink ring-1 ring-line`}>

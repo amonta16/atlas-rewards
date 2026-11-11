@@ -28,3 +28,22 @@ export const OFFER = {
     "Cancel any month and keep your banners, table tents and patient list",
   ],
 };
+
+/**
+ * CP-245 · the launch bonus on /p/<slug>: book the walkthrough within `hours` of first seeing
+ * your app and these three come free. Cheap for us to deliver, worth real money to a launch.
+ * KEEP IN SYNC with LAUNCH_BONUS in apps/venues/lib/landing/medspa-funnel.ts (which enforces the
+ * window at booking). `value` is what each would cost from an agency; edit freely.
+ */
+export const LAUNCH_BONUS = {
+  active: true,
+  hours: 4,
+  bonuses: [
+    { id: "videos", icon: "film", title: "Your app, in 3 launch videos",
+      detail: "Short vertical videos of your own app on a phone, made for Reels, TikTok and Stories. Post them the day you launch.", value: 1500 },
+    { id: "kit", icon: "megaphone", title: "Done-for-you patient launch kit",
+      detail: "6 Instagram posts and stories, plus the email and the text that tell your patients the app is live.", value: 750 },
+    { id: "audit", icon: "receipt", title: "Software cost audit",
+      detail: "We go through every tool you pay for (booking, texts, reviews, loyalty, memberships) and show what Atlas replaces, with your monthly savings in writing.", value: 500 },
+  ] as Array<{ id: string; icon: "film" | "megaphone" | "receipt"; title: string; detail: string; value: number }>,
+};

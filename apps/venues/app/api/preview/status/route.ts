@@ -59,7 +59,7 @@ export async function GET(req: Request) {
       };
     }
     const enriching = status === "ready" && !row.built_at && !isStale({ status: "building", updated_at: row.updated_at });
-    return NextResponse.json({ status, url: previewUrl(row.slug), found, enriching, zip: row.area_zip ?? null, unlocked: !!row.contact_at, progress: progressOf(row), desk_seen: !!row.desk_first_at }, { headers: { ...h, "Cache-Control": "no-store" } });
+    return NextResponse.json({ status, url: previewUrl(row.slug), found, enriching, zip: row.area_zip ?? null, unlocked: !!row.contact_at, progress: progressOf(row), desk_seen: !!row.desk_first_at, bonus_deadline: row.area_open === false ? null : row.bonus_deadline_at ?? null }, { headers: { ...h, "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[preview] status failed", e);
     return NextResponse.json({ error: "Couldn't check right now." }, { status: 500 });

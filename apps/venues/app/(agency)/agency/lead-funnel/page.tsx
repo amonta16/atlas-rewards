@@ -133,7 +133,7 @@ async function loadFollow(steps: SeqStep[]): Promise<FollowData | null> {
   const db = previewDb();
   const since = new Date(Date.now() - 30 * DAY).toISOString();
   const { data: rows, error } = await db.from("app_previews")
-    .select("id, slug, business_name, phone, contact_name, contact_email, contact_phone, contact_marketing_consent_at, contact_at, expires_at, seq_step, sms_stopped_at, seq_stopped_reason, nurture_stopped_at, nurture_unsubscribed_at, treatments, treatments_are_examples")
+    .select("id, slug, business_name, phone, contact_name, contact_email, contact_phone, contact_marketing_consent_at, contact_at, expires_at, seq_step, sms_stopped_at, seq_stopped_reason, nurture_stopped_at, nurture_unsubscribed_at, treatments, treatments_are_examples, bonus_claimed_at")
     .not("contact_at", "is", null).gte("contact_at", since).order("contact_at", { ascending: false }).limit(200);
   if (error) return null;
   const list = (rows ?? []) as Array<Record<string, unknown>>;
@@ -155,6 +155,7 @@ async function loadFollow(steps: SeqStep[]): Promise<FollowData | null> {
     stopped: r.nurture_stopped_at ? String(r.seq_stopped_reason ?? "stopped") : null,
     smsStopped: !!r.sms_stopped_at, smsOk: !!r.contact_phone && !!r.contact_marketing_consent_at, unsubscribed: !!r.nurture_unsubscribed_at,
     log: logs.get(String(r.id)) ?? {},
+    bonus: !!r.bonus_claimed_at,
   }));
   const tasks: CallTask[] = open.sort((a, b) => a.due_at.localeCompare(b.due_at)).flatMap((t) => {
     const r = byId.get(t.preview_id);

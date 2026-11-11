@@ -4,6 +4,7 @@ import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { CtaBar, PreviewStage } from "@/components/preview-stage";
 import { PreviewGate } from "@/components/preview-gate";
+import { BonusStack, PreviewTopBar } from "@/components/launch-bonus";
 import { OFFER } from "@/lib/offer";
 
 /**
@@ -14,6 +15,8 @@ import { OFFER } from "@/lib/offer";
  * engine off" banner on top; two equal buttons always on screen on a phone
  * ([Book 15 min, turn it on live] [Just look around]); a one-tap logo/color fix;
  * a tappable test push. "Text me my app" and the QR code sit further down.
+ * CP-245: a 4-hour launch bonus (book the walkthrough in time, get 3 bonuses): a countdown bar on
+ * top and the bonus stack under the pitch, gone when the window ends; not on a taken area.
  * Step 3: the lead is asked for here, after the app is on screen (PreviewGate: email + zip,
  * on scroll-past or 45 s). Nothing is asked before this page.
  * noindex/nofollow. Expired, missing, still-building and lookup-failure states
@@ -89,14 +92,8 @@ export default async function PreviewPage({ params }: { params: { slug: string }
 
   return (
     <Shell>
-      {/* Visible, not buried: what they're looking at is the app with the engine switched off. */}
-      <div className="sticky top-0 z-40 border-y border-amber-200 bg-amber-50/95 backdrop-blur" role="status">
-        <p className="mx-auto flex max-w-6xl items-center gap-2 px-5 py-2 text-[13.5px] font-semibold text-amber-900">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden />
-          Preview mode — engine off.
-          <span className="font-normal text-amber-900/80">Reminders, offers and points don&apos;t send yet.</span>
-        </p>
-      </div>
+      {/* Visible, not buried: the launch-bonus countdown (while it runs) over "Preview mode — engine off." */}
+      <PreviewTopBar apiOrigin={SITE} slug={slug} enabled={!taken} />
       <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-4 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">
         {/* The real app, in a phone frame, with the logo fix and the test push */}
         <div>
@@ -110,7 +107,7 @@ export default async function PreviewPage({ params }: { params: { slug: string }
           <h1 className="text-[34px] font-semibold leading-[1.08] tracking-[-0.02em] sm:text-[44px]">
             {row.business_name}, this is your app.
           </h1>
-          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=page`} primary={primary} taken={taken} />
+          <CtaBar walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=page`} primary={primary} taken={taken} bonus={{ apiOrigin: SITE, slug }} />
           <p className="mt-4 max-w-[34rem] text-[17px] leading-relaxed text-sub">
             Your name, your colors and your treatments. {pitch.line}
           </p>
@@ -124,6 +121,8 @@ export default async function PreviewPage({ params }: { params: { slug: string }
               </li>
             ))}
           </ul>
+          <BonusStack apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} primary={primary} enabled={!taken} />
+
           {row.treatments_are_examples && (
             <p className="mt-4 max-w-[34rem] rounded-2xl bg-white p-4 text-[14.5px] text-sub shadow-soft">
               We couldn&apos;t read a treatment menu on your website, so these are example treatments. Your real menu goes in when you go live.

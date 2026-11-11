@@ -145,6 +145,13 @@ export const TERRITORY = { radiusMiles: 10 };
  * case study after 90 days. Spots left = spots minus active founding territories.
  * Set active=false when the founding round closes; the page then shows setupFull.
  */
+/**
+ * CP-245 · the launch bonus on the app page: book the walkthrough within `hours` of first seeing
+ * your app and these come free. KEEP IN SYNC with LAUNCH_BONUS in apps/medspa/lib/offer.ts
+ * (the medspa app shows them; this side enforces the window at booking).
+ */
+export const LAUNCH_BONUS = { active: true, hours: 4 };
+
 export const FOUNDING = {
   active: true,
   spots: 10,
