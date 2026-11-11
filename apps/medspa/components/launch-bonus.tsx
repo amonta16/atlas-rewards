@@ -102,7 +102,9 @@ export function BonusStack({ apiOrigin, slug, walkthroughUrl, primary, enabled }
   const [ends, setEnds] = useState<string | null>(null);
   useEffect(() => {
     if (left === null) return;
-    setEnds(new Date(Date.now() + left).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
+    const end = new Date(Date.now() + left);
+    const day = end.toDateString() === new Date().toDateString() ? "today" : "tomorrow"; // the window is 4 h, so one of the two
+    setEnds(`${end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} ${day}`);
   }, [left === null]); // eslint-disable-line react-hooks/exhaustive-deps
   if (left === null) return null;
   return (
@@ -116,7 +118,7 @@ export function BonusStack({ apiOrigin, slug, walkthroughUrl, primary, enabled }
           Get 3 launch bonuses, free.
         </h2>
         <p className="relative mt-1.5 text-[14.5px] leading-snug text-white/70">
-          Book your 15-minute walkthrough before the timer runs out{ends ? ` (${ends} today)` : ""}. They&apos;re gone after that.
+          Book your 15-minute walkthrough before the timer runs out{ends ? ` (${ends})` : ""}. They&apos;re gone after that.
         </p>
       </div>
 
