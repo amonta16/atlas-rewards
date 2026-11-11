@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, EyeOff, ImageIcon, Loader2, Search, Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { shrinkImage } from "@/lib/shrink-image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -152,8 +153,9 @@ export function ImageLibraryPicker({
     let ok = 0;
     let firstErr: string | null = null;
 
-    for (const file of Array.from(files)) {
+    for (const raw of Array.from(files)) {
       try {
+        const file = await shrinkImage(raw);   // stored small, served as-is (no paid image transform)
         const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
         const safe = file.name
           .replace(/\.[^.]+$/, "")

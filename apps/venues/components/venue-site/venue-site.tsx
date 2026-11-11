@@ -50,6 +50,16 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
   const poolCat = sections.find(s => /pool/i.test(s.category))?.category;
   const mapsQ = encodeURIComponent(address);
   const waiverExt = waiver?.href.startsWith("http") ? { target: "_blank", rel: "noopener" } : {};
+  const foodButtons = (
+    <>
+      <a href={`tel:${c.food.orderPhone}`} className="inline-flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-[var(--vs-ink)] px-4 text-[15px] font-extrabold text-white hover:brightness-125 lg:rounded-full lg:px-6 lg:text-[16px]">
+        <Phone className="h-4 w-4" /> <span className="lg:hidden">Call to order</span><span className="hidden lg:inline">Call in a pickup order</span>
+      </a>
+      <a href={c.food.menuImage} target="_blank" rel="noopener" className="inline-flex h-[52px] items-center justify-center gap-2 rounded-2xl bg-white px-4 text-[15px] font-extrabold ring-1 ring-[var(--vs-line)] hover:ring-[var(--vs-ink)]/30 lg:rounded-full lg:px-6 lg:text-[16px]">
+        <Utensils className="h-4 w-4" /> <span className="lg:hidden">Full menu</span><span className="hidden lg:inline">Printable menu</span>
+      </a>
+    </>
+  );
 
   return (
     <div className="vs-root">
@@ -140,8 +150,9 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
           <div className="vs-marquee flex w-max gap-8 whitespace-nowrap font-display text-[20px] font-extrabold">
             {Array.from({ length: 2 }).map((_, k) => (
               <div key={k} className="flex gap-8">
-                {["Batting cages", "Up to 55 MPH", "HitTrax", "Arcade", "Prize Hub", "Pool tables", "Air hockey", "Birthday parties", "Pizza", "Cold beer"].map(t => (
-                  <span key={t} className="inline-flex items-center gap-8">{t}<span className="text-white">⚾</span></span>
+                {([["Batting cages", "⚾"], ["Arcade", "🎮"], ["Pool tables", "🎱"], ["Up to 55 MPH", "⚾"], ["Video games", "🎮"], ["Prize Hub", "🎱"],
+                  ["HitTrax", "⚾"], ["Air hockey", "🎮"], ["Birthday parties", "🎱"], ["Pizza & cold beer", "⚾"]] as const).map(([t, e]) => (
+                  <span key={t} className="inline-flex items-center gap-8">{t}<span aria-hidden="true">{e}</span></span>
                 ))}
               </div>
             ))}
@@ -363,30 +374,27 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
         <section id="food" className="relative overflow-hidden bg-[#fff8dc] py-12 md:py-24">
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--vs-sun)]/60" />
           <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6">
-            <div className="grid gap-10 lg:grid-cols-[.9fr_1.1fr]">
-              <div className="vs-reveal">
+            {/* minmax(0,1fr): the menu's swipeable tab row must not stretch the column past the screen. */}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:gap-10">
+              <div className="vs-reveal min-w-0">
                 <span className="vs-tag !bg-white !text-[#b45309]">Cafe & beer</span>
                 <h2 className="font-display mt-3 text-[clamp(36px,5vw,58px)] font-extrabold leading-[1]">{c.food.title}</h2>
-                <p className="mt-4 text-[17px] leading-relaxed text-[var(--vs-ink)]/75">{c.food.intro}</p>
-                <div className="mt-6 grid grid-cols-2 gap-3">
+                <p className="mt-3 text-[16px] leading-relaxed text-[var(--vs-ink)]/75 sm:mt-4 sm:text-[17px]">{c.food.intro}</p>
+                <div className="mt-5 grid grid-cols-2 gap-2.5 sm:gap-3 lg:mt-6">
                   {c.food.photos.map((p, i) => (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img key={p} src={p} alt={i === 0 ? "Hot dog, pizza and pretzel" : "Fresh cheese pizza"} loading="lazy" className={`aspect-square w-full rounded-[22px] object-cover ${i === 1 ? "translate-y-6" : ""}`} />
+                    <img key={p} src={p} alt={i === 0 ? "Hot dog, pizza and pretzel" : "Fresh cheese pizza"} loading="lazy"
+                      className={`aspect-[4/3] w-full rounded-[18px] object-cover sm:rounded-[22px] lg:aspect-square ${i === 1 ? "lg:translate-y-6" : ""}`} />
                   ))}
                 </div>
-                <div className="mt-12 flex flex-wrap gap-3">
-                  <a href={`tel:${c.food.orderPhone}`} className="inline-flex h-[52px] items-center gap-2 rounded-full bg-[var(--vs-ink)] px-6 text-[16px] font-extrabold text-white hover:brightness-125">
-                    <Phone className="h-4 w-4" /> Call in a pickup order
-                  </a>
-                  <a href={c.food.menuImage} target="_blank" rel="noopener" className="inline-flex h-[52px] items-center gap-2 rounded-full bg-white px-6 text-[16px] font-extrabold ring-1 ring-[var(--vs-line)] hover:ring-[var(--vs-ink)]/30">
-                    <Utensils className="h-4 w-4" /> Printable menu
-                  </a>
-                </div>
+                <div className="mt-12 hidden flex-wrap gap-3 lg:flex">{foodButtons}</div>
               </div>
-              <div className="vs-reveal rounded-[28px] bg-white p-6 shadow-[0_24px_60px_-36px_rgba(120,80,0,.5)] sm:p-8" data-delay="1">
+              <div className="vs-reveal min-w-0 rounded-[24px] bg-white p-5 shadow-[0_24px_60px_-36px_rgba(120,80,0,.5)] sm:rounded-[28px] sm:p-8" data-delay="1">
                 <MenuBoard sections={c.food.sections} />
                 <p className="text-[12px] text-[var(--vs-ink)]/50">Add onions and jalapeños to any meal for $1. Beer and wine for the grown-ups.</p>
               </div>
+              {/* Phones: the actions sit under the menu, side by side. */}
+              <div className="grid grid-cols-2 gap-2.5 lg:hidden">{foodButtons}</div>
             </div>
           </div>
         </section>
@@ -499,7 +507,7 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
               <div>
                 <div className="font-display text-[clamp(26px,3.4vw,38px)] font-extrabold leading-tight">Coming in to hit? Sign your waiver first.</div>
                 <p className="mt-1 text-[16px] text-white/90">
-                  Sign it once in the free {c.shortName} app{waiver.validDays ? ` and it's good for ${waiver.validDays >= 365 ? "a whole year" : `${waiver.validDays} days`}` : ""}. Skip the line at the counter, and start earning points.
+                  Takes a minute on your phone, no app or account needed{waiver.validDays ? `, and it's good for ${waiver.validDays >= 365 ? "a whole year" : `${waiver.validDays} days`}` : ""}. Skip the line at the counter.
                 </p>
               </div>
               <div className="flex w-full shrink-0 flex-col items-stretch gap-2 sm:w-auto sm:items-center">

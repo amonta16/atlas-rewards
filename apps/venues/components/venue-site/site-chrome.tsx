@@ -180,7 +180,7 @@ export function MenuBoard({ sections }: { sections: MenuSection[] }) {
   const [active, setActive] = useState(0);
   return (
     <>
-      <div className="-mx-6 mb-4 overflow-x-auto px-6 sm:hidden" style={{ scrollbarWidth: "none" }}>
+      <div className="-mx-5 mb-4 overflow-x-auto px-5 sm:hidden" style={{ scrollbarWidth: "none" }}>
         <div role="tablist" aria-label="Menu sections" className="flex w-max gap-2">
           {sections.map((s, i) => (
             <button key={s.title} type="button" role="tab" aria-selected={i === active} onClick={() => setActive(i)}

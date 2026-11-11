@@ -71,7 +71,13 @@ function lastNameOf(full: string): string {
   return parts.length >= 2 ? parts[parts.length - 1] : "";
 }
 
-export function KioskWaiverClient({ business, waiver }: { business: Business; waiver: Waiver }) {
+/**
+ * mode "web" (CP-245): opened from the venue's website on the guest's own
+ * phone. Same form; the tablet-only bits change: no "hand the tablet", no QR
+ * to scan (they're already on a phone), and "Back to the site" instead of
+ * "Next person".
+ */
+export function KioskWaiverClient({ business, waiver, mode: surface = "kiosk" }: { business: Business; waiver: Waiver; mode?: "kiosk" | "web" }) {
   const primary = business.brand_colors?.primary ?? "#2563eb";
 
   const [step, setStep] = useState(0);
@@ -186,6 +192,33 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
   // ── confirmation ──────────────────────────────────────────────────────────
   if (done) {
     const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/signup` : "";
+    if (surface === "web") {
+      // Subdomain (<slug>.root/kiosk) → /site; path-style (/<slug>/kiosk) → /site/<slug>.
+      const pathStyle = typeof window !== "undefined" && window.location.pathname.startsWith(`/${business.slug}/`);
+      const siteHref = pathStyle ? `/site/${business.slug}` : "/site";
+      return (
+        <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-5">
+          <div className="w-full max-w-lg bg-white rounded-3xl border shadow-sm p-7 text-center">
+            <div className="h-20 w-20 rounded-full mx-auto flex items-center justify-center text-white" style={{ background: primary }}>
+              <CheckCircle2 className="h-11 w-11" />
+            </div>
+            <h1 className="text-3xl font-black mt-5 text-zinc-900">You&apos;re all set</h1>
+            <p className="text-zinc-600 mt-1 text-lg">
+              Thanks, {done}. Your waiver is signed{signedMinorCount > 0 ? ` for you and ${signedMinorCount} ${signedMinorCount === 1 ? "child" : "children"}` : ""}. Just give your name at the counter.
+            </p>
+            <a href={`${siteHref}#book`} className="mt-7 flex h-14 w-full items-center justify-center rounded-2xl text-lg font-black text-white" style={{ background: primary }}>
+              Book a cage
+            </a>
+            <a href={`${siteHref}#app`} className="mt-3 flex h-12 w-full items-center justify-center rounded-2xl border text-base font-bold text-zinc-800">
+              Get the app and earn points
+            </a>
+            <button type="button" onClick={nextPerson} className="mt-4 text-sm font-bold text-zinc-500 underline-offset-4 hover:underline">
+              Sign for someone else
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-6">
         <div className="w-full max-w-lg bg-white rounded-3xl border shadow-sm p-8 text-center">
@@ -294,7 +327,7 @@ export function KioskWaiverClient({ business, waiver }: { business: Business; wa
                 </label>
                 {dob && age !== null && age < 18 && (
                   <p className="sm:col-span-2 text-[15px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                    A parent or guardian has to sign this. Please hand the tablet to them — they can add you as a
+                    A parent or guardian has to sign this. Please hand the {surface === "web" ? "phone" : "tablet"} to them — they can add you as a
                     child on the next screen.
                   </p>
                 )}
