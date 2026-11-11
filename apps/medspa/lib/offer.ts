@@ -41,7 +41,7 @@ export const LAUNCH_BONUS = {
   bonuses: [
     { id: "videos", icon: "film", short: "3 launch videos", title: "Your app, in 3 launch videos",
       detail: "Short vertical videos of your own app on a phone, made for Reels, TikTok and Stories. Post them the day you launch.", value: 1500 },
-    { id: "banner", icon: "banner", short: "Front-desk banner", title: "Custom front-desk banner",
+    { id: "banner", icon: "banner", short: "Desk banner", title: "Custom front-desk banner",
       detail: "A roll-up banner in your colors with your logo and a QR code to your app, designed, printed and shipped to your front desk. Patients scan it while they wait.", value: 250 },
     { id: "audit", icon: "receipt", short: "Software audit", title: "Software cost audit",
       detail: "We go through every tool you pay for (booking, texts, reviews, loyalty, memberships) and show what Atlas replaces, with your monthly savings in writing.", value: 500 },

@@ -213,16 +213,16 @@ function BonusPicture({ kind, brand }: { kind: "film" | "banner" | "receipt"; br
 function BannerMock({ brand }: { brand: Brand }) {
   const { primary, logoUrl, businessName, appUrl } = brand;
   return (
-    <span className="relative flex h-full w-full items-end justify-center bg-gradient-to-b from-[#ECEEF1] to-[#D9DCE1]" aria-label={`A roll-up banner for ${businessName}`}>
+    <span className="relative flex h-full w-full items-end justify-center bg-gradient-to-b from-[#ECEEF1] to-[#D9DCE1]" style={{ containerType: "size" }} aria-label={`A roll-up banner for ${businessName}`}>
       <span aria-hidden className="absolute bottom-[7%] left-1/2 h-[4%] w-[58%] -translate-x-1/2 rounded-full bg-black/15 blur-[3px]" />
       <span className="relative mb-[8%] flex h-[84%] w-[50%] flex-col items-center rounded-t-[3px] bg-white px-[6%] pt-[8%] shadow-[0_6px_14px_-6px_rgba(0,0,0,.35)] ring-1 ring-black/5">
         <span aria-hidden className="absolute -top-[3%] left-[-6%] right-[-6%] h-[3%] rounded-full bg-[#9CA2AB]" />
         {logoUrl
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={logoUrl} alt="" className="h-[14%] w-full object-contain" />
-          : <span className="grid h-[14%] w-full place-items-center text-[9px] font-bold" style={{ color: primary }}>{businessName.slice(0, 18)}</span>}
-        <span className="mt-[10%] block text-center text-[7px] font-bold leading-tight text-[#111318]">Get our app</span>
-        <span className="block text-center text-[5.5px] leading-tight text-black/50">points · offers · rewards</span>
+          : <span className="grid h-[14%] w-full place-items-center font-bold" style={{ color: primary, fontSize: "8cqw" }}>{businessName.slice(0, 18)}</span>}
+        <span className="mt-[10%] block text-center font-bold leading-tight text-[#111318]" style={{ fontSize: "7.5cqw" }}>Get our app</span>
+        <span className="block text-center leading-tight text-black/50" style={{ fontSize: "5cqw" }}>points · offers · rewards</span>
         <span className="mt-[8%] block w-[70%] rounded-[3px] bg-white p-[3%] ring-1 ring-black/10"><QRCode value={appUrl} size={64} level="L" style={{ width: "100%", height: "auto" }} /></span>
         <span className="mt-auto block h-[13%] w-[calc(100%+12%)] -mx-[6%]" style={{ background: primary }} />
       </span>
@@ -235,15 +235,15 @@ function BannerMock({ brand }: { brand: Brand }) {
 function AuditMock() {
   const rows = ["Loyalty app", "Text blasts", "Review tool", "Gift cards"];
   return (
-    <span className="relative flex h-full w-full items-center justify-center bg-gradient-to-b from-[#F4F1EA] to-[#E7E1D3]" aria-label="A software bill with tools crossed out">
+    <span className="relative flex h-full w-full items-center justify-center bg-gradient-to-b from-[#F4F1EA] to-[#E7E1D3]" style={{ containerType: "size" }} aria-label="A software bill with tools crossed out">
       <span className="relative w-[78%] rotate-[-4deg] rounded-[4px] bg-white px-[9%] py-[10%] shadow-[0_8px_16px_-8px_rgba(0,0,0,.35)]">
-        <span className="block text-[7px] font-bold uppercase tracking-[0.12em] text-black/45">Monthly software</span>
+        <span className="block font-bold uppercase tracking-[0.08em] text-black/45" style={{ fontSize: "5.5cqw" }}>Monthly software</span>
         {rows.map((r) => (
-          <span key={r} className="mt-[7%] flex items-center justify-between gap-1 text-[7.5px] text-black/45 line-through decoration-red-500 decoration-[1.5px]">
+          <span key={r} className="mt-[7%] flex items-center justify-between gap-1 text-black/45 line-through decoration-red-500 decoration-[1.5px]" style={{ fontSize: "6.5cqw" }}>
             <span>{r}</span><span className="h-[5px] w-[22%] rounded-full bg-black/15" />
           </span>
         ))}
-        <span className="mt-[12%] flex items-center justify-between border-t border-dashed border-black/20 pt-[8%] text-[8px] font-bold text-emerald-600">
+        <span className="mt-[12%] flex items-center justify-between border-t border-dashed border-black/20 pt-[8%] font-bold text-emerald-600" style={{ fontSize: "7cqw" }}>
           <span>You save</span><span>✓</span>
         </span>
       </span>

@@ -172,12 +172,12 @@ function Reviews({ images }: { images: ReviewImage[] }) {
   if (!images.length) return null;
   return (
     <section aria-labelledby="pv-reviews" className="mt-12">
-      <h2 id="pv-reviews" className="text-center text-[22px] font-semibold tracking-[-0.015em]">What practice owners say</h2>
+      <h2 id="pv-reviews" className="text-center text-[22px] font-semibold tracking-[-0.015em]">Real reviews</h2>
       <ul className="no-scrollbar -mx-5 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2 lg:mx-0 lg:flex-wrap lg:justify-center lg:overflow-visible lg:px-0">
         {images.map((img) => (
           <li key={img.id} className="shrink-0 snap-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={img.url} alt={img.alt || "A review of Atlas"} loading="lazy" decoding="async"
+            <img src={img.url} alt={img.alt || "A review"} loading="lazy" decoding="async"
               width={img.width ?? undefined} height={img.height ?? undefined}
               className="h-[300px] w-auto max-w-[82vw] rounded-[18px] bg-white object-contain shadow-soft ring-1 ring-line lg:h-[340px]" />
           </li>
