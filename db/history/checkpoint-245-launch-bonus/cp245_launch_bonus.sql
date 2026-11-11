@@ -5,8 +5,7 @@
 -- · bonus_claimed_at   they BOOKED their walkthrough before the deadline (/api/landing/demo-request).
 --                      Andrew's booking email says whether the bonuses are owed.
 --
--- Additive; the code before CP-245 ignores both. NOT APPLIED YET: apply before (or right after)
--- deploying. Until then the bonus simply doesn't show, and bookings aren't checked against it.
+-- Additive; the code before CP-245 ignores both. Applied to production 2026-11-11 as migration cp245_launch_bonus.
 --
 -- Undo:
 --   alter table public.app_previews drop column if exists bonus_deadline_at, drop column if exists bonus_claimed_at;
