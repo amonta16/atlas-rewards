@@ -32,6 +32,8 @@ export type VenueSiteContent = {
   cages: {
     title: string; intro: string; body: string;
     facts: Array<{ big: string; small: string }>;
+    /** Pitch speed per cage number ("Cage #4" → 45). Shown as a speed badge on the cage's booking card. */
+    speeds?: Record<number, number>;
     prices: PriceRow[];
     rules: string[];
     photos: string[];
@@ -89,10 +91,11 @@ export const FLIPPOS: VenueSiteContent = {
       "Consistent pitching speeds, spacious lanes and well-kept gear. Kids, teens and adults can all step in: practice, compete with friends, or just have a blast.",
     facts: [
       { big: "6", small: "cages" },
-      { big: "55", small: "MPH max" },
+      { big: "28–55", small: "MPH" },
       { big: "33", small: "MPH softball" },
       { big: "HitTrax", small: "in Cage #4" },
     ],
+    speeds: { 1: 33, 2: 28, 3: 35, 4: 45, 5: 50, 6: 55 },
     prices: [
       { price: "$1.50", hittrax: "$2", balls: 9, minutes: 1 },
       { price: "$12.50", hittrax: "$15", balls: 90, minutes: 10 },

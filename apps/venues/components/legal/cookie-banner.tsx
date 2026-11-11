@@ -4,9 +4,19 @@
  * www). Business and patient apps (subdomains) use essential cookies only and
  * never show it. Accept and Decline are equally easy, and GPC browsers are
  * treated as declined without asking. See lib/privacy-optout.ts.
+ *
+ * CP-245.3: the apex domain also serves the apps themselves (path-style
+ * /<slug>/app, /<slug>/login, the native shell's single origin, venue
+ * websites at /site/<slug>). App users must never see it, so it now shows
+ * only on the marketing PAGES (allowlist below) and never inside the native app.
  */
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { consentDecided, setConsent, strictRegion } from "@/lib/privacy-optout";
+import { isNative } from "@/lib/native";
+
+/** Atlas's own marketing pages: home, niche pages, funnels, demo booking, legal, support. */
+const MARKETING_PATH = /^\/(?:|venues|med-spas|book-demo|support)(?:\/.*)?$|^\/legal(?:\/|$)|^\/medspa(?:\/(?:start|confirm|walkthrough)(?:\/.*)?)?\/?$/;
 
 function marketingHost(): boolean {
   const h = location.hostname;
@@ -17,12 +27,16 @@ function marketingHost(): boolean {
 export function CookieBanner() {
   const [show, setShow] = useState(false);
   const [strict, setStrict] = useState(false);
+  const pathname = usePathname() ?? "/";
+  const onMarketingPage = MARKETING_PATH.test(pathname);
   useEffect(() => {
-    if (!marketingHost() || consentDecided()) return;
+    // Leaving the marketing site for an app page closes it too.
+    if (!onMarketingPage) { setShow(false); return; }
+    if (!marketingHost() || isNative() || consentDecided()) return;
     setStrict(strictRegion());
     const t = setTimeout(() => setShow(true), 600);
     return () => clearTimeout(t);
-  }, []);
+  }, [onMarketingPage]);
   if (!show) return null;
   const choose = (c: "all" | "essential") => { setConsent(c); setShow(false); };
   return (

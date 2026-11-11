@@ -9,7 +9,8 @@ import { ArrowRight, CalendarCheck, Clock, Gift, MapPin, MessageCircle, Navigati
 import type { VenueSiteContent } from "@/lib/venue-site/content";
 import { optimizedUrl } from "@/lib/img";
 import { durationLabel } from "@/lib/booking";
-import { BookButton, BookingSection, type SiteMember, type SiteResource } from "./site-booking";
+import { BookButton, BookingSection, LiveSectionNote, SpeedGauge, type SiteMember, type SiteResource } from "./site-booking";
+import type { SiteLiveRow } from "@/lib/venue-site/live";
 import { LoopVideo, MenuBoard, MobileBookBar, OpenNow, RevealOnScroll, SiteNav } from "./site-chrome";
 import { hoursLine } from "@/lib/venue-site/hours";
 
@@ -22,10 +23,12 @@ const fmtPhone = (raw: string) => {
 
 export type SiteWaiver = { href: string; signInHref: string | null; validDays: number | null };
 
-export function VenueSite({ c, name, logoUrl, phone, address, resources, member, rewards, visitPoints, storeLinks, slug, waiver }: {
+export function VenueSite({ c, name, logoUrl, phone, address, resources, member, rewards, visitPoints, storeLinks, slug, waiver, live }: {
   c: VenueSiteContent; name: string; logoUrl: string | null; phone: string; address: string; slug: string;
   /** The business's own Atlas waiver (signup → waiver gate, or /app/waiver when signed in). */
   waiver: SiteWaiver | null;
+  /** What's in use right now (same as the app's Book tab). */
+  live: SiteLiveRow[];
   resources: SiteResource[]; member: SiteMember; rewards: SiteReward[]; visitPoints: number;
   storeLinks: { ios: string; android: string; joinCode: string };
 }) {
@@ -39,16 +42,19 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
     { href: "#visit", label: "Visit" },
   ];
   // Quick-book rows in the hero: one per section of bookable things.
-  const sections: Array<{ category: string; count: number; cover: string | null; durations: number[] }> = [];
+  const sections: Array<{ category: string; count: number; cover: string | null; durations: number[]; ids: string[] }> = [];
   for (const r of resources) {
     const s = sections.find(x => x.category === r.category);
-    if (s) { s.count++; if (!s.cover && r.image_url) s.cover = r.image_url; }
-    else sections.push({ category: r.category, count: 1, cover: r.image_url, durations: r.durations });
+    if (s) { s.count++; s.ids.push(r.id); if (!s.cover && r.image_url) s.cover = r.image_url; }
+    else sections.push({ category: r.category, count: 1, cover: r.image_url, durations: r.durations, ids: [r.id] });
   }
   const cageCat = sections.find(s => /cage/i.test(s.category))?.category;
   const partyCat = sections.find(s => /part/i.test(s.category))?.category;
   const poolCat = sections.find(s => /pool/i.test(s.category))?.category;
   const mapsQ = encodeURIComponent(address);
+  // "Pick your speed": every cage with a known pitch speed, slowest to fastest.
+  const speedCages = resources.filter(r => r.mph).sort((a, b) => a.mph! - b.mph!);
+  const speedColor = (mph: number) => (mph >= 50 ? "#e8344a" : mph >= 40 ? "#f97316" : mph >= 32 ? "#ca8a04" : "#16a34a");
   const waiverExt = waiver?.href.startsWith("http") ? { target: "_blank", rel: "noopener" } : {};
   const foodButtons = (
     <>
@@ -132,7 +138,7 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
                         ? <img src={optimizedUrl(s.cover, 200)} alt="" className="h-16 w-20 shrink-0 rounded-xl object-cover" />
                         : <span className="h-16 w-20 shrink-0 rounded-xl bg-[var(--vs-sky-soft)]" />}
                       <span className="min-w-0 flex-1">
-                        <span className="font-display block text-[18px] font-extrabold leading-tight">{s.category}</span>
+                        <span className="font-display flex items-center text-[18px] font-extrabold leading-tight">{s.category}<LiveSectionNote ids={s.ids} initial={live} /></span>
                         <span className="block text-[13px] text-[var(--vs-ink)]/60">{s.count} to choose from · {s.durations.map(durationLabel).join(" or ")}</span>
                       </span>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--vs-blue)] text-white transition group-hover:translate-x-0.5"><ArrowRight className="h-4 w-4" /></span>
@@ -180,7 +186,7 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
               </ol>
             </div>
             <div className="vs-reveal mt-8" data-delay="1">
-              <BookingSection slug={slug} businessName={name} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} />
+              <BookingSection slug={slug} businessName={name} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} initialLive={live} />
             </div>
             <p className="mt-6 text-center text-[14px] text-[var(--vs-ink)]/60">
               Team practice, school or a big group? <a href={`tel:${phone}`} className="font-bold text-[var(--vs-blue)] underline-offset-4 hover:underline">Call {fmtPhone(phone)}</a> and we&apos;ll set it up.
@@ -240,11 +246,38 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
               </div>
             </div>
 
-            <div className="mt-16 grid gap-5 lg:grid-cols-[1.2fr_1fr]">
+            {speedCages.length > 0 && (
+              <div className="vs-reveal mt-14">
+                <div className="flex items-end justify-between gap-3">
+                  <h3 className="font-display text-[26px] font-extrabold leading-tight sm:text-[30px]">Pick your speed</h3>
+                  <span className="pb-1 text-[13px] font-semibold text-[var(--vs-ink)]/55">Tap a cage to book it</span>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2.5 sm:gap-3 lg:grid-cols-6">
+                  {speedCages.map(r => {
+                    const tag = /hit\s*t?rax/i.test(r.name) ? "HitTrax" : /softball/i.test(r.name) ? "Softball" : null;
+                    const cage = (r.name.match(/cage\s*#?\s*\d+/i)?.[0] ?? r.name).replace(/\s+/g, " ");
+                    return (
+                      <BookButton key={r.id} resourceId={r.id} ariaLabel={`Book ${r.name}, ${r.mph} miles per hour`}
+                        className="group relative flex flex-col items-center rounded-[20px] bg-white px-2 pb-3 pt-3.5 text-center ring-1 ring-[var(--vs-line)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_-20px_rgba(11,37,64,.6)] hover:ring-[var(--vs-blue)]/40 active:scale-[0.98]">
+                        <SpeedGauge mph={r.mph!} className="h-8 w-[52px] text-[var(--vs-ink)]" />
+                        <span className="mt-1.5 flex items-baseline gap-1">
+                          <span className="font-display text-[30px] font-extrabold leading-none tabular-nums" style={{ color: speedColor(r.mph!) }}>{r.mph}</span>
+                          <span className="text-[11px] font-black uppercase">mph</span>
+                        </span>
+                        <span className="mt-1 text-[13px] font-extrabold">{cage}</span>
+                        {tag && <span className="mt-1 rounded-full bg-[var(--vs-sky-soft)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--vs-blue)]">{tag}</span>}
+                      </BookButton>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-12 grid gap-5 lg:grid-cols-[1.2fr_1fr]">
               <div className="vs-reveal overflow-hidden rounded-[28px] bg-white ring-1 ring-[var(--vs-line)]">
-                <div className="flex items-center justify-between gap-3 bg-[var(--vs-ink)] px-5 py-4 text-white">
-                  <h3 className="font-display text-[22px] font-extrabold">Cage pricing</h3>
-                  <span className="rounded-full bg-[var(--vs-sun)] px-3 py-1 text-[12px] font-extrabold text-[var(--vs-ink)]">Card reader on every cage</span>
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-[var(--vs-ink)] px-5 py-4 text-white">
+                  <h3 className="font-display whitespace-nowrap text-[22px] font-extrabold">Cage pricing</h3>
+                  <span className="whitespace-nowrap rounded-full bg-[var(--vs-sun)] px-3 py-1 text-[11px] font-extrabold text-[var(--vs-ink)] sm:text-[12px]">Tap-to-pay on every cage</span>
                 </div>
                 <table className="w-full text-left text-[15px] tabular-nums">
                   <thead>

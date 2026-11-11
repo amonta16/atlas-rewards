@@ -5,6 +5,7 @@ import { getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bookingEnabled, type BookingPackage } from "@/lib/booking";
 import { siteContentFor, type VenueSiteContent } from "@/lib/venue-site/content";
+import { siteLiveFor } from "@/lib/venue-site/live";
 import { venueSiteFontClass } from "@/lib/venue-site/fonts";
 import { VenueSite, type SiteReward, type SiteWaiver } from "@/components/venue-site/venue-site";
 import type { SitePkg, SiteResource, SiteMember } from "@/components/venue-site/site-booking";
@@ -46,6 +47,15 @@ export async function generateMetadata({ params }: { params: { business: string 
   };
 }
 
+/** "Cage #4 (Hitrax)" → the site's speed for cage 4; else "45 MPH" in the app's description. */
+function speedFor(c: VenueSiteContent, name: string, description: string | null): number | null {
+  const n = name.match(/cage\s*#?\s*(\d+)/i);
+  const fromSite = n ? c.cages.speeds?.[Number(n[1])] : undefined;
+  if (fromSite) return fromSite;
+  const d = (description ?? "").match(/(\d{2})\s*mph/i);
+  return d ? Number(d[1]) : null;
+}
+
 /** App packages and the website's price board, merged by name (price board order first). */
 function mergePackages(c: VenueSiteContent, dbPkgs: BookingPackage[]): SitePkg[] {
   const out: SitePkg[] = [];
@@ -74,7 +84,7 @@ export default async function VenueSitePage({ params }: { params: { business: st
   if (!business) notFound();
 
   const admin = createAdminClient();
-  const [resQ, rewQ, waiverQ, user] = await Promise.all([
+  const [resQ, rewQ, waiverQ, user, liveRows] = await Promise.all([
     bookingEnabled(business)
       ? admin.from("booking_resources")
           .select("id, name, description, emoji, image_url, units, unit_label, durations, max_party, horizon_days, category, packages, sort_order")
@@ -90,14 +100,16 @@ export default async function VenueSitePage({ params }: { params: { business: st
       .eq("business_id", business.id).eq("is_active", true).not("current_version_id", "is", null)
       .order("required_for_signup", { ascending: false }).limit(1).maybeSingle(),
     getCachedUser().catch(() => null),
+    siteLiveFor({ id: business.id }).catch(() => []),
   ]);
 
-  type Row = Omit<SiteResource, "packages" | "category"> & { category: string | null; packages: BookingPackage[] | null; sort_order: number };
+  type Row = Omit<SiteResource, "packages" | "category" | "mph"> & { category: string | null; packages: BookingPackage[] | null; sort_order: number };
   const resources: SiteResource[] = ((resQ.data ?? []) as Row[]).map(r => ({
     id: r.id, name: r.name, description: r.description, image_url: r.image_url, emoji: r.emoji,
     category: (r.category ?? "").trim() || "Other",
     units: r.units, unit_label: r.unit_label, durations: r.durations, max_party: r.max_party, horizon_days: r.horizon_days,
     packages: (r.packages?.length ?? 0) > 0 ? mergePackages(c, r.packages!) : [],
+    mph: speedFor(c, r.name, r.description),
   }));
   // Group order follows the first resource of each section (sort_order); "Other" last.
   resources.sort((a, b) => (a.category === "Other" ? 1 : 0) - (b.category === "Other" ? 1 : 0));
@@ -146,6 +158,7 @@ export default async function VenueSitePage({ params }: { params: { business: st
         visitPoints={business.point_rules?.visit ?? 50}
         storeLinks={{ ios: IOS, android: ANDROID, joinCode: business.join_code ?? c.app.joinCode }}
         waiver={waiver}
+        live={liveRows ?? []}
       />
       <script
         type="application/ld+json"

@@ -16,7 +16,8 @@
  * Any button on the page can open the sheet: <BookButton category="Parties" pkg="All Star" />
  * fires a "vs:book" event this component listens for.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import type { SiteLiveRow } from "@/lib/venue-site/live";
 import { ArrowLeft, Check, ChevronRight, Clock, CalendarPlus, Loader2, Minus, Phone, Plus, Users, X, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { optimizedUrl } from "@/lib/img";
@@ -28,6 +29,8 @@ export type SiteResource = {
   id: string; name: string; description: string | null; image_url: string | null; emoji: string | null;
   category: string; units: number; unit_label: string; durations: number[]; max_party: number;
   horizon_days: number; packages: SitePkg[];
+  /** Pitch speed (batting cages). null → no speed badge. */
+  mph: number | null;
 };
 export type SiteMember = { name: string | null; phone: string | null; email: string | null } | null;
 
@@ -45,6 +48,126 @@ export function BookButton({ category, pkg, resourceId, className, children, ari
     </button>
   );
 }
+
+/* ── Speed badge ───────────────────────────────────────────────────── */
+
+const SPEED_MAX = 60;
+function speedColor(mph: number) {
+  return mph >= 50 ? "#e8344a" : mph >= 40 ? "#f97316" : mph >= 32 ? "#eab308" : "#16a34a";
+}
+
+/** Little speedometer: the needle and the colored arc sweep with the speed, motion streaks on the left. */
+export function SpeedGauge({ mph, className = "h-5 w-8" }: { mph: number; className?: string }) {
+  const gid = useId().replace(/:/g, "");
+  const pct = Math.max(4, Math.min(100, (mph / SPEED_MAX) * 100));
+  const angle = -90 + (180 * pct) / 100;
+  return (
+    <svg viewBox="0 0 32 20" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={`g${gid}`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor="#22c55e" /><stop offset=".55" stopColor="#facc15" /><stop offset="1" stopColor="#ef4444" />
+        </linearGradient>
+      </defs>
+      <path d="M4 18 A12 12 0 0 1 28 18" fill="none" stroke="currentColor" strokeOpacity=".18" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M4 18 A12 12 0 0 1 28 18" fill="none" stroke={`url(#g${gid})`} strokeWidth="3.5" strokeLinecap="round" pathLength={100} strokeDasharray={`${pct} 100`} />
+      <line x1="16" y1="18" x2="16" y2="8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" transform={`rotate(${angle} 16 18)`} />
+      <circle cx="16" cy="18" r="2.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** "≡◔ 45 MPH" pill for a cage card. */
+export function SpeedBadge({ mph, size = "md" }: { mph: number; size?: "sm" | "md" }) {
+  const sm = size === "sm";
+  return (
+    <span className={cn("inline-flex items-center rounded-full bg-white/95 text-[var(--vs-ink)] shadow-[0_6px_18px_-6px_rgba(0,0,0,.55)] ring-1 ring-black/5",
+      sm ? "h-8 gap-1 pl-1.5 pr-2.5" : "h-10 gap-1.5 pl-2 pr-3")}>
+      <svg viewBox="0 0 10 12" className={cn("-mr-0.5", sm ? "h-3 w-2.5" : "h-3.5 w-3")} aria-hidden="true">
+        <path d="M1 3h7M0 6h9M2 9h6" stroke={speedColor(mph)} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+      <SpeedGauge mph={mph} className={sm ? "h-4 w-6" : "h-5 w-8"} />
+      <span className={cn("font-display font-extrabold tabular-nums leading-none", sm ? "text-[16px]" : "text-[20px]")} style={{ color: speedColor(mph) }}>{mph}</span>
+      <span className={cn("font-black uppercase leading-none tracking-wide", sm ? "text-[9px]" : "text-[10px]")}>mph</span>
+    </span>
+  );
+}
+
+/* ── Live "in use right now" (same as the app's Book tab, CP-157) ───── */
+
+type LiveMap = Record<string, SiteLiveRow>;
+const toMap = (rows: SiteLiveRow[]) => Object.fromEntries(rows.map(r => [r.resource_id, r])) as LiveMap;
+
+// One small store for the page: the poller writes, every card/badge reads.
+let liveMap: LiveMap | null = null;
+const liveSubs = new Set<() => void>();
+function setLive(m: LiveMap) { liveMap = m; liveSubs.forEach(f => f()); }
+function subscribeLive(f: () => void) { liveSubs.add(f); return () => { liveSubs.delete(f); }; }
+
+/** Server rows on first paint (and during hydration), then whatever the poller last fetched. */
+export function useLive(initial: SiteLiveRow[]): LiveMap {
+  const initialMap = useMemo(() => toMap(initial), [initial]);
+  return useSyncExternalStore(subscribeLive, () => liveMap ?? initialMap, () => initialMap);
+}
+
+/** Refreshes every minute while the page is visible, and right away when it comes back into view. */
+function LivePoller({ slug }: { slug: string }) {
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const r = await fetch(`/api/${slug}/site-live`, { cache: "no-store" });
+        if (!r.ok) return;
+        const j = await r.json() as { rows?: SiteLiveRow[] };
+        if (!stop && Array.isArray(j.rows)) setLive(toMap(j.rows));
+      } catch { /* offline: keep the last known state */ }
+    };
+    const t = setInterval(load, 60_000);
+    document.addEventListener("visibilitychange", load);
+    return () => { stop = true; clearInterval(t); document.removeEventListener("visibilitychange", load); };
+  }, [slug]);
+  return null;
+}
+
+type LiveTone = "full" | "busy" | "open" | "unknown";
+function liveTone(row?: SiteLiveRow | null): LiveTone {
+  if (!row) return "unknown";
+  if (row.busy_now >= row.units) return "full";
+  if (row.busy_now > 0) return "busy";
+  return "open";
+}
+
+/** "● Booked · free 4:30 PM" (red) or "● 1 of 2 in use" (amber). Nothing when it's free. */
+export function LivePill({ row, size = "md" }: { row?: SiteLiveRow | null; size?: "sm" | "md" }) {
+  const tone = liveTone(row);
+  if (tone === "unknown" || tone === "open") return null;
+  const free = row?.next_free_at ? new Date(row.next_free_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null;
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full font-black uppercase tracking-wide shadow-[0_6px_18px_-6px_rgba(0,0,0,.55)]",
+      size === "sm" ? "h-7 px-2.5 text-[10px]" : "h-8 px-3 text-[11px]",
+      tone === "full" ? "bg-red-600 text-white" : "bg-amber-400 text-zinc-900")}>
+      <span className={cn("h-2 w-2 rounded-full", tone === "full" ? "animate-pulse bg-white" : "bg-zinc-900/70")} />
+      {tone === "full" ? (free ? `Booked · free ${free}` : "Booked now") : `${row!.busy_now} of ${row!.units} in use`}
+    </span>
+  );
+}
+
+/** Hero quick-book row: "2 of 6 in use right now", or nothing when they're all free. */
+export function LiveSectionNote({ ids, initial }: { ids: string[]; initial: SiteLiveRow[] }) {
+  const live = useLive(initial);
+  const rows = ids.map(id => live[id]).filter(Boolean);
+  const units = rows.reduce((n, r) => n + r.units, 0);
+  const busy = rows.reduce((n, r) => n + Math.min(r.busy_now, r.units), 0);
+  if (!busy) return null;
+  return (
+    <span className={cn("ml-1.5 inline-flex items-center gap-1 rounded-full px-1.5 text-[11px] font-black", busy >= units ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800")}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", busy >= units ? "bg-red-600" : "bg-amber-500")} />
+      {busy >= units ? "all in use" : `${busy} in use`}
+    </span>
+  );
+}
+
+const isSpeedOnly = (d: string | null) => !!d && /^\s*\d+\s*mph\s*$/i.test(d);
 
 function groupBy(resources: SiteResource[]) {
   const out: { category: string; items: SiteResource[] }[] = [];
@@ -68,10 +191,13 @@ const fmtPhone = (raw: string) => {
 
 /* ── The cards on the page ─────────────────────────────────────────── */
 
-export function BookingSection({ slug, businessName, resources, phone, member, visitPoints, storeLinks }: {
+export function BookingSection({ slug, businessName, resources, phone, member, visitPoints, storeLinks, initialLive }: {
   slug: string; businessName: string; resources: SiteResource[]; phone: string; member: SiteMember; visitPoints: number;
   storeLinks: { ios: string; android: string; joinCode: string };
+  /** booking_resources_now at render time; the poller keeps it fresh. */
+  initialLive: SiteLiveRow[];
 }) {
+  const live = useLive(initialLive);
   const groups = useMemo(() => groupBy(resources), [resources]);
   const [tab, setTab] = useState(0);
   const g = groups[Math.min(tab, groups.length - 1)];
@@ -116,15 +242,19 @@ export function BookingSection({ slug, businessName, resources, phone, member, v
           <button key={r.id} type="button" onClick={() => openBooking({ resourceId: r.id })}
             className={cn("group shrink-0 snap-start overflow-hidden rounded-[26px] bg-white text-left shadow-[0_14px_40px_-24px_rgba(11,37,64,0.45)] ring-1 ring-[var(--vs-line)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_50px_-24px_rgba(11,37,64,0.55)] active:scale-[0.99]",
               g.items.length > 1 ? "w-[84%] sm:w-auto" : "w-full")}>
-            <div className="relative aspect-[2.2/1] bg-[var(--vs-sky-soft)]">
+            <div className="relative aspect-[16/10] bg-[var(--vs-sky-soft)]">
               {r.image_url
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={optimizedUrl(r.image_url, 800)} alt={r.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]" />
                 : <span className="absolute inset-0 flex items-center justify-center text-5xl">{r.emoji ?? "📅"}</span>}
-              <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/70 to-transparent" />
-              <div className="absolute bottom-3 left-4 right-14 text-white">
-                <div className="font-display text-[19px] font-extrabold leading-tight drop-shadow">{r.name}</div>
-                <div className="text-[12px] font-semibold opacity-90">
+              <div className={cn("absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t to-transparent", liveTone(live[r.id]) === "full" ? "from-red-800/95 via-red-700/55" : "from-black/90 via-black/50")} />
+              <span className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+                {r.mph && <SpeedBadge mph={r.mph} />}
+                <LivePill row={live[r.id]} />
+              </span>
+              <div className="absolute bottom-3 left-4 right-14 text-white [text-shadow:0_2px_12px_rgba(0,0,0,.7)]">
+                <div className="font-display text-[23px] font-extrabold leading-[1.05] tracking-tight">{r.name}</div>
+                <div className="mt-0.5 text-[13px] font-bold text-white/95">
                   {r.durations.map(durationLabel).join(" · ")} · up to {r.max_party}
                 </div>
               </div>
@@ -133,23 +263,24 @@ export function BookingSection({ slug, businessName, resources, phone, member, v
               </span>
             </div>
             <div className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="line-clamp-1 text-[13px] text-[var(--vs-ink)]/70">{r.description || (r.packages.length ? `${r.packages.length} packages to pick from` : "Pick a day and a time")}</span>
+              <span className="line-clamp-1 text-[13px] text-[var(--vs-ink)]/70">{(!isSpeedOnly(r.description) && r.description) || (r.packages.length ? `${r.packages.length} packages to pick from` : "Pick a day and a time")}</span>
               <span className="shrink-0 text-[13px] font-extrabold text-[var(--vs-blue)]">Book</span>
             </div>
           </button>
         ))}
       </div>
 
-      <BookingSheet slug={slug} businessName={businessName} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} />
+      <BookingSheet slug={slug} businessName={businessName} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} live={live} />
+      <LivePoller slug={slug} />
     </>
   );
 }
 
 /* ── The sheet ─────────────────────────────────────────────────────── */
 
-function BookingSheet({ slug, businessName, resources, phone, member, visitPoints, storeLinks }: {
+function BookingSheet({ slug, businessName, resources, phone, member, visitPoints, storeLinks, live }: {
   slug: string; businessName: string; resources: SiteResource[]; phone: string; member: SiteMember; visitPoints: number;
-  storeLinks: { ios: string; android: string; joinCode: string };
+  storeLinks: { ios: string; android: string; joinCode: string }; live: LiveMap;
 }) {
   const groups = useMemo(() => groupBy(resources), [resources]);
   const [open, setOpen] = useState(false);
@@ -285,7 +416,7 @@ function BookingSheet({ slug, businessName, resources, phone, member, visitPoint
   const title = step === "pick" ? "Book a spot" : step === "package" ? "Pick a package" : step === "time" ? (resource?.name ?? "") : step === "details" ? "Almost done" : "You're booked!";
   const sub = step === "pick" ? "Reserve your time before you come in."
     : step === "package" ? `${resource?.name} · choose what's included`
-    : step === "time" ? (pkg ? `${pkg.name} · pick a day and a start time` : "Pick a length, a day and a start time")
+    : step === "time" ? (pkg ? `${pkg.name} · pick a day and a start time` : resource?.mph ? `${resource.mph} MPH · pick a day and a start time` : "Pick a length, a day and a start time")
     : step === "details" ? "Who's coming? We'll text to confirm."
     : "Request sent. See you soon!";
 
@@ -328,15 +459,19 @@ function BookingSheet({ slug, businessName, resources, phone, member, visitPoint
               {g.items.map(r => (
                 <button key={r.id} type="button" onClick={() => start(r)}
                   className="w-full overflow-hidden rounded-3xl bg-white text-left shadow-sm ring-1 ring-[var(--vs-line)] transition active:scale-[0.99]">
-                  <div className="relative aspect-[2.6/1] bg-[var(--vs-sky-soft)]">
+                  <div className="relative aspect-[2/1] bg-[var(--vs-sky-soft)] sm:aspect-[2.6/1]">
                     {r.image_url && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={optimizedUrl(r.image_url, 700)} alt="" className="absolute inset-0 h-full w-full object-cover" />
                     )}
-                    <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-2.5 left-4 right-12 text-white">
-                      <div className="font-display text-[17px] font-extrabold leading-tight">{r.name}</div>
-                      <div className="text-[11px] font-semibold opacity-90">{r.durations.map(durationLabel).join(" · ")} · up to {r.max_party}</div>
+                    <div className={cn("absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t to-transparent", liveTone(live[r.id]) === "full" ? "from-red-800/95 via-red-700/55" : "from-black/90 via-black/50")} />
+                    <span className="absolute left-3 top-3 flex flex-col items-start gap-1">
+                      {r.mph && <SpeedBadge mph={r.mph} size="sm" />}
+                      <LivePill row={live[r.id]} size="sm" />
+                    </span>
+                    <div className="absolute bottom-2.5 left-4 right-12 text-white [text-shadow:0_2px_12px_rgba(0,0,0,.7)]">
+                      <div className="font-display text-[20px] font-extrabold leading-tight">{r.name}</div>
+                      <div className="text-[12px] font-bold text-white/95">{r.durations.map(durationLabel).join(" · ")} · up to {r.max_party}</div>
                     </div>
                     <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[var(--vs-blue)]"><ChevronRight className="h-4 w-4" /></span>
                   </div>
@@ -554,7 +689,10 @@ function Summary({ resource, picked, duration, pkg, party }: { resource: SiteRes
         </>
       )}
       <div className="relative">
-        <div className="text-[11px] font-black uppercase tracking-widest opacity-85">{resource.name}{pkg ? ` · ${pkg.name}` : ""}</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-[12px] font-black uppercase tracking-widest">{resource.name}{pkg ? ` · ${pkg.name}` : ""}</div>
+          {resource.mph && <SpeedBadge mph={resource.mph} size="sm" />}
+        </div>
         <div className="font-display mt-1 text-2xl font-extrabold">{new Date(picked.slot_start).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold opacity-95">
           <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{timeLabel(picked.slot_start)} – {timeLabel(picked.slot_end)}</span>
