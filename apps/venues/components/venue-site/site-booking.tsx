@@ -16,7 +16,7 @@
  * Any button on the page can open the sheet: <BookButton category="Parties" pkg="All Star" />
  * fires a "vs:book" event this component listens for.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronRight, Clock, CalendarPlus, Loader2, Minus, Phone, Plus, Users, X, CalendarDays } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { optimizedUrl } from "@/lib/img";
@@ -28,6 +28,8 @@ export type SiteResource = {
   id: string; name: string; description: string | null; image_url: string | null; emoji: string | null;
   category: string; units: number; unit_label: string; durations: number[]; max_party: number;
   horizon_days: number; packages: SitePkg[];
+  /** Pitch speed (batting cages). null → no speed badge. */
+  mph: number | null;
 };
 export type SiteMember = { name: string | null; phone: string | null; email: string | null } | null;
 
@@ -45,6 +47,51 @@ export function BookButton({ category, pkg, resourceId, className, children, ari
     </button>
   );
 }
+
+/* ── Speed badge ───────────────────────────────────────────────────── */
+
+const SPEED_MAX = 60;
+function speedColor(mph: number) {
+  return mph >= 50 ? "#e8344a" : mph >= 40 ? "#f97316" : mph >= 32 ? "#eab308" : "#16a34a";
+}
+
+/** Little speedometer: the needle and the colored arc sweep with the speed, motion streaks on the left. */
+export function SpeedGauge({ mph, className = "h-5 w-8" }: { mph: number; className?: string }) {
+  const gid = useId().replace(/:/g, "");
+  const pct = Math.max(4, Math.min(100, (mph / SPEED_MAX) * 100));
+  const angle = -90 + (180 * pct) / 100;
+  return (
+    <svg viewBox="0 0 32 20" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={`g${gid}`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor="#22c55e" /><stop offset=".55" stopColor="#facc15" /><stop offset="1" stopColor="#ef4444" />
+        </linearGradient>
+      </defs>
+      <path d="M4 18 A12 12 0 0 1 28 18" fill="none" stroke="currentColor" strokeOpacity=".18" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M4 18 A12 12 0 0 1 28 18" fill="none" stroke={`url(#g${gid})`} strokeWidth="3.5" strokeLinecap="round" pathLength={100} strokeDasharray={`${pct} 100`} />
+      <line x1="16" y1="18" x2="16" y2="8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" transform={`rotate(${angle} 16 18)`} />
+      <circle cx="16" cy="18" r="2.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** "≡◔ 45 MPH" pill for a cage card. */
+export function SpeedBadge({ mph, size = "md" }: { mph: number; size?: "sm" | "md" }) {
+  const sm = size === "sm";
+  return (
+    <span className={cn("inline-flex items-center rounded-full bg-white/95 text-[var(--vs-ink)] shadow-[0_6px_18px_-6px_rgba(0,0,0,.55)] ring-1 ring-black/5",
+      sm ? "h-8 gap-1 pl-1.5 pr-2.5" : "h-10 gap-1.5 pl-2 pr-3")}>
+      <svg viewBox="0 0 10 12" className={cn("-mr-0.5", sm ? "h-3 w-2.5" : "h-3.5 w-3")} aria-hidden="true">
+        <path d="M1 3h7M0 6h9M2 9h6" stroke={speedColor(mph)} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+      <SpeedGauge mph={mph} className={sm ? "h-4 w-6" : "h-5 w-8"} />
+      <span className={cn("font-display font-extrabold tabular-nums leading-none", sm ? "text-[16px]" : "text-[20px]")} style={{ color: speedColor(mph) }}>{mph}</span>
+      <span className={cn("font-black uppercase leading-none tracking-wide", sm ? "text-[9px]" : "text-[10px]")}>mph</span>
+    </span>
+  );
+}
+
+const isSpeedOnly = (d: string | null) => !!d && /^\s*\d+\s*mph\s*$/i.test(d);
 
 function groupBy(resources: SiteResource[]) {
   const out: { category: string; items: SiteResource[] }[] = [];
@@ -121,10 +168,11 @@ export function BookingSection({ slug, businessName, resources, phone, member, v
                 // eslint-disable-next-line @next/next/no-img-element
                 ? <img src={optimizedUrl(r.image_url, 800)} alt={r.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]" />
                 : <span className="absolute inset-0 flex items-center justify-center text-5xl">{r.emoji ?? "📅"}</span>}
-              <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/70 to-transparent" />
-              <div className="absolute bottom-3 left-4 right-14 text-white">
-                <div className="font-display text-[19px] font-extrabold leading-tight drop-shadow">{r.name}</div>
-                <div className="text-[12px] font-semibold opacity-90">
+              <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+              {r.mph && <span className="absolute left-3 top-3"><SpeedBadge mph={r.mph} /></span>}
+              <div className="absolute bottom-3 left-4 right-14 text-white [text-shadow:0_2px_12px_rgba(0,0,0,.7)]">
+                <div className="font-display text-[23px] font-extrabold leading-[1.05] tracking-tight">{r.name}</div>
+                <div className="mt-0.5 text-[13px] font-bold text-white/95">
                   {r.durations.map(durationLabel).join(" · ")} · up to {r.max_party}
                 </div>
               </div>
@@ -133,7 +181,7 @@ export function BookingSection({ slug, businessName, resources, phone, member, v
               </span>
             </div>
             <div className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="line-clamp-1 text-[13px] text-[var(--vs-ink)]/70">{r.description || (r.packages.length ? `${r.packages.length} packages to pick from` : "Pick a day and a time")}</span>
+              <span className="line-clamp-1 text-[13px] text-[var(--vs-ink)]/70">{(!isSpeedOnly(r.description) && r.description) || (r.packages.length ? `${r.packages.length} packages to pick from` : "Pick a day and a time")}</span>
               <span className="shrink-0 text-[13px] font-extrabold text-[var(--vs-blue)]">Book</span>
             </div>
           </button>
@@ -285,7 +333,7 @@ function BookingSheet({ slug, businessName, resources, phone, member, visitPoint
   const title = step === "pick" ? "Book a spot" : step === "package" ? "Pick a package" : step === "time" ? (resource?.name ?? "") : step === "details" ? "Almost done" : "You're booked!";
   const sub = step === "pick" ? "Reserve your time before you come in."
     : step === "package" ? `${resource?.name} · choose what's included`
-    : step === "time" ? (pkg ? `${pkg.name} · pick a day and a start time` : "Pick a length, a day and a start time")
+    : step === "time" ? (pkg ? `${pkg.name} · pick a day and a start time` : resource?.mph ? `${resource.mph} MPH · pick a day and a start time` : "Pick a length, a day and a start time")
     : step === "details" ? "Who's coming? We'll text to confirm."
     : "Request sent. See you soon!";
 
@@ -333,10 +381,11 @@ function BookingSheet({ slug, businessName, resources, phone, member, visitPoint
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={optimizedUrl(r.image_url, 700)} alt="" className="absolute inset-0 h-full w-full object-cover" />
                     )}
-                    <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-2.5 left-4 right-12 text-white">
-                      <div className="font-display text-[17px] font-extrabold leading-tight">{r.name}</div>
-                      <div className="text-[11px] font-semibold opacity-90">{r.durations.map(durationLabel).join(" · ")} · up to {r.max_party}</div>
+                    <div className="absolute inset-x-0 bottom-0 h-[85%] bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
+                    {r.mph && <span className="absolute left-3 top-3"><SpeedBadge mph={r.mph} size="sm" /></span>}
+                    <div className="absolute bottom-2.5 left-4 right-12 text-white [text-shadow:0_2px_12px_rgba(0,0,0,.7)]">
+                      <div className="font-display text-[20px] font-extrabold leading-tight">{r.name}</div>
+                      <div className="text-[12px] font-bold text-white/95">{r.durations.map(durationLabel).join(" · ")} · up to {r.max_party}</div>
                     </div>
                     <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[var(--vs-blue)]"><ChevronRight className="h-4 w-4" /></span>
                   </div>
@@ -554,7 +603,10 @@ function Summary({ resource, picked, duration, pkg, party }: { resource: SiteRes
         </>
       )}
       <div className="relative">
-        <div className="text-[11px] font-black uppercase tracking-widest opacity-85">{resource.name}{pkg ? ` · ${pkg.name}` : ""}</div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-[12px] font-black uppercase tracking-widest">{resource.name}{pkg ? ` · ${pkg.name}` : ""}</div>
+          {resource.mph && <SpeedBadge mph={resource.mph} size="sm" />}
+        </div>
         <div className="font-display mt-1 text-2xl font-extrabold">{new Date(picked.slot_start).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold opacity-95">
           <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{timeLabel(picked.slot_start)} – {timeLabel(picked.slot_end)}</span>

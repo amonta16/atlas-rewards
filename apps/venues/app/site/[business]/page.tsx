@@ -46,6 +46,15 @@ export async function generateMetadata({ params }: { params: { business: string 
   };
 }
 
+/** "Cage #4 (Hitrax)" → the site's speed for cage 4; else "45 MPH" in the app's description. */
+function speedFor(c: VenueSiteContent, name: string, description: string | null): number | null {
+  const n = name.match(/cage\s*#?\s*(\d+)/i);
+  const fromSite = n ? c.cages.speeds?.[Number(n[1])] : undefined;
+  if (fromSite) return fromSite;
+  const d = (description ?? "").match(/(\d{2})\s*mph/i);
+  return d ? Number(d[1]) : null;
+}
+
 /** App packages and the website's price board, merged by name (price board order first). */
 function mergePackages(c: VenueSiteContent, dbPkgs: BookingPackage[]): SitePkg[] {
   const out: SitePkg[] = [];
@@ -92,12 +101,13 @@ export default async function VenueSitePage({ params }: { params: { business: st
     getCachedUser().catch(() => null),
   ]);
 
-  type Row = Omit<SiteResource, "packages" | "category"> & { category: string | null; packages: BookingPackage[] | null; sort_order: number };
+  type Row = Omit<SiteResource, "packages" | "category" | "mph"> & { category: string | null; packages: BookingPackage[] | null; sort_order: number };
   const resources: SiteResource[] = ((resQ.data ?? []) as Row[]).map(r => ({
     id: r.id, name: r.name, description: r.description, image_url: r.image_url, emoji: r.emoji,
     category: (r.category ?? "").trim() || "Other",
     units: r.units, unit_label: r.unit_label, durations: r.durations, max_party: r.max_party, horizon_days: r.horizon_days,
     packages: (r.packages?.length ?? 0) > 0 ? mergePackages(c, r.packages!) : [],
+    mph: speedFor(c, r.name, r.description),
   }));
   // Group order follows the first resource of each section (sort_order); "Other" last.
   resources.sort((a, b) => (a.category === "Other" ? 1 : 0) - (b.category === "Other" ? 1 : 0));
