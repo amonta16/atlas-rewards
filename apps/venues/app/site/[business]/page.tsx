@@ -5,6 +5,7 @@ import { getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bookingEnabled, type BookingPackage } from "@/lib/booking";
 import { siteContentFor, type VenueSiteContent } from "@/lib/venue-site/content";
+import { siteLiveFor } from "@/lib/venue-site/live";
 import { venueSiteFontClass } from "@/lib/venue-site/fonts";
 import { VenueSite, type SiteReward, type SiteWaiver } from "@/components/venue-site/venue-site";
 import type { SitePkg, SiteResource, SiteMember } from "@/components/venue-site/site-booking";
@@ -83,7 +84,7 @@ export default async function VenueSitePage({ params }: { params: { business: st
   if (!business) notFound();
 
   const admin = createAdminClient();
-  const [resQ, rewQ, waiverQ, user] = await Promise.all([
+  const [resQ, rewQ, waiverQ, user, liveRows] = await Promise.all([
     bookingEnabled(business)
       ? admin.from("booking_resources")
           .select("id, name, description, emoji, image_url, units, unit_label, durations, max_party, horizon_days, category, packages, sort_order")
@@ -99,6 +100,7 @@ export default async function VenueSitePage({ params }: { params: { business: st
       .eq("business_id", business.id).eq("is_active", true).not("current_version_id", "is", null)
       .order("required_for_signup", { ascending: false }).limit(1).maybeSingle(),
     getCachedUser().catch(() => null),
+    siteLiveFor({ id: business.id }).catch(() => []),
   ]);
 
   type Row = Omit<SiteResource, "packages" | "category" | "mph"> & { category: string | null; packages: BookingPackage[] | null; sort_order: number };
@@ -156,6 +158,7 @@ export default async function VenueSitePage({ params }: { params: { business: st
         visitPoints={business.point_rules?.visit ?? 50}
         storeLinks={{ ios: IOS, android: ANDROID, joinCode: business.join_code ?? c.app.joinCode }}
         waiver={waiver}
+        live={liveRows ?? []}
       />
       <script
         type="application/ld+json"

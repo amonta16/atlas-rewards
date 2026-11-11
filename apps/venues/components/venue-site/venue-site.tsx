@@ -9,7 +9,8 @@ import { ArrowRight, CalendarCheck, Clock, Gift, MapPin, MessageCircle, Navigati
 import type { VenueSiteContent } from "@/lib/venue-site/content";
 import { optimizedUrl } from "@/lib/img";
 import { durationLabel } from "@/lib/booking";
-import { BookButton, BookingSection, SpeedGauge, type SiteMember, type SiteResource } from "./site-booking";
+import { BookButton, BookingSection, LiveSectionNote, SpeedGauge, type SiteMember, type SiteResource } from "./site-booking";
+import type { SiteLiveRow } from "@/lib/venue-site/live";
 import { LoopVideo, MenuBoard, MobileBookBar, OpenNow, RevealOnScroll, SiteNav } from "./site-chrome";
 import { hoursLine } from "@/lib/venue-site/hours";
 
@@ -22,10 +23,12 @@ const fmtPhone = (raw: string) => {
 
 export type SiteWaiver = { href: string; signInHref: string | null; validDays: number | null };
 
-export function VenueSite({ c, name, logoUrl, phone, address, resources, member, rewards, visitPoints, storeLinks, slug, waiver }: {
+export function VenueSite({ c, name, logoUrl, phone, address, resources, member, rewards, visitPoints, storeLinks, slug, waiver, live }: {
   c: VenueSiteContent; name: string; logoUrl: string | null; phone: string; address: string; slug: string;
   /** The business's own Atlas waiver (signup → waiver gate, or /app/waiver when signed in). */
   waiver: SiteWaiver | null;
+  /** What's in use right now (same as the app's Book tab). */
+  live: SiteLiveRow[];
   resources: SiteResource[]; member: SiteMember; rewards: SiteReward[]; visitPoints: number;
   storeLinks: { ios: string; android: string; joinCode: string };
 }) {
@@ -39,11 +42,11 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
     { href: "#visit", label: "Visit" },
   ];
   // Quick-book rows in the hero: one per section of bookable things.
-  const sections: Array<{ category: string; count: number; cover: string | null; durations: number[] }> = [];
+  const sections: Array<{ category: string; count: number; cover: string | null; durations: number[]; ids: string[] }> = [];
   for (const r of resources) {
     const s = sections.find(x => x.category === r.category);
-    if (s) { s.count++; if (!s.cover && r.image_url) s.cover = r.image_url; }
-    else sections.push({ category: r.category, count: 1, cover: r.image_url, durations: r.durations });
+    if (s) { s.count++; s.ids.push(r.id); if (!s.cover && r.image_url) s.cover = r.image_url; }
+    else sections.push({ category: r.category, count: 1, cover: r.image_url, durations: r.durations, ids: [r.id] });
   }
   const cageCat = sections.find(s => /cage/i.test(s.category))?.category;
   const partyCat = sections.find(s => /part/i.test(s.category))?.category;
@@ -135,7 +138,7 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
                         ? <img src={optimizedUrl(s.cover, 200)} alt="" className="h-16 w-20 shrink-0 rounded-xl object-cover" />
                         : <span className="h-16 w-20 shrink-0 rounded-xl bg-[var(--vs-sky-soft)]" />}
                       <span className="min-w-0 flex-1">
-                        <span className="font-display block text-[18px] font-extrabold leading-tight">{s.category}</span>
+                        <span className="font-display flex items-center text-[18px] font-extrabold leading-tight">{s.category}<LiveSectionNote ids={s.ids} initial={live} /></span>
                         <span className="block text-[13px] text-[var(--vs-ink)]/60">{s.count} to choose from · {s.durations.map(durationLabel).join(" or ")}</span>
                       </span>
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--vs-blue)] text-white transition group-hover:translate-x-0.5"><ArrowRight className="h-4 w-4" /></span>
@@ -183,7 +186,7 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
               </ol>
             </div>
             <div className="vs-reveal mt-8" data-delay="1">
-              <BookingSection slug={slug} businessName={name} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} />
+              <BookingSection slug={slug} businessName={name} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} initialLive={live} />
             </div>
             <p className="mt-6 text-center text-[14px] text-[var(--vs-ink)]/60">
               Team practice, school or a big group? <a href={`tel:${phone}`} className="font-bold text-[var(--vs-blue)] underline-offset-4 hover:underline">Call {fmtPhone(phone)}</a> and we&apos;ll set it up.
