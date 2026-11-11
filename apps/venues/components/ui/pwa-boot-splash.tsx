@@ -87,7 +87,7 @@ export function PWABootSplash({ primary, name, logoUrl }: { primary: string; nam
     <div style="height:.25rem;width:6rem;border-radius:9999px;overflow:hidden;background:rgba(255,255,255,.25)"><div style="height:100%;width:40%;border-radius:9999px;background:#fff;animation:atlas-boot-shimmer 1.2s ease-in-out infinite"></div></div>
   </div>
 </div>
-<script>try{if(/\\/site\\/?$/.test(location.pathname)){var w=document.getElementById("atlas-boot-splash");w&&w.remove()}else if(sessionStorage.getItem("${SHOWN_FLAG}")){var s=document.getElementById("atlas-boot-splash");s&&s.remove();document.documentElement.classList.add("atlas-splash-done")}else{sessionStorage.setItem("${SHOWN_FLAG}","1")}}catch(e){}</script>`;
+<script>try{if(/\\/kiosk\\/?$/.test(location.pathname)){var w=document.getElementById("atlas-boot-splash");w&&w.remove()}else if(sessionStorage.getItem("${SHOWN_FLAG}")){var s=document.getElementById("atlas-boot-splash");s&&s.remove();document.documentElement.classList.add("atlas-splash-done")}else{sessionStorage.setItem("${SHOWN_FLAG}","1")}}catch(e){}</script>`;
 
   // CP-218: after it has played, re-renders (router.refresh) get an empty
   // wrapper instead of a fresh copy of the splash.

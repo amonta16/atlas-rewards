@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { getCachedUser } from "@/lib/supabase/server";
@@ -11,8 +11,13 @@ import type { SitePkg, SiteResource, SiteMember } from "@/components/venue-site/
 import "@/components/venue-site/venue-site.css";
 
 /**
- * /<slug>/site — the business's public website, hosted by Atlas.
- * On the business subdomain: https://<slug>.atlas-engine.app/site
+ * /site/<slug> — the business's public website, hosted by Atlas.
+ * On the business subdomain: https://<slug>.atlas-engine.app/site (middleware rewrite).
+ *
+ * Deliberately NOT under app/[business]: that tree is the customer app, and its
+ * boot splash, "One sec…" loading screen and PWA manifest don't belong on a
+ * website. This route has no loading.tsx on purpose: the server renders the whole
+ * page and the browser shows it in one go.
  *
  * Built to replace a venue's old website (first: Flippo's, mbflippos.com).
  * Booking uses the app's flow and the app's tables, so the website, the app
@@ -24,16 +29,20 @@ export const dynamic = "force-dynamic";
 const IOS = process.env.NEXT_PUBLIC_APP_STORE_URL || "https://apps.apple.com/us/app/ae-rewards/id6797182694";
 const ANDROID = process.env.NEXT_PUBLIC_PLAY_STORE_URL || "https://play.google.com/store/apps/details?id=com.atlasengine.rewards";
 
+export const viewport: Viewport = { themeColor: "#0b2540", width: "device-width", initialScale: 1 };
+
 export async function generateMetadata({ params }: { params: { business: string } }): Promise<Metadata> {
   const c = siteContentFor(params.business);
   if (!c) return {};
+  const biz = await getBusinessBySlug(params.business).catch(() => null);
+  const icon = (biz as { app_icon_url?: string | null } | null)?.app_icon_url ?? biz?.logo_url ?? null;
   return {
-    title: c.seoTitle,
+    // absolute: the root layout's "· Atlas Engine" title suffix is for our own site, not a venue's.
+    title: { absolute: c.seoTitle },
     description: c.seoDescription,
     openGraph: { title: c.seoTitle, description: c.seoDescription, images: [c.about.photo], type: "website" },
     twitter: { card: "summary_large_image", title: c.seoTitle, description: c.seoDescription, images: [c.about.photo] },
-    // The business layout sets the app's manifest + "web app capable"; the website is a normal page.
-    appleWebApp: { capable: false },
+    icons: icon ? { icon, apple: icon } : undefined,
   };
 }
 
@@ -77,7 +86,7 @@ export default async function VenueSitePage({ params }: { params: { business: st
       // Biggest rewards first: the free pizza sells the app better than a token toy.
       .gte("point_cost", 100).order("point_cost", { ascending: false }).limit(16),
     // The business's own Atlas waiver (required at signup → the app's waiver gate).
-    admin.from("business_waivers").select("id, valid_days, required_for_signup")
+    admin.from("business_waivers").select("id, valid_days, required_for_signup, kiosk_enabled")
       .eq("business_id", business.id).eq("is_active", true).not("current_version_id", "is", null)
       .order("required_for_signup", { ascending: false }).limit(1).maybeSingle(),
     getCachedUser().catch(() => null),
@@ -103,17 +112,20 @@ export default async function VenueSitePage({ params }: { params: { business: st
     }
   }
 
-  // Waiver: our own, signed in the app. Members go straight to it; new guests
-  // create their free account and the app's waiver gate is their first screen.
-  // Only a business with no Atlas waiver falls back to an outside link.
+  // Waiver: our own Atlas waiver. With the kiosk on, the button opens the
+  // no-account signing page (/<slug>/kiosk, phone mode): no app, no login, the
+  // signature lands in the same waiver records the desk already checks.
+  // Kiosk off → the in-app waiver. No Atlas waiver at all → the outside link, if any.
   const slugBase = `/${business.slug}`;
-  const w = waiverQ.data as { id: string; valid_days: number | null; required_for_signup: boolean } | null;
+  const w = waiverQ.data as { id: string; valid_days: number | null; required_for_signup: boolean; kiosk_enabled: boolean } | null;
   const waiver: SiteWaiver | null = w
-    ? {
-        href: member ? `${slugBase}/app/waiver` : w.required_for_signup ? `${slugBase}/signup` : `${slugBase}/login?next=${encodeURIComponent(`${slugBase}/app/waiver?w=${w.id}`)}`,
-        signInHref: member ? null : `${slugBase}/login?next=${encodeURIComponent(`${slugBase}/app/waiver`)}`,
-        validDays: w.valid_days,
-      }
+    ? w.kiosk_enabled
+      ? { href: `${slugBase}/kiosk?from=site`, signInHref: null, validDays: w.valid_days }
+      : {
+          href: member ? `${slugBase}/app/waiver` : w.required_for_signup ? `${slugBase}/signup` : `${slugBase}/login?next=${encodeURIComponent(`${slugBase}/app/waiver?w=${w.id}`)}`,
+          signInHref: member ? null : `${slugBase}/login?next=${encodeURIComponent(`${slugBase}/app/waiver`)}`,
+          validDays: w.valid_days,
+        }
     : c.waiverUrl ? { href: c.waiverUrl, signInHref: null, validDays: null } : null;
 
   const phone = (business.contact_info?.phone ?? "").replace(/\D/g, "");

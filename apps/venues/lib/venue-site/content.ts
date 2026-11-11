@@ -69,7 +69,7 @@ export const FLIPPOS: VenueSiteContent = {
   // Flippo's signs waivers in Atlas now (business_waivers); no outside waiver.
   waiverUrl: null,
   hero: {
-    eyebrow: "Now open · Under new management",
+    eyebrow: "Now open in Morro Bay",
     title: "Eat. Drink. Play!",
     sub: "Batting cages, a packed arcade, pool, pizza and cold beer. Morro Bay's favorite place to play.",
     video: `${F}/hero.mp4`,
@@ -164,7 +164,7 @@ export const FLIPPOS: VenueSiteContent = {
   about: {
     title: "More than batting cages",
     body:
-      "Flippo's reopened under new ownership with a grand opening on January 23rd, 2026. Sports, games, great food and community energy, all under one roof. Come to train, hang out with family, or just have fun.",
+      "Flippo's celebrated its grand reopening on January 23rd, 2026. Sports, games, great food and community energy, all under one roof. Come to train, hang out with family, or just have fun.",
     points: [
       { title: "Safe & family-friendly", body: "Well-kept cages and games built with safety in mind. Little ones love the game room; older kids hit in the cages with proper gear." },
       { title: "Something for everyone", body: "Arcade classics, pool, foosball, air hockey and more. Friendly competition for every age." },
