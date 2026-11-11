@@ -132,11 +132,14 @@ async function load(days: number): Promise<FunnelData> {
 async function loadFollow(steps: SeqStep[]): Promise<FollowData | null> {
   const db = previewDb();
   const since = new Date(Date.now() - 30 * DAY).toISOString();
-  const { data: rows, error } = await db.from("app_previews")
-    .select("id, slug, business_name, phone, contact_name, contact_email, contact_phone, contact_marketing_consent_at, contact_at, expires_at, seq_step, sms_stopped_at, seq_stopped_reason, nurture_stopped_at, nurture_unsubscribed_at, treatments, treatments_are_examples, bonus_claimed_at")
-    .not("contact_at", "is", null).gte("contact_at", since).order("contact_at", { ascending: false }).limit(200);
+  const base = "id, slug, business_name, phone, contact_name, contact_email, contact_phone, contact_marketing_consent_at, contact_at, expires_at, seq_step, sms_stopped_at, seq_stopped_reason, nurture_stopped_at, nurture_unsubscribed_at, treatments, treatments_are_examples";
+  const q = (cols: string) => db.from("app_previews").select(cols).not("contact_at", "is", null).gte("contact_at", since).order("contact_at", { ascending: false }).limit(200);
+  // CP-245's bonus_claimed_at, when that migration is in; the page works without it.
+  let res = await q(`${base}, bonus_claimed_at`);
+  if (res.error) res = await q(base);
+  const { data: rows, error } = res;
   if (error) return null;
-  const list = (rows ?? []) as Array<Record<string, unknown>>;
+  const list = (rows ?? []) as unknown as Array<Record<string, unknown>>;
   const ids = list.map((r) => String(r.id));
   const logs = new Map<string, Record<number, LogCell>>();
   const open: Array<{ id: string; preview_id: string; step: number; due_at: string }> = [];
