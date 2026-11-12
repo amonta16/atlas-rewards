@@ -145,7 +145,7 @@ export function BonusTiles({ apiOrigin, slug, enabled, brand, owner = null }: { 
       <style>{SHINE_CSS}</style>
       <div className="flex items-center justify-between gap-2 px-1">
         <h2 id="pv-bonus-tiles-h" className="flex items-center gap-1.5 text-[15px] font-semibold">
-          <GiftIcon className="h-4 w-4" style={{ color: brand.primary }} />Book in {LAUNCH_BONUS.hours} hours, get these free
+          <GiftIcon className="h-4 w-4" style={{ color: brand.primary }} />Book in {LAUNCH_BONUS.hours} hours, all {LAUNCH_BONUS.bonuses.length} free
         </h2>
         <span className="shrink-0 rounded-full bg-[#111318] px-2 py-0.5 font-mono text-[12px] font-semibold tabular-nums text-[#FFC94D]">{hms(left)}</span>
       </div>
