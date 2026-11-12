@@ -37,7 +37,7 @@ export const OFFER = {
  */
 export const LAUNCH_BONUS = {
   active: true,
-  hours: 4,
+  hours: 72, // CP-245.5: was 4
   bonuses: [
     { id: "videos", icon: "film", short: "3 launch videos", title: "Your app, in 3 launch videos",
       detail: "Short vertical videos of your own app on a phone, made for Reels, TikTok and Stories. Post them the day you launch.", value: 1500 },

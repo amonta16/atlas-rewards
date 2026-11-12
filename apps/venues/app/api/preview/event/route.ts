@@ -7,7 +7,7 @@ import { LAUNCH_BONUS } from "@/lib/landing/medspa-funnel";
 /**
  * POST /api/preview/event — lead-magnet audit, step 7 · events only the browser can see.
  * Body { slug, event } with event one of app_rendered, notif_previewed, vsl_played → 204.
- * CP-245: app_rendered also starts the 4-hour launch-bonus clock (once per preview) and answers
+ * CP-245: app_rendered also starts the launch-bonus clock (LAUNCH_BONUS.hours) (once per preview) and answers
  * 200 { bonus_deadline, bonus_claimed } so the page can show the countdown (null: no bonus, e.g. a taken
  * area), or after it the ended / locked-in line.
  * Everything else is recorded on the server where it happens (start, brand, unlock, progress,

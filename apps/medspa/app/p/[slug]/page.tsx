@@ -14,7 +14,7 @@ import { BonusDetails, BonusTiles, PreviewTopBar, type OwnerMode } from "@/compo
  * engine off" banner on top; two equal buttons always on screen on a phone
  * ([Book 15 min, turn it on live] [Just look around]); a one-tap logo/color fix;
  * a tappable test push. "Text me my app" and the QR code sit further down.
- * CP-245: a 4-hour launch bonus (book the walkthrough in time, get 3 bonuses): a countdown bar on
+ * CP-245: a 72-hour launch bonus (book the walkthrough in time, get 3 bonuses): a countdown bar on
  * top and the bonus stack under the pitch, gone when the window ends; not on a taken area.
  * Step 3: the lead is asked for here, after the app is on screen (PreviewGate: email + zip,
  * on scroll-past or 45 s). Nothing is asked before this page.
@@ -94,7 +94,7 @@ export default async function PreviewPage({ params, searchParams }: { params: { 
 
   return (
     <Shell>
-      {/* CP-245: "3 launch bonuses end in 03:59:12" while the 4-hour window runs (nothing after). */}
+      {/* CP-245: "3 launch bonuses end in 2d 23:59:12" while the window runs; after it, one ended line. */}
       <PreviewTopBar apiOrigin={SITE} slug={slug} enabled={!taken} owner={owner} />
       {ownerKey && <OwnerBar slug={slug} k={ownerKey} mode={owner} taken={taken} />}
       <main className="mx-auto grid max-w-6xl gap-10 px-5 pb-32 pt-4 lg:grid-cols-[418px_1fr] lg:items-start lg:gap-16 lg:pb-20 lg:pt-6">

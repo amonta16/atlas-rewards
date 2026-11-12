@@ -3,7 +3,7 @@
  * test push tapped, desk video played), sent to the venue site's /api/preview/event. Never blocks or
  * breaks the page. Each one counts once per page load; callers share the one request.
  *
- * CP-245: app_rendered answers { bonus_deadline } (the 4-hour launch-bonus clock), so its reply is
+ * CP-245: app_rendered answers { bonus_deadline } (the launch-bonus clock), so its reply is
  * returned to whoever asks; the other events reply 204 (null).
  */
 export type ClientPreviewEvent = "app_rendered" | "notif_previewed" | "vsl_played";

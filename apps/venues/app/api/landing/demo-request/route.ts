@@ -107,7 +107,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Couldn't save your request — please email us directly." }, { status: 500 });
   }
 
-  // CP-245: booked inside their 4-hour launch-bonus window? Then the bonuses are owed.
+  // CP-245: booked inside their launch-bonus window (LAUNCH_BONUS.hours)? Then the bonuses are owed.
   let bonusLine: string | null = null;
   if (row.lead_id) {
     const { data: pvb } = await supabase.from("app_previews").select("id, bonus_deadline_at, bonus_claimed_at").eq("landing_lead_id", row.lead_id).limit(1);
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
     if (b?.bonus_deadline_at) {
       const inTime = Date.now() <= Date.parse(b.bonus_deadline_at);
       if (inTime && !b.bonus_claimed_at) await supabase.from("app_previews").update({ bonus_claimed_at: new Date().toISOString() }).eq("id", b.id);
-      bonusLine = inTime || b.bonus_claimed_at ? "YES: booked inside the 4-hour window. Owed: launch videos, front-desk banner, software audit." : `No (window ended ${new Date(b.bonus_deadline_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} PT)`;
+      bonusLine = inTime || b.bonus_claimed_at ? "YES: booked inside the bonus window. Owed: launch videos, front-desk banner, software audit." : `No (window ended ${new Date(b.bonus_deadline_at).toLocaleString("en-US", { timeZone: "America/Los_Angeles", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} PT)`;
     }
   }
 

@@ -1,6 +1,6 @@
 "use client";
 /**
- * CP-245 · the 4-hour launch bonus on /p/<slug>.
+ * CP-245 · the launch bonus on /p/<slug> (LAUNCH_BONUS.hours, 72 since CP-245.5).
  *
  *   PreviewTopBar  the sticky top bar: "3 launch bonuses end in 03:59:12 →"
  *   BonusTiles     right under the phone, small: three pictures with a shine (a real app video,
@@ -8,7 +8,7 @@
  *   BonusDetails   at the bottom of the page: what each bonus is, the total, a Book button that
  *                  counts down too
  *   useBonusClock  the shared clock: the deadline comes from the venue site (first time they saw
- *                  their app + 4 h, stored there, so a refresh never restarts it)
+ *                  their app + LAUNCH_BONUS.hours, stored there, so a refresh never restarts it)
  *
  * The deadline is real: when it passes the countdown pieces disappear and one quiet line says when
  * they ended (BonusLine); booked in time, it says they're locked in.
@@ -24,7 +24,7 @@ import { previewEvent } from "@/lib/preview-event";
 
 /**
  * CP-245.4 · owner view (/p/<slug>?owner=<key from Admin>, checked on the server): a local demo of
- * one state, recording nothing. "live" = a fresh 4-hour clock, "ended" = ended 50 min ago,
+ * one state, recording nothing. "live" = a fresh full clock, "ended" = ended 50 min ago,
  * "claimed" = booked. On a Vercel preview or localhost, ?bonus_demo[=ended|claimed] does the same.
  */
 export type OwnerMode = "live" | "ended" | "claimed" | null;
@@ -78,19 +78,25 @@ export function useBonusClock(apiOrigin: string, slug: string, enabled = true, o
   return useBonusState(apiOrigin, slug, enabled, owner).left;
 }
 
-/** "today at 8:49 AM", "yesterday at 8:49 AM", "on Nov 9 at 8:49 AM" (viewer's clock; client only). */
-function endedLabel(at: number) {
+/** "today at 8:49 AM", "tomorrow at…", "yesterday at…", "Friday at…" (this week), "on Nov 9 at…" (viewer's clock; client only). */
+function whenLabel(at: number) {
   const d = new Date(at);
   const t = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  if (d.toDateString() === new Date().toDateString()) return `today at ${t}`;
-  if (d.toDateString() === new Date(Date.now() - 86_400_000).toDateString()) return `yesterday at ${t}`;
+  const day = (offset: number) => new Date(Date.now() + offset * 86_400_000).toDateString();
+  if (d.toDateString() === day(0)) return `today at ${t}`;
+  if (d.toDateString() === day(1)) return `tomorrow at ${t}`;
+  if (d.toDateString() === day(-1)) return `yesterday at ${t}`;
+  if (at > Date.now() && at - Date.now() < 6 * 86_400_000) return `${d.toLocaleDateString("en-US", { weekday: "long" })} at ${t}`;
   return `on ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${t}`;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
+/** 03:59:12, or 2d 23:59:12 once there's a day or more left. */
 export function hms(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
-  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+  const d = Math.floor(s / 86400);
+  const t = `${pad(Math.floor((s % 86400) / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+  return d > 0 ? `${d}d ${t}` : t;
 }
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 export const BONUS_TOTAL = LAUNCH_BONUS.bonuses.reduce((a, b) => a + b.value, 0);
@@ -139,7 +145,7 @@ export function BonusTiles({ apiOrigin, slug, enabled, brand, owner = null }: { 
       <style>{SHINE_CSS}</style>
       <div className="flex items-center justify-between gap-2 px-1">
         <h2 id="pv-bonus-tiles-h" className="flex items-center gap-1.5 text-[15px] font-semibold">
-          <GiftIcon className="h-4 w-4" style={{ color: brand.primary }} />Book in 4 hours, get these free
+          <GiftIcon className="h-4 w-4" style={{ color: brand.primary }} />Book in {LAUNCH_BONUS.hours} hours, get these free
         </h2>
         <span className="shrink-0 rounded-full bg-[#111318] px-2 py-0.5 font-mono text-[12px] font-semibold tabular-nums text-[#FFC94D]">{hms(left)}</span>
       </div>
@@ -183,7 +189,7 @@ function BonusLine({ kind, at, brand }: { kind: "ended" | "claimed"; at?: number
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-[14px] font-semibold leading-snug">
-          {ended ? `Your ${n} launch bonuses ended ${at ? endedLabel(at) : ""}` : <>Your {n} launch bonuses are locked in<svg viewBox="0 0 12 12" className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden><path d="M2.5 6.2 5 8.6l4.5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></>}
+          {ended ? `Your ${n} launch bonuses ended ${at ? whenLabel(at) : ""}` : <>Your {n} launch bonuses are locked in<svg viewBox="0 0 12 12" className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden><path d="M2.5 6.2 5 8.6l4.5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></>}
         </span>
         <span className="mt-0.5 block text-[12.5px] leading-snug text-sub">
           {ended ? `They were held for ${LAUNCH_BONUS.hours} hours after you first opened your app. A call still turns your app on.` : "Launch videos, desk banner and software audit. We'll go over them on your call."}
@@ -200,9 +206,7 @@ export function BonusDetails({ apiOrigin, slug, walkthroughUrl, enabled, brand, 
   const [ends, setEnds] = useState<string | null>(null);
   useEffect(() => {
     if (left === null) return;
-    const end = new Date(Date.now() + left);
-    const day = end.toDateString() === new Date().toDateString() ? "today" : "tomorrow"; // the window is 4 h, so one of the two
-    setEnds(`${end.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} ${day}`);
+    setEnds(whenLabel(Date.now() + left));
   }, [left === null]); // eslint-disable-line react-hooks/exhaustive-deps
   if (left === null) return null;
   const primary = brand.primary;
@@ -215,7 +219,7 @@ export function BonusDetails({ apiOrigin, slug, walkthroughUrl, enabled, brand, 
           <GiftIcon className="h-3.5 w-3.5" />Your {LAUNCH_BONUS.bonuses.length} launch bonuses
         </p>
         <h2 id="pv-bonus-h" className="relative mt-3 text-[25px] font-semibold leading-[1.12] tracking-[-0.02em] sm:text-[28px]">
-          Book in the next 4 hours. They&apos;re free.
+          Book in the next {LAUNCH_BONUS.hours} hours. They&apos;re free.
         </h2>
         <p className="relative mt-1.5 text-[14.5px] leading-snug text-white/70">
           Book your 15-minute walkthrough before the timer runs out{ends ? ` (${ends})` : ""}. They&apos;re gone after that.
