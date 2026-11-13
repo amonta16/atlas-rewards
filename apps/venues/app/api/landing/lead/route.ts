@@ -49,9 +49,20 @@ export async function POST(req: Request) {
     if (!held) return NextResponse.json({ error: "We couldn't find your hold. Please check your area again." }, { status: 404 });
   }
 
+  // CP-246: the preview booking page (/medspa/book/<slug>) sends only name, mobile and the two taps.
+  // The practice, the email from the unlock and the zip come from the preview, here on the server
+  // (the page never sees the email).
+  const pvSlugIn = typeof b.preview_slug === "string" && /^pv-[a-z0-9-]{3,64}$/.test(b.preview_slug) ? b.preview_slug : null;
+  type PvFill = { business_name: string; contact_email: string | null; area_zip: string | null };
+  let pvFill: PvFill | null = null;
+  if (pvSlugIn) {
+    const { data: p } = await supabase.from("app_previews").select("business_name, contact_email, area_zip").eq("slug", pvSlugIn).maybeSingle();
+    pvFill = (p as PvFill | null) ?? null;
+  }
+
   const name = clean(b.name, 120) || held?.name || "";
-  const business = clean(b.business, 160) || held?.business || "";
-  const email = (clean(b.email, 200) || held?.email || "").toLowerCase();
+  const business = clean(b.business, 160) || held?.business || pvFill?.business_name || "";
+  const email = (clean(b.email, 200) || held?.email || pvFill?.contact_email || "").toLowerCase();
   const phone = clean(b.phone, 40) || held?.phone || "";
   const role = clean(b.role, 20);
   const stage = clean(b.stage, 20);
@@ -67,7 +78,7 @@ export async function POST(req: Request) {
   const verdict = qualify({ role, stage, visitBand });
   // CP-204: a taken area can't book (but still gets a kind email and a spot on the waitlist).
   // CP-205: the visitor's own hold doesn't count against them.
-  const zipIn = clean(b.zip, 10) || held?.zip || "";
+  const zipIn = clean(b.zip, 10) || held?.zip || pvFill?.area_zip || "";
   let area: Awaited<ReturnType<typeof checkArea>> | null = null;
   if (zipIn) { try { area = await checkArea(zipIn, { leadId: held?.id }); } catch (e) { console.error("[lead] area check failed", e); } }
   if (area?.ok && !area.open) { verdict.qualified = false; verdict.reasons.push("area_taken"); }
@@ -135,7 +146,7 @@ export async function POST(req: Request) {
   // Audit step 6: link a lead-magnet preview to this lead (once), so its booking ends the follow-up
   // sequence. The owner's name and mobile go on the preview too (for the call tasks; never for texts:
   // this form has no SMS consent).
-  const pvSlug = typeof b.preview_slug === "string" && /^pv-[a-z0-9-]{3,64}$/.test(b.preview_slug) ? b.preview_slug : null;
+  const pvSlug = pvSlugIn;
   if (pvSlug) {
     const { data: pv } = await supabase.from("app_previews").select("id, landing_lead_id, contact_name, contact_phone").eq("slug", pvSlug).maybeSingle();
     if (pv && !pv.landing_lead_id) {

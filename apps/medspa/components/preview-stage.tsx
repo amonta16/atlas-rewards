@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { PhoneFrame } from "./phone-frame";
 import { previewEvent } from "@/lib/preview-event";
 import { useBonusState, type OwnerMode } from "./launch-bonus";
+import { LAUNCH_CALL } from "@/lib/offer";
 
 export function PreviewStage({ slug, businessName, logoUrl, primary, apiOrigin, owner = false }: {
   slug: string; businessName: string; logoUrl: string | null; primary: string; apiOrigin: string; owner?: boolean;
@@ -168,8 +169,8 @@ export function CtaBar({ walkthroughUrl, primary, taken, bonus }: { walkthroughU
       <div className="mx-auto grid max-w-md grid-cols-2 gap-2.5 sm:mx-0">
         <a href={walkthroughUrl} className={`${btn} text-white`} style={{ background: primary }}>
           {taken ? <span className="text-[15.5px] font-semibold">Join the waitlist</span> : <>
-            <span className="text-[15.5px] font-semibold">Book 15 min</span>
-            <span className="text-[12px] font-medium opacity-85">{claimed ? "bonuses locked in" : left !== null ? "+ 3 free launch bonuses" : "turn it on live"}</span>
+            <span className="text-[15.5px] font-semibold">Book my free call</span>
+            <span className="text-[12px] font-medium opacity-85">{claimed ? "bonuses locked in" : left !== null ? "+ 3 free launch bonuses" : `${LAUNCH_CALL.minutes} min · Launch Plan`}</span>
           </>}
         </a>
         <button type="button" onClick={look} className={`${btn} bg-white text-ink ring-1 ring-line`}>

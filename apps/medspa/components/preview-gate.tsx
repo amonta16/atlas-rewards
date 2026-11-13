@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT } from "@/lib/sms-consent";
 
 const AFTER_MS = 45_000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -147,9 +148,67 @@ export function PreviewGate({ slug, businessName, primary, apiOrigin }: { slug: 
                 Open my front desk
               </a>
             )}
+            <TextMe slug={slug} primary={primary} apiOrigin={apiOrigin} />
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * CP-246 · optional, after the unlock: their mobile and the two separate, unchecked SMS boxes
+ * (same wording as the A2P registration). The informational box texts their app link now; the
+ * marketing box is what lets the follow-up texts go out. Skipping it changes nothing.
+ * POST /api/preview/sms-optin on the venue site (CORS: this origin).
+ */
+function TextMe({ slug, primary, apiOrigin }: { slug: string; primary: string; apiOrigin: string }) {
+  const [phone, setPhone] = useState("");
+  const [info, setInfo] = useState(false);
+  const [marketing, setMarketing] = useState(false);
+  const [state, setState] = useState<"idle" | "busy" | "done">("idle");
+  const [err, setErr] = useState<string | null>(null);
+  const [texted, setTexted] = useState(false);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    if (phone.replace(/\D/g, "").length < 10) return setErr("Please enter a mobile number with area code.");
+    if (!info && !marketing) return setErr("Tick a box to get texts, or just close this.");
+    setState("busy");
+    try {
+      const r = await fetch(`${apiOrigin}/api/preview/sms-optin`, {
+        method: "POST", mode: "cors", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, phone, sms_consent: info, sms_marketing_consent: marketing }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; texted?: boolean };
+      if (!r.ok) { setErr(j.error ?? "That didn't go through. Please try again."); setState("idle"); return; }
+      setTexted(!!j.texted);
+      setState("done");
+    } catch {
+      setErr("We couldn't reach our server. Check your connection and try again.");
+      setState("idle");
+    }
+  }
+
+  if (state === "done") {
+    return <p className="mt-5 rounded-2xl bg-[#F3F7F3] p-3.5 text-[14px] font-medium text-ink">{texted ? "Sent. Your app link is on its way to your phone." : "Saved. We'll text you from Atlas Engine."}</p>;
+  }
+  return (
+    <form onSubmit={send} noValidate className="mt-6 border-t border-line pt-5">
+      <p className="text-[15.5px] font-semibold">Want it on your phone too? <span className="font-normal text-sub">(optional)</span></p>
+      <label htmlFor="pv-textme-phone" className="sr-only">Mobile number</label>
+      <input id="pv-textme-phone" className="mt-3 h-[50px] w-full rounded-2xl border border-line bg-white px-4 text-[16px] text-ink placeholder:text-sub focus:outline-none focus:ring-2 focus:ring-black/10"
+        type="tel" inputMode="tel" autoComplete="tel" placeholder="Mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <div className="mt-3 space-y-2.5 text-[12px] leading-snug text-sub">
+        <label className="flex gap-2.5"><input type="checkbox" checked={info} onChange={(e) => setInfo(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0" style={{ accentColor: primary }} /><span>{SMS_INFO_CONSENT_TEXT}</span></label>
+        <label className="flex gap-2.5"><input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0" style={{ accentColor: primary }} /><span>{SMS_MARKETING_CONSENT_TEXT}</span></label>
+        <p>Both optional. <a className="underline" href={`${apiOrigin}/legal/terms#sms`} target="_blank" rel="noopener noreferrer">Terms</a> · <a className="underline" href={`${apiOrigin}/legal/privacy#sms`} target="_blank" rel="noopener noreferrer">Privacy</a></p>
+      </div>
+      {err && <p role="alert" className="mt-3 text-[14px] font-medium text-red-700">{err}</p>}
+      <button type="submit" disabled={state === "busy"} className="mt-4 h-[50px] w-full rounded-full bg-white text-[15.5px] font-semibold text-ink ring-1 ring-line disabled:opacity-50">
+        {state === "busy" ? "Sending…" : "Text me my app"}
+      </button>
+    </form>
   );
 }

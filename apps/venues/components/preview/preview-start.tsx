@@ -74,6 +74,25 @@ const PROGRESS: Record<Step, [number, number]> = {
   challenges: [2, 0.35], priorities: [2, 0.75], finishing: [2, 0.95], ready: [2, 1], error: [0, 0],
 };
 
+/** CP-246: a real count of med spas that built their app this week (GET /api/preview/stats). Hidden under 3 or on any failure. */
+function BuiltThisWeek() {
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => {
+    let off = false;
+    fetch("/api/preview/stats").then((r) => (r.ok ? r.json() : null)).then((j: { built_7d?: unknown } | null) => {
+      if (!off && typeof j?.built_7d === "number" && j.built_7d >= 3) setN(j.built_7d);
+    }).catch(() => {});
+    return () => { off = true; };
+  }, []);
+  if (n === null) return null;
+  return (
+    <p className="mt-3 flex items-center gap-2 text-[14px] font-semibold text-[#0B1B2B]">
+      <span className="relative flex h-2.5 w-2.5" aria-hidden><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
+      {n} med spas built their app this week
+    </p>
+  );
+}
+
 function Progress({ step }: { step: Step }) {
   const [seg, frac] = PROGRESS[step];
   return (
@@ -428,10 +447,12 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               {searchError && <p role="alert" className="mt-3 text-[14px] font-medium text-red-700">{searchError}</p>}
             </div>
             <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[14.5px] text-[#3A4A5C]">
-              {["Free", "No card needed", "Ready in about 2 minutes"].map((t) => (
+              {/* CP-246: one timing claim across the page (the title says "about a minute" too). */}
+              {["Free", "No card needed", "Ready in about a minute"].map((t) => (
                 <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#0B5FD6]" aria-hidden />{t}</li>
               ))}
             </ul>
+            <BuiltThisWeek />
             {/* CP-237: the offer, up front. Numbers from lib/landing/medspa-funnel.ts. */}
             <p className="mt-4 max-w-[34rem] text-[14.5px] leading-relaxed text-[#3A4A5C]">
               {/* Audit step 5: no scarcity here; their area isn't known yet. */}

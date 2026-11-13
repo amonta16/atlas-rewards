@@ -680,7 +680,9 @@ function Choices<T extends { id: string; label: string; sub?: string }>({ items,
  * a month grid in the middle, the day's times on the right, a time splits into
  * [time | Next], then one confirm screen. Times come from Andrew's Google Calendar
  * (GET /api/landing/availability) and are shown in the visitor's timezone. */
-function TimePicker({ leadId, firstName, practice, source, headRef, extraNotes, holdUntil }: { leadId: string; firstName: string; practice: string; source: string; headRef: RefObject<HTMLHeadingElement>; extraNotes?: string; holdUntil?: string | null }) {
+/** CP-246: `call` swaps the walkthrough copy for a preview owner's named call (their app is already built). */
+export type PickerCall = { title: string; about: string; perks: string[] };
+export function TimePicker({ leadId, firstName, practice, source, headRef, extraNotes, holdUntil, call }: { leadId: string; firstName: string; practice: string; source: string; headRef: RefObject<HTMLHeadingElement>; extraNotes?: string; holdUntil?: string | null; call?: PickerCall }) {
   const [slots, setSlots] = useState<Date[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [tz, setTz] = useState(HOST_TZ);
@@ -772,20 +774,31 @@ function TimePicker({ leadId, firstName, practice, source, headRef, extraNotes, 
             </span>
             <span className="text-[15px] font-semibold text-[#6B6B6B]">Andrew Montano</span>
           </div>
-          <h3 ref={headRef} tabIndex={-1} className="mt-3 text-[1.6rem] font-bold leading-tight tracking-[-0.02em] outline-none">Atlas app walkthrough</h3>
+          <h3 ref={headRef} tabIndex={-1} className="mt-3 text-[1.6rem] font-bold leading-tight tracking-[-0.02em] outline-none">{call?.title ?? "Atlas app walkthrough"}</h3>
           <ul className="mt-5 space-y-3 text-[15px] font-semibold text-[#6B6B6B]">
             <li className="flex items-center gap-3"><Clock className="h-5 w-5" aria-hidden />{CALL_MINUTES} min</li>
             <li className="flex items-start gap-3"><Video className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />Video call details provided upon confirmation.</li>
             {slot && <li className="flex items-start gap-3 text-[#1A7F4B]"><CalendarDays className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />{fTime(slot)} – {fTime(new Date(slot.getTime() + CALL_MINUTES * 60_000))}, {fLong(slot)}</li>}
             {slot && <li className="flex items-center gap-3"><Globe className="h-5 w-5" aria-hidden />{tzLabel(tz, slot)}</li>}
           </ul>
-          <p className="mt-5 text-[14px] leading-relaxed text-[#4D4D4D]">{firstName ? `${firstName}, ` : ""}Andrew will walk through your recall numbers, how Atlas would run at {practice || "your practice"}&apos;s front desk, and the offer for your area. You decide if it&apos;s a fit.</p>
-          <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--s-ice)] px-2.5 py-1 text-[12px] font-bold text-[var(--s-ocean-deep)]"><ShieldCheck className="h-3.5 w-3.5" aria-hidden /> You qualify for a walkthrough</p>
+          {call ? (
+            <>
+              <p className="mt-5 text-[14px] leading-relaxed text-[#4D4D4D]">{call.about}</p>
+              <ul className="mt-3 space-y-1.5">
+                {call.perks.map((p) => <li key={p} className="flex gap-2 text-[13.5px] font-semibold leading-snug text-[#1A1A1A]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--s-ocean)]" strokeWidth={3} aria-hidden />{p}</li>)}
+              </ul>
+            </>
+          ) : (
+            <>
+              <p className="mt-5 text-[14px] leading-relaxed text-[#4D4D4D]">{firstName ? `${firstName}, ` : ""}Andrew will walk through your recall numbers, how Atlas would run at {practice || "your practice"}&apos;s front desk, and the offer for your area. You decide if it&apos;s a fit.</p>
+              <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[var(--s-ice)] px-2.5 py-1 text-[12px] font-bold text-[var(--s-ocean-deep)]"><ShieldCheck className="h-3.5 w-3.5" aria-hidden /> You qualify for a walkthrough</p>
+            </>
+          )}
           {/* CP-205: do the work up front */}
-          <div className="mt-5 flex gap-3 rounded-2xl border border-[#E3E8EF] bg-gradient-to-br from-[#F2F7FF] to-white p-4">
+          {!call && <div className="mt-5 flex gap-3 rounded-2xl border border-[#E3E8EF] bg-gradient-to-br from-[#F2F7FF] to-white p-4">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white" style={{ background: BLUE }}><Smartphone className="h-[18px] w-[18px]" aria-hidden /></span>
             <p className="text-[13.5px] leading-snug text-[#4D4D4D]"><b className="text-[#1A1A1A]">Your app, built before the call.</b> Andrew builds a preview of {practice || "your practice"}&apos;s own app (your name, logo and colors) so you see yours, not a generic demo.</p>
-          </div>
+          </div>}
           {holdUntil && Date.parse(holdUntil) > Date.now() && <p className="mt-3 flex items-center gap-1.5 text-[12.5px] font-semibold text-emerald-700"><Lock className="h-3.5 w-3.5" aria-hidden />Book now and your area stays held through the call.</p>}
         </aside>
 
@@ -793,8 +806,8 @@ function TimePicker({ leadId, firstName, practice, source, headRef, extraNotes, 
           /* Confirm */
           <section className="p-6 lg:p-8" aria-label="Confirm your time">
             <button type="button" onClick={() => { setSlot(null); setPending(null); }} className="s-focus grid h-11 w-11 place-items-center rounded-full border border-[#E3E8EF] text-[var(--s-ocean)] hover:bg-[#F2F7FF]" aria-label="Back to times"><ArrowLeft className="h-5 w-5" aria-hidden /></button>
-            <h4 className="mt-5 text-[1.25rem] font-bold">Confirm your walkthrough</h4>
-            <p className="mt-2 max-w-[30rem] text-[15px] leading-relaxed text-[#4D4D4D]">We&apos;ll send the calendar invite and video link to the email you gave us, and your area stays held through the call. Next you&apos;ll see a short page to confirm you can make it.</p>
+            <h4 className="mt-5 text-[1.25rem] font-bold">Confirm your {call ? "call" : "walkthrough"}</h4>
+            <p className="mt-2 max-w-[30rem] text-[15px] leading-relaxed text-[#4D4D4D]">{call ? "We'll send the calendar invite and video link to your email. Next you'll see a short page to confirm you can make it." : "We'll send the calendar invite and video link to the email you gave us, and your area stays held through the call. Next you'll see a short page to confirm you can make it."}</p>
             <div className="mt-6 rounded-xl border border-[#E3E8EF] p-4 text-[15px]">
               <div className="font-bold">{fLong(slot)}</div>
               <div className="text-[#4D4D4D]">{fTime(slot)} · {CALL_MINUTES} minutes · {tzLabel(tz, slot)}</div>

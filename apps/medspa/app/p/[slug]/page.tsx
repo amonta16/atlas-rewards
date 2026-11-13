@@ -5,6 +5,7 @@ import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { CtaBar, PreviewStage } from "@/components/preview-stage";
 import { PreviewGate } from "@/components/preview-gate";
 import { BonusDetails, BonusTiles, PreviewTopBar, type OwnerMode } from "@/components/launch-bonus";
+import { CallOffer, Mechanism, PostScript, ProofRow } from "@/components/preview-close";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
@@ -88,7 +89,8 @@ export default async function PreviewPage({ params, searchParams }: { params: { 
   const taken = row.area_open === false;
 
   const brand = { primary, logoUrl, businessName: row.business_name, appUrl: `${SELF}/${slug}` };
-  const [reviews, ownerKey] = await Promise.all([getReviewImages(), ownerViewKey(slug, searchParams?.owner)]);
+  const [reviews, ownerKey, builtThisWeek] = await Promise.all([getReviewImages(), ownerViewKey(slug, searchParams?.owner), getBuiltThisWeek()]);
+  const book = (src: string) => `${SITE}/medspa/walkthrough/${slug}?src=${src}`;
   const b = searchParams?.bonus;
   const owner: OwnerMode = ownerKey ? (b === "ended" || b === "claimed" ? b : "live") : null;
 
@@ -125,6 +127,11 @@ export default async function PreviewPage({ params, searchParams }: { params: { 
             ))}
           </ul>
 
+          {/* CP-246: problem → mechanism → proof → the call offer, before the quieter options */}
+          <Mechanism primary={primary} />
+          <ProofRow builtThisWeek={builtThisWeek} reviews={reviews} />
+          {!taken && <CallOffer walkthroughUrl={book("offer")} primary={primary} businessName={row.business_name} />}
+
           {row.treatments_are_examples && (
             <p className="mt-4 max-w-[34rem] rounded-2xl bg-white p-4 text-[14.5px] text-sub shadow-soft">
               We couldn&apos;t read a treatment menu on your website, so these are example treatments. Your real menu goes in when you go live.
@@ -155,9 +162,20 @@ export default async function PreviewPage({ params, searchParams }: { params: { 
       <div className="mx-auto max-w-6xl px-5 pb-36 lg:pb-20">
         <BonusDetails apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} enabled={!taken} brand={brand} owner={owner} />
         <Reviews images={reviews} />
+        {!taken && <PostScript businessName={row.business_name} walkthroughUrl={book("ps")} primary={primary} expires={expires} />}
       </div>
     </Shell>
   );
+}
+
+/** CP-246: how many med spas built an app preview in the last 7 days (venue site, cached 5 min). null on any failure. */
+async function getBuiltThisWeek(): Promise<number | null> {
+  try {
+    const r = await fetch(`${SITE}/api/preview/stats`, { next: { revalidate: 300 } });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { built_7d?: unknown };
+    return typeof j.built_7d === "number" && Number.isFinite(j.built_7d) ? j.built_7d : null;
+  } catch { return null; }
 }
 
 /** CP-245: the real review screenshots from Admin → Reviews (placement "med spa pages"), at the very bottom. */

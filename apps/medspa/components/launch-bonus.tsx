@@ -17,7 +17,7 @@
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import QRCode from "react-qr-code";
-import { LAUNCH_BONUS } from "@/lib/offer";
+import { LAUNCH_BONUS, LAUNCH_CALL } from "@/lib/offer";
 import { previewEvent } from "@/lib/preview-event";
 
 /* ───────────── the clock (one per page, shared) ───────────── */
@@ -222,7 +222,7 @@ export function BonusDetails({ apiOrigin, slug, walkthroughUrl, enabled, brand, 
           Book in the next {LAUNCH_BONUS.hours} hours. They&apos;re free.
         </h2>
         <p className="relative mt-1.5 text-[14.5px] leading-snug text-white/70">
-          Book your 15-minute walkthrough before the timer runs out{ends ? ` (${ends})` : ""}. They&apos;re gone after that.
+          Book your {LAUNCH_CALL.minutes}-minute {LAUNCH_CALL.name} before the timer runs out{ends ? ` (${ends})` : ""}. They&apos;re gone after that.
         </p>
       </div>
 
@@ -251,7 +251,7 @@ export function BonusDetails({ apiOrigin, slug, walkthroughUrl, enabled, brand, 
           <span className="text-[15px]"><span className="mr-2 text-white/45 line-through">{usd(BONUS_TOTAL)}</span><b className="text-[22px] text-white">$0</b></span>
         </div>
         <a href={walkthroughUrl} className="mt-4 flex h-[58px] w-full flex-col items-center justify-center rounded-2xl text-center leading-tight text-white active:scale-[.99]" style={{ background: primary, boxShadow: `0 14px 30px -14px ${primary}` }}>
-          <span className="text-[16.5px] font-semibold">Book my 15-min call</span>
+          <span className="text-[16.5px] font-semibold">Book my free {LAUNCH_CALL.minutes}-min call</span>
           <span className="text-[12.5px] font-medium opacity-90">bonuses end in <span className="font-mono tabular-nums">{hms(left)}</span></span>
         </a>
         <p className="mt-2.5 text-center text-[12px] text-white/50">Book inside the window and all {LAUNCH_BONUS.bonuses.length} are locked in for your launch.</p>

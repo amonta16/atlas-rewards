@@ -182,7 +182,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
                 // One ask per screen: on a preview the banner, the Home card or the bar carries it.
                 <p className="mt-1 text-[12.5px] leading-snug text-sub">Reminders, offers and texts are off until you turn the engine on.</p>
               ) : <>
-                <p className="mt-1 text-[12.5px] leading-snug text-sub">Book a 15-minute walkthrough and we switch your app on with you.</p>
+                <p className="mt-1 text-[12.5px] leading-snug text-sub">Book your free 20-min Launch Plan call and we switch your app on with you.</p>
                 <a href={goLive.walkthroughUrl} target="_blank" rel="noopener noreferrer" className="mt-2.5 inline-flex items-center gap-1 border-b border-brand/40 pb-0.5 text-[13px] font-semibold text-brand">Book a walkthrough <IcNext className="h-3 w-3" strokeWidth={2.4} /></a>
               </>}
             </div>

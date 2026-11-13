@@ -98,7 +98,7 @@ function useSetup({ api, slug, cfg, goLive, onGo }: SetupProps) {
     { id: "payouts", title: "Set up payments", sub: "Memberships and shop sales pay out to your own bank.", target: "payouts", done: has("payouts", !!live?.payouts) },
     goLive.kind === "live"
       ? { id: "live", title: "Go live", sub: "Your app is live for patients.", done: true }
-      : { id: "live", title: "Go live", sub: "A 15-minute walkthrough: we switch it on with you.", href: goLive.walkthroughUrl, done: false },
+      : { id: "live", title: "Go live", sub: "A free 20-min Launch Plan call: we switch it on with you.", href: goLive.walkthroughUrl, done: false },
   ], [slug, cfg, bookingSet, live, goLive, seen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doneCount = steps.filter((s) => s.done).length;

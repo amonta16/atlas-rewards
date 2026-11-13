@@ -152,6 +152,24 @@ export const TERRITORY = { radiusMiles: 10 };
  */
 export const LAUNCH_BONUS = { active: true, hours: 72 }; // CP-245.5: was 4
 
+/**
+ * CP-246 · the call, sold as its own offer ("sell the call, not the product"). A preview owner
+ * books the Launch Plan call, not "a 15-min walkthrough". `value` is what the session is worth
+ * on its own (an hour of setup and strategy work); edit freely. The length is CALL_MINUTES in
+ * lib/landing/availability.ts (the calendar). Every takeaway must be something Andrew really
+ * hands over on the call, whether or not they sign up.
+ * KEEP IN SYNC with LAUNCH_CALL in apps/medspa/lib/offer.ts.
+ */
+export const LAUNCH_CALL = {
+  name: "Launch Plan call",
+  value: 300,
+  takeaways: [
+    { t: "Your overdue-patient number", d: "How many of your patients are past due for toxin, filler and facials, and what bringing back 10 a month is worth to you." },
+    { t: "Your first 3 automations, picked", d: "The recall, membership and slow-day offers to switch on first, chosen from your own menu." },
+    { t: "Your launch plan, in writing", d: "Go-live date, what goes at your checkout and the price for your area, emailed after the call. Yours to keep." },
+  ],
+};
+
 export const FOUNDING = {
   active: true,
   spots: 10,
