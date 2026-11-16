@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
           to: row.emails,
           subject: mail.subject,
           text: mail.text,
+          html: mail.html,
           ...(mail.replyTo ? { reply_to: mail.replyTo } : {}),
         }),
       });

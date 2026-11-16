@@ -1,12 +1,16 @@
 -- CP-247 · new-booking emails to the owner + "no same-day booking"
 -- NOT YET APPLIED. Run in the Supabase SQL editor (gqmjpntzupnmjooszvcd)
--- BEFORE deploying the code. Safe to re-run.
+-- BEFORE deploying the code. Safe to re-run. Paste the WHOLE file and press
+-- Run; the last statement prints Flippo's settings so you can see it worked.
 --
 -- 1. business_booking_alerts: who gets emailed when a customer books from the
 --    app or the venue website. Its own table on purpose: the businesses row
 --    reaches customers' browsers, and the owner's inbox shouldn't.
+--    enabled_at = when emails were switched on; only bookings made after
+--    that are emailed, so turning it on never sends a backlog.
 -- 2. bookings.owner_notified_at / owner_notify_attempts: the queue the
---    /api/bookings/owner-alerts cron (every minute) works through.
+--    /api/bookings/owner-alerts cron (every minute) works through. Existing
+--    bookings are NOT touched.
 -- 3. businesses.booking_hours.same_day = false → app and website bookings
 --    can't start on the business's current local day. Enforced here, in a
 --    trigger, so every path obeys it (app RPC, website API, anything later);
@@ -17,10 +21,12 @@
 create table if not exists public.business_booking_alerts (
   business_id uuid primary key references public.businesses(id) on delete cascade,
   emails      text[] not null default '{}',
+  enabled_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+alter table public.business_booking_alerts add column if not exists enabled_at timestamptz not null default now();
 alter table public.business_booking_alerts enable row level security;
--- No policies: only the service role and the two functions below touch it.
+-- No policies: only the service role and the functions below touch it.
 
 create or replace function public.get_booking_alert_emails(p_business_id uuid)
 returns text[] language plpgsql stable security definer set search_path = public as $$
@@ -28,7 +34,7 @@ begin
   if not (public.manages_business(p_business_id) or public.is_agency_admin()) then
     raise exception 'not allowed';
   end if;
-  return coalesce((select emails from public.business_booking_alerts where business_id = p_business_id), '{}');
+  return coalesce((select a.emails from public.business_booking_alerts a where a.business_id = p_business_id), '{}');
 end; $$;
 
 create or replace function public.set_booking_alert_emails(p_business_id uuid, p_emails text[])
@@ -38,13 +44,17 @@ begin
   if not (public.manages_business(p_business_id) or public.is_agency_admin()) then
     raise exception 'not allowed';
   end if;
-  select coalesce(array_agg(distinct e), '{}') into v_clean
+  select coalesce(array_agg(distinct s.e), '{}') into v_clean
     from (select lower(trim(x)) as e from unnest(coalesce(p_emails, '{}')) x) s
-   where e ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$';
-  if array_length(v_clean, 1) > 5 then raise exception 'up to 5 emails'; end if;
-  insert into public.business_booking_alerts (business_id, emails, updated_at)
-  values (p_business_id, v_clean, now())
-  on conflict (business_id) do update set emails = excluded.emails, updated_at = now();
+   where s.e ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$';
+  if coalesce(array_length(v_clean, 1), 0) > 5 then raise exception 'up to 5 emails'; end if;
+  insert into public.business_booking_alerts as t (business_id, emails, enabled_at, updated_at)
+  values (p_business_id, v_clean, now(), now())
+  on conflict (business_id) do update
+     set emails = excluded.emails,
+         -- switching on from empty starts a fresh window (no backlog)
+         enabled_at = case when cardinality(t.emails) = 0 then now() else t.enabled_at end,
+         updated_at = now();
   return v_clean;
 end; $$;
 
@@ -56,18 +66,17 @@ grant execute on function public.set_booking_alert_emails(uuid, text[]) to authe
 -- ── 2. the queue ───────────────────────────────────────────────────────
 alter table public.bookings add column if not exists owner_notified_at     timestamptz;
 alter table public.bookings add column if not exists owner_notify_attempts int not null default 0;
--- Everything already booked counts as handled, so turning this on doesn't
--- email the backlog. (Only touches rows not yet marked.)
-update public.bookings set owner_notified_at = now() where owner_notified_at is null and created_at < now();
 create index if not exists bookings_owner_alert_queue
   on public.bookings (created_at) where owner_notified_at is null;
 
 -- The cron claims rows first (so two overlapping runs can't double-send),
 -- then marks them sent or hands them back. Desk bookings never email: the
 -- person who made them is standing at the desk.
-create or replace function public.claim_booking_owner_alerts(p_limit int default 25)
+drop function if exists public.claim_booking_owner_alerts(int);
+create function public.claim_booking_owner_alerts(p_limit int default 25)
 returns table (
   booking_id uuid, business_id uuid, business_name text, business_slug text, timezone text,
+  logo_url text, brand_primary text,
   emails text[], resource_name text, scheduled_at timestamptz, duration_minutes int,
   party_size int, customer_name text, customer_phone text, customer_email text,
   notes text, source text, status text
@@ -82,16 +91,18 @@ begin
      where b.owner_notified_at is null
        and b.source <> 'desk'
        and b.owner_notify_attempts < 5
+       and b.created_at >= a.enabled_at
        and b.created_at > now() - interval '2 days'
      order by b.created_at
      limit greatest(1, least(p_limit, 100))
        for update of b skip locked
   ), claimed as (
-    update public.bookings b set owner_notified_at = now()
-      from picked where b.id = picked.id
-    returning b.*
+    update public.bookings u set owner_notified_at = now()
+      from picked where u.id = picked.id
+    returning u.*
   )
   select c.id, c.business_id, z.name::text, z.slug::text, public.business_timezone(c.business_id),
+         coalesce(z.logo_url, z.app_icon_url)::text, (z.brand_colors ->> 'primary')::text,
          a.emails, coalesce(c.tag_name, 'Booking')::text, c.scheduled_at, c.duration_minutes,
          c.party_size, c.customer_name::text, c.customer_phone::text, c.customer_email::text,
          c.notes::text, c.source::text, c.status::text
@@ -144,7 +155,10 @@ update public.businesses
    set booking_hours = coalesce(booking_hours, '{}'::jsonb) || '{"same_day": false}'::jsonb
  where slug = 'flippo-s-arcade-and-batting-cage';
 
--- Check:
--- select b.slug, b.booking_hours->>'same_day' as same_day, a.emails
---   from public.businesses b left join public.business_booking_alerts a on a.business_id = b.id
---  where b.slug = 'flippo-s-arcade-and-batting-cage';
+-- Reload the API's schema cache so the new functions are callable at once.
+notify pgrst, 'reload schema';
+
+-- Should print: same_day = false, emails = {mary@mbflippos.com}
+select b.slug, b.booking_hours->>'same_day' as same_day, a.emails, a.enabled_at
+  from public.businesses b left join public.business_booking_alerts a on a.business_id = b.id
+ where b.slug = 'flippo-s-arcade-and-batting-cage';
