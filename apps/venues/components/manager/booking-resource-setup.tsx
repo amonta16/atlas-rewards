@@ -10,7 +10,7 @@
  * host decides how it persists (desk: instant update; builder: Save).
  */
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Trash2, Power, ChevronDown, ChevronUp, Clock, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, Power, ChevronDown, ChevronUp, Clock, Check, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,6 +149,8 @@ export function BookingResourceSetup({
               set these anywhere; the sheet and the customer slots ran on a
               hard-coded Mon–Sat 9–7. Per day, so Fri/Sat can run later. */}
           <BusinessHoursEditor business={business} primary={primary} onSaved={changed} />
+          {/* CP-247: who's emailed about new bookings + same-day on/off. */}
+          <BookingRulesEditor business={business} primary={primary} onSaved={changed} />
 
           <div className="divide-y rounded-xl border">
             {resources.length === 0 && <div className="p-4 text-sm text-zinc-500">No bookable spots yet.</div>}
@@ -462,6 +464,97 @@ function BusinessHoursEditor({ business, primary, onSaved }: { business: Busines
             </Button>
             {savedAt && <span className="text-[12px] font-bold text-emerald-700">Saved — the sheet and the app use these now.</span>}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── CP-247: booking rules — owner emails + same-day ─────────────────── */
+function BookingRulesEditor({ business, primary, onSaved }: { business: Business; primary: string; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [sameDay, setSameDay] = useState(business.booking_hours?.same_day !== false);
+  // null = not loaded yet / not allowed (front-desk staff can't see the owner's inbox).
+  const [emails, setEmails] = useState<string[] | null>(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState<"emails" | "sameDay" | null>(null);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => { setSameDay(business.booking_hours?.same_day !== false); }, [business.booking_hours]);
+  useEffect(() => {
+    let off = false;
+    createClient().rpc("get_booking_alert_emails", { p_business_id: business.id }).then(({ data, error }) => {
+      if (off || error) return;
+      const list = (data ?? []) as string[];
+      setEmails(list); setDraft(list.join(", "));
+    });
+    return () => { off = true; };
+  }, [business.id]);
+
+  const flash = () => { setSavedAt(Date.now()); setTimeout(() => setSavedAt(null), 2500); };
+
+  async function toggleSameDay(next: boolean) {
+    setSaving("sameDay"); setErr(null);
+    const bh = { ...(business.booking_hours ?? { start: "09:00", end: "21:00", slot_minutes: 15, days: [1, 2, 3, 4, 5, 6, 7] }), same_day: next };
+    const { error } = await createClient().from("businesses").update({ booking_hours: bh }).eq("id", business.id);
+    setSaving(null);
+    if (error) { setErr(error.message); return; }
+    business.booking_hours = bh;
+    setSameDay(next); flash(); onSaved();
+  }
+
+  async function saveEmails() {
+    const list = draft.split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
+    const bad = list.find(e => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+    if (bad) { setErr(`"${bad}" doesn't look like an email.`); return; }
+    if (list.length > 5) { setErr("Up to 5 emails."); return; }
+    setSaving("emails"); setErr(null);
+    const { data, error } = await createClient().rpc("set_booking_alert_emails", { p_business_id: business.id, p_emails: list });
+    setSaving(null);
+    if (error) { setErr(error.message); return; }
+    const saved = (data ?? []) as string[];
+    setEmails(saved); setDraft(saved.join(", ")); flash();
+  }
+
+  const summary = [
+    emails === null ? null : emails.length ? `Emails ${emails.join(", ")}` : "No booking emails",
+    sameDay ? "Same-day booking on" : "No same-day booking",
+  ].filter(Boolean).join(" · ");
+
+  return (
+    <div className="rounded-xl border-2 border-zinc-200 overflow-hidden">
+      <button type="button" onClick={() => setOpen(v => !v)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-zinc-50">
+        <span className="h-9 w-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: primary }}><Mail className="h-4 w-4" /></span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-extrabold">Booking emails &amp; same-day</div>
+          <div className="text-[11px] text-zinc-500 truncate">{summary}</div>
+        </div>
+        {open ? <ChevronUp className="h-4 w-4 text-zinc-500" /> : <ChevronDown className="h-4 w-4 text-zinc-500" />}
+      </button>
+      {open && (
+        <div className="border-t px-3 py-3 space-y-4">
+          {emails !== null && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-bold">Email me new bookings</Label>
+              <p className="text-[11px] text-zinc-500">Every booking a customer makes in the app or on the website is emailed here within a minute. Separate several with commas. Desk bookings aren&apos;t emailed.</p>
+              <div className="flex gap-2">
+                <Input value={draft} onChange={e => setDraft(e.target.value)} placeholder="owner@yourbusiness.com" className="h-9" />
+                <Button onClick={saveEmails} disabled={saving !== null} className="text-white h-9 font-extrabold shrink-0" style={{ background: primary }}>
+                  {saving === "emails" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 mr-1" />} Save
+                </Button>
+              </div>
+            </div>
+          )}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" className="mt-1" checked={sameDay} disabled={saving !== null} onChange={e => toggleSameDay(e.target.checked)} />
+            <span>
+              <span className="block text-sm font-bold">Allow same-day booking</span>
+              <span className="block text-[11px] text-zinc-500">Off: customers can book tomorrow onward only. The front desk can still book today.</span>
+            </span>
+          </label>
+          {err && <div className="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[12px] font-semibold text-rose-700">{err}</div>}
+          {savedAt && <div className="text-[12px] font-bold text-emerald-700">Saved.</div>}
         </div>
       )}
     </div>

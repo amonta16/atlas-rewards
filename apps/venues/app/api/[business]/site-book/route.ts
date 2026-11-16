@@ -36,6 +36,7 @@ const FRIENDLY = [
   "party size must be between",
   "that length is not offered",
   "this is not bookable right now",
+  "same-day booking is off", // CP-247 trigger
 ];
 
 export async function POST(req: Request, { params }: { params: { business: string } }) {

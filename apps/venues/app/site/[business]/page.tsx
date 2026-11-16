@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getBusinessBySlug } from "@/lib/data/customer-app";
 import { getCachedUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { bookingEnabled, type BookingPackage } from "@/lib/booking";
+import { bookingEnabled, sameDayBooking, type BookingPackage } from "@/lib/booking";
 import { siteContentFor, type VenueSiteContent } from "@/lib/venue-site/content";
 import { siteLiveFor } from "@/lib/venue-site/live";
 import { venueSiteFontClass } from "@/lib/venue-site/fonts";
@@ -157,6 +157,7 @@ export default async function VenueSitePage({ params }: { params: { business: st
         rewards={((rewQ.data ?? []) as SiteReward[]).filter(r => !/%\s*off/i.test(r.name)).slice(0, 8)}
         visitPoints={business.point_rules?.visit ?? 50}
         storeLinks={{ ios: IOS, android: ANDROID, joinCode: business.join_code ?? c.app.joinCode }}
+        sameDay={sameDayBooking(business)}
         waiver={waiver}
         live={liveRows ?? []}
       />

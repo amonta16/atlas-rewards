@@ -179,9 +179,10 @@ function groupBy(resources: SiteResource[]) {
   return out;
 }
 
-function nextDays(n: number): Date[] {
+/** n calendar days starting `from` days after today (CP-247: 1 when same-day booking is off). */
+function nextDays(n: number, from = 0): Date[] {
   const base = new Date(); base.setHours(0, 0, 0, 0);
-  return Array.from({ length: n }, (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + i));
+  return Array.from({ length: n }, (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + from + i));
 }
 
 const fmtPhone = (raw: string) => {
@@ -191,9 +192,11 @@ const fmtPhone = (raw: string) => {
 
 /* ── The cards on the page ─────────────────────────────────────────── */
 
-export function BookingSection({ slug, businessName, resources, phone, member, visitPoints, storeLinks, initialLive }: {
+export function BookingSection({ slug, businessName, resources, phone, member, visitPoints, storeLinks, initialLive, sameDay = true }: {
   slug: string; businessName: string; resources: SiteResource[]; phone: string; member: SiteMember; visitPoints: number;
   storeLinks: { ios: string; android: string; joinCode: string };
+  /** CP-247: false → the calendar starts tomorrow. */
+  sameDay?: boolean;
   /** booking_resources_now at render time; the poller keeps it fresh. */
   initialLive: SiteLiveRow[];
 }) {
@@ -270,7 +273,7 @@ export function BookingSection({ slug, businessName, resources, phone, member, v
         ))}
       </div>
 
-      <BookingSheet slug={slug} businessName={businessName} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} live={live} />
+      <BookingSheet slug={slug} businessName={businessName} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} live={live} sameDay={sameDay} />
       <LivePoller slug={slug} />
     </>
   );
@@ -278,10 +281,11 @@ export function BookingSection({ slug, businessName, resources, phone, member, v
 
 /* ── The sheet ─────────────────────────────────────────────────────── */
 
-function BookingSheet({ slug, businessName, resources, phone, member, visitPoints, storeLinks, live }: {
+function BookingSheet({ slug, businessName, resources, phone, member, visitPoints, storeLinks, live, sameDay }: {
   slug: string; businessName: string; resources: SiteResource[]; phone: string; member: SiteMember; visitPoints: number;
-  storeLinks: { ios: string; android: string; joinCode: string }; live: LiveMap;
+  storeLinks: { ios: string; android: string; joinCode: string }; live: LiveMap; sameDay: boolean;
 }) {
+  const firstDay = sameDay ? 0 : 1;
   const groups = useMemo(() => groupBy(resources), [resources]);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("pick");
@@ -289,7 +293,7 @@ function BookingSheet({ slug, businessName, resources, phone, member, visitPoint
   const [resource, setResource] = useState<SiteResource | null>(null);
   const [pkg, setPkg] = useState<SitePkg | null>(null);
   const [duration, setDuration] = useState(60);
-  const [day, setDay] = useState(() => isoDay(new Date()));
+  const [day, setDay] = useState(() => isoDay(nextDays(1, firstDay)[0]));
   const [slots, setSlots] = useState<BookingSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [picked, setPicked] = useState<BookingSlot | null>(null);
@@ -348,7 +352,7 @@ function BookingSheet({ slug, businessName, resources, phone, member, visitPoint
 
   useEffect(() => { bodyRef.current?.scrollTo({ top: 0 }); }, [step]);
 
-  const days = useMemo(() => nextDays(Math.min(14, (resource?.horizon_days ?? 14) + 1)), [resource?.horizon_days]);
+  const days = useMemo(() => nextDays(Math.min(14, (resource?.horizon_days ?? 14) + 1 - firstDay), firstDay), [resource?.horizon_days, firstDay]);
 
   // Live availability — the same RPC the app's Book tab calls.
   useEffect(() => {

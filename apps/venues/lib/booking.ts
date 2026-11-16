@@ -148,6 +148,11 @@ export function bookingEnabled(b: Pick<Business, "widget_config">): boolean {
   return !!b.widget_config?.booking;
 }
 
+/** CP-247: can customers book for later today? Off → the calendar starts tomorrow. */
+export function sameDayBooking(b: Pick<Business, "booking_hours">): boolean {
+  return b.booking_hours?.same_day !== false;
+}
+
 /* ── payment provider abstraction (v2 = none) ───────────────────────── */
 
 export type PaymentIntentRequest = {

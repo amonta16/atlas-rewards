@@ -22,16 +22,15 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
   type BookingResource, type BookingSlot, type MyBooking,
-  dollars, durationLabel, timeLabel, dayLabel, isoDay, STATUS_STYLE, paymentProviderFor, groupResources, type BookingPackage } from "@/lib/booking";
+  dollars, durationLabel, timeLabel, dayLabel, isoDay, sameDayBooking, STATUS_STYLE, paymentProviderFor, groupResources, type BookingPackage } from "@/lib/booking";
 import type { Business } from "@/lib/types/database";
 
 type Step = "resource" | "package" | "time" | "confirm" | "done";
 
-function nextDays(n: number): Date[] {
-  const out: Date[] = [];
+/** n calendar days starting `from` days after today (CP-247: 1 when same-day booking is off). */
+function nextDays(n: number, from = 0): Date[] {
   const base = new Date(); base.setHours(0, 0, 0, 0);
-  for (let i = 0; i < n; i++) out.push(new Date(base.getTime() + i * 86_400_000));
-  return out;
+  return Array.from({ length: n }, (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + from + i));
 }
 
 export function ResourceBooking({ business, resources }: { business: Business; resources: BookingResource[] }) {
@@ -42,7 +41,8 @@ export function ResourceBooking({ business, resources }: { business: Business; r
   const [step, setStep] = useState<Step>("resource");
   const [resource, setResource] = useState<BookingResource | null>(resources.length === 1 ? resources[0] : null);
   const [duration, setDuration] = useState<number>(resources.length === 1 ? resources[0].durations[0] : 60);
-  const [day, setDay] = useState<string>(() => isoDay(new Date()));
+  const firstDay = sameDayBooking(business) ? 0 : 1;
+  const [day, setDay] = useState<string>(() => isoDay(nextDays(1, firstDay)[0]));
   const [slots, setSlots] = useState<BookingSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [picked, setPicked] = useState<BookingSlot | null>(null);
@@ -60,7 +60,7 @@ export function ResourceBooking({ business, resources }: { business: Business; r
   // a time, so the other kinds of bookings are visible without scrolling.
   const groups = useMemo(() => groupResources(resources), [resources]);
   const [sectionIdx, setSectionIdx] = useState(0);
-  const days = useMemo(() => nextDays(Math.min(14, (resource?.horizon_days ?? 14) + 1)), [resource?.horizon_days]);
+  const days = useMemo(() => nextDays(Math.min(14, (resource?.horizon_days ?? 14) + 1 - firstDay), firstDay), [resource?.horizon_days, firstDay]);
 
   // CP-157: live occupancy per resource ("2 of 6 in use", "Fully booked ·
   // free at 3:30"). Refreshes with my bookings and every 60s while on step 1.

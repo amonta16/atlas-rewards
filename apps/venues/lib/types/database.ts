@@ -361,6 +361,9 @@ export type BookingHours = {
   /** CP-173: per-day windows keyed by isodow ("1"=Mon … "7"=Sun). A missing
    *  day is closed. When present this wins over start/end/days. */
   week?: Record<string, [string, string]>;
+  /** CP-247: false → app and website bookings start tomorrow at the earliest
+   *  (enforced by the bookings_enforce_same_day trigger; the desk is exempt). */
+  same_day?: boolean;
 };
 
 export type Membership = {

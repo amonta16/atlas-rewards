@@ -80,6 +80,12 @@ Until this is on, the app's sign-in screen uses email + password by itself. It s
 ## Gifts (scratch card on Home)
 - [ ] For each med spa clinic, set up at least one automated gift (desk → App builder → Gifts, or admin → the clinic → Offers → automated / welcome gift, e.g. "$25 off your first purchase"). Offers and automations are already ON for spa-by-the-bay, divina-medical-spa and reveal-med, but none has an automated gift yet, so real patients won't see a scratch card until you add one.
 
+## Booking emails + no same-day booking (CP-247, Flippo's)
+- [ ] Supabase (project gqmjpntzupnmjooszvcd) → SQL Editor → paste and run `db/history/checkpoint-247-booking-owner-alerts/cp247_booking_owner_alerts_and_same_day.sql`. Run it **before** pushing the code. (Claude's Supabase connection can't reach this project right now.)
+- [ ] Push branch `flippos-booking-rules` and merge it. Vercel picks up the new every-minute cron `/api/bookings/owner-alerts`. It reuses `CRON_SECRET` and `RESEND_API_KEY`, which are already set.
+- [ ] Check: book a cage for tomorrow in Flippo's app. mary@mbflippos.com should get "New booking: …" within about a minute. Today shouldn't show in the app or website calendar.
+- Other venues: Builder → Bookings → "Booking emails & same-day".
+
 ## Front desk
 - [ ] Try the new desk locally: `npm run medspa:dev`, open http://localhost:3100/spa-by-the-bay/desk and sign in with your Atlas admin email + password. (http://localhost:3100/demo/desk works with no login.)
 - [ ] After go-live, give each clinic its desk link: `https://med.atlas-engine.app/<clinic-slug>/desk`. Staff sign in with the same email + password they use for the manager portal. Add front-desk staff in the manager portal → Team, as before.

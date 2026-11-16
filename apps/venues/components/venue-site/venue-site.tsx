@@ -23,7 +23,7 @@ const fmtPhone = (raw: string) => {
 
 export type SiteWaiver = { href: string; signInHref: string | null; validDays: number | null };
 
-export function VenueSite({ c, name, logoUrl, phone, address, resources, member, rewards, visitPoints, storeLinks, slug, waiver, live }: {
+export function VenueSite({ c, name, logoUrl, phone, address, resources, member, rewards, visitPoints, storeLinks, slug, waiver, live, sameDay = true }: {
   c: VenueSiteContent; name: string; logoUrl: string | null; phone: string; address: string; slug: string;
   /** The business's own Atlas waiver (signup → waiver gate, or /app/waiver when signed in). */
   waiver: SiteWaiver | null;
@@ -31,6 +31,8 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
   live: SiteLiveRow[];
   resources: SiteResource[]; member: SiteMember; rewards: SiteReward[]; visitPoints: number;
   storeLinks: { ios: string; android: string; joinCode: string };
+  /** CP-247: false → booking calendar starts tomorrow. */
+  sameDay?: boolean;
 }) {
   const links = [
     { href: "#book", label: "Book" },
@@ -186,7 +188,7 @@ export function VenueSite({ c, name, logoUrl, phone, address, resources, member,
               </ol>
             </div>
             <div className="vs-reveal mt-8" data-delay="1">
-              <BookingSection slug={slug} businessName={name} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} initialLive={live} />
+              <BookingSection slug={slug} businessName={name} resources={resources} phone={phone} member={member} visitPoints={visitPoints} storeLinks={storeLinks} initialLive={live} sameDay={sameDay} />
             </div>
             <p className="mt-6 text-center text-[14px] text-[var(--vs-ink)]/60">
               Team practice, school or a big group? <a href={`tel:${phone}`} className="font-bold text-[var(--vs-blue)] underline-offset-4 hover:underline">Call {fmtPhone(phone)}</a> and we&apos;ll set it up.
