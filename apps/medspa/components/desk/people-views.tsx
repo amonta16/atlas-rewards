@@ -41,7 +41,7 @@ export function PatientsView({ api, onOpen }: { api: DeskApi; onOpen: (m: DeskMe
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[620px] border-separate border-spacing-y-1 text-left text-[13.5px]">
             <thead className="text-[11.5px] text-faint"><tr><th className="px-3 py-1 font-normal">Client name</th><th className="px-3 py-1 font-normal">Phone</th><th className="px-3 py-1 text-right font-normal">Points</th><th className="px-3 py-1 text-right font-normal">Visits</th><th className="px-3 py-1 font-normal">Joined</th><th /></tr></thead>
-            <tbody>
+            <tbody data-glide-list>
               {shown.map((m) => (
                 <tr key={m.membership_id} data-glide-key={`p:${m.membership_id}`} className="bg-[#F7F8F8]">
                   <td className="rounded-l-[10px] px-3 py-2">
@@ -79,7 +79,7 @@ export function ReviewsCard({ api, say, onChanged }: { api: DeskApi; say: (t: st
   return (
     <section className={`${card} p-4`}>
       <h2 className="flex items-center gap-2 text-[13.5px] font-semibold"><IcGoogle className="h-4 w-4" />Google reviews to confirm</h2>
-      <ul className="mt-2.5 space-y-2">
+      <ul data-glide-list className="mt-2.5 space-y-2">
         {rows.map((r) => (
           <li key={r.id} className="rounded-[10px] bg-[#F4F5F6] px-3 py-2.5">
             <p className="text-[13.5px] font-semibold">{r.member_name ?? r.member_email ?? "Patient"}</p>
@@ -119,7 +119,7 @@ export function MembershipsView({ api, say, plans, onEdit, onOpenPayouts }: { ap
       {!!pending?.length && (
         <section className={`${card} p-4`}>
           <h2 className="text-[13.5px] font-semibold">Waiting to be activated</h2>
-          <ul className="mt-2.5 space-y-2">
+          <ul data-glide-list className="mt-2.5 space-y-2">
             {pending.map((m) => (
               <li key={m.membership_id} className="flex flex-wrap items-center gap-3 rounded-[10px] bg-[#F4F5F6] px-3 py-2.5">
                 <span className="min-w-0 flex-1"><span className="block truncate text-[13.5px] font-semibold">{m.full_name ?? m.email ?? "Patient"}</span><span className="block text-[12.5px] text-sub">{m.pending_plan?.label ?? "Membership"}{m.pending_plan?.price_cents ? ` · ${priceLabel(m.pending_plan.price_cents)}` : ""} · {formatPhone(m.phone) || "no phone"}</span></span>

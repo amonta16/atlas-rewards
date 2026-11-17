@@ -18,6 +18,13 @@
  * CSS entrance and gets a plain fade on close. Reduced motion: fades only.
  * While a page glide (view transition) runs, the view transition owns the
  * motion and this stays out of the way.
+ *
+ * Phase 3, same watcher:
+ *   - Toasts (data-glide-pop="toast") grow from the action that caused them,
+ *     or rise from the bottom edge, and leave down to the edge.
+ *   - Lists (data-glide-list): a new item fades up into place, a removed one
+ *     fades out where it was, and the rest slide to their new places (FLIP).
+ *   - Skeletons (animate-pulse) cross-fade into the content that replaces them.
  */
 import { useEffect } from "react";
 
@@ -80,13 +87,15 @@ function enter(panel: HTMLElement) {
   panel.addEventListener("scroll", entry.onScroll, { passive: true });
   live.set(panel, entry);
 
-  if (pageGlide() || (!entry.triggerBox && !calm())) return; // keep its own CSS entrance
+  const toast = panel.dataset.glidePop === "toast";
+  if (pageGlide() || (!entry.triggerBox && !toast && !calm())) return; // keep its own CSS entrance
   // Take over from the CSS entrance on the panel (the scrim keeps its fade).
   for (const a of panel.getAnimations()) if ("animationName" in a) a.cancel();
   const at = boxOf(panel);
   entry.panelBox = at;
   if (calm()) { panel.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: "ease-out" }); return; }
-  const from = toward(panel, at, entry.triggerBox!);
+  // A toast with no action behind it rises from the bottom edge.
+  const from = entry.triggerBox ? toward(panel, at, entry.triggerBox) : { translate: `0px ${window.innerHeight - at.top}px`, scale: "1" };
   panel.animate([from, { translate: "0px 0px", scale: "1" }], { duration: 320, easing: EASE });
   panel.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 170, easing: "ease-out" });
 }
@@ -113,7 +122,11 @@ function exit(entry: Entry) {
   const opts = (duration: number, delay = 0): KeyframeAnimationOptions => ({ duration, delay, easing: "ease-out", fill: "forwards" });
   if (gPanel !== ghost) runs.push(ghost.animate([{ opacity: 1 }, { opacity: 0 }], opts(240)));
   const target = entry.trigger?.isConnected ? boxOf(entry.trigger) : entry.triggerBox;
-  if (calm() || !target || target.width === 0) {
+  if (panel.dataset.glidePop === "toast" && !calm()) {
+    // A toast leaves the way it reads: down, off the bottom edge.
+    runs.push(gPanel.animate([{ translate: "0px 0px" }, { translate: `0px ${window.innerHeight - rootBox.top}px` }], { duration: 280, easing: "cubic-bezier(.4,0,.6,1)", fill: "forwards" }));
+    runs.push(gPanel.animate([{ opacity: 1 }, { opacity: 0 }], opts(240, 40)));
+  } else if (calm() || !target || target.width === 0) {
     runs.push(gPanel.animate([{ opacity: 1 }, { opacity: 0 }], opts(calm() ? 150 : 180)));
   } else {
     const to = toward(gPanel, boxOf(gPanel), target);
@@ -131,6 +144,111 @@ function forget(entry: Entry) {
   live.delete(entry.panel);
 }
 
+/* ───────────── lists (phase 3) ───────────── */
+
+type Spot = { x: number; y: number; w: number; h: number };
+const lists = new WeakMap<HTMLElement, Map<Element, Spot>>();
+let listRO: ResizeObserver | null = null;
+
+/** Where `ch` sits inside `list`, ignoring transforms (so a running animation doesn't skew it). */
+function spot(list: HTMLElement, ch: HTMLElement): Spot {
+  const inside = ch.offsetParent === list;
+  return { x: ch.offsetLeft - (inside ? 0 : list.offsetLeft), y: ch.offsetTop - (inside ? 0 : list.offsetTop), w: ch.offsetWidth, h: ch.offsetHeight };
+}
+function snapList(list: HTMLElement) {
+  const m = new Map<Element, Spot>();
+  for (const ch of Array.from(list.children)) if (ch instanceof HTMLElement) m.set(ch, spot(list, ch));
+  lists.set(list, m);
+}
+function trackLists(root: HTMLElement) {
+  const found = root.matches("[data-glide-list]") ? [root] : [];
+  found.push(...Array.from(root.querySelectorAll<HTMLElement>("[data-glide-list]")));
+  for (const l of found) { snapList(l); listRO?.observe(l); }
+}
+
+function animateList(list: HTMLElement, recs: MutationRecord[]) {
+  const before = lists.get(list);
+  const removed = new Set<Element>(), added = new Set<Element>();
+  for (const r of recs) {
+    r.removedNodes.forEach((n) => { if (n instanceof HTMLElement) removed.add(n); });
+    r.addedNodes.forEach((n) => { if (n instanceof HTMLElement) added.add(n); });
+  }
+  for (const n of Array.from(added)) {
+    if (!removed.has(n)) continue;
+    // Moved, not new. Re-inserting a node restarts its CSS entrance (e.g. animate-rise):
+    // cancel that so a reorder reads as a slide, not a flash.
+    removed.delete(n); added.delete(n);
+    for (const a of n.getAnimations()) if ("animationName" in a) a.cancel();
+  }
+  if (!before || pageGlide() || list.children.length > 60 || removed.size + added.size > 24) { snapList(list); return; }
+  const quiet = calm();
+  const lr = list.getBoundingClientRect();
+  const cs = getComputedStyle(list);
+  // Gone: a copy fades out where it stood (table rows can't stand alone, they just go).
+  for (const n of Array.from(removed)) {
+    const b = before.get(n);
+    if (!b || n.tagName === "TR" || !b.w) continue;
+    const ghost = n.cloneNode(true) as HTMLElement;
+    Object.assign(ghost.style, {
+      position: "fixed", left: `${lr.left + b.x - list.scrollLeft}px`, top: `${lr.top + b.y - list.scrollTop}px`, width: `${b.w}px`, height: `${b.h}px`,
+      margin: "0", zIndex: "30", pointerEvents: "none", animation: "none", fontFamily: cs.fontFamily,
+    });
+    for (const k of ["--p", "--p-rgb"]) { const v = cs.getPropertyValue(k); if (v) ghost.style.setProperty(k, v); }
+    ghost.setAttribute("data-glide-ghost", "");
+    ghost.setAttribute("aria-hidden", "true");
+    ghost.inert = true;
+    document.body.appendChild(ghost);
+    const a = ghost.animate(quiet ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 1, scale: "1" }, { opacity: 0, scale: "0.96" }], { duration: quiet ? 150 : 220, easing: "ease-out", fill: "forwards" });
+    const done = () => ghost.remove();
+    a.finished.then(done, done);
+    setTimeout(done, 600);
+  }
+  // New: fades up into its place (unless it brings its own entrance).
+  for (const n of Array.from(added)) {
+    if (!(n instanceof HTMLElement) || !n.isConnected || n.getAnimations().some((a) => "animationName" in a)) continue;
+    n.animate(quiet ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, translate: "0px 8px" }, { opacity: 1, translate: "0px 0px" }], { duration: quiet ? 150 : 260, easing: EASE });
+  }
+  // Everyone else slides from where they were to where they are now.
+  if (!quiet) {
+    for (const ch of Array.from(list.children)) {
+      if (!(ch instanceof HTMLElement) || added.has(ch)) continue;
+      const b = before.get(ch);
+      if (!b) continue;
+      const now = spot(list, ch);
+      const dx = b.x - now.x, dy = b.y - now.y;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      ch.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0px 0px" }], { duration: 300, easing: EASE });
+    }
+  }
+  snapList(list);
+}
+
+/* ───────────── skeletons (phase 3) ───────────── */
+
+const SKEL = ".animate-pulse";
+const skels = new Map<HTMLElement, Box>(); // page coordinates
+const pageBox = (el: Element): Box => { const b = boxOf(el); return { ...b, left: b.left + window.scrollX, top: b.top + window.scrollY }; };
+function trackSkeletons(root: HTMLElement) {
+  if (root.matches(SKEL)) skels.set(root, pageBox(root));
+  root.querySelectorAll<HTMLElement>(SKEL).forEach((el) => skels.set(el, pageBox(el)));
+}
+/** The placeholder fades out where it stood while its content fades in under it. */
+function fadeSkeleton(el: HTMLElement, b: Box) {
+  if (!b.width || !b.height) return;
+  const ghost = el.cloneNode(true) as HTMLElement;
+  Object.assign(ghost.style, {
+    position: "fixed", left: `${b.left - window.scrollX}px`, top: `${b.top - window.scrollY}px`, width: `${b.width}px`, height: `${b.height}px`,
+    margin: "0", zIndex: "30", pointerEvents: "none",
+  });
+  ghost.setAttribute("data-glide-ghost", "");
+  ghost.setAttribute("aria-hidden", "true");
+  document.body.appendChild(ghost);
+  const a = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: calm() ? 150 : 260, easing: "ease-out", fill: "forwards" });
+  const done = () => ghost.remove();
+  a.finished.then(done, done);
+  setTimeout(done, 700);
+}
+
 let started = false;
 function start() {
   if (started) return () => {};
@@ -141,7 +259,10 @@ function start() {
   };
   const onScroll = () => { for (const e of live.values()) { e.rootBox = boxOf(e.root); e.panelBox = boxOf(e.panel); } };
   const mo = new MutationObserver((records) => {
+    const touched = new Map<HTMLElement, MutationRecord[]>();
+    const unveiled = new Set<Node>(); // parents whose skeleton just left
     for (const r of records) {
+      if (r.target instanceof HTMLElement && r.target.hasAttribute("data-glide-list")) touched.set(r.target, [...(touched.get(r.target) ?? []), r]);
       r.removedNodes.forEach((n) => {
         if (!(n instanceof HTMLElement) || n.hasAttribute("data-glide-ghost")) return;
         for (const e of Array.from(live.values())) {
@@ -149,14 +270,34 @@ function start() {
           // Removed with a whole screen (navigation): no exit of its own.
           else if (n.contains(e.panel)) forget(e);
         }
+        for (const [el, b] of Array.from(skels)) {
+          if (n !== el && !n.contains(el)) continue;
+          skels.delete(el);
+          if (!pageGlide()) { fadeSkeleton(el, b); unveiled.add(r.target); }
+        }
       });
       r.addedNodes.forEach((n) => {
         if (!(n instanceof HTMLElement) || n.hasAttribute("data-glide-ghost")) return;
         if (n.matches(SEL)) enter(n);
         n.querySelectorAll<HTMLElement>(SEL).forEach(enter);
+        trackLists(n);
+        trackSkeletons(n);
       });
     }
+    // Content that took a skeleton's place fades in under the fading skeleton.
+    for (const r of records) {
+      if (!unveiled.has(r.target)) continue;
+      r.addedNodes.forEach((n) => {
+        if (n instanceof HTMLElement && !n.matches(SEL) && !n.matches(SKEL)) n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: calm() ? 150 : 260, easing: "ease-out" });
+      });
+    }
+    touched.forEach((recs, list) => animateList(list, recs));
+    // Things shift as content loads: keep the skeletons' last places current.
+    for (const [el] of Array.from(skels)) { if (el.isConnected) skels.set(el, pageBox(el)); else skels.delete(el); }
   });
+  listRO = new ResizeObserver((entries) => entries.forEach((e) => e.target instanceof HTMLElement && e.target.isConnected && snapList(e.target)));
+  trackLists(document.body);
+  trackSkeletons(document.body);
   document.addEventListener("click", onClick, true);
   window.addEventListener("scroll", onScroll, { capture: true, passive: true });
   mo.observe(document.body, { childList: true, subtree: true });
@@ -165,6 +306,8 @@ function start() {
     document.removeEventListener("click", onClick, true);
     window.removeEventListener("scroll", onScroll, true);
     mo.disconnect();
+    listRO?.disconnect();
+    listRO = null;
   };
 }
 

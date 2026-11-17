@@ -69,7 +69,7 @@ export function TreatmentList({ slug, treatments, initialCategory, autoFocus }: 
         </div>
       )}
 
-      <div className="space-y-6 px-4 pt-3">
+      <div data-glide-list className="space-y-6 px-4 pt-3">
         {shown.map((t, i) => (
           <GlideLink key={t.id} glideKey={`t:${t.id}`} href={`/${slug}/shop/treatment/${t.id}`} className="block animate-rise" style={{ animationDelay: `${Math.min(i, 6) * 35}ms` }}>
             <div data-glide="media" className="aspect-[16/9] overflow-hidden rounded-[12px] bg-tint">

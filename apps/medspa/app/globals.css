@@ -69,6 +69,19 @@ html[data-glide="back"]::view-transition-old(root) { animation: glide-sink-out 2
 ::view-transition-new(glide-sheet) { animation: glide-sheet-in 320ms cubic-bezier(.2, .8, .2, 1) both; }
 ::view-transition-old(glide-sheet) { animation: glide-sheet-out 260ms ease-out both; }
 
+/* Tabs (phase 3): the page, or just a tab panel, slides the way the tab strip goes. */
+.glide-subtabs { view-transition-name: glide-subtabs; }
+.glide-desk-nav { view-transition-name: glide-desk-nav; }
+@keyframes glide-in-right { from { opacity: 0; transform: translateX(28px); } }
+@keyframes glide-in-left { from { opacity: 0; transform: translateX(-28px); } }
+@keyframes glide-out-left { to { opacity: 0; transform: translateX(-28px); } }
+@keyframes glide-out-right { to { opacity: 0; transform: translateX(28px); } }
+::view-transition-group(glide-panel) { overflow: clip; }
+html[data-glide="next"]::view-transition-old(root), html[data-glide="next"]::view-transition-old(glide-panel) { animation: glide-out-left 220ms ease-out both; }
+html[data-glide="next"]::view-transition-new(root), html[data-glide="next"]::view-transition-new(glide-panel) { animation: glide-in-right 300ms cubic-bezier(.2, .8, .2, 1) both; }
+html[data-glide="prev"]::view-transition-old(root), html[data-glide="prev"]::view-transition-old(glide-panel) { animation: glide-out-right 220ms ease-out both; }
+html[data-glide="prev"]::view-transition-new(root), html[data-glide="prev"]::view-transition-new(glide-panel) { animation: glide-in-left 300ms cubic-bezier(.2, .8, .2, 1) both; }
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 150ms !important; }
   html[data-glide]::view-transition-new(root), html[data-glide]::view-transition-new(glide-sheet) { animation-name: glide-fade-in !important; }

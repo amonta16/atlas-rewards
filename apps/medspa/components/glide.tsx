@@ -19,8 +19,10 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useLayoutEffect, type ComponentProps } from "react";
+import { flushSync } from "react-dom";
 
-export type GlideDir = "forward" | "back";
+/** forward/back: into a card and out again. next/prev: a tab to the right/left (phase 3). */
+export type GlideDir = "forward" | "back" | "next" | "prev";
 type Target = Element | null | undefined | (() => Element | null | undefined);
 type Router = ReturnType<typeof useRouter>;
 type VT = { finished: Promise<void>; skipTransition(): void };
@@ -130,11 +132,11 @@ export function glide({ dir, from, update, to, waitForUrl }: { dir: GlideDir; fr
 }
 
 /** Navigates with a glide. `from` is the tapped card; with no card, the current page's hero travels back into its card. */
-export function glideTo(router: Router, href: string, { dir = "forward", from, replace }: { dir?: GlideDir; from?: Element | null; replace?: boolean } = {}) {
-  const go = () => (replace ? router.replace(href) : router.push(href));
+export function glideTo(router: Router, href: string, { dir = "forward", from, replace, scroll = true }: { dir?: GlideDir; from?: Element | null; replace?: boolean; scroll?: boolean } = {}) {
+  const go = () => (replace ? router.replace(href, { scroll }) : router.push(href, { scroll }));
   const dest = new URL(href, window.location.href);
   if (!supported() || dest.pathname + dest.search === here()) { go(); return; }
-  const hero = document.querySelector("[data-glide-hero]");
+  const hero = dir === "back" ? document.querySelector("[data-glide-hero]") : null;
   const key = from?.getAttribute("data-glide-key") ?? hero?.getAttribute("data-glide-hero") ?? null;
   if (from) { remember(from); cardNav = true; }
   glide({
@@ -159,6 +161,45 @@ export function glidePush(href: string, { dir = "forward", from, replace }: { di
   glide({ dir, waitForUrl: true, update: push, from, to: () => (key ? heroFor(key) : null) });
 }
 
+/* ───────────── tabs (phase 3) ───────────── */
+
+/** True when `dest` is what the tab's URL points at (same path, and every query value it sets). */
+function sameTab(tabUrl: string, dest: URL) {
+  const u = new URL(tabUrl, window.location.origin);
+  if (u.pathname !== dest.pathname) return false;
+  for (const [k, v] of Array.from(u.searchParams)) if (dest.searchParams.get(k) !== v) return false;
+  return true;
+}
+
+/**
+ * Which way a URL change moves through a tab strip on screen: next (to the
+ * right) or prev. Strips are [data-glide-tabs] with [data-glide-tab-url] items;
+ * the current one carries aria-current="page".
+ */
+export function tabDir(destHref: string): GlideDir | null {
+  const dest = new URL(destHref, window.location.origin);
+  for (const strip of Array.from(document.querySelectorAll("[data-glide-tabs]"))) {
+    const tabs = Array.from(strip.querySelectorAll("[data-glide-tab-url]"));
+    const from = tabs.findIndex((t) => t.getAttribute("aria-current") === "page");
+    const to = tabs.findIndex((t) => sameTab(t.getAttribute("data-glide-tab-url")!, dest));
+    if (from >= 0 && to >= 0 && from !== to) return to > from ? "next" : "prev";
+  }
+  return null;
+}
+
+/**
+ * In-page tabs (state, not URL): only the content panel slides, in tab
+ * order. `panel` keeps its place in the page; `update` sets the new tab.
+ */
+export function glidePanel(panel: Element | null | undefined, dir: "next" | "prev", update: () => void) {
+  if (!panel || !supported() || calm()) { update(); return; }
+  glide({
+    dir, update: () => flushSync(update),
+    from: () => { (panel as HTMLElement).style.setProperty("view-transition-name", "glide-panel"); named.push(panel as HTMLElement); return null; },
+    to: () => { if (panel.isConnected) { (panel as HTMLElement).style.setProperty("view-transition-name", "glide-panel"); named.push(panel as HTMLElement); } return null; },
+  });
+}
+
 /* ───────────── links and back ───────────── */
 
 /** A next/link that morphs into the page it opens. */
@@ -175,6 +216,31 @@ export function GlideLink({ glideKey, onClick, onPointerDown, ...props }: Compon
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !supported()) return;
         e.preventDefault();
         glideTo(router, props.href, { from: e.currentTarget });
+      }}
+    />
+  );
+}
+
+/**
+ * A tab that is a URL (the app's tab bar, the Shop tabs): the page slides the
+ * way the strip goes. Tapping the current tab from a detail screen glides back.
+ */
+export function GlideTabLink({ onClick, replace, scroll, ...props }: ComponentProps<typeof Link> & { href: string }) {
+  const router = useRouter();
+  return (
+    <Link
+      {...props}
+      replace={replace}
+      scroll={scroll}
+      data-glide-tab-url={props.href}
+      onClick={(e) => {
+        onClick?.(e);
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !supported()) return;
+        const dest = new URL(props.href, window.location.href);
+        const dir = tabDir(props.href) ?? (dest.pathname + dest.search !== here() ? "back" : null);
+        if (!dir) return;
+        e.preventDefault();
+        glideTo(router, props.href, { dir, replace, scroll: scroll ?? true });
       }}
     />
   );
@@ -256,7 +322,7 @@ export function GlideRoot() {
       } else if (fwd) {
         glide({ dir: "forward", waitForUrl: true, update: replay, from: cardFor(fwd.key, fwd.n), to: () => heroFor(fwd.key) ?? cardFor(fwd.key) });
       } else {
-        glide({ dir: "back", waitForUrl: true, update: replay });
+        glide({ dir: tabDir(dest) ?? "back", waitForUrl: true, update: replay });
       }
     };
     const onHide = () => save();

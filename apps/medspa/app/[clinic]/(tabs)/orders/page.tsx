@@ -52,7 +52,7 @@ export default async function Orders({ params, searchParams }: {
       ) : list.length === 0 ? (
         <Empty title="No purchases yet" body="Treatment packages, skincare and gift cards you buy show up here." href={`${base}/shop?tab=browse`} cta="Browse the shop" />
       ) : (
-        <ul className="mx-4 mt-3 space-y-3 pb-4">
+        <ul data-glide-list className="mx-4 mt-3 space-y-3 pb-4">
           {list.map((o) => <OrderCard key={o.id} o={o} highlight={o.id === searchParams.order} book={o.kind === "package" ? bookSession(o) : null} />)}
         </ul>
       )}

@@ -35,7 +35,7 @@ export function RewardsView({ api, say }: { api: DeskApi; say: (t: string) => vo
         <button type="button" onClick={() => setEdit(blankReward(rows.length))} className="h-11 rounded-full bg-ink px-5 text-[14.5px] font-semibold text-white">Add reward</button>
       </div>
       {rows.length === 0 ? <Empty text="No rewards yet. Add your first one: patients see it in the app right away." /> : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div data-glide-list className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {rows.map((r) => (
             <div key={r.id ?? r.name} className={`overflow-hidden rounded-[22px] bg-white ${shadow} ${r.is_active ? "" : "opacity-60"}`}>
               <div className="aspect-[16/9] bg-page">
@@ -128,7 +128,7 @@ export function TeamView({ api, say, deskUrl }: { api: DeskApi; say: (t: string)
         <p className="text-[14.5px] text-sub">People who can sign in to this desk. Front desk staff can check patients in; managers also see Overview, Rewards and Team.</p>
         <button type="button" onClick={() => setAdding(true)} className="h-11 rounded-full bg-ink px-5 text-[14.5px] font-semibold text-white">Add staff</button>
       </div>
-      <ul className={`overflow-hidden rounded-[24px] bg-white ${shadow}`}>
+      <ul data-glide-list className={`overflow-hidden rounded-[24px] bg-white ${shadow}`}>
         {active.map((r) => (
           <li key={`${r.user_id}-${r.role}`} className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 last:border-0">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-page text-[14px] font-semibold">{(r.full_name || r.email).slice(0, 1).toUpperCase()}</span>

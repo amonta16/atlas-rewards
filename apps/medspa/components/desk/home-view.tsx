@@ -73,7 +73,7 @@ export function HomeView({ api, demo }: { api: DeskApi; demo: boolean }) {
           <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-50" /><span className="relative inline-flex h-2 w-2 rounded-full bg-brand" /></span>
           Live Activity Feed
         </h2>
-        <ul className="no-scrollbar mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
+        <ul data-glide-list className="no-scrollbar mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto">
           {feed.length === 0 && <li className="py-10 text-center text-[13.5px] text-sub">Sign-ups, treatments and purchases show up here.</li>}
           {feed.map((a) => (
             <li key={a.key} className="animate-rise rounded-[10px] bg-[#F4F5F6] px-3.5 py-3">

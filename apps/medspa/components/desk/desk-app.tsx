@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { glidePush } from "../glide";
+import { glidePanel, glidePush, tabDir } from "../glide";
 import { demoDeskApi, liveDeskApi, type ActivityRow, type DeskApi, type DeskGift, type DeskMember, type DeskVoucher, type DueRow, type LookupResult, type OrderRow, type PatientDetail, type Provider, type Treatment } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
 import { Wordmark } from "../chrome";
@@ -120,7 +120,10 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
       return;
     }
     pushedPatient.current = !!next.patient;
-    if (glideFrom) glidePush(href, { from: glideFrom }); else window.history.pushState(null, "", href);
+    if (glideFrom) { glidePush(href, { from: glideFrom }); return; }
+    // A sidebar view: slide the way the nav goes (phase 3).
+    const dir = tabDir(href);
+    if (dir === "next" || dir === "prev") glidePush(href, { dir }); else window.history.pushState(null, "", href);
   }, []);
   const setView = useCallback((v: View) => go({ view: v }), [go]);
   /** Closing the patient panel: Back when we opened it, so the browser history stays honest. */
@@ -185,7 +188,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   const navButton = ({ id, label, Icon, badge }: NavItem, quiet = false) => {
     const on = view === id || (id === "builder" && view === "rewards");
     return (
-      <button key={id} type="button" onClick={() => (id === "builder" && view !== "builder" ? openBuilder("gifts") : setView(id))} aria-current={on ? "page" : undefined}
+      <button key={id} type="button" data-glide-tab-url={`/${clinic.slug}/desk?view=${id}`} onClick={() => (id === "builder" && view !== "builder" ? openBuilder("gifts") : setView(id))} aria-current={on ? "page" : undefined}
         className={`flex shrink-0 items-center gap-3 rounded-[12px] border px-3.5 transition ${quiet ? "py-2 text-[13.5px]" : "py-2.5 text-[14.5px]"} ${on ? "border-brand/30 bg-white font-semibold text-brand shadow-[0_2px_10px_-6px_rgba(23,27,38,.25)]" : `border-transparent font-medium ${quiet ? "text-sub" : "text-[#3F4450]"} hover:bg-white hover:text-ink`}`}>
         <Icon className={quiet ? "h-[17px] w-[17px]" : "h-[19px] w-[19px]"} strokeWidth={1.6} />
         <span className="flex-1 whitespace-nowrap text-left">{label}</span>
@@ -200,13 +203,13 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     <EngineLockProvider locked={!!clinic.preview}>
     <div className={`min-h-[100dvh] bg-[#F6F7F7] text-ink lg:flex ${portal && imported ? "pb-14" : ""}`}>
       {/* Sidebar */}
-      <aside className="border-b border-line bg-[#F9FAFA] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[256px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
+      <aside className="glide-desk-nav border-b border-line bg-[#F9FAFA] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[256px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2.5 px-5 py-4 lg:px-7 lg:pt-7">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/atlas-icon-512.png" alt="" className="h-9 w-9 rounded-[10px]" />
           <span className="text-[20px] font-bold tracking-[-0.02em]">Atlas</span>
         </div>
-        <nav aria-label="Desk" className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-5 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-y-auto lg:px-4">
+        <nav aria-label="Desk" data-glide-tabs className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-5 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-y-auto lg:px-4">
           {NAV.map((n) => navButton(n))}
           {ACCOUNT.length > 0 && <span aria-hidden className="mx-1 shrink-0 self-stretch border-l border-line lg:mx-3.5 lg:my-3 lg:border-l-0 lg:border-t" />}
           {ACCOUNT.map((n) => navButton(n, true))}
@@ -309,7 +312,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
       {portal && imported && <TurnOnBar href={portal.walkthroughUrl} />}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-[70] flex -translate-x-1/2 animate-rise items-center gap-4 rounded-full bg-ink py-3 pl-5 pr-3 text-[14.5px] text-white shadow-2xl">
+        <div key={toast.text} role="status" data-glide-pop="toast" className="fixed bottom-6 left-1/2 z-[70] flex -translate-x-1/2 animate-rise items-center gap-4 rounded-full bg-ink py-3 pl-5 pr-3 text-[14.5px] text-white shadow-2xl">
           <IcCheck className="h-5 w-5 text-emerald-300" />
           <span>{toast.text}</span>
           {toast.undo ? (
@@ -365,7 +368,7 @@ function CheckIn({ api, clinic, selected, onSelect, say, onChanged, scanTick }: 
 
         {result?.kind === "none" && <p className="rounded-[18px] bg-white px-5 py-4 text-[14.5px] text-sub">{result.message}</p>}
         {result?.kind === "members" && (
-          <ul className="overflow-hidden rounded-[22px] bg-white shadow-[0_10px_30px_-22px_rgba(23,27,38,.4)]">
+          <ul data-glide-list className="overflow-hidden rounded-[22px] bg-white shadow-[0_10px_30px_-22px_rgba(23,27,38,.4)]">
             {result.members.map((m) => (
               <li key={m.membership_id}>
                 <button type="button" data-glide-key={`p:${m.membership_id}`} onClick={(e) => onSelect(m, e.currentTarget)} className={`flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition ${selected?.membership_id === m.membership_id ? "bg-tint" : "hover:bg-page"}`}>
@@ -505,7 +508,7 @@ function PatientPanel({ api, clinic, member, onClose, say, onChanged, onPoints }
           {/* Rewards & gifts */}
           <Card title="Rewards & gifts" className="lg:col-span-2">
             {pending.length > 0 && (
-              <ul className="mb-3 space-y-2">
+              <ul data-glide-list className="mb-3 space-y-2">
                 {pending.map((r) => (
                   <li key={r.id} className="flex items-center gap-3 rounded-[16px] bg-tint px-4 py-3">
                     <IcGift className="h-5 w-5 shrink-0 text-brand" />
@@ -679,7 +682,7 @@ function Due({ api, clinic, onOpen }: { api: DeskApi; clinic: DeskClinic; onOpen
   const sorted = [...rows].sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
   if (!sorted.length) return <Empty text="Nobody is due right now. Patients show up here when a treatment's recall window comes around." />;
   return (
-    <ul className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
+    <ul data-glide-list className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
       {sorted.map((r, i) => {
         const overdue = new Date(r.due_at).getTime() < Date.now();
         const sms = r.phone ? `sms:${r.phone}?body=${encodeURIComponent(`Hi${(r.full_name ?? "").split(" ")[0] ? ` ${(r.full_name ?? "").split(" ")[0]}` : ""}! It's about time for your next ${r.treatment_name} at ${clinic.name}. Want us to find you a time?`)}` : null;
@@ -717,6 +720,7 @@ function Orders({ api, say, onChanged, rate }: { api: DeskApi; say: (t: string) 
   const [rows, setRows] = useState<OrderRow[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [tab, setTab] = useState<"open" | "done">("open");
+  const panel = useRef<HTMLDivElement>(null);
   const load = useCallback(() => { api.orders().then(setRows).catch(() => setRows([])); }, [api]);
   useEffect(() => { load(); }, [load]);
   const set = async (o: OrderRow, status: "paid" | "fulfilled" | "cancelled", msg: string) => {
@@ -729,11 +733,12 @@ function Orders({ api, say, onChanged, rate }: { api: DeskApi; say: (t: string) 
     <div>
       <div className="mb-4 inline-flex rounded-full bg-white p-1 shadow-card">
         {(["open", "done"] as const).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)} className={`h-9 rounded-full px-5 text-[14px] font-semibold ${tab === t ? "bg-ink text-white" : "text-sub"}`}>{t === "open" ? `To do · ${open.length}` : "All other"}</button>
+          <button key={t} type="button" onClick={() => t !== tab && glidePanel(panel.current, t === "done" ? "next" : "prev", () => setTab(t))} className={`h-9 rounded-full px-5 text-[14px] font-semibold ${tab === t ? "bg-ink text-white" : "text-sub"}`}>{t === "open" ? `To do · ${open.length}` : "All other"}</button>
         ))}
       </div>
+      <div ref={panel}>
       {list.length === 0 ? <Empty text={tab === "open" ? "Nothing to do. New Shop orders show up here." : "No other orders yet."} /> : (
-        <ul className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
+        <ul data-glide-list className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
           {list.map((o) => {
             const s = ORDER_STATUS[o.status] ?? { label: o.status, tone: "bg-page text-sub" };
             return (
@@ -754,6 +759,7 @@ function Orders({ api, say, onChanged, rate }: { api: DeskApi; say: (t: string) 
           })}
         </ul>
       )}
+      </div>
     </div>
   );
 }
@@ -764,7 +770,7 @@ function Activity({ api }: { api: DeskApi }) {
   if (!rows) return <div className="h-48 animate-pulse rounded-[24px] bg-white/70" />;
   if (!rows.length) return <Empty text="No activity yet today." />;
   return (
-    <ul className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
+    <ul data-glide-list className="overflow-hidden rounded-[24px] bg-white shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]">
       {rows.map((a) => (
         <li key={a.id} className="flex items-center gap-4 border-b border-line px-5 py-3.5 last:border-0">
           <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${a.delta >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{a.delta >= 0 ? <IcSpark className="h-[18px] w-[18px]" /> : <IcGift className="h-[18px] w-[18px]" />}</span>

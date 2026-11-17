@@ -7,7 +7,7 @@ import { TopBar } from "@/components/chrome";
 import { TreatmentList } from "@/components/treatment-list";
 import { PayLaterBanner } from "@/components/pay-later-banner";
 import { IcCategory } from "@/components/icons";
-import { GlideLink } from "@/components/glide";
+import { GlideLink, GlideTabLink } from "@/components/glide";
 
 const TABS = [
   { id: "browse", label: "Browse" },
@@ -24,13 +24,13 @@ export default async function Shop({ params, searchParams }: { params: { clinic:
   return (
     <>
       <TopBar slug={clinic.slug} title="Shop" />
-      <nav className="sticky z-20 grid grid-cols-3 border-b border-line bg-white" style={{ top: "calc(54px + env(safe-area-inset-top, 0px))" }}>
+      <nav data-glide-tabs className="glide-subtabs sticky z-20 grid grid-cols-3 border-b border-line bg-white" style={{ top: "calc(54px + env(safe-area-inset-top, 0px))" }}>
         {TABS.map((t) => (
-          <Link key={t.id} href={`${base}/shop?tab=${t.id}`} replace scroll={false}
+          <GlideTabLink key={t.id} href={`${base}/shop?tab=${t.id}`} replace scroll={false} aria-current={tab === t.id ? "page" : undefined}
             className={`relative py-2.5 text-center text-[13px] ${tab === t.id ? "font-semibold text-ink" : "text-sub"}`}>
             {t.label}
             {tab === t.id && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] bg-ink" />}
-          </Link>
+          </GlideTabLink>
         ))}
       </nav>
 

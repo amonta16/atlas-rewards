@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { rememberClinic } from "@/lib/remember";
 import { IcBack, IcBag, IcGift, IcHome, IcScan, IcSearch, IcUser } from "./icons";
-import { useGlideBack } from "./glide";
+import { GlideTabLink, useGlideBack } from "./glide";
 
 const TABS = [
   { to: "", label: "Home", Icon: IcHome },
@@ -26,6 +26,7 @@ export function TabBar({ slug, dot }: { slug: string; dot?: "rewards" | "profile
   return (
     <nav
       aria-label="App"
+      data-glide-tabs
       className="glide-tabbar fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-stretch justify-around rounded-t-[22px] bg-white px-2 pt-2.5 shadow-bar"
       style={{ paddingBottom: "calc(0.55rem + env(safe-area-inset-bottom, 0px))" }}
     >
@@ -33,13 +34,13 @@ export function TabBar({ slug, dot }: { slug: string; dot?: "rewards" | "profile
         const href = `${base}${to}`;
         const active = to === "" ? path === base : path === href || path.startsWith(`${href}/`);
         return (
-          <Link key={label} href={href} aria-current={active ? "page" : undefined} className="flex flex-1 flex-col items-center gap-[3px] py-0.5 transition-transform active:scale-95">
+          <GlideTabLink key={label} href={href} aria-current={active ? "page" : undefined} className="flex flex-1 flex-col items-center gap-[3px] py-0.5 transition-transform active:scale-95">
             <span className="relative">
               <Icon className={`h-6 w-6 ${active ? "text-ink" : "text-faint"}`} strokeWidth={active ? 1.9 : 1.55} />
               {dot && to === `/${dot}` && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-white" />}
             </span>
             <span className={`text-[11px] ${active ? "font-semibold text-ink" : "font-medium text-faint"}`}>{label}</span>
-          </Link>
+          </GlideTabLink>
         );
       })}
     </nav>
