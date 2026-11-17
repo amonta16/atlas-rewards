@@ -81,6 +81,8 @@ html[data-glide="next"]::view-transition-old(root), html[data-glide="next"]::vie
 html[data-glide="next"]::view-transition-new(root), html[data-glide="next"]::view-transition-new(glide-panel) { animation: glide-in-right 300ms cubic-bezier(.2, .8, .2, 1) both; }
 html[data-glide="prev"]::view-transition-old(root), html[data-glide="prev"]::view-transition-old(glide-panel) { animation: glide-out-right 220ms ease-out both; }
 html[data-glide="prev"]::view-transition-new(root), html[data-glide="prev"]::view-transition-new(glide-panel) { animation: glide-in-left 300ms cubic-bezier(.2, .8, .2, 1) both; }
+/* A sheet or tab panel moves over a page that didn't change: show the page as is. */
+html[data-glide-still]::view-transition-old(root), html[data-glide-still]::view-transition-new(root) { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation-duration: 150ms !important; }

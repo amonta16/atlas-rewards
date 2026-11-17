@@ -120,7 +120,7 @@ function exit(entry: Entry) {
 
   const runs: Animation[] = [];
   const opts = (duration: number, delay = 0): KeyframeAnimationOptions => ({ duration, delay, easing: "ease-out", fill: "forwards" });
-  if (gPanel !== ghost) runs.push(ghost.animate([{ opacity: 1 }, { opacity: 0 }], opts(240)));
+  if (gPanel !== ghost) runs.push(ghost.animate([{ opacity: 1 }, { opacity: 0 }], opts(calm() ? 150 : 240)));
   const target = entry.trigger?.isConnected ? boxOf(entry.trigger) : entry.triggerBox;
   if (panel.dataset.glidePop === "toast" && !calm()) {
     // A toast leaves the way it reads: down, off the bottom edge.

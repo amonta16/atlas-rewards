@@ -96,12 +96,17 @@ let cardNav = false;
  * old state, `to` parts in the new one. With `waitForUrl` the new state is
  * captured once Next has rendered the new URL (GlideRoot signals it).
  */
-export function glide({ dir, from, update, to, waitForUrl }: { dir: GlideDir; from?: Target; update: () => void; to?: Target; waitForUrl?: boolean }) {
+/**
+ * `still`: the rest of the page doesn't change (a sheet, a tab panel), so the
+ * page layer is shown as is instead of cross-fading with itself.
+ */
+export function glide({ dir, from, update, to, waitForUrl, still }: { dir: GlideDir; from?: Target; update: () => void; to?: Target; waitForUrl?: boolean; still?: boolean }) {
   if (!supported()) { update(); return; }
   const html = document.documentElement;
   clearNames();
   nameParts(resolve(from));
   html.dataset.glide = dir;
+  if (still) html.dataset.glideStill = ""; else delete html.dataset.glideStill;
   let began = false;
   const vt = (document as unknown as { startViewTransition(cb: () => Promise<void>): VT }).startViewTransition(async () => {
     began = true;
@@ -127,6 +132,7 @@ export function glide({ dir, from, update, to, waitForUrl }: { dir: GlideDir; fr
     if (current !== vt) return;
     clearNames();
     delete html.dataset.glide;
+    delete html.dataset.glideStill;
     current = null;
   });
 }
@@ -192,9 +198,11 @@ export function tabDir(destHref: string): GlideDir | null {
  * order. `panel` keeps its place in the page; `update` sets the new tab.
  */
 export function glidePanel(panel: Element | null | undefined, dir: "next" | "prev", update: () => void) {
-  if (!panel || !supported() || calm()) { update(); return; }
+  if (!panel || !supported()) { update(); return; }
+  // Reduced motion: nothing slides, the page cross-fades (150 ms).
+  if (calm()) { glide({ dir, update: () => flushSync(update) }); return; }
   glide({
-    dir, update: () => flushSync(update),
+    dir, still: true, update: () => flushSync(update),
     from: () => { (panel as HTMLElement).style.setProperty("view-transition-name", "glide-panel"); named.push(panel as HTMLElement); return null; },
     to: () => { if (panel.isConnected) { (panel as HTMLElement).style.setProperty("view-transition-name", "glide-panel"); named.push(panel as HTMLElement); } return null; },
   });
@@ -290,6 +298,7 @@ let lastHref: string | null = null;
 let popTarget: number | null = null;
 
 export function GlideRoot() {
+  const router = useRouter();
   useEffect(() => {
     load();
     const prev = window.history.scrollRestoration;
@@ -329,14 +338,32 @@ export function GlideRoot() {
     window.addEventListener("scroll", onScroll, { passive: true });
     // Capture phase: runs before Next's own popstate handler, which it then replays.
     window.addEventListener("popstate", onPop, true);
+    // Phase 4: any other in-app link (Search, See more, a CTA, a category) rises
+    // in as the next page instead of cutting. Cards and tabs handle their own.
+    const onLink = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !supported()) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download") || a.hasAttribute("data-glide-key") || a.hasAttribute("data-glide-tab-url")) return;
+      const url = new URL(a.href, window.location.href);
+      const slug = window.location.pathname.split("/")[1];
+      if (url.origin !== window.location.origin || url.pathname.split("/")[1] !== slug) return;
+      // Route handlers (the install redirect, manifests) are not screens.
+      if (/^\/[^/]+\/(app|app-manifest|desk-manifest)(\/|$)/.test(url.pathname)) return;
+      if (url.pathname + url.search === here()) return; // same screen (a #hash jump)
+      e.preventDefault();
+      glideTo(router, url.pathname + url.search + url.hash, { dir: "forward" });
+    };
+    // Capture: runs before next/link's own click handler, which then sees defaultPrevented.
+    document.addEventListener("click", onLink, true);
     window.addEventListener("pagehide", onHide);
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("popstate", onPop, true);
       window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("click", onLink, true);
       window.history.scrollRestoration = prev;
       commit?.(); // leaving the clinic screens mid-transition: let it finish
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return <Suspense fallback={null}><Watcher /></Suspense>;
 }

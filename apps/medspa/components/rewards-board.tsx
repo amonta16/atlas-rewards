@@ -23,13 +23,13 @@ export function RewardsBoard({ slug, rewards, points, signedIn }: { slug: string
   // Glide: the tile grows into its sheet, and the sheet folds back into the tile.
   const [glided, setGlided] = useState(false);
   const show = (r: ClinicReward, tile: Element) => glide({
-    dir: "forward", from: tile, to: () => heroFor(`r:${r.id}`),
+    dir: "forward", still: true, from: tile, to: () => heroFor(`r:${r.id}`),
     update: () => flushSync(() => { setGlided("startViewTransition" in document); setOpen(r); }),
   });
   const hide = () => {
     if (!open) return;
     const key = `r:${open.id}`;
-    glide({ dir: "back", from: heroFor(key), to: () => cardFor(key), update: () => flushSync(() => setOpen(null)) });
+    glide({ dir: "back", still: true, from: heroFor(key), to: () => cardFor(key), update: () => flushSync(() => setOpen(null)) });
   };
   if (!rewards.length) return <p className="py-14 text-center text-[15px] text-sub">Rewards are coming soon.</p>;
   return (
