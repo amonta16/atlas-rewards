@@ -29,9 +29,9 @@ export default async function MembershipDetail({ params }: { params: { clinic: s
   const tiles = plan.benefits.slice(checks.length);
 
   return (
-    <article>
+    <article data-glide-hero={`m:${plan.id}`}>
       <SubBar slug={clinic.slug} title="Memberships" fallback={`${base}/shop?tab=memberships`} />
-      <div className="relative aspect-[16/10] overflow-hidden bg-ink">
+      <div data-glide="media" className="relative aspect-[16/10] overflow-hidden bg-ink">
         {plan.image_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={optimizedUrl(plan.image_url, 900)} alt="" className="photo-bw absolute inset-0 h-full w-full object-cover opacity-85" />

@@ -18,11 +18,13 @@ const initials = (n: string | null) => (n ?? "?").split(/\s+/).map((w) => w[0]).
 
 /* ───────────── Client profiles ───────────── */
 
-export function PatientsView({ api, onOpen }: { api: DeskApi; onOpen: (m: DeskMember) => void }) {
-  const [rows, setRows] = useState<DeskMember[] | null>(null);
+let membersCache: { api: DeskApi; rows: DeskMember[] } | null = null;
+export function PatientsView({ api, onOpen }: { api: DeskApi; onOpen: (m: DeskMember, from?: Element | null) => void }) {
+  // The last list shown, so Back lands on the same row at once (it still refreshes).
+  const [rows, setRows] = useState<DeskMember[] | null>(() => (membersCache?.api === api ? membersCache.rows : null));
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  useEffect(() => { api.members().then(setRows).catch((e) => setErr((e as Error).message)); }, [api]);
+  useEffect(() => { api.members().then((r) => { membersCache = { api, rows: r }; setRows(r); }).catch((e) => setErr((e as Error).message)); }, [api]);
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
     const digits = term.replace(/\D/g, "");
@@ -41,15 +43,15 @@ export function PatientsView({ api, onOpen }: { api: DeskApi; onOpen: (m: DeskMe
             <thead className="text-[11.5px] text-faint"><tr><th className="px-3 py-1 font-normal">Client name</th><th className="px-3 py-1 font-normal">Phone</th><th className="px-3 py-1 text-right font-normal">Points</th><th className="px-3 py-1 text-right font-normal">Visits</th><th className="px-3 py-1 font-normal">Joined</th><th /></tr></thead>
             <tbody>
               {shown.map((m) => (
-                <tr key={m.membership_id} className="bg-[#F7F8F8]">
+                <tr key={m.membership_id} data-glide-key={`p:${m.membership_id}`} className="bg-[#F7F8F8]">
                   <td className="rounded-l-[10px] px-3 py-2">
-                    <span className="flex items-center gap-2.5"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-[11.5px] font-semibold ring-1 ring-line">{initials(m.full_name)}</span><span className="font-medium">{m.full_name ?? "No name yet"}</span></span>
+                    <span className="flex items-center gap-2.5"><span data-glide="avatar" className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-[11.5px] font-semibold ring-1 ring-line">{initials(m.full_name)}</span><span data-glide="title" className="font-medium">{m.full_name ?? "No name yet"}</span></span>
                   </td>
                   <td className="px-3 py-2 text-sub">{formatPhone(m.phone) || m.email || "—"}</td>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums">{m.points_balance.toLocaleString("en-US")}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-sub">{m.visit_count ?? 0}</td>
                   <td className="px-3 py-2 text-sub">{date(m.joined_at)}</td>
-                  <td className="rounded-r-[10px] px-3 py-2 text-right"><button type="button" onClick={() => onOpen(m)} className="inline-flex h-8 items-center gap-1 rounded-full bg-ink px-3 text-[12.5px] font-semibold text-white">Open <IcNext className="h-3 w-3" strokeWidth={2.4} /></button></td>
+                  <td className="rounded-r-[10px] px-3 py-2 text-right"><button type="button" onClick={(e) => onOpen(m, e.currentTarget.closest("tr"))} className="inline-flex h-8 items-center gap-1 rounded-full bg-ink px-3 text-[12.5px] font-semibold text-white">Open <IcNext className="h-3 w-3" strokeWidth={2.4} /></button></td>
                 </tr>
               ))}
             </tbody>

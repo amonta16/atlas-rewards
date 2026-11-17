@@ -4,9 +4,9 @@
  * device (TrackView on the detail screens). Until they've opened something,
  * the same grid shows the clinic's popular items.
  */
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { optimizedUrl } from "@atlas/core/img";
+import { GlideLink } from "./glide";
 
 export type CatalogItem = { key: string; name: string; price: string; image: string | null; href: string };
 
@@ -37,16 +37,16 @@ export function RecentlyViewed({ slug, catalog }: { slug: string; catalog: Catal
       <h3 className="text-center text-[20px] font-semibold tracking-[-0.015em]">{recent.length >= 2 ? "Recently viewed" : "Popular right now"}</h3>
       <div className="mt-4 grid grid-cols-2 gap-x-2.5 gap-y-5">
         {shown.map((c) => (
-          <Link key={c.key} href={c.href} className="min-w-0">
-            <div className="aspect-[4/5] overflow-hidden rounded-[10px] bg-page">
+          <GlideLink key={c.key} glideKey={c.key} href={c.href} className="min-w-0">
+            <div data-glide="media" className="aspect-[4/5] overflow-hidden rounded-[10px] bg-page">
               {c.image && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={optimizedUrl(c.image, 420)} alt="" className="h-full w-full object-cover" loading="lazy" />
               )}
             </div>
-            <p className="mt-2 truncate text-[13.5px] font-medium">{c.name}</p>
+            <p data-glide="title" className="mt-2 w-fit max-w-full truncate text-[13.5px] font-medium">{c.name}</p>
             <p className="mt-0.5 text-[13.5px] font-semibold">{c.price}</p>
-          </Link>
+          </GlideLink>
         ))}
       </div>
     </section>

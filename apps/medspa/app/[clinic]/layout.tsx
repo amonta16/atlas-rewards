@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getClinic } from "@/lib/clinic";
 import { googleFontHref } from "@/lib/preview";
+import { GlideRoot } from "@/components/glide";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default async function ClinicLayout({ children, params }: { children: Rea
     <div style={{ ["--p" as string]: clinic.primary, ["--p-rgb" as string]: clinic.primaryRgb, ...(font ? { fontFamily: `'${font}', var(--font-hanken), system-ui, sans-serif` } : {}) }}>
       {font && <link rel="stylesheet" href={googleFontHref(font)} />}
       {children}
+      <GlideRoot />
     </div>
   );
 }

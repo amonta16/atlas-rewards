@@ -23,6 +23,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { glidePush } from "../glide";
 import { demoDeskApi, liveDeskApi, type ActivityRow, type DeskApi, type DeskGift, type DeskMember, type DeskVoucher, type DueRow, type LookupResult, type OrderRow, type PatientDetail, type Provider, type Treatment } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
 import { Wordmark } from "../chrome";
@@ -61,6 +63,7 @@ type DeskClinic = {
   goLive: GoLive;
 };
 type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
+const VIEW_IDS: View[] = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "offers", "marketing", "billing"];
 const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "billing"];
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
@@ -89,18 +92,53 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   // The skip-ahead ("Turn it on now") only once they're verified, imported and installed.
   const ready = progress.verified && progress.csv && progress.installed;
   const goLive = portal ? { ...clinic.goLive, activateUrl: ready ? clinic.goLive.activateUrl : null, walkthroughHidden: !!imported } : clinic.goLive;
-  const [view, setView] = useState<View>(() => {
-    // "reports" (the monthly email's button) is a tab inside Insights.
-    // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
-    const wanted = initialView === "reports" ? "insights" : initialView === "offers" || initialView === "marketing" ? "builder" : initialView;
-    if (wanted && (staff.isManager || !MANAGER_ONLY.includes(wanted))) return wanted;
-    return staff.isManager ? "overview" : "checkin";
-  });
+  // CP-248: the view and the open patient live in the URL (?view=…&patient=…), so
+  // browser Back / swipe-back step back through the desk instead of leaving it.
+  const params = useSearchParams();
+  const rawView = (params?.get("view") ?? initialView ?? null) as View | "reports" | null;
+  // "reports" (the monthly email's button) is a tab inside Insights.
+  // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
+  const wanted = rawView === "reports" ? "insights" : rawView === "offers" || rawView === "marketing" ? "builder" : rawView;
+  const view: View = wanted && VIEW_IDS.includes(wanted) && (staff.isManager || !MANAGER_ONLY.includes(wanted)) ? wanted : staff.isManager ? "overview" : "checkin";
+  // Patients opened this session, so Back / Forward can show their panel again.
+  const people = useRef(new Map<string, DeskMember>());
+  const patientId = params?.get("patient") ?? null;
+  const selected = view === "checkin" && patientId ? people.current.get(patientId) ?? null : null;
+  const pushedPatient = useRef(false);
+  const go = useCallback((next: { view: View; patient?: DeskMember | null }, glideFrom?: Element | null) => {
+    if (next.patient) people.current.set(next.patient.membership_id, next.patient);
+    const u = new URL(window.location.href);
+    const hadPatient = !!u.searchParams.get("patient");
+    u.searchParams.set("view", next.view);
+    if (next.patient) u.searchParams.set("patient", next.patient.membership_id); else u.searchParams.delete("patient");
+    if (next.view !== "insights") u.searchParams.delete("month");
+    const href = u.pathname + u.search;
+    if (href === window.location.pathname + window.location.search) return;
+    if (next.patient && hadPatient) {
+      // Switching patients replaces the entry: closing still goes straight back to the list.
+      window.history.replaceState(null, "", href);
+      return;
+    }
+    pushedPatient.current = !!next.patient;
+    if (glideFrom) glidePush(href, { from: glideFrom }); else window.history.pushState(null, "", href);
+  }, []);
+  const setView = useCallback((v: View) => go({ view: v }), [go]);
+  /** Closing the patient panel: Back when we opened it, so the browser history stays honest. */
+  const closePatient = useCallback(() => {
+    if (pushedPatient.current) { pushedPatient.current = false; window.history.back(); return; }
+    const u = new URL(window.location.href);
+    u.searchParams.delete("patient");
+    glidePush(u.pathname + u.search, { dir: "back", replace: true, from: document.querySelector("[data-glide-hero^='p:']") });
+  }, []);
+  useEffect(() => {
+    const reset = () => { pushedPatient.current = false; };
+    window.addEventListener("popstate", reset);
+    return () => window.removeEventListener("popstate", reset);
+  }, []);
   const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "marketing" ? "campaigns" : "gifts");
   const [reportLink, setReportLink] = useState(initialView === "reports");
   useEffect(() => { if (view !== "insights") setReportLink(false); }, [view]);
   const openBuilder = (s: BuilderSection) => { setBuilderSection(s); setView("builder"); };
-  const [selected, setSelected] = useState<DeskMember | null>(null);
   const [counts, setCounts] = useState<{ due: number; orders: number; reviews: number }>({ due: 0, orders: 0, reviews: 0 });
   const [scanTick, setScanTick] = useState(0);
   const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null);
@@ -118,7 +156,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   }, [api]);
   useEffect(() => { refreshCounts(); }, [refreshCounts]);
 
-  const open = (m: DeskMember) => { setSelected(m); setView("checkin"); };
+  const open = (m: DeskMember, from?: Element | null) => go({ view: "checkin", patient: m }, from);
   const scanNow = () => { setView("checkin"); setScanTick((n) => n + 1); };
   const goSetup = (t: SetupTarget) => (t === "payouts" ? setView("payouts") : openBuilder(t));
   type NavItem = { id: View; label: string; Icon: typeof IcUser; badge?: number };
@@ -247,7 +285,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
             <HomeView api={api} demo={clinic.demo} />
           </SetupHome>
         )}
-        {view === "checkin" && <CheckIn api={api} clinic={clinic} selected={selected} onSelect={setSelected} say={say} onChanged={refreshCounts} scanTick={scanTick} />}
+        {view === "checkin" && <CheckIn api={api} clinic={clinic} selected={selected} onSelect={(m, from) => (m ? open(m, from) : closePatient())} say={say} onChanged={refreshCounts} scanTick={scanTick} />}
         {view === "patients" && <PatientsView api={api} onOpen={open} />}
         {view === "due" && <Due api={api} clinic={clinic} onOpen={open} />}
         {view === "orders" && <Orders api={api} say={say} onChanged={refreshCounts} rate={clinic.pointsPerDollar} />}
@@ -287,7 +325,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
 /* ───────────────────────── Check in ───────────────────────── */
 
 function CheckIn({ api, clinic, selected, onSelect, say, onChanged, scanTick }: {
-  api: DeskApi; clinic: DeskClinic; selected: DeskMember | null; onSelect: (m: DeskMember | null) => void;
+  api: DeskApi; clinic: DeskClinic; selected: DeskMember | null; onSelect: (m: DeskMember | null, from?: Element | null) => void;
   say: (t: string, undo?: () => void) => void; onChanged: () => void; scanTick: number;
 }) {
   const [q, setQ] = useState("");
@@ -330,10 +368,10 @@ function CheckIn({ api, clinic, selected, onSelect, say, onChanged, scanTick }: 
           <ul className="overflow-hidden rounded-[22px] bg-white shadow-[0_10px_30px_-22px_rgba(23,27,38,.4)]">
             {result.members.map((m) => (
               <li key={m.membership_id}>
-                <button type="button" onClick={() => onSelect(m)} className={`flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition ${selected?.membership_id === m.membership_id ? "bg-tint" : "hover:bg-page"}`}>
-                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-page text-[14px] font-semibold">{initials(m.full_name)}</span>
+                <button type="button" data-glide-key={`p:${m.membership_id}`} onClick={(e) => onSelect(m, e.currentTarget)} className={`flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition ${selected?.membership_id === m.membership_id ? "bg-tint" : "hover:bg-page"}`}>
+                  <span data-glide="avatar" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-page text-[14px] font-semibold">{initials(m.full_name)}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15.5px] font-semibold">{m.full_name ?? "No name yet"}</span>
+                    <span data-glide="title" className="block w-fit max-w-full truncate text-[15.5px] font-semibold">{m.full_name ?? "No name yet"}</span>
                     <span className="block text-[13px] text-sub">{formatPhone(m.phone) || m.email || "—"}</span>
                   </span>
                   <span className="text-right text-[13px] text-sub"><b className="block text-[15px] text-ink">{m.points_balance.toLocaleString("en-US")}</b>pts</span>
@@ -430,14 +468,14 @@ function PatientPanel({ api, clinic, member, onClose, say, onChanged, onPoints }
   const rewards = d?.store.filter((r) => r.kind === "reward") ?? [];
 
   return (
-    <section className="animate-rise space-y-4">
+    <section data-glide-hero={`p:${m.membership_id}`} className="animate-rise space-y-4">
       {/* Header */}
       <div className="relative overflow-hidden rounded-[26px] bg-white p-6 shadow-[0_14px_40px_-26px_rgba(23,27,38,.45)]">
         <button type="button" onClick={onClose} aria-label="Close" className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-page"><IcClose className="h-4 w-4" /></button>
         <div className="flex items-center gap-4 pr-10">
-          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-ink text-[20px] font-semibold text-white">{initials(m.full_name)}</span>
+          <span data-glide="avatar" className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-ink text-[20px] font-semibold text-white">{initials(m.full_name)}</span>
           <div className="min-w-0">
-            <h2 className="truncate text-[24px] font-semibold tracking-[-0.02em]">{m.full_name ?? "No name yet"}</h2>
+            <h2 data-glide="title" className="w-fit max-w-full truncate text-[24px] font-semibold tracking-[-0.02em]">{m.full_name ?? "No name yet"}</h2>
             <p className="flex flex-wrap items-center gap-x-3 text-[14px] text-sub">
               {m.phone && <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1 hover:text-ink"><IcPhone className="h-3.5 w-3.5" />{formatPhone(m.phone)}</a>}
               {d?.vip?.is_member
@@ -630,10 +668,12 @@ function RemoveModal({ balance, onClose, onSave }: { balance: number; onClose: (
 
 /* ───────────────────────── Due · Orders · Activity ───────────────────────── */
 
-function Due({ api, clinic, onOpen }: { api: DeskApi; clinic: DeskClinic; onOpen: (m: DeskMember) => void }) {
-  const [rows, setRows] = useState<DueRow[] | null>(null);
+let dueCache: { api: DeskApi; rows: DueRow[] } | null = null;
+function Due({ api, clinic, onOpen }: { api: DeskApi; clinic: DeskClinic; onOpen: (m: DeskMember, from?: Element | null) => void }) {
+  // The last list shown, so Back lands on the same row at once (it still refreshes).
+  const [rows, setRows] = useState<DueRow[] | null>(() => (dueCache?.api === api ? dueCache.rows : null));
   const [err, setErr] = useState<string | null>(null);
-  useEffect(() => { api.due().then(setRows).catch((e) => setErr((e as Error).message)); }, [api]);
+  useEffect(() => { api.due().then((r) => { dueCache = { api, rows: r }; setRows(r); }).catch((e) => setErr((e as Error).message)); }, [api]);
   if (err) return <p className="rounded-[18px] bg-white px-5 py-4 text-[14.5px] text-red-600">{err}</p>;
   if (!rows) return <div className="h-48 animate-pulse rounded-[24px] bg-white/70" />;
   const sorted = [...rows].sort((a, b) => new Date(a.due_at).getTime() - new Date(b.due_at).getTime());
@@ -644,10 +684,10 @@ function Due({ api, clinic, onOpen }: { api: DeskApi; clinic: DeskClinic; onOpen
         const overdue = new Date(r.due_at).getTime() < Date.now();
         const sms = r.phone ? `sms:${r.phone}?body=${encodeURIComponent(`Hi${(r.full_name ?? "").split(" ")[0] ? ` ${(r.full_name ?? "").split(" ")[0]}` : ""}! It's about time for your next ${r.treatment_name} at ${clinic.name}. Want us to find you a time?`)}` : null;
         return (
-          <li key={`${r.membership_id}-${i}`} className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 last:border-0">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-page text-[14px] font-semibold">{initials(r.full_name)}</span>
+          <li key={`${r.membership_id}-${i}`} data-glide-key={`p:${r.membership_id}`} className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-4 last:border-0">
+            <span data-glide="avatar" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-page text-[14px] font-semibold">{initials(r.full_name)}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15.5px] font-semibold">{r.full_name ?? "No name"}</span>
+              <span data-glide="title" className="block w-fit max-w-full truncate text-[15.5px] font-semibold">{r.full_name ?? "No name"}</span>
               <span className="block text-[13.5px] text-sub">{r.treatment_name} · last {day(r.performed_at)}</span>
             </span>
             {r.has_upcoming_booking
@@ -655,7 +695,7 @@ function Due({ api, clinic, onOpen }: { api: DeskApi; clinic: DeskClinic; onOpen
               : <span className={`rounded-full px-3 py-1 text-[12.5px] font-semibold ${overdue ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>{overdue ? `Due since ${day(r.due_at)}` : `Due ${day(r.due_at)}`}</span>}
             <span className="flex gap-2">
               {sms && !r.has_upcoming_booking && <a href={sms} className="h-9 rounded-full bg-tint px-4 text-[13.5px] font-semibold leading-9 text-brand">Text</a>}
-              <button type="button" onClick={() => onOpen({ membership_id: r.membership_id, user_id: r.user_id, full_name: r.full_name, email: r.email, phone: r.phone, points_balance: r.points_balance, tier: r.tier, joined_at: r.joined_at, visit_count: r.visit_count })}
+              <button type="button" onClick={(e) => onOpen({ membership_id: r.membership_id, user_id: r.user_id, full_name: r.full_name, email: r.email, phone: r.phone, points_balance: r.points_balance, tier: r.tier, joined_at: r.joined_at, visit_count: r.visit_count }, e.currentTarget.closest("li"))}
                 className="h-9 rounded-full bg-ink px-4 text-[13.5px] font-semibold text-white">Open</button>
             </span>
           </li>

@@ -6,6 +6,7 @@
  */
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { optimizedUrl } from "@atlas/core/img";
 import type { ClinicReward } from "@/lib/clinic";
@@ -14,10 +15,22 @@ import { useGate } from "./gate";
 import { IcBag, IcCheck, IcClose, IcGoogle, IcLock, IcNext, IcPeople, IcQr } from "./icons";
 import { Portal } from "./portal";
 import { RedeemButton } from "./redeem-button";
+import { cardFor, glide, heroFor } from "./glide";
 
 export function RewardsBoard({ slug, rewards, points, signedIn }: { slug: string; rewards: ClinicReward[]; points: number; signedIn: boolean }) {
   const [all, setAll] = useState(false);
   const [open, setOpen] = useState<ClinicReward | null>(null);
+  // Glide: the tile grows into its sheet, and the sheet folds back into the tile.
+  const [glided, setGlided] = useState(false);
+  const show = (r: ClinicReward, tile: Element) => glide({
+    dir: "forward", from: tile, to: () => heroFor(`r:${r.id}`),
+    update: () => flushSync(() => { setGlided("startViewTransition" in document); setOpen(r); }),
+  });
+  const hide = () => {
+    if (!open) return;
+    const key = `r:${open.id}`;
+    glide({ dir: "back", from: heroFor(key), to: () => cardFor(key), update: () => flushSync(() => setOpen(null)) });
+  };
   if (!rewards.length) return <p className="py-14 text-center text-[15px] text-sub">Rewards are coming soon.</p>;
   return (
     <section className="pt-7">
@@ -28,18 +41,18 @@ export function RewardsBoard({ slug, rewards, points, signedIn }: { slug: string
         </button>
       </div>
       <div className={all ? "mt-3 grid grid-cols-2 gap-2.5 px-4" : "no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-1"}>
-        {rewards.map((r) => <Tile key={r.id} r={r} points={points} signedIn={signedIn} wide={!all} onOpen={() => setOpen(r)} />)}
+        {rewards.map((r) => <Tile key={r.id} r={r} points={points} signedIn={signedIn} wide={!all} onOpen={(tile) => show(r, tile)} />)}
       </div>
-      {open && <RewardSheet slug={slug} r={open} points={points} signedIn={signedIn} onClose={() => setOpen(null)} />}
+      {open && <RewardSheet slug={slug} r={open} points={points} signedIn={signedIn} glided={glided} onClose={hide} />}
     </section>
   );
 }
 
-function Tile({ r, points, signedIn, wide, onOpen }: { r: ClinicReward; points: number; signedIn: boolean; wide: boolean; onOpen: () => void }) {
+function Tile({ r, points, signedIn, wide, onOpen }: { r: ClinicReward; points: number; signedIn: boolean; wide: boolean; onOpen: (tile: Element) => void }) {
   const unlocked = signedIn && points >= r.point_cost;
   return (
-    <button type="button" id={r.id} onClick={onOpen} className={`${wide ? "w-[calc(50%-5px)] shrink-0" : ""} scroll-mt-24 overflow-hidden rounded-[14px] text-center transition active:scale-[0.99] ${unlocked ? "bg-white shadow-card ring-1 ring-line" : "bg-[#F1F2F3]"}`}>
-      <div className="relative aspect-[5/4] overflow-hidden bg-[#DFE1E3]">
+    <button type="button" id={r.id} data-glide-key={`r:${r.id}`} onClick={(e) => onOpen(e.currentTarget)} className={`${wide ? "w-[calc(50%-5px)] shrink-0" : ""} scroll-mt-24 overflow-hidden rounded-[14px] text-center transition active:scale-[0.99] ${unlocked ? "bg-white shadow-card ring-1 ring-line" : "bg-[#F1F2F3]"}`}>
+      <div data-glide="media" className="relative aspect-[5/4] overflow-hidden bg-[#DFE1E3]">
         {r.image_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={optimizedUrl(r.image_url, 340)} alt="" className={`h-full w-full object-cover ${unlocked ? "" : "opacity-70 grayscale"}`} loading="lazy" />
@@ -49,21 +62,22 @@ function Tile({ r, points, signedIn, wide, onOpen }: { r: ClinicReward; points: 
         <span className="inline-flex items-center gap-1 rounded-full bg-[#E4E6E8] px-2.5 py-[3px] text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink">
           {!unlocked && <IcLock className="h-3 w-3" strokeWidth={2} />}{r.point_cost.toLocaleString("en-US")} points
         </span>
-        <p className="mt-2 line-clamp-2 text-[13.5px] font-medium leading-snug">{r.name}</p>
+        <p data-glide="title" className="mt-2 line-clamp-2 w-fit text-[13.5px] font-medium leading-snug">{r.name}</p>
       </div>
       <p className={`border-t py-2 text-[12.5px] font-medium ${unlocked ? "border-line font-semibold text-ink" : "border-[#E4E6E8] text-sub"}`}>{unlocked ? "Redeem" : "Locked"}</p>
     </button>
   );
 }
 
-function RewardSheet({ slug, r, points, signedIn, onClose }: { slug: string; r: ClinicReward; points: number; signedIn: boolean; onClose: () => void }) {
+function RewardSheet({ slug, r, points, signedIn, glided, onClose }: { slug: string; r: ClinicReward; points: number; signedIn: boolean; glided: boolean; onClose: () => void }) {
   const short = Math.max(0, r.point_cost - points);
   const ready = !signedIn || short === 0;
   return (
     <Portal>
-      <div className="fixed inset-0 z-[55] animate-fade bg-black/45" onClick={onClose}>
-        <div role="dialog" aria-modal onClick={(e) => e.stopPropagation()} className="absolute inset-x-0 bottom-0 mx-auto max-w-md animate-sheet overflow-hidden rounded-t-[26px] bg-white" style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))" }}>
-          <div className="relative aspect-[16/10] bg-page">
+      {/* When it grew out of its tile, the glide moves it; the CSS slide-up is the fallback. */}
+      <div data-glide-hero={`r:${r.id}`} data-glide="scrim" className={`fixed inset-0 z-[55] bg-black/45 ${glided ? "" : "animate-fade"}`} onClick={onClose}>
+        <div role="dialog" aria-modal data-glide="sheet" onClick={(e) => e.stopPropagation()} className={`absolute inset-x-0 bottom-0 mx-auto max-w-md overflow-hidden rounded-t-[26px] bg-white ${glided ? "" : "animate-sheet"}`} style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))" }}>
+          <div data-glide="media" className="relative aspect-[16/10] bg-page">
             {r.image_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={optimizedUrl(r.image_url, 800)} alt="" className="h-full w-full object-cover" />
@@ -72,7 +86,7 @@ function RewardSheet({ slug, r, points, signedIn, onClose }: { slug: string; r: 
             <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-white">{r.point_cost.toLocaleString("en-US")} points</span>
           </div>
           <div className="px-5 pt-5">
-            <h2 className="text-[22px] font-semibold leading-tight tracking-[-0.015em]">{r.name}</h2>
+            <h2 data-glide="title" className="w-fit text-[22px] font-semibold leading-tight tracking-[-0.015em]">{r.name}</h2>
             {r.description && <p className="mt-2 text-[14.5px] leading-snug text-sub">{r.description}</p>}
             {r.terms && <p className="mt-2 text-[12.5px] leading-snug text-faint">{r.terms}</p>}
             <div className="mt-5">

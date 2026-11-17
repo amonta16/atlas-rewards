@@ -22,10 +22,10 @@ export default async function ShopItem({ params }: { params: { clinic: string; i
   const options = bookingOptions({ ...clinic.cfg.booking, message: `Hi {practice}! I'd like to buy ${item.name}.` }, clinic.name, clinic.phone, null);
 
   return (
-    <article>
+    <article data-glide-hero={`i:${item.id}`}>
       <TrackView slug={clinic.slug} itemKey={`i:${item.id}`} />
       <SubBar slug={clinic.slug} title="Shop" fallback={`/${clinic.slug}/shop?tab=browse`} />
-      <div className="relative aspect-[4/3] overflow-hidden bg-page">
+      <div data-glide="media" className="relative aspect-[4/3] overflow-hidden bg-page">
         {item.image_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={optimizedUrl(item.image_url, 900)} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -33,7 +33,7 @@ export default async function ShopItem({ params }: { params: { clinic: string; i
       </div>
       <section className="px-5 pb-6 pt-5">
         <span className="pill-soft">{SHOP_KIND_LABEL[item.kind]}</span>
-        <h1 className="mt-2.5 text-[24px] font-semibold leading-[1.15] tracking-[-0.02em]">{item.name}</h1>
+        <h1 data-glide="title" className="mt-2.5 w-fit text-[24px] font-semibold leading-[1.15] tracking-[-0.02em]">{item.name}</h1>
         <p className="mt-3 text-[14.5px] leading-relaxed text-sub">{item.description}</p>
         <p className="mt-4 flex items-center gap-2.5 text-[15px]">
           <span className="font-semibold">{price || "Price at the clinic"}</span>
