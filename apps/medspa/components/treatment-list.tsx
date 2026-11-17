@@ -40,7 +40,7 @@ export function TreatmentList({ slug, treatments, initialCategory, autoFocus }: 
             Sort <IcDown className="h-4 w-4" strokeWidth={2.2} />
           </button>
           {sortOpen && (
-            <div className="absolute right-0 top-10 z-20 w-52 animate-rise overflow-hidden rounded-[14px] bg-white py-1 shadow-card ring-1 ring-line">
+            <div data-glide-pop className="absolute right-0 top-10 z-20 w-52 animate-rise overflow-hidden rounded-[14px] bg-white py-1 shadow-card ring-1 ring-line">
               {(Object.keys(SORTS) as Sort[]).map((k) => (
                 <button key={k} type="button" onClick={() => { setSort(k); setSortOpen(false); }}
                   className={`block w-full px-4 py-2.5 text-left text-[14.5px] ${sort === k ? "font-semibold" : "text-sub"}`}>{SORTS[k]}</button>
