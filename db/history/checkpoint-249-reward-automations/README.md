@@ -26,11 +26,15 @@ Every med spa already gets the CP-217 automation suite when it's created (`trg_w
 | `03_install.sql` | optional: installs/updates the journeys on existing med spas, then **pauses the 3 new ones on live clinics** |
 | `gen/suite_defs.py` | `PYTHONIOENCODING=utf-8 python gen/suite_defs.py` writes `02_catalog.sql` **and** `apps/medspa/lib/suite-catalog.json` (the demo desk's list + previews) |
 
-Run order in the Supabase SQL editor: 01 → 02 → (optional) 03.
+### Rollout order (the code and the SQL depend on each other)
+
+1. **Run `01` in the Supabase SQL editor.** It adds the outbox columns and functions. Nothing new sends yet, because the live journeys are unchanged until 02/03. The new dispatcher reads `template, data`, so this step **must come before the deploy**. Deploying first would make the dispatcher fail on every email.
+2. **Merge the PR and let Vercel deploy** both apps. The dispatcher now enforces `REWARDS_EMAIL_SEND`.
+3. **Run `02`, then optionally `03`.** These must come **after the deploy**. Before it, the old dispatcher would send the gated reward emails, because it doesn't know about the gate.
 
 ## Sending stays off
 
-* The new reward emails carry `data.gated = true`. `/api/automations/email-dispatch` (venue app) marks them `skipped: rewards_email_off` until **`REWARDS_EMAIL_SEND=1`** is set on the venue app. This works like `LEAD_NURTURE_SEND`.
+* The new reward emails carry `data.gated = true`. `/api/automations/email-dispatch` (venue app) marks them `skipped: rewards_email_off` until **`REWARDS_EMAIL_SEND=1`** is set on the venue app (Vercel → venues project → Settings → Environment Variables, Production, then redeploy). This works like `LEAD_NURTURE_SEND`.
 * All patient email still needs `RESEND_API_KEY` there. The sender is `"<Clinic name>" <hello@atlas-engine.app>` (`EMAIL_FROM_ADDRESS` in `apps/venues/lib/automations/email-template.ts`), and replies go to the clinic's contact email.
 * The CP-217 audience guard still limits demo, example and preview clinics to their test members only.
 
