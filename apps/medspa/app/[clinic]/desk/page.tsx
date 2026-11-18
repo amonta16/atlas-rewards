@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
  * functions as the venue app, so everything shows the same numbers.
  * ?view=reports&month=YYYY-MM is where the monthly report email lands.
  */
-const VIEWS = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "reports", "offers", "marketing", "billing"] as const;
+const VIEWS = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "reports", "offers", "marketing", "automations", "billing"] as const;
 
 export default async function Desk({ params, searchParams }: { params: { clinic: string }; searchParams: { view?: string; month?: string } }) {
   const clinic = (await getClinic(params.clinic))!;

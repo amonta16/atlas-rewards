@@ -60,8 +60,8 @@ type DeskClinic = {
   /** CP-238: what access this desk has and how the owner goes live (Home → Your access). */
   goLive: GoLive;
 };
-type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
-const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "billing"];
+type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "automations" | "billing";
+const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "automations", "billing"];
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -92,11 +92,12 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   const [view, setView] = useState<View>(() => {
     // "reports" (the monthly email's button) is a tab inside Insights.
     // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
-    const wanted = initialView === "reports" ? "insights" : initialView === "offers" || initialView === "marketing" ? "builder" : initialView;
+    // CP-249: ?view=automations opens App Builder → Journey → Automations.
+    const wanted = initialView === "reports" ? "insights" : initialView === "offers" || initialView === "marketing" || initialView === "automations" ? "builder" : initialView;
     if (wanted && (staff.isManager || !MANAGER_ONLY.includes(wanted))) return wanted;
     return staff.isManager ? "overview" : "checkin";
   });
-  const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "marketing" ? "campaigns" : "gifts");
+  const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "marketing" ? "campaigns" : initialView === "automations" ? "automations" : "gifts");
   const [reportLink, setReportLink] = useState(initialView === "reports");
   useEffect(() => { if (view !== "insights") setReportLink(false); }, [view]);
   const openBuilder = (s: BuilderSection) => { setBuilderSection(s); setView("builder"); };
