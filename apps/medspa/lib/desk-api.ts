@@ -14,6 +14,7 @@ import { demoScansKey, type ConcernId, type SavedScan } from "./skin-scan";
 import { createClient } from "@atlas/core/supabase/client";
 import { shrinkImage } from "@atlas/core/shrink-image";
 import type { MonthlyReport } from "@atlas/core/reports/monthly";
+import SUITE_CATALOG from "./suite-catalog.json";
 
 export type DeskMember = {
   membership_id: string; user_id: string; full_name: string | null; email: string | null; phone: string | null;
@@ -78,6 +79,14 @@ export type GiftOffer = {
 export type Journey = {
   key: string; grp: string; name: string; why: string; trigger_text: string; timing_text: string; channels: string[];
   reward_text: string | null; engine: "workflow" | "legacy"; enabled: boolean; entered_30d: number; sent_30d: number; converted_30d: number;
+  /** wf_suite_row messages (CP-217); `template` since CP-249. Variables like {{first_name}} are left for the preview to fill. */
+  messages?: SuiteMessage[];
+};
+export type SuiteMessage = {
+  node_id: string; channel: "push" | "email"; label?: string | null; when_text?: string | null;
+  title?: string | null; body?: string | null; subject?: string | null; preheader?: string | null; heading?: string | null;
+  cta_label?: string | null; cta_path?: string | null; footnote?: string | null; template?: string | null;
+  points?: number | null; points_rule?: string | null;
 };
 
 export type SocialPillar = { platform: "google" | "instagram" | "facebook"; verified_total: number; verified_30d: number; verified_prev_30d: number; pending: number; rejected: number };
@@ -634,14 +643,17 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     tpl("t7", "black-friday", "Black Friday", "date", "Sent on Black Friday.", true, null, "t-sofwave", 25),
     tpl("t8", "christmas", "Christmas", "date", "Sent on December 24.", false, null, "t-emface", 10),
   ];
-  let journeys: Journey[] = [
-    ["ms.welcome", "get_in", "New patient welcome", "A patient joins the app", "Now · day 1 · day 3 · day 7", ["push", "email"], true, 34, 96, 11],
-    ["ms.cart_recovery", "convert", "Finish your order", "Checkout started, not paid", "2 hours · 24 hours · 72 hours", ["push", "email"], true, 9, 21, 4],
-    ["ms.book_after_purchase", "care", "Book after purchase", "Joined a membership or bought a package", "Day 1 · day 4", ["push"], false, 0, 0, 0],
-    ["ms.rebook", "care", "Time for your next treatment", "A treatment's recall comes due", "Before the due date · after", ["push"], true, 41, 63, 17],
-    ["ms.winback", "come_back", "We miss you", "No visit in 90 days", "Day 90 · day 120", ["push", "email"], false, 0, 0, 0],
-    ["ms.birthday", "celebrate", "Birthday", "Their birthday week", "On the day", ["push"], true, 6, 6, 2],
-  ].map(([key, grp, name, trigger_text, timing_text, channels, enabled, e, s2, c]) => ({ key, grp, name, why: "", trigger_text, timing_text, channels, reward_text: null, engine: "workflow", enabled, entered_30d: e, sent_30d: s2, converted_30d: c } as Journey));
+  // CP-249: the demo lists the real suite catalog (generated from db/history/checkpoint-249-reward-automations/gen),
+  // so its Automations page and email previews match what a live clinic gets. Counts are sample numbers.
+  const SAMPLE: Record<string, [boolean, number, number, number]> = {
+    "ms.welcome": [true, 34, 96, 11], "ms.cart_recovery": [true, 9, 21, 4], "ms.rebook": [true, 41, 63, 17], "ms.reward_ready": [true, 22, 38, 14],
+    "ms.points_earned": [true, 57, 57, 19], "ms.almost_there": [true, 18, 18, 7], "ms.reward_expiring": [true, 4, 4, 3], "ms.birthday": [true, 6, 6, 2],
+    "ms.winback": [false, 0, 0, 0], "ms.book_after_purchase": [false, 0, 0, 0],
+  };
+  let journeys: Journey[] = (SUITE_CATALOG as unknown as Omit<Journey, "enabled" | "entered_30d" | "sent_30d" | "converted_30d">[]).map((j) => {
+    const [enabled, e, s2, c] = SAMPLE[j.key] ?? [true, 0, 0, 0];
+    return { ...j, enabled, entered_30d: e, sent_30d: s2, converted_30d: c };
+  });
   let demoReviews: PendingReview[] = [{ id: "rv1", member_name: "Emma Chen", member_email: null, submitted_at: ago(0.1), platform: "google" }];
   let demoPending: PendingMember[] = [{ membership_id: "m3", full_name: "Ava Patel", email: null, phone: "8055550177", requested_at: ago(0.5), pending_plan: { kind: "monthly", label: "Glow Club", price_cents: 9900 } }];
   let demoOffers: DeskOffer[] = [{ id: "of1", title: "20% off your next HydraFacial", description: "Show this at the desk. This month only.", image_url: "/medspa-example/t-hydrafacial.jpg", expires_at: ahead(14), is_active: true, is_featured: true }];

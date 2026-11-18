@@ -13,11 +13,20 @@
  *     preview shows — and POST to Resend. reply_to = the clinic's contact email.
  *  4. Mark sent / failed / skipped. With RESEND_API_KEY unset every claimed row
  *     becomes skipped:'no_provider' (never crashes, never retries forever).
+ *
+ * CP-249: rows with template = 'rewards' use the shared rewards layout
+ * (lib/automations/rewards-email.ts, a copy of @atlas/core/email/rewards-email):
+ * the patient's live point balance, the clinic's rewards, point costs and reward
+ * photos, read at send time, so every clinic's email fills itself in.
+ * Emails from the NEW reward journeys (data.gated) are held as
+ * skipped:'rewards_email_off' until REWARDS_EMAIL_SEND=1 (same idea as
+ * LEAD_NURTURE_SEND), so they never start going to patients by accident.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMachineSecret } from "@/lib/api-auth";
 import { renderEmail, emailFrom } from "@/lib/automations/email-template";
+import { renderRewardsEmail, type RewardsEmailReward } from "@/lib/automations/rewards-email";
 import { signUnsubscribeToken } from "@/lib/automations/unsubscribe-token";
 import { businessUrl } from "@/lib/utils";
 
@@ -35,7 +44,10 @@ type OutboxRow = {
   subject: string; preheader: string | null; heading: string | null; body: string;
   cta_label: string | null; cta_url: string | null; footnote: string | null; hero_url: string | null;
   idempotency_key: string; attempts: number;
+  template: string | null; data: { reward_id?: string; offer_name?: string; gated?: boolean } | null;
 };
+type RewardRow = { id: string; business_id: string; name: string; point_cost: number; image_url: string | null };
+type MemberRow = { id: string; points_balance: number | null; profiles: { full_name: string | null } | { full_name: string | null }[] | null };
 type Biz = {
   id: string; name: string; slug: string; logo_url: string | null; hero_image_url: string | null;
   brand_colors: { primary?: string } | null; contact_info: { email?: string; address?: string } | null;
@@ -67,7 +79,7 @@ export async function GET(req: NextRequest) {
   const { data: claimedRows, error: claimErr } = await admin.from("email_outbox")
     .update({ status: "sending", claimed_at: now.toISOString() })
     .in("id", ids).eq("status", "queued")
-    .select("id, business_id, membership_id, to_email, subject, preheader, heading, body, cta_label, cta_url, footnote, hero_url, idempotency_key, attempts");
+    .select("id, business_id, membership_id, to_email, subject, preheader, heading, body, cta_label, cta_url, footnote, hero_url, idempotency_key, attempts, template, data");
   if (claimErr) {
     console.error("[email-dispatch] claim failed:", claimErr.message);
     return NextResponse.json({ error: claimErr.message }, { status: 500 });
@@ -95,6 +107,29 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] as { membership_id: string; email_opt_out_at: string | null }[] }),
   ]);
   const bizById = new Map(((bizRows ?? []) as Biz[]).map((b) => [b.id, b]));
+
+  // CP-249: what the rewards layout needs, only when a claimed row uses it
+  const rewardRows = rows.filter((r) => r.template === "rewards");
+  const rewardsByBiz = new Map<string, RewardsEmailReward[]>();
+  const memberById = new Map<string, { points: number; firstName: string | null }>();
+  if (rewardRows.length) {
+    const rBiz = [...new Set(rewardRows.map((r) => r.business_id))];
+    const rMem = [...new Set(rewardRows.map((r) => r.membership_id).filter((x): x is string => !!x))];
+    const [{ data: rw }, { data: mem }] = await Promise.all([
+      admin.from("rewards").select("id, business_id, name, point_cost, image_url").in("business_id", rBiz)
+        .eq("is_active", true).eq("show_in_store", true).is("archived_at", null).order("point_cost", { ascending: true }),
+      rMem.length ? admin.from("business_memberships").select("id, points_balance, profiles(full_name)").in("id", rMem) : Promise.resolve({ data: [] as MemberRow[] }),
+    ]);
+    for (const r of (rw ?? []) as RewardRow[]) {
+      const list = rewardsByBiz.get(r.business_id) ?? [];
+      list.push({ id: r.id, name: r.name, pointCost: r.point_cost, imageUrl: r.image_url });
+      rewardsByBiz.set(r.business_id, list);
+    }
+    for (const m of (mem ?? []) as MemberRow[]) {
+      const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+      memberById.set(m.id, { points: m.points_balance ?? 0, firstName: (p?.full_name ?? "").trim().split(/\s+/)[0] || null });
+    }
+  }
   const optedOut = new Set(((prefs ?? []) as { membership_id: string; email_opt_out_at: string | null }[])
     .filter((p) => !!p.email_opt_out_at).map((p) => p.membership_id));
 
@@ -114,9 +149,34 @@ export async function GET(req: NextRequest) {
       if (r.membership_id && optedOut.has(r.membership_id)) { await finish(r.id, { status: "skipped", error: "opted_out" }); skipped++; continue; }
       if (!r.membership_id) { await finish(r.id, { status: "skipped", error: "no_member" }); skipped++; continue; }
       if (TEST_ADDRESS.test(r.to_email)) { await finish(r.id, { status: "skipped", error: "test_address" }); skipped++; continue; }
+      if (r.data?.gated && process.env.REWARDS_EMAIL_SEND !== "1") { await finish(r.id, { status: "skipped", error: "rewards_email_off" }); skipped++; continue; }
 
       const unsubscribeUrl = businessUrl(root, { path: `/api/email/unsubscribe?t=${encodeURIComponent(signUnsubscribeToken(r.membership_id))}` });
-      const { html, text } = renderEmail(
+      const brand = {
+        businessName: biz.name,
+        logoUrl: abs(biz.logo_url),
+        primary: biz.brand_colors?.primary ?? "#2d6a78",
+        heroUrl: abs(biz.hero_image_url),
+        address: biz.contact_info?.address ?? null,
+      };
+      const member = memberById.get(r.membership_id);
+      const { html, text } = r.template === "rewards" && member ? renderRewardsEmail({
+        brand,
+        subject: r.subject,
+        preheader: r.preheader,
+        firstName: member.firstName,
+        points: member.points,
+        headline: r.heading || r.subject,
+        body: r.body,
+        ctaLabel: r.cta_label,
+        ctaUrl: abs(r.cta_url, biz.slug),
+        rewardsUrl: abs("/app/rewards", biz.slug) ?? businessUrl(root, { slug: biz.slug, path: "/app/rewards" }),
+        rewards: (rewardsByBiz.get(r.business_id) ?? []).map((x) => ({ ...x, imageUrl: abs(x.imageUrl) })),
+        featuredRewardId: r.data?.reward_id ?? null,
+        heroUrl: abs(r.hero_url),
+        footnote: r.footnote,
+        unsubscribeUrl,
+      }) : renderEmail(
         {
           businessName: biz.name,
           logoUrl: abs(biz.logo_url),
