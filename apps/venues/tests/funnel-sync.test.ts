@@ -30,10 +30,12 @@ test("the launch-bonus window matches across apps", () => {
   assert.equal(M_BONUS.active, V_BONUS.active);
 });
 
-test("CP-251: the hackathon copy matches across apps and credits the team, not Atlas", () => {
+test("CP-251: the proof cards match across apps; the hackathon card credits the team, not Atlas", () => {
   assert.deepEqual(M_TEAM, V_TEAM);
-  assert.match(V_TEAM.body, /our team/i);
-  assert.doesNotMatch(`${V_TEAM.title} ${V_TEAM.body}`, /Atlas (placed|won|finished)/i);
+  assert.equal(V_TEAM.posts.length, 2);
+  const hack = V_TEAM.posts.find((p) => p.id === "hackathon")!;
+  assert.match(hack.body, /our team/i);
+  for (const p of V_TEAM.posts) assert.doesNotMatch(`${p.title} ${p.body}`, /Atlas (placed|won|finished)|top 10/i);
 });
 
 test("the mechanism makes no recall-sending claim (not Live in the messaging library)", () => {

@@ -14,28 +14,32 @@
 import { LAUNCH_CALL, MECHANISM, OFFER, TEAM_PROOF } from "@/lib/offer";
 
 /**
- * CP-251 · the hackathon as a crisp social-post card (avatar, name, date, text, then the photo inside the
- * card), before the reviews. Post-styled but not a fake post: no X/LinkedIn mark, no like or view counts.
+ * CP-251 · team proof as crisp social-post cards (Flippo's, the hackathon), side by side on a computer and
+ * stacked on a phone, before the reviews. Post-styled but not fake posts: no X/LinkedIn mark, no counts.
  */
 export function TeamProof({ primary }: { primary: string }) {
   return (
-    <section aria-labelledby="pv-team" className="mx-auto mt-12 max-w-[560px]">
+    <section aria-label={TEAM_PROOF.eyebrow} className="mx-auto mt-12 max-w-[1080px]">
       <p className="text-center text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{TEAM_PROOF.eyebrow}</p>
-      <article className="mt-4 rounded-2xl border border-[#E3E6EA] bg-white p-5">
-        <header className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/atlas-icon-512.png" alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-full ring-1 ring-[#E3E6EA]" />
-          <span className="min-w-0">
-            <span className="block text-[16px] font-bold leading-tight text-[#0F1419]">Atlas Engine</span>
-            <span className="block text-[14px] leading-tight text-[#536471]">{TEAM_PROOF.meta}</span>
-          </span>
-        </header>
-        <h2 id="pv-team" className="mt-4 text-[17px] font-semibold leading-snug text-[#0F1419]">{TEAM_PROOF.title}</h2>
-        <p className="mt-2 text-[17px] leading-[1.5] text-[#0F1419]">{TEAM_PROOF.body}</p>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/proof/hackathon-team.webp" alt={TEAM_PROOF.alt} width={670} height={565} loading="lazy" decoding="async"
-          className="mt-4 block h-auto w-full rounded-xl border border-[#E3E6EA] object-cover" />
-      </article>
+      <div className="mt-4 grid items-start gap-4 md:grid-cols-2 md:gap-5">
+        {TEAM_PROOF.posts.map((p) => (
+          <article key={p.id} aria-labelledby={`pv-proof-${p.id}`} className="rounded-2xl border border-[#E3E6EA] bg-white p-5">
+            <header className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/atlas-icon-512.png" alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-full ring-1 ring-[#E3E6EA]" />
+              <span className="min-w-0">
+                <span className="block text-[16px] font-bold leading-tight text-[#0F1419]">Atlas Engine</span>
+                <span className="block truncate text-[14px] leading-tight text-[#536471]">{p.meta}</span>
+              </span>
+            </header>
+            <h2 id={`pv-proof-${p.id}`} className="mt-4 text-[17px] font-semibold leading-snug text-[#0F1419]">{p.title}</h2>
+            <p className="mt-2 text-[17px] leading-[1.5] text-[#0F1419]">{p.body}</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`/proof/${p.file}`} alt={p.alt} width={p.w} height={p.h} loading="lazy" decoding="async"
+              className="mt-4 block h-auto w-full rounded-xl border border-[#E3E6EA] object-cover" />
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
