@@ -16,11 +16,12 @@
 import { MedspaAppsBand } from "@/components/landing/medspa-apps-band"; // CP-237
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowRight, Check, Menu, Minus, Play, Plus, Star, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowDown, ArrowRight, Check, ChevronDown, Menu, Minus, Play, Plus, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { useInView } from "@/components/landing/reveal";
-import { LandingProviders, useLanding } from "@/components/landing/landing-providers";
+import { LandingProviders } from "@/components/landing/landing-providers";
 import { interClass } from "@/lib/landing/font";
 import { CONTACT_EMAIL, IOS_APP_URL } from "@/lib/landing/config";
 import { MEDSPA_OFFER_COPY, MEDSPA_STACK } from "@/lib/landing/medspa-offer";
@@ -49,8 +50,10 @@ export function SitePage() {
 }
 
 function Page() {
-  const { openDemo } = useLanding();
-  const start = (where: string) => { track("hero_cta_clicked", { source: `site_${where}` }); openDemo(`site:${where}`); };
+  // CP-255: every "see / build your app" CTA goes to the app preview builder (/medspa/app). The quiz-first
+  // popup it used to open is retired. utm_content says which button, for Admin -> App previews.
+  const router = useRouter();
+  const start = (where: string) => { track("hero_cta_clicked", { source: `site_${where}` }); router.push(`/medspa/app?utm_source=med-spas&utm_content=${where}`); };
   const rootRef = useRef<HTMLDivElement>(null);
   useSiteMotion(rootRef);
   return (
@@ -66,8 +69,11 @@ function Page() {
         <Pricing onStart={() => start("pricing")} />
         <QuoteRow topic="pricing" skip={[reviewFor("recall")?.id ?? ""]} />
         <Compare />
-        <TeamProof />{/* CP-251: the hackathon post card, right before the reviews */}
-        <ReviewsBand />
+        {/* CP-255: "Reviews" in the nav lands here: the proof cards (owner video, Flippo's, hackathon), then the reviews */}
+        <div id="reviews" className="scroll-mt-16">
+          <TeamProof />
+          <ReviewsBand />
+        </div>
         <Team />
         <Closing onStart={() => start("closing")} />
       </main>
@@ -83,12 +89,36 @@ function QuoteRow({ topic, skip }: { topic: "recall" | "pricing" | "setup"; skip
 }
 
 /* ───────────── nav ───────────── */
-const LINKS = [{ href: "#product", t: "Product" }, { href: "#desk", t: "Front desk" }, { href: "#pricing", t: "Pricing" }];
+/* CP-255: med spa only. Product (a menu of the features, each opening its tab in the showcase), Reviews, Help.
+   No venues link, no Pricing link; the button opens the app preview builder. */
+const PRODUCT_LINKS: { id: string; t: string }[] = [
+  { id: "recall", t: "Recall reminders" }, { id: "members", t: "Memberships" }, { id: "rewards", t: "Rewards" },
+  { id: "financing", t: "Patient financing" }, { id: "desk", t: "Front desk" },
+];
+const LINKS = [{ href: "#reviews", t: "Reviews" }, { href: "/support", t: "Help" }];
+
+/** Opens a feature: the showcase listens for this, selects that tab and scrolls to it. Front desk has its own band. */
+function openFeature(id: string) {
+  track("demo_clicked", { source: "site_nav", kind: id });
+  if (id === "desk") { document.getElementById("desk")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+  window.dispatchEvent(new CustomEvent("atlas:feature", { detail: id }));
+  document.getElementById("product")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 function Nav({ onStart }: { onStart: () => void }) {
   const [open, setOpen] = useState(false);
+  const [menu, setMenu] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => { const on = () => setScrolled(window.scrollY > 10); on(); window.addEventListener("scroll", on, { passive: true }); return () => window.removeEventListener("scroll", on); }, []);
+  useEffect(() => {
+    if (!menu) return;
+    const off = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenu(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setMenu(false); };
+    document.addEventListener("mousedown", off); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", off); document.removeEventListener("keydown", esc); };
+  }, [menu]);
+  const link = "s-focus rounded-md px-3 py-2 text-[14.5px] font-medium text-[var(--s-ink-2)] hover:text-[var(--s-ink)]";
   return (
     <header className={cn("sticky top-0 z-40 transition-[background,box-shadow] duration-300", scrolled || open ? "bg-[var(--s-pearl)]/85 shadow-[0_1px_0_var(--s-line)] backdrop-blur-xl" : "bg-transparent")}>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2">Skip to content</a>
@@ -98,21 +128,35 @@ function Nav({ onStart }: { onStart: () => void }) {
           <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
         </Link>
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
-          {LINKS.map((l) => <a key={l.href} href={l.href} className="s-focus rounded-md px-3 py-2 text-[14.5px] font-medium text-[var(--s-ink-2)] hover:text-[var(--s-ink)]">{l.t}</a>)}
-          <Link href="/venues" className="s-focus ml-2 rounded-md px-3 py-2 text-[14.5px] font-medium text-[var(--s-ocean)] hover:underline">For entertainment venues</Link>
+          <div ref={menuRef} className="relative">
+            <button type="button" onClick={() => setMenu((v) => !v)} aria-expanded={menu} aria-haspopup="true" className={cn(link, "inline-flex items-center gap-1")}>
+              Product <ChevronDown className={cn("h-4 w-4 transition-transform", menu && "rotate-180")} aria-hidden />
+            </button>
+            {menu && (
+              <div className="absolute left-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-2xl border border-[var(--s-line)] bg-white p-1.5 shadow-[0_24px_50px_-24px_rgba(11,27,43,.45)]">
+                {PRODUCT_LINKS.map((p) => (
+                  <button key={p.id} type="button" onClick={() => { setMenu(false); openFeature(p.id); }}
+                    className="s-focus flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[14.5px] font-medium text-[var(--s-ink)] hover:bg-[var(--s-paper)]">{p.t}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          {LINKS.map((l) => <a key={l.href} href={l.href} className={link}>{l.t}</a>)}
         </nav>
         <div className="hidden items-center gap-2 lg:flex">
-          <Link href="/login" className="s-focus rounded-md px-3 py-2 text-[14.5px] font-medium text-[var(--s-ink-2)] hover:text-[var(--s-ink)]">Log in</Link>
-          <button type="button" onClick={onStart} className={cn("s-btn s-focus !h-11 !px-5 text-[15px]", scrolled ? "s-btn-primary" : "s-btn-quiet")}>See your app</button>
+          <Link href="/login" className={link}>Log in</Link>
+          <button type="button" onClick={onStart} className={cn("s-btn s-focus !h-11 !px-5 text-[15px]", scrolled ? "s-btn-primary" : "s-btn-quiet")}>See your app free</button>
         </div>
         <button type="button" onClick={() => setOpen((v) => !v)} className="s-focus grid h-10 w-10 place-items-center rounded-full lg:hidden" aria-expanded={open} aria-label="Menu">{open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
       </div>
       {open && (
         <div className="s-wrap flex flex-col gap-1 pb-5 lg:hidden">
+          <p className="px-3 pt-2 text-[12px] font-bold uppercase tracking-[0.1em] text-[var(--s-ink-3)]">Product</p>
+          {PRODUCT_LINKS.map((p) => <button key={p.id} type="button" onClick={() => { setOpen(false); openFeature(p.id); }} className="s-focus rounded-lg px-3 py-2.5 text-left text-base font-medium">{p.t}</button>)}
+          <div className="my-1 h-px bg-[var(--s-line)]" />
           {LINKS.map((l) => <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="s-focus rounded-lg px-3 py-3 text-base font-medium">{l.t}</a>)}
-          <Link href="/venues" onClick={() => setOpen(false)} className="s-focus rounded-lg px-3 py-3 text-base font-medium text-[var(--s-ocean)]">For entertainment venues</Link>
           <Link href="/login" onClick={() => setOpen(false)} className="s-focus rounded-lg px-3 py-3 text-base font-medium">Log in</Link>
-          <button type="button" onClick={() => { setOpen(false); onStart(); }} className="s-btn s-btn-primary s-focus mt-2">See your practice&apos;s app</button>
+          <button type="button" onClick={() => { setOpen(false); onStart(); }} className="s-btn s-btn-primary s-focus mt-2">See your practice&apos;s app free</button>
         </div>
       )}
     </header>
@@ -133,6 +177,12 @@ function Showcase({ onStart }: { onStart: () => void }) {
   ];
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
+  // CP-255: the nav's Product menu picks a tab here (and holds it, so the rotation doesn't move off it).
+  useEffect(() => {
+    const pick = (e: Event) => { const k = features.findIndex((f) => f.id === (e as CustomEvent<string>).detail); if (k >= 0) { setI(k); setPaused(true); } };
+    window.addEventListener("atlas:feature", pick);
+    return () => window.removeEventListener("atlas:feature", pick);
+  }, [features]);
   useEffect(() => {
     if (paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const desktop = window.matchMedia("(min-width: 1024px)").matches;
@@ -619,7 +669,7 @@ function Footer() {
           <p className="mt-4 max-w-[28ch] leading-relaxed">The patient app for independent med spas. Built in California.</p>
           <a href={`mailto:${CONTACT_EMAIL}`} className="s-focus mt-3 inline-block rounded font-medium text-[var(--s-ocean)] hover:underline">{CONTACT_EMAIL}</a>
         </div>
-        <FooterCol title="Product" links={[["#product", "What it does"], ["#desk", "Front desk"], ["#pricing", "Pricing"]]} />
+        <FooterCol title="Product" links={[["#product", "What it does"], ["#desk", "Front desk"], ["#reviews", "Reviews"], ["/support", "Help"]]} />
         <FooterCol title="Also from Atlas" links={[["/venues", "For entertainment venues"], ["/medspa/app", "See your app free"], [IOS_APP_URL, "AE Rewards on the App Store"]]} />
         <FooterCol title="Company" links={[["/login", "Log in"], ["/support", "Support"], ["/legal/privacy", "Privacy"], ["/legal/terms", "Terms"], ["/legal/privacy#choices", "Your privacy choices"], ["/legal/california", "California notice"], ["/legal/health-data", "Consumer health data"]]} />
       </div>
