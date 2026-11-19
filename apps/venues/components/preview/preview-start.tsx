@@ -15,7 +15,7 @@
  * request failure ends on a clear message with a way forward, never a blank page.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { Gulls } from "@/components/landing/gulls"; // CP-252
@@ -23,7 +23,6 @@ import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
 import { TrioVideo } from "@/components/landing/trio-video";
-import { FOUNDING } from "@/lib/landing/medspa-funnel";
 import { detectPlatform, e164, type Platform } from "@/lib/preview/sms";
 import { SMS_CONSENT_PAGE, SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 
@@ -425,18 +424,27 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
 
             <div className="s-rise relative mx-auto mt-9 w-full max-w-[560px] text-left" style={{ ["--d" as string]: ".24s" }}>
               <label htmlFor="pv-search" className="sr-only">Your med spa&apos;s name</label>
-              <div className="flex h-[60px] items-center gap-3 rounded-2xl border border-[#0B1B2B]/15 bg-white pl-5 pr-3 shadow-[0_18px_40px_-28px_rgba(11,27,43,.45)] focus-within:border-[#0B5FD6] focus-within:ring-4 focus-within:ring-[#0B5FD6]/15">
-                <Search className="h-5 w-5 shrink-0 text-[#6B7A8C]" aria-hidden />
-                <input
-                  id="pv-search" type="text" role="combobox" aria-expanded={suggestions.length > 0} aria-controls={listId} aria-autocomplete="list"
-                  aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off" autoFocus enterKeyHint="search"
-                  placeholder="Your med spa's name" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKey}
-                  className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-[#0B1B2B] placeholder:text-[#8A97A8] focus:outline-none"
-                />
-                {searching && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#0B5FD6]" aria-label="Searching" />}
+              {/* CP-253: says "click here". A blue border with a light that travels around it (site.css .s-glowfield)
+                  and a soft pulse, plus a Build button inside: it starts the top suggestion, or puts the cursor in the box. */}
+              <div className="s-glowfield rounded-[18px] p-[2px]">
+                <div className="relative z-[1] flex h-[62px] items-center gap-3 rounded-2xl bg-white pl-5 pr-2">
+                  <Search className="h-5 w-5 shrink-0 text-[#0B5FD6]" aria-hidden />
+                  <input
+                    id="pv-search" type="text" role="combobox" aria-expanded={suggestions.length > 0} aria-controls={listId} aria-autocomplete="list"
+                    aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off" autoFocus enterKeyHint="search"
+                    placeholder="Your med spa's name" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKey}
+                    className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-[#0B1B2B] placeholder:text-[#6B7A8C] focus:outline-none"
+                  />
+                  {searching && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#0B5FD6]" aria-label="Searching" />}
+                  <button type="button"
+                    onClick={() => { const s = suggestions[active >= 0 ? active : 0]; if (s) start(s); else document.getElementById("pv-search")?.focus(); }}
+                    className="s-btn s-btn-primary s-focus !h-[46px] shrink-0 !px-4 !text-[15px]">
+                    <span className="hidden sm:inline">Build my app</span><span className="sm:hidden">Build</span><ArrowRight className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
               </div>
               {suggestions.length > 0 && (
-                <ul id={listId} role="listbox" className="absolute inset-x-0 top-[66px] z-20 overflow-hidden rounded-2xl border border-[#0B1B2B]/10 bg-white py-1.5 shadow-[0_24px_50px_-24px_rgba(11,27,43,.45)]">
+                <ul id={listId} role="listbox" className="absolute inset-x-0 top-[72px] z-20 overflow-hidden rounded-2xl border border-[#0B1B2B]/10 bg-white py-1.5 shadow-[0_24px_50px_-24px_rgba(11,27,43,.45)]">
                   {suggestions.map((s, i) => (
                     <li key={s.placeId} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
                       <button type="button" onMouseEnter={() => setActive(i)} onClick={() => start(s)} className={`flex w-full items-start gap-3 px-4 py-2.5 text-left ${i === active ? "bg-[#F1F6FD]" : ""}`}>
@@ -460,10 +468,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               ))}
             </ul>
             <div className="flex justify-center"><BuiltThisWeek /></div>
-            {/* CP-237: the offer, up front. Numbers from lib/landing/medspa-funnel.ts. Audit step 5: no scarcity here. */}
-            <p className="mx-auto mt-4 max-w-[34rem] text-[14.5px] leading-relaxed text-[#3A4A5C]">
-              The preview is free. If you want it live, setup is <b className="text-[#0B1B2B]">{usd(FOUNDING.active ? FOUNDING.setupFounding : FOUNDING.setupFull)}</b> and one flat monthly plan.
-            </p>
+            {/* CP-253: no price on this page (no setup fee any more); the Launch Plan call covers it. */}
 
             {/* CP-237: three real med spa previews on 3D phones, a seamless 6 s loop (white + multiply). */}
             <figure className="s-rise relative mx-auto mt-10 w-full max-w-[880px]" style={{ ["--d" as string]: ".4s" }}>
@@ -767,5 +772,4 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   return null;
 }
 
-const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 

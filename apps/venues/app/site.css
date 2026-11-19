@@ -146,3 +146,16 @@
   .s-rise { animation: none; }
   .s-gull { display: none; }
 }
+
+/* CP-253 · the "click here" field (the search on /medspa/app): a blue border with a light travelling around it
+ * (a slow spinning conic gradient behind a 2 px gap) and a soft blue pulse around the box. Stronger on focus.
+ * Reduced motion: a still blue border. */
+.s-glowfield { position: relative; overflow: hidden; isolation: isolate; background: #0B5FD6; animation: s-glowpulse 2.6s ease-in-out infinite; }
+.s-glowfield::before { content: ""; position: absolute; z-index: 0; left: 50%; top: 50%; width: 300%; aspect-ratio: 1; translate: -50% -50%; background: conic-gradient(from 0deg, #0B5FD6 0deg, #0B5FD6 200deg, #39A0FF 260deg, #E6F1FF 300deg, #39A0FF 330deg, #0B5FD6 360deg); animation: s-glowspin 3.6s linear infinite; }
+.s-glowfield:focus-within { animation: none; box-shadow: 0 0 0 6px rgba(11,95,214,.16), 0 22px 44px -24px rgba(11,95,214,.6); }
+@keyframes s-glowspin { to { rotate: 360deg } }
+@keyframes s-glowpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(57,160,255,.0), 0 18px 40px -24px rgba(11,95,214,.55) } 50% { box-shadow: 0 0 0 7px rgba(57,160,255,.16), 0 18px 40px -24px rgba(11,95,214,.55) } }
+@media (prefers-reduced-motion: reduce) {
+  .s-glowfield, .s-glowfield::before { animation: none; }
+  .s-glowfield { box-shadow: 0 0 0 5px rgba(11,95,214,.10), 0 18px 40px -24px rgba(11,95,214,.55); }
+}
