@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet, Workflow, Smartphone, Filter, TrendingUp, Star } from "lucide-react";
+import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet, Workflow, Smartphone, Filter, TrendingUp, Star, Send } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -30,6 +30,8 @@ const NAV: NavItem[] = [
   { href: "/agency/previews",     label: "App Previews", icon: <Smartphone className="h-4 w-4" />, adminOnly: true },
   // CP-238: lead magnet visits → opt-ins → bookings → paid, and the follow-up emails. Admin gate in the page.
   { href: "/agency/lead-funnel",  label: "Lead Funnel",  icon: <TrendingUp className="h-4 w-4" />, adminOnly: true },
+  // CP-250: Atlas's own cold email to med spas (find → read site → AI email 1 → review → 3 steps). Admin gate in the page.
+  { href: "/agency/outreach",     label: "Outreach",     icon: <Send className="h-4 w-4" />, adminOnly: true, badge: "New" },
   // CP-240: review screenshots for every site and funnel's review strip. Admin gate in the page.
   { href: "/agency/reviews",      label: "Reviews",      icon: <Star className="h-4 w-4" />, adminOnly: true },
   // CP-33: White Label tab hidden from sidebar — placeholder until we
