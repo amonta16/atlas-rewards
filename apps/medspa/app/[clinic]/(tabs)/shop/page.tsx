@@ -7,6 +7,7 @@ import { TopBar } from "@/components/chrome";
 import { TreatmentList } from "@/components/treatment-list";
 import { PayLaterBanner } from "@/components/pay-later-banner";
 import { IcCategory } from "@/components/icons";
+import { GlideLink, GlideTabLink } from "@/components/glide";
 
 const TABS = [
   { id: "browse", label: "Browse" },
@@ -23,13 +24,13 @@ export default async function Shop({ params, searchParams }: { params: { clinic:
   return (
     <>
       <TopBar slug={clinic.slug} title="Shop" />
-      <nav className="sticky z-20 grid grid-cols-3 border-b border-line bg-white" style={{ top: "calc(54px + env(safe-area-inset-top, 0px))" }}>
+      <nav data-glide-tabs className="glide-subtabs sticky z-20 grid grid-cols-3 border-b border-line bg-white" style={{ top: "calc(54px + env(safe-area-inset-top, 0px))" }}>
         {TABS.map((t) => (
-          <Link key={t.id} href={`${base}/shop?tab=${t.id}`} replace scroll={false}
+          <GlideTabLink key={t.id} href={`${base}/shop?tab=${t.id}`} replace scroll={false} aria-current={tab === t.id ? "page" : undefined}
             className={`relative py-2.5 text-center text-[13px] ${tab === t.id ? "font-semibold text-ink" : "text-sub"}`}>
             {t.label}
             {tab === t.id && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] bg-ink" />}
-          </Link>
+          </GlideTabLink>
         ))}
       </nav>
 
@@ -47,8 +48,8 @@ function Memberships({ clinicSlug, plans }: { clinicSlug: string; plans: MedspaP
   return (
     <div className="grid grid-cols-2 gap-x-2.5 gap-y-5 px-4 pt-4">
       {plans.map((p, i) => (
-        <Link key={p.id} href={`/${clinicSlug}/shop/membership/${p.id}`} className="animate-rise" style={{ animationDelay: `${i * 40}ms` }}>
-          <div className="relative aspect-square overflow-hidden rounded-[10px] bg-ink">
+        <GlideLink key={p.id} glideKey={`m:${p.id}`} href={`/${clinicSlug}/shop/membership/${p.id}`} className="animate-rise" style={{ animationDelay: `${i * 40}ms` }}>
+          <div data-glide="media" className="relative aspect-square overflow-hidden rounded-[10px] bg-ink">
             {p.image_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={optimizedUrl(p.image_url, 360)} alt="" className="photo-bw h-full w-full object-cover opacity-90" loading="lazy" />
@@ -59,7 +60,7 @@ function Memberships({ clinicSlug, plans }: { clinicSlug: string; plans: MedspaP
           </div>
           <p className="mt-2 line-clamp-2 text-[13.5px] font-medium leading-tight">{p.name}{p.tagline ? ` · ${p.tagline}` : ""}</p>
           <p className="mt-1 text-[13px] text-sub"><span className="font-semibold text-ink">{priceLabel(p.price_cents)}</span>/month</p>
-        </Link>
+        </GlideLink>
       ))}
     </div>
   );
@@ -89,16 +90,16 @@ function Browse({ clinic, base }: { clinic: Clinic; base: string }) {
 
       <div className="mt-6 grid grid-cols-2 gap-x-2.5 gap-y-5 px-4">
         {treatments.map((t) => (
-          <Link key={t.id} href={`${base}/shop/treatment/${t.id}`} className="min-w-0">
-            <div className="aspect-square overflow-hidden rounded-[10px] bg-page">
+          <GlideLink key={t.id} glideKey={`t:${t.id}`} href={`${base}/shop/treatment/${t.id}`} className="min-w-0">
+            <div data-glide="media" className="aspect-square overflow-hidden rounded-[10px] bg-page">
               {t.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={optimizedUrl(t.image_url, 360)} alt="" className="h-full w-full object-cover" loading="lazy" />
               )}
             </div>
-            <p className="mt-2 truncate text-[13.5px] font-medium">{t.name}</p>
+            <p data-glide="title" className="mt-2 w-fit max-w-full truncate text-[13.5px] font-medium">{t.name}</p>
             <p className="mt-0.5 text-[13.5px] font-semibold">{fromPrice(t)}</p>
-          </Link>
+          </GlideLink>
         ))}
       </div>
 
@@ -107,18 +108,18 @@ function Browse({ clinic, base }: { clinic: Clinic; base: string }) {
           <h3 className="px-5 text-[19px] font-semibold tracking-[-0.015em]">{SHOP_KIND_LABEL[k]}</h3>
           <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-2">
             {items.filter((i) => i.kind === k).map((i) => (
-              <Link key={i.id} href={`${base}/shop/item/${i.id}`} className="w-[calc(50%-5px)] shrink-0">
-                <div className="aspect-square overflow-hidden rounded-[10px] bg-page">
+              <GlideLink key={i.id} glideKey={`i:${i.id}`} href={`${base}/shop/item/${i.id}`} className="w-[calc(50%-5px)] shrink-0">
+                <div data-glide="media" className="aspect-square overflow-hidden rounded-[10px] bg-page">
                   {i.image_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={optimizedUrl(i.image_url, 340)} alt="" className="h-full w-full object-cover" loading="lazy" />
                   )}
                 </div>
-                <p className="mt-2 truncate text-[13.5px] font-medium">{i.name}</p>
+                <p data-glide="title" className="mt-2 w-fit max-w-full truncate text-[13.5px] font-medium">{i.name}</p>
                 <p className="mt-0.5 text-[13.5px] font-semibold">
                   {i.kind === "gift_card" ? `From ${priceLabel(Math.min(...(i.amounts.length ? i.amounts : [0])))}` : priceLabel(i.price_cents)}
                 </p>
-              </Link>
+              </GlideLink>
             ))}
           </div>
         </section>

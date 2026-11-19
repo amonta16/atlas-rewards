@@ -6,13 +6,14 @@
  * business_monthly_report, get/set_report_recipients), and the report wording
  * comes from @atlas/core/reports/monthly, so it matches the email on the 1st.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { optimizedUrl } from "@atlas/core/img";
 import { brandOf, changeText, fmtNum, fmtVal, kpisFor, monthName, prevMonthName, summary, takeaways, weeklySpinBlock, type MonthlyReport } from "@atlas/core/reports/monthly";
 import type { DeskApi, InactivePatient, InsightsV3, InsightsWeek, ReportArchiveRow, ReportRecipients, TopPatient, WeeklySpin, WinbackReward, Winback } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
 import { IcGift, IcGoogle, IcHeart, IcMail, IcPeople } from "../icons";
 import { Modal } from "./ui";
+import { glidePanel } from "../glide";
 import { EngineGate } from "./engine-lock";
 
 const card = "rounded-[16px] bg-white shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]";
@@ -29,14 +30,15 @@ export function InsightsView({ api, say, demo, clinic, initialTab, initialMonth 
   initialTab: "live" | "reports"; initialMonth: string | null;
 }) {
   const [tab, setTab] = useState(initialTab);
+  const panel = useRef<HTMLDivElement>(null);
   return (
     <div className="space-y-3.5">
       <div className="inline-flex rounded-full bg-white p-1 shadow-card" role="tablist" aria-label="Insights view">
         {([["live", "Live insights"], ["reports", "Monthly reports"]] as const).map(([id, label]) => (
-          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`h-8 rounded-full px-4 text-[13px] font-semibold ${tab === id ? "bg-ink text-white" : "text-sub"}`}>{label}</button>
+          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => id !== tab && glidePanel(panel.current, id === "reports" ? "next" : "prev", () => setTab(id))} className={`h-8 rounded-full px-4 text-[13px] font-semibold ${tab === id ? "bg-ink text-white" : "text-sub"}`}>{label}</button>
         ))}
       </div>
-      {tab === "live" ? <LiveInsights api={api} say={say} /> : <Reports api={api} say={say} demo={demo} clinic={clinic} initialMonth={initialMonth} />}
+      <div ref={panel}>{tab === "live" ? <LiveInsights api={api} say={say} /> : <Reports api={api} say={say} demo={demo} clinic={clinic} initialMonth={initialMonth} />}</div>
     </div>
   );
 }

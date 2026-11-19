@@ -18,6 +18,7 @@
  *   with a preview of each email, see automations-view.tsx).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { glidePanel } from "../glide";
 import { createClient } from "@atlas/core/supabase/client";
 import { shrinkImage } from "@atlas/core/shrink-image";
 import type { BuilderData } from "@/lib/builder-data";
@@ -47,6 +48,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
   const [cfg, setCfg] = useState<Cfg>(() => readMedspaConfig(initial.cfg) as Cfg);
   const [base, setBase] = useState(() => JSON.stringify([initial, readMedspaConfig(initial.cfg)]));
   const [section, setSection] = useState<Section>(initialSection);
+  const panel = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const dirty = useMemo(() => JSON.stringify([d, cfg]) !== base, [d, cfg, base]);
 
@@ -97,12 +99,18 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
     { id: "settings", label: "Settings", subs: [...(canBrand ? [{ id: "brand" as Section, label: "Brand" }] : []), { id: "clinic", label: "Clinic details" }, { id: "booking", label: "Booking" }, { id: "providers", label: "Providers" }, { id: "care", label: "Care & recall" }] },
   ];
   const tab = TABS.find((t) => t.subs.some((x) => x.id === section)) ?? TABS[0];
+  // Phase 3: the section panel slides the way the tabs go.
+  const order = TABS.flatMap((t) => t.subs.map((x) => x.id));
+  const go = (next: Section) => {
+    if (next === section) return;
+    glidePanel(panel.current, order.indexOf(next) > order.indexOf(section) ? "next" : "prev", () => setSection(next));
+  };
 
   return (
     <div className="pb-28">
       <nav aria-label="App builder" className="no-scrollbar -mt-2 flex gap-6 overflow-x-auto border-b border-line">
         {TABS.map((t) => (
-          <button key={t.id} type="button" onClick={() => setSection(t.subs[0].id)} className={`relative shrink-0 pb-2.5 text-[13.5px] ${tab.id === t.id ? "font-semibold text-brand" : "text-sub hover:text-ink"}`}>
+          <button key={t.id} type="button" onClick={() => go(t.subs[0].id)} className={`relative shrink-0 pb-2.5 text-[13.5px] ${tab.id === t.id ? "font-semibold text-brand" : "text-sub hover:text-ink"}`}>
             {t.label}{tab.id === t.id && <span className="absolute inset-x-0 bottom-[-1px] h-[2px] rounded-full bg-brand" />}
           </button>
         ))}
@@ -110,11 +118,11 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
       {tab.subs.length > 1 && (
         <div className="no-scrollbar mt-3 inline-flex max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#ECEEEF] p-1">
           {tab.subs.map((x) => (
-            <button key={x.id} type="button" onClick={() => setSection(x.id)} className={`shrink-0 rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium ${section === x.id ? "bg-white text-ink shadow-card" : "text-sub"}`}>{x.label}</button>
+            <button key={x.id} type="button" onClick={() => go(x.id)} className={`shrink-0 rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium ${section === x.id ? "bg-white text-ink shadow-card" : "text-sub"}`}>{x.label}</button>
           ))}
         </div>
       )}
-      <div className="mt-4">
+      <div ref={panel} className="mt-4">
         <div className="min-w-0 space-y-5">
           {section === "brand" && canBrand && <BrandSection d={d} set={(p) => setD({ ...d, ...p })} upload={upload} />}
           {section === "clinic" && <ClinicSection d={d} set={(p) => setD({ ...d, ...p })} />}

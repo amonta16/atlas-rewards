@@ -17,6 +17,7 @@ import { RecentlyViewed, type CatalogItem } from "@/components/recently-viewed";
 import { InstallCard } from "@/components/install-app";
 import { IcCalendar, IcLock, IcNext, IcPin } from "@/components/icons";
 import { ScanCard } from "@/components/skin-scan/scan-card";
+import { GlideLink } from "@/components/glide";
 
 export default async function Home({ params }: { params: { clinic: string } }) {
   const clinic = (await getClinic(params.clinic))!;
@@ -108,8 +109,8 @@ export default async function Home({ params }: { params: { clinic: string } }) {
           {clinic.rewards.slice(0, 8).map((r) => {
             const open = patient.signedIn && patient.points >= r.point_cost;
             return (
-              <Link key={r.id} href={`${base}/rewards#${r.id}`} className={`w-[150px] shrink-0 overflow-hidden rounded-[14px] text-center ${open ? "bg-white shadow-card ring-1 ring-line" : "bg-[#F1F2F3]"}`}>
-                <div className="aspect-[5/4] bg-[#DFE1E3]">
+              <GlideLink key={r.id} glideKey={`r:${r.id}`} href={`${base}/rewards#${r.id}`} className={`w-[150px] shrink-0 overflow-hidden rounded-[14px] text-center ${open ? "bg-white shadow-card ring-1 ring-line" : "bg-[#F1F2F3]"}`}>
+                <div data-glide="media" className="aspect-[5/4] bg-[#DFE1E3]">
                   {r.image_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={optimizedUrl(r.image_url, 300)} alt="" className={`h-full w-full object-cover ${open ? "" : "opacity-70 grayscale"}`} loading="lazy" />
@@ -117,9 +118,9 @@ export default async function Home({ params }: { params: { clinic: string } }) {
                 </div>
                 <div className="px-2 py-2.5">
                   <span className="inline-flex items-center gap-1 rounded-full bg-[#E4E6E8] px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.06em]">{!open && <IcLock className="h-3 w-3" strokeWidth={2} />}{r.point_cost.toLocaleString("en-US")} points</span>
-                  <p className="mt-1.5 line-clamp-2 text-[13px] font-medium leading-snug">{r.name}</p>
+                  <p data-glide="title" className="mx-auto mt-1.5 line-clamp-2 w-fit text-[13px] font-medium leading-snug">{r.name}</p>
                 </div>
-              </Link>
+              </GlideLink>
             );
           })}
         </Rail>
@@ -176,18 +177,18 @@ export default async function Home({ params }: { params: { clinic: string } }) {
           {guides.length > 0 && (
             <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-2">
               {guides.map((t) => (
-                <Link key={t.id} href={`${base}/shop/treatment/${t.id}`} className="w-[164px] shrink-0 overflow-hidden rounded-[14px] bg-white shadow-card ring-1 ring-line">
-                  <div className="aspect-[4/3] bg-tint">
+                <GlideLink key={t.id} glideKey={`t:${t.id}`} href={`${base}/shop/treatment/${t.id}`} className="w-[164px] shrink-0 overflow-hidden rounded-[14px] bg-white shadow-card ring-1 ring-line">
+                  <div data-glide="media" className="aspect-[4/3] bg-tint">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={optimizedUrl(t.image_url!, 330)} alt="" className="h-full w-full object-cover" loading="lazy" />
                   </div>
                   <div className="px-3 pb-3 pt-2.5">
                     <span className="pill-soft">{t.category}</span>
-                    <p className="mt-1.5 line-clamp-1 text-[14px] font-semibold">{t.name}</p>
+                    <p data-glide="title" className="mt-1.5 line-clamp-1 w-fit text-[14px] font-semibold">{t.name}</p>
                     <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-sub">{t.description}</p>
                     <span className="mt-1.5 inline-flex items-center gap-0.5 text-[12.5px] font-semibold text-brand">How it works <IcNext className="h-3 w-3" strokeWidth={2.4} /></span>
                   </div>
-                </Link>
+                </GlideLink>
               ))}
             </div>
           )}

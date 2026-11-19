@@ -5,10 +5,11 @@
  * (Home · Shop · Scan · Rewards · Profile).
  */
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { rememberClinic } from "@/lib/remember";
 import { IcBack, IcBag, IcGift, IcHome, IcScan, IcSearch, IcUser } from "./icons";
+import { GlideTabLink, useGlideBack } from "./glide";
 
 const TABS = [
   { to: "", label: "Home", Icon: IcHome },
@@ -25,20 +26,21 @@ export function TabBar({ slug, dot }: { slug: string; dot?: "rewards" | "profile
   return (
     <nav
       aria-label="App"
-      className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-stretch justify-around rounded-t-[22px] bg-white px-2 pt-2.5 shadow-bar"
+      data-glide-tabs
+      className="glide-tabbar fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md items-stretch justify-around rounded-t-[22px] bg-white px-2 pt-2.5 shadow-bar"
       style={{ paddingBottom: "calc(0.55rem + env(safe-area-inset-bottom, 0px))" }}
     >
       {TABS.map(({ to, label, Icon }) => {
         const href = `${base}${to}`;
         const active = to === "" ? path === base : path === href || path.startsWith(`${href}/`);
         return (
-          <Link key={label} href={href} aria-current={active ? "page" : undefined} className="flex flex-1 flex-col items-center gap-[3px] py-0.5 transition-transform active:scale-95">
+          <GlideTabLink key={label} href={href} aria-current={active ? "page" : undefined} className="flex flex-1 flex-col items-center gap-[3px] py-0.5 transition-transform active:scale-95">
             <span className="relative">
               <Icon className={`h-6 w-6 ${active ? "text-ink" : "text-faint"}`} strokeWidth={active ? 1.9 : 1.55} />
               {dot && to === `/${dot}` && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-white" />}
             </span>
             <span className={`text-[11px] ${active ? "font-semibold text-ink" : "font-medium text-faint"}`}>{label}</span>
-          </Link>
+          </GlideTabLink>
         );
       })}
     </nav>
@@ -57,7 +59,7 @@ function Actions({ slug }: { slug: string }) {
 /** Tab header: title (or the clinic wordmark on Home) with search + bag on the right. */
 export function TopBar({ slug, title, wordmark }: { slug: string; title?: string; wordmark?: React.ReactNode }) {
   return (
-    <header className="sticky top-0 z-30 flex h-[54px] items-center justify-between bg-white px-5" style={{ paddingTop: "env(safe-area-inset-top, 0px)", boxSizing: "content-box" }}>
+    <header className="glide-header sticky top-0 z-30 flex h-[54px] items-center justify-between bg-white px-5" style={{ paddingTop: "env(safe-area-inset-top, 0px)", boxSizing: "content-box" }}>
       {wordmark ?? <h1 className="text-[20px] font-semibold tracking-[-0.015em]">{title}</h1>}
       <Actions slug={slug} />
     </header>
@@ -66,10 +68,10 @@ export function TopBar({ slug, title, wordmark }: { slug: string; title?: string
 
 /** Detail screens: "‹ Back", a centred title, search + bag. */
 export function SubBar({ slug, title, fallback }: { slug: string; title: string; fallback: string }) {
-  const router = useRouter();
+  const back = useGlideBack(fallback);
   return (
-    <header className="sticky top-0 z-30 grid h-[54px] grid-cols-[1fr_auto_1fr] items-center bg-white px-4" style={{ paddingTop: "env(safe-area-inset-top, 0px)", boxSizing: "content-box" }}>
-      <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push(fallback))} className="flex items-center gap-0.5 justify-self-start text-[13px] font-medium text-sub">
+    <header className="glide-header sticky top-0 z-30 grid h-[54px] grid-cols-[1fr_auto_1fr] items-center bg-white px-4" style={{ paddingTop: "env(safe-area-inset-top, 0px)", boxSizing: "content-box" }}>
+      <button type="button" onClick={back} className="flex items-center gap-0.5 justify-self-start text-[13px] font-medium text-sub">
         <IcBack className="h-4 w-4" strokeWidth={2} />Back
       </button>
       <h1 className="truncate text-[17px] font-semibold tracking-[-0.01em]">{title}</h1>

@@ -18,10 +18,10 @@ export default async function TreatmentDetail({ params }: { params: { clinic: st
   const results = clinic.cfg.gallery.filter((g) => g.consent && g.treatment_id === t.id && g.before_url && g.after_url).slice(0, 4);
 
   return (
-    <article>
+    <article data-glide-hero={`t:${t.id}`}>
       <TrackView slug={clinic.slug} itemKey={`t:${t.id}`} />
       <SubBar slug={clinic.slug} title="Shop" fallback={`${base}/shop?tab=treatments`} />
-      <div className="relative aspect-[4/3] overflow-hidden bg-tint">
+      <div data-glide="media" className="relative aspect-[4/3] overflow-hidden bg-tint">
         {t.image_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={optimizedUrl(t.image_url, 900)} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -30,7 +30,7 @@ export default async function TreatmentDetail({ params }: { params: { clinic: st
 
       <section className="px-5 pb-2 pt-5">
         <span className="pill-soft">Treatment</span>
-        <h1 className="mt-2.5 text-[24px] font-semibold leading-[1.15] tracking-[-0.02em]">{t.name}</h1>
+        <h1 data-glide="title" className="mt-2.5 w-fit text-[24px] font-semibold leading-[1.15] tracking-[-0.02em]">{t.name}</h1>
         <p className="mt-3 text-[14.5px] leading-relaxed text-sub">{t.description}</p>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] font-medium">
           <span>{t.category}</span>

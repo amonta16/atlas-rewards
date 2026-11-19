@@ -1,10 +1,10 @@
 "use client";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { optimizedUrl } from "@atlas/core/img";
 import type { MedspaTreatment } from "@/lib/medspa";
 import { fromPrice, priceLabel } from "@/lib/plans";
 import { IcDown, IcFilter, IcSearch, IcClose } from "./icons";
+import { GlideLink } from "./glide";
 
 const SORTS = { featured: "Featured", low: "Price: low to high", high: "Price: high to low", az: "A to Z" } as const;
 type Sort = keyof typeof SORTS;
@@ -40,7 +40,7 @@ export function TreatmentList({ slug, treatments, initialCategory, autoFocus }: 
             Sort <IcDown className="h-4 w-4" strokeWidth={2.2} />
           </button>
           {sortOpen && (
-            <div className="absolute right-0 top-10 z-20 w-52 animate-rise overflow-hidden rounded-[14px] bg-white py-1 shadow-card ring-1 ring-line">
+            <div data-glide-pop className="absolute right-0 top-10 z-20 w-52 animate-rise overflow-hidden rounded-[14px] bg-white py-1 shadow-card ring-1 ring-line">
               {(Object.keys(SORTS) as Sort[]).map((k) => (
                 <button key={k} type="button" onClick={() => { setSort(k); setSortOpen(false); }}
                   className={`block w-full px-4 py-2.5 text-left text-[14.5px] ${sort === k ? "font-semibold" : "text-sub"}`}>{SORTS[k]}</button>
@@ -69,10 +69,10 @@ export function TreatmentList({ slug, treatments, initialCategory, autoFocus }: 
         </div>
       )}
 
-      <div className="space-y-6 px-4 pt-3">
+      <div data-glide-list className="space-y-6 px-4 pt-3">
         {shown.map((t, i) => (
-          <Link key={t.id} href={`/${slug}/shop/treatment/${t.id}`} className="block animate-rise" style={{ animationDelay: `${Math.min(i, 6) * 35}ms` }}>
-            <div className="aspect-[16/9] overflow-hidden rounded-[12px] bg-tint">
+          <GlideLink key={t.id} glideKey={`t:${t.id}`} href={`/${slug}/shop/treatment/${t.id}`} className="block animate-rise" style={{ animationDelay: `${Math.min(i, 6) * 35}ms` }}>
+            <div data-glide="media" className="aspect-[16/9] overflow-hidden rounded-[12px] bg-tint">
               {t.image_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={optimizedUrl(t.image_url, 720)} alt="" className="h-full w-full object-cover" loading={i < 2 ? "eager" : "lazy"} />
@@ -80,7 +80,7 @@ export function TreatmentList({ slug, treatments, initialCategory, autoFocus }: 
             </div>
             <div className="px-1 pt-3">
               <span className="pill-soft">Treatment</span>
-              <h3 className="mt-2 text-[17px] font-semibold tracking-[-0.01em]">{t.name}</h3>
+              <h3 data-glide="title" className="mt-2 w-fit text-[17px] font-semibold tracking-[-0.01em]">{t.name}</h3>
               <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-sub">{t.description}</p>
               <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] font-medium">
                 <span>{t.category}</span>
@@ -91,7 +91,7 @@ export function TreatmentList({ slug, treatments, initialCategory, autoFocus }: 
                 {t.member_price_cents ? <><span className="h-3.5 w-px bg-line" /><span className="font-semibold">{priceLabel(t.member_price_cents)} for Members</span></> : null}
               </p>
             </div>
-          </Link>
+          </GlideLink>
         ))}
         {shown.length === 0 && <p className="py-16 text-center text-[15px] text-sub">No treatments match. Try another search.</p>}
       </div>
