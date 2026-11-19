@@ -29,6 +29,7 @@ import { MedspaQuiz } from "@/components/medspa/medspa-quiz";
 import { DeskListMock, PhoneShell } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS, partnerLine, realReviews, reviewFor } from "@/lib/landing/site-reviews";
 import { ReviewQuote } from "@/components/landing/review-strip"; // CP-239
+import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { ReviewImageMarquee, useReviewImages } from "@/components/landing/review-images"; // CP-240
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
@@ -64,6 +65,7 @@ function Page() {
         <Pricing onStart={() => start("pricing")} />
         <QuoteRow topic="pricing" skip={[reviewFor("recall")?.id ?? ""]} />
         <Compare />
+        <TeamProof />{/* CP-251: the hackathon post card, right before the reviews */}
         <ReviewsBand />
         <Team />
         <Closing onStart={() => start("closing")} />

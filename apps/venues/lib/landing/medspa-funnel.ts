@@ -178,8 +178,8 @@ export const LAUNCH_CALL = {
  */
 export const TEAM_PROOF = {
   eyebrow: "The team building your app",
-  title: "Top 10 at Cal Poly's AI Hackathon.",
-  body: "In November our team built an AI face-scan app for med spas from scratch in one weekend and finished in the top 10. Same team, same speed, on your launch.",
+  title: "Built in a weekend at Cal Poly's AI Hackathon.",
+  body: "In November our team entered Cal Poly's AI Hackathon and built an AI face-scan app for med spas from scratch in one weekend. Same team, same speed, on your launch.",
   meta: "Cal Poly · November 13–15, 2026",
   alt: "The Atlas Engine team at the Cal Poly AI Hackathon, November 2026",
 };

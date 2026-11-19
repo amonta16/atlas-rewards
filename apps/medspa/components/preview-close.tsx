@@ -13,19 +13,29 @@
  */
 import { LAUNCH_CALL, MECHANISM, OFFER, TEAM_PROOF } from "@/lib/offer";
 
-/** CP-251 · the team photo with the text beside it (stacked on a phone), before the reviews. Lazy image. */
+/**
+ * CP-251 · the hackathon as a crisp social-post card (avatar, name, date, text, then the photo inside the
+ * card), before the reviews. Post-styled but not a fake post: no X/LinkedIn mark, no like or view counts.
+ */
 export function TeamProof({ primary }: { primary: string }) {
   return (
-    <section aria-labelledby="pv-team" className="mx-auto mt-12 grid max-w-[880px] items-center gap-6 rounded-[26px] bg-white p-4 shadow-soft sm:grid-cols-[minmax(0,360px)_minmax(0,1fr)] sm:gap-8 sm:p-5">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/proof/hackathon-team.webp" alt={TEAM_PROOF.alt} width={670} height={565} loading="lazy" decoding="async"
-        className="block h-auto w-full rounded-[20px] bg-[#F5F6F5] object-cover" />
-      <div className="px-1 pb-2 sm:px-0 sm:pb-0 sm:pr-3">
-        <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{TEAM_PROOF.eyebrow}</p>
-        <h2 id="pv-team" className="mt-1.5 text-[24px] font-semibold leading-[1.12] tracking-[-0.015em]">{TEAM_PROOF.title}</h2>
-        <p className="mt-2.5 text-[15.5px] leading-relaxed text-sub">{TEAM_PROOF.body}</p>
-        <p className="mt-3 text-[13px] font-semibold text-sub">{TEAM_PROOF.meta}</p>
-      </div>
+    <section aria-labelledby="pv-team" className="mx-auto mt-12 max-w-[560px]">
+      <p className="text-center text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{TEAM_PROOF.eyebrow}</p>
+      <article className="mt-4 rounded-2xl border border-[#E3E6EA] bg-white p-5">
+        <header className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/atlas-icon-512.png" alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-full ring-1 ring-[#E3E6EA]" />
+          <span className="min-w-0">
+            <span className="block text-[16px] font-bold leading-tight text-[#0F1419]">Atlas Engine</span>
+            <span className="block text-[14px] leading-tight text-[#536471]">{TEAM_PROOF.meta}</span>
+          </span>
+        </header>
+        <h2 id="pv-team" className="mt-4 text-[17px] font-semibold leading-snug text-[#0F1419]">{TEAM_PROOF.title}</h2>
+        <p className="mt-2 text-[17px] leading-[1.5] text-[#0F1419]">{TEAM_PROOF.body}</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/proof/hackathon-team.webp" alt={TEAM_PROOF.alt} width={670} height={565} loading="lazy" decoding="async"
+          className="mt-4 block h-auto w-full rounded-xl border border-[#E3E6EA] object-cover" />
+      </article>
     </section>
   );
 }
