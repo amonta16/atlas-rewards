@@ -409,6 +409,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         {/* CP-252: the Origami-style hero. Centered, the faint grid with a radial wash, gulls gliding behind,
             a blur-up entrance and one word in blue chrome. The 3 phones sit centered under the search. */}
         <main className="relative overflow-hidden">
+          {/* CP-256: brand colour, without crowding the words. Soft ocean-blue light at the edges (the same
+              glows as the /med-spas hero), the centre left white so the headline and search stay crisp,
+              and a faint ice-blue floor under the phones. The grid draws on top, tinted blue. */}
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="s-blob absolute -right-[16%] -top-[22%] h-[720px] w-[720px] rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.36),transparent)]" />
+            <div className="absolute -left-[20%] top-[18%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(11,95,214,.20),transparent)]" />
+            <div className="absolute inset-x-0 bottom-0 h-[55%] bg-[radial-gradient(70%_60%_at_50%_100%,rgba(57,160,255,.24),transparent)]" />
+          </div>
           <div aria-hidden className="s-gridbg" />
           <Gulls className="h-[520px]" />
           <div className="s-wrap relative pb-16 pt-8 text-center sm:pt-14">
