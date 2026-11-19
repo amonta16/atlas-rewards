@@ -8,9 +8,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as venuesConsent from "../lib/preview/consent";
 import * as medspaConsent from "../../medspa/lib/sms-consent";
-import { LAUNCH_BONUS as V_BONUS, LAUNCH_CALL as V_CALL } from "../lib/landing/medspa-funnel";
+import { LAUNCH_BONUS as V_BONUS, LAUNCH_CALL as V_CALL, TEAM_PROOF as V_TEAM } from "../lib/landing/medspa-funnel";
 import { CALL_MINUTES } from "../lib/landing/availability";
-import { LAUNCH_BONUS as M_BONUS, LAUNCH_CALL as M_CALL } from "../../medspa/lib/offer";
+import { LAUNCH_BONUS as M_BONUS, LAUNCH_CALL as M_CALL, MECHANISM, TEAM_PROOF as M_TEAM } from "../../medspa/lib/offer";
 
 test("SMS consent wording is identical in both apps", () => {
   assert.equal(medspaConsent.SMS_INFO_CONSENT_TEXT, venuesConsent.SMS_INFO_CONSENT_TEXT);
@@ -28,4 +28,15 @@ test("the Launch Plan call matches across apps, and its length is what the calen
 test("the launch-bonus window matches across apps", () => {
   assert.equal(M_BONUS.hours, V_BONUS.hours);
   assert.equal(M_BONUS.active, V_BONUS.active);
+});
+
+test("CP-251: the hackathon copy matches across apps and credits the team, not Atlas", () => {
+  assert.deepEqual(M_TEAM, V_TEAM);
+  assert.match(V_TEAM.body, /our team/i);
+  assert.doesNotMatch(`${V_TEAM.title} ${V_TEAM.body}`, /Atlas (placed|won|finished)/i);
+});
+
+test("the mechanism makes no recall-sending claim (not Live in the messaging library)", () => {
+  const text = MECHANISM.steps.map((s) => `${s.t} ${s.d}`).join(" ");
+  assert.doesNotMatch(text, /comes? due, (your app|we|it) sends?/i);
 });

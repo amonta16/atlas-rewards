@@ -58,9 +58,24 @@ export const MECHANISM = {
   ],
   steps: [
     { t: "Knows who's due", d: "Every treatment on your menu has a \"due again\" time. Atlas tracks it for every patient." },
-    { t: "Reaches them first", d: "When a patient comes due, your app sends your offer to their phone, under your name." },
+    // Not "sends your offer when they come due": recall sending isn't marked Live in the messaging library.
+    { t: "Sits on their phone", d: "Your app, under your name, with your offers one tap away. Not a brand's app, not a search away." },
     { t: "Rewards them for coming back", d: "Points, rewards and memberships that only spend at your practice." },
   ],
+};
+
+/**
+ * CP-251 · team proof: the hackathon, near the bottom of /p/<slug> (before the reviews) and of
+ * /medspa/app. The hackathon project was a separate product built from scratch that weekend, not
+ * Atlas, so the copy credits the TEAM, never "Atlas placed". Photo: public/proof/hackathon-team.webp.
+ * KEEP IN SYNC with TEAM_PROOF in apps/venues/lib/landing/medspa-funnel.ts (a venues test checks).
+ */
+export const TEAM_PROOF = {
+  eyebrow: "The team building your app",
+  title: "Top 10 at Cal Poly's AI Hackathon.",
+  body: "In November our team built an AI face-scan app for med spas from scratch in one weekend and finished in the top 10. Same team, same speed, on your launch.",
+  meta: "Cal Poly · November 13–15, 2026",
+  alt: "The Atlas Engine team at the Cal Poly AI Hackathon, November 2026",
 };
 
 /**

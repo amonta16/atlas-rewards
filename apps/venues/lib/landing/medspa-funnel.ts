@@ -170,6 +170,20 @@ export const LAUNCH_CALL = {
   ],
 };
 
+/**
+ * CP-251 · team proof (the hackathon), near the bottom of /medspa/app, before the reviews. The
+ * hackathon project was a separate product built from scratch that weekend, not Atlas, so this
+ * credits the TEAM, never "Atlas placed". Photo: public/landing/hackathon-team.webp.
+ * KEEP IN SYNC with TEAM_PROOF in apps/medspa/lib/offer.ts (tests/funnel-sync.test.ts checks).
+ */
+export const TEAM_PROOF = {
+  eyebrow: "The team building your app",
+  title: "Top 10 at Cal Poly's AI Hackathon.",
+  body: "In November our team built an AI face-scan app for med spas from scratch in one weekend and finished in the top 10. Same team, same speed, on your launch.",
+  meta: "Cal Poly · November 13–15, 2026",
+  alt: "The Atlas Engine team at the Cal Poly AI Hackathon, November 2026",
+};
+
 export const FOUNDING = {
   active: true,
   spots: 10,

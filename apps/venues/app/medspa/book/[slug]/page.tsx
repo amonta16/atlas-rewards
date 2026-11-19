@@ -4,7 +4,7 @@ import { MetaPixel } from "@/components/venues/meta-pixel";
 import { OceanBackground } from "@/components/site/ocean-background";
 import { PreviewBooker } from "@/components/medspa/preview-booker";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { siteFontClass } from "@/lib/landing/site-fonts";
+import { siteBodyFontClass as siteFontClass } from "@/lib/landing/site-font-body"; // CP-251: no display serif on funnel pages
 import { getPreviewBySlug, isExpired, SLUG_RE } from "@/lib/preview/store";
 import "../../../site.css";
 

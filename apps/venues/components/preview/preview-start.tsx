@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
+import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
@@ -472,7 +473,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             <a href={SMS_CONSENT_PAGE} className="underline">SMS consent</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
           </p>
         </main>
-        {/* CP-239: real client reviews, near the bottom (nothing renders until there are some). */}
+        {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
+        <TeamProof />
         <ReviewStrip />
       </div>
     );

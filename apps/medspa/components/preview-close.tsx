@@ -11,7 +11,24 @@
  *   PostScript  the TL;DR at the very bottom, selling against doing nothing
  * Server components; copy lives in lib/offer.ts (LAUNCH_CALL, MECHANISM, OFFER.guarantees).
  */
-import { LAUNCH_CALL, MECHANISM, OFFER } from "@/lib/offer";
+import { LAUNCH_CALL, MECHANISM, OFFER, TEAM_PROOF } from "@/lib/offer";
+
+/** CP-251 · the team photo with the text beside it (stacked on a phone), before the reviews. Lazy image. */
+export function TeamProof({ primary }: { primary: string }) {
+  return (
+    <section aria-labelledby="pv-team" className="mx-auto mt-12 grid max-w-[880px] items-center gap-6 rounded-[26px] bg-white p-4 shadow-soft sm:grid-cols-[minmax(0,360px)_minmax(0,1fr)] sm:gap-8 sm:p-5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/proof/hackathon-team.webp" alt={TEAM_PROOF.alt} width={670} height={565} loading="lazy" decoding="async"
+        className="block h-auto w-full rounded-[20px] bg-[#F5F6F5] object-cover" />
+      <div className="px-1 pb-2 sm:px-0 sm:pb-0 sm:pr-3">
+        <p className="text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{TEAM_PROOF.eyebrow}</p>
+        <h2 id="pv-team" className="mt-1.5 text-[24px] font-semibold leading-[1.12] tracking-[-0.015em]">{TEAM_PROOF.title}</h2>
+        <p className="mt-2.5 text-[15.5px] leading-relaxed text-sub">{TEAM_PROOF.body}</p>
+        <p className="mt-3 text-[13px] font-semibold text-sub">{TEAM_PROOF.meta}</p>
+      </div>
+    </section>
+  );
+}
 
 const Tick = ({ color }: { color: string }) => (
   <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-white" style={{ background: color }} aria-hidden>

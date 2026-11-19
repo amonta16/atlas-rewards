@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PreviewStart } from "@/components/preview/preview-start";
 import { MetaPixel } from "@/components/venues/meta-pixel";
 import { VisitBeacon } from "@/components/landing/visit-beacon";
-import { siteFontClass } from "@/lib/landing/site-fonts";
+import { siteBodyFontClass as siteFontClass } from "@/lib/landing/site-font-body"; // CP-251: no display serif on funnel pages
 import "../../site.css";
 
 /**
