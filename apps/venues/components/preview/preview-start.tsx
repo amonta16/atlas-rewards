@@ -19,6 +19,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, 
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { Gulls } from "@/components/landing/gulls"; // CP-252
+import { StickyBuildBar } from "./sticky-build-bar"; // CP-254
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
@@ -426,7 +427,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               <label htmlFor="pv-search" className="sr-only">Your med spa&apos;s name</label>
               {/* CP-253: says "click here". A blue border with a light that travels around it (site.css .s-glowfield)
                   and a soft pulse, plus a Build button inside: it starts the top suggestion, or puts the cursor in the box. */}
-              <div className="s-glowfield rounded-[18px] p-[2px]">
+              <div id="pv-search-box" className="s-glowfield rounded-[18px] p-[2px]">
                 <div className="relative z-[1] flex h-[62px] items-center gap-3 rounded-2xl bg-white pl-5 pr-2">
                   <Search className="h-5 w-5 shrink-0 text-[#0B5FD6]" aria-hidden />
                   <input
@@ -485,6 +486,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
         <TeamProof />
         <ReviewStrip />
+        {/* CP-254: the CTA that follows you down the page once the search box is out of view */}
+        <StickyBuildBar targetId="pv-search-box" inputId="pv-search" />
       </div>
     );
   }
