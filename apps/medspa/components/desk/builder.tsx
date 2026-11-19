@@ -14,7 +14,8 @@
  * CP-238: the first tab is Journey, every follow-up in one place:
  *   Automated offers (birthday, holiday, win-back gifts) · One-time offers
  *   (scratch-card promos, was Desk → Offers) · Campaigns (recall, win-back and
- *   the ad plan, was Desk → Atlas Engine) · Automations (Atlas admins).
+ *   the ad plan, was Desk → Atlas Engine) · Automations (CP-249: every manager,
+ *   with a preview of each email, see automations-view.tsx).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { glidePanel } from "../glide";
@@ -23,7 +24,8 @@ import { shrinkImage } from "@atlas/core/shrink-image";
 import type { BuilderData } from "@/lib/builder-data";
 import { BOOKING_METHOD_LABEL, MEDSPA_CATEGORIES, MEDSPA_STARTER_SHOP, MEDSPA_STARTER_TREATMENTS, cleanUrl, newId, readMedspaConfig, type BookingMethod, type MedspaConfig, type MedspaShopItem, type MedspaTreatment } from "@/lib/medspa";
 import type { MedspaPlan } from "@/lib/plans";
-import type { DeskApi, GiftOffer, Journey, RewardRow } from "@/lib/desk-api";
+import type { DeskApi, GiftOffer, RewardRow } from "@/lib/desk-api";
+import { AutomationsSection } from "./automations-view";
 import { Modal } from "./ui";
 import { RewardsView } from "./manager-views";
 import { IcCheck, IcGift, IcMore } from "../icons";
@@ -90,7 +92,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
   }
 
   const TABS: { id: Tab; label: string; subs: { id: Section; label: string }[] }[] = [
-    { id: "journey", label: "Journey", subs: [{ id: "gifts", label: "Automated offers" }, { id: "oneoff", label: "One-time offers" }, { id: "campaigns", label: "Campaigns" }, ...(canBrand ? [{ id: "automations" as Section, label: "Automations" }] : [])] },
+    { id: "journey", label: "Journey", subs: [{ id: "gifts", label: "Automated offers" }, { id: "oneoff", label: "One-time offers" }, { id: "campaigns", label: "Campaigns" }, { id: "automations", label: "Automations" }] },
     { id: "products", label: "Products", subs: [{ id: "treatments", label: "Treatments" }, { id: "shop", label: "Shop" }, { id: "results", label: "Results" }, { id: "skinscan", label: "AI skin scan" }] },
     { id: "membership", label: "Membership", subs: [{ id: "memberships", label: "Plans" }] },
     { id: "rewards", label: "Rewards", subs: [{ id: "rewards", label: "Rewards" }] },
@@ -135,7 +137,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
           {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} clinicName={clinic.name} />}
           {section === "oneoff" && <OffersView api={api} say={say} offersOn={offersOn} onOpenAutomated={() => setSection("gifts")} />}
           {section === "campaigns" && <MarketingView api={api} recall={recall} onOpenCare={() => setSection("care")} onOpenOffers={() => setSection("gifts")} onOpenInsights={onOpenInsights} />}
-          {section === "automations" && <AutomationsSection api={api} say={say} />}
+          {section === "automations" && <AutomationsSection api={api} say={say} brand={{ name: d.name, logoUrl: d.logo_url, primary: d.primary, heroUrl: d.hero_image_url, address: d.address || null }} />}
           {section === "rewards" && <RewardsView api={api} say={say} />}
         </div>
       </div>
@@ -780,43 +782,5 @@ export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; s
         </Modal>
       )}
     </div>
-  );
-}
-
-/* ───────────────────────── Automations (Atlas admins) ───────────────────────── */
-
-const GROUP: Record<string, string> = { get_in: "New patients", convert: "Turn interest into sales", care: "Care & rebooking", come_back: "Bring them back", celebrate: "Celebrate" };
-
-export function AutomationsSection({ api, say }: { api: DeskApi; say: (t: string) => void }) {
-  const [rows, setRows] = useState<Journey[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const load = () => { api.journeys().then(setRows).catch((e) => setErr((e as Error).message)); };
-  useEffect(load, [api]); // eslint-disable-line react-hooks/exhaustive-deps
-  const toggle = async (j: Journey) => { try { await api.toggleJourney(j.key, !j.enabled); say(j.enabled ? `${j.name} paused` : `${j.name} is on`); load(); } catch (e) { say((e as Error).message); } };
-  const groups = rows ? Object.keys(GROUP).map((g) => ({ g, items: rows.filter((r) => r.grp === g) })).filter((x) => x.items.length) : [];
-  return (
-    <Panel title="Automations" sub="Messages Atlas sends for the clinic: welcome series, cart recovery, rebooking, win-backs and birthdays. Only Atlas admins see this. Changes save right away.">
-      {err && <p className="rounded-[16px] bg-red-50 px-4 py-3 text-[14px] text-red-700">{err}</p>}
-      {!rows && !err && <div className="h-48 animate-pulse rounded-[20px] bg-page" />}
-      <div className="space-y-5">
-        {groups.map(({ g, items }) => (
-          <div key={g}>
-            <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-faint">{GROUP[g]}</p>
-            <ul className="divide-y divide-line overflow-hidden rounded-[20px] border border-line">
-              {items.map((j) => (
-                <li key={j.key} className={`flex items-center gap-4 px-4 py-3.5 ${j.enabled ? "" : "opacity-60"}`}>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold">{j.name}</span>
-                    <span className="block text-[13px] text-sub">{j.trigger_text} · {j.timing_text} · {j.channels.join(" + ")}</span>
-                  </span>
-                  {j.engine === "workflow" && <span className="hidden text-right text-[12.5px] text-sub sm:block"><b className="text-ink">{j.sent_30d}</b> sent · <b className="text-ink">{j.converted_30d}</b> converted<br /><span className="text-faint">last 30 days</span></span>}
-                  <Switch on={j.enabled} onChange={() => toggle(j)} label={j.name} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </Panel>
   );
 }

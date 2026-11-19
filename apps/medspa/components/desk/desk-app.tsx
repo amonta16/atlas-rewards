@@ -62,9 +62,9 @@ type DeskClinic = {
   /** CP-238: what access this desk has and how the owner goes live (Home → Your access). */
   goLive: GoLive;
 };
-type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "billing";
-const VIEW_IDS: View[] = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "offers", "marketing", "billing"];
-const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "billing"];
+type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "automations" | "billing";
+const VIEW_IDS: View[] = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "offers", "marketing", "automations", "billing"];
+const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "automations", "billing"];
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -98,7 +98,8 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   const rawView = (params?.get("view") ?? initialView ?? null) as View | "reports" | null;
   // "reports" (the monthly email's button) is a tab inside Insights.
   // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
-  const wanted = rawView === "reports" ? "insights" : rawView === "offers" || rawView === "marketing" ? "builder" : rawView;
+  // CP-249: ?view=automations opens App Builder → Journey → Automations.
+  const wanted = rawView === "reports" ? "insights" : rawView === "offers" || rawView === "marketing" || rawView === "automations" ? "builder" : rawView;
   const view: View = wanted && VIEW_IDS.includes(wanted) && (staff.isManager || !MANAGER_ONLY.includes(wanted)) ? wanted : staff.isManager ? "overview" : "checkin";
   // Patients opened this session, so Back / Forward can show their panel again.
   const people = useRef(new Map<string, DeskMember>());
@@ -138,7 +139,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     window.addEventListener("popstate", reset);
     return () => window.removeEventListener("popstate", reset);
   }, []);
-  const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "marketing" ? "campaigns" : "gifts");
+  const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "marketing" ? "campaigns" : initialView === "automations" ? "automations" : "gifts");
   const [reportLink, setReportLink] = useState(initialView === "reports");
   useEffect(() => { if (view !== "insights") setReportLink(false); }, [view]);
   const openBuilder = (s: BuilderSection) => { setBuilderSection(s); setView("builder"); };
