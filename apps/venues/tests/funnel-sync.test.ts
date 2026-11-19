@@ -32,7 +32,8 @@ test("the launch-bonus window matches across apps", () => {
 
 test("CP-251: the proof cards match across apps; the hackathon card credits the team, not Atlas", () => {
   assert.deepEqual(M_TEAM, V_TEAM);
-  assert.equal(V_TEAM.posts.length, 2);
+  assert.equal(V_TEAM.posts.length, 3);
+  for (const p of V_TEAM.posts) assert.ok(!!p.youtube !== !!p.file, `${p.id}: exactly one of youtube or file`);
   const hack = V_TEAM.posts.find((p) => p.id === "hackathon")!;
   assert.match(hack.body, /our team/i);
   for (const p of V_TEAM.posts) assert.doesNotMatch(`${p.title} ${p.body}`, /Atlas (placed|won|finished)|top 10/i);

@@ -37,7 +37,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-[#F5F6F5]">
       <header className="mx-auto flex h-16 max-w-6xl items-center px-5">
-        <a href={`${SITE}/medspa`} className="text-[15px] font-bold tracking-[0.18em] text-ink">ATLAS ENGINE</a>
+        <a href={`${SITE}/med-spas`} className="text-[15px] font-bold tracking-[0.18em] text-ink">ATLAS ENGINE</a>
       </header>
       {children}
     </div>

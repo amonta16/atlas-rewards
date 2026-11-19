@@ -59,8 +59,8 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
         goLive: clinic.preview
           ? { kind: "preview", walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk`, activateUrl: activateUrl(clinic.slug), activateLabel: `Turn it on now, $${SETUP.toLocaleString("en-US")} setup`, expiresAt: clinic.preview.expiresAt, helpEmail: HELP_EMAIL }
           : demo
-            ? { kind: "demo", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL }
-            : { kind: "live", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL },
+            ? { kind: "demo", walkthroughUrl: `${SITE}/medspa/app`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL }
+            : { kind: "live", walkthroughUrl: `${SITE}/medspa/app`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL },
         skinScan: skinScanOn(clinic),
         recall: { enabled: clinic.cfg.recall.enabled, lead_days: clinic.cfg.recall.lead_days, followup_days: clinic.cfg.recall.followup_days },
         treatments: activeTreatments(clinic).map((t) => ({ id: t.id, name: t.name, recall_weeks: t.recall_weeks ?? null })),

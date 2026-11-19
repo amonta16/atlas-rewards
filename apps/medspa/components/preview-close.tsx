@@ -12,6 +12,7 @@
  * Server components; copy lives in lib/offer.ts (LAUNCH_CALL, MECHANISM, OFFER.guarantees).
  */
 import { LAUNCH_CALL, MECHANISM, OFFER, TEAM_PROOF } from "@/lib/offer";
+import { YouTubeLite } from "./youtube-lite"; // CP-252
 
 /**
  * CP-251 · team proof as crisp social-post cards (Flippo's, the hackathon), side by side on a computer and
@@ -19,9 +20,9 @@ import { LAUNCH_CALL, MECHANISM, OFFER, TEAM_PROOF } from "@/lib/offer";
  */
 export function TeamProof({ primary }: { primary: string }) {
   return (
-    <section aria-label={TEAM_PROOF.eyebrow} className="mx-auto mt-12 max-w-[1080px]">
+    <section aria-label={TEAM_PROOF.eyebrow} className="mx-auto mt-12 max-w-[1140px]">
       <p className="text-center text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{TEAM_PROOF.eyebrow}</p>
-      <div className="mt-4 grid items-start gap-4 md:grid-cols-2 md:gap-5">
+      <div className="mt-4 grid items-start gap-4 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
         {TEAM_PROOF.posts.map((p) => (
           <article key={p.id} aria-labelledby={`pv-proof-${p.id}`} className="rounded-2xl border border-[#E3E6EA] bg-white p-5">
             <header className="flex items-center gap-3">
@@ -34,9 +35,11 @@ export function TeamProof({ primary }: { primary: string }) {
             </header>
             <h2 id={`pv-proof-${p.id}`} className="mt-4 text-[17px] font-semibold leading-snug text-[#0F1419]">{p.title}</h2>
             <p className="mt-2 text-[17px] leading-[1.5] text-[#0F1419]">{p.body}</p>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/proof/${p.file}`} alt={p.alt} width={p.w} height={p.h} loading="lazy" decoding="async"
-              className="mt-4 block h-auto w-full rounded-xl border border-[#E3E6EA] object-cover" />
+            {p.youtube ? <YouTubeLite id={p.youtube} title={p.alt} className="mt-4" /> : p.file && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/proof/${p.file}`} alt={p.alt} width={p.w} height={p.h} loading="lazy" decoding="async"
+                className="mt-4 block h-auto w-full rounded-xl border border-[#E3E6EA] object-cover" />
+            )}
           </article>
         ))}
       </div>

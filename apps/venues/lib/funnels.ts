@@ -5,6 +5,8 @@
  * when you ship one. `path` is on www.atlas-engine.app unless `url` is set.
  * `ad` = the link to paste into Meta (add your utm_content per ad).
  * `stat` = which lead count to show on the card (see app/(agency)/agency/funnels).
+ * CP-252: the founding-offer (/medspa, now redirects to /medspa/app) and quiz-first (/medspa/start) cards are
+ * gone: we lead with the instant app preview. /medspa/start still runs for the taken-area waitlist and old email links.
  */
 
 export type Funnel = {
@@ -25,14 +27,8 @@ export const FUNNEL_GROUPS: FunnelGroup[] = [
   {
     id: "medspa", label: "Med spa ads", funnels: [
       { id: "preview", name: "Instant app preview", path: "/medspa/app", thumb: true, stat: "preview_leads",
-        what: "Owner types their spa → we build their app from their website → contact + 4 questions → their app, text or walkthrough.",
+        what: "Owner types their spa → their own app opens in seconds → email + zip unlock → book the Launch Plan call.",
         ad: "/medspa/app?utm_source=meta&utm_campaign=ms_preview&utm_content=" },
-      { id: "founding", name: "Founding offer funnel", path: "/medspa", thumb: true, stat: "medspa_leads",
-        what: "Landing page + area check → recall numbers → qualify → calendar → pre-call page.",
-        ad: "/medspa?utm_source=meta&utm_campaign=ms_recall&utm_content=" },
-      { id: "start", name: "Quiz-first funnel", path: "/medspa/start", thumb: true,
-        what: "The same funnel without the landing page (ad set B). Walkthroughs from previews land here too.",
-        ad: "/medspa/start?utm_source=meta&utm_campaign=ms_recall&utm_content=" },
     ],
   },
   {

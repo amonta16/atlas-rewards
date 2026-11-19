@@ -39,5 +39,11 @@ const nextConfig = {
       },
     ];
   },
+  // CP-252: the founding-offer landing page (/medspa) is retired; we lead with the instant app preview.
+  // Temporary (307) so it can come back; the query string (utm_*, fbclid) carries over. /medspa/start
+  // stays: the taken-area waitlist and older follow-up email links still use it.
+  async redirects() {
+    return [{ source: "/medspa", destination: "/medspa/app", permanent: false }];
+  },
 };
 export default nextConfig;

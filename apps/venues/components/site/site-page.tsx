@@ -30,6 +30,7 @@ import { DeskListMock, PhoneShell } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS, partnerLine, realReviews, reviewFor } from "@/lib/landing/site-reviews";
 import { ReviewQuote } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
+import { Gulls } from "@/components/landing/gulls"; // CP-252
 import { ReviewImageMarquee, useReviewImages } from "@/components/landing/review-images"; // CP-240
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
@@ -142,6 +143,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
   return (
     <section id="product" className="relative -mt-[68px] overflow-hidden pt-[100px] sm:pt-[124px]" aria-labelledby="hero-title">
       <div aria-hidden className="pointer-events-none absolute inset-0">
+        <Gulls className="h-[560px]" />{/* CP-252 */}
         <div className="s-blob absolute -right-[12%] -top-[25%] h-[820px] w-[820px] rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.22),transparent)]" />
         <div className="absolute -left-[18%] top-[35%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(11,95,214,.10),transparent)]" />
       </div>
@@ -151,7 +153,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
         <div className="s-wrap relative">
           <Guides />
           <div className="relative z-[1] pt-6 text-center">
-            <h1 id="hero-title-lg" className="s-display s-load-1 mx-auto !text-[clamp(3rem,2rem+2.6vw,4.3rem)]">Sell more treatments &amp; memberships.</h1>
+            <h1 id="hero-title-lg" className="s-display s-load-1 mx-auto !text-[clamp(3rem,2rem+2.6vw,4.3rem)]">Sell more treatments &amp; <span className="s-chrome">memberships</span>.</h1>
             <div className="s-load-2 mt-6 text-[1.45rem] font-semibold text-[var(--s-ink-2)]">See how</div>
             <ArrowDown className="s-arrow s-load-3 mx-auto mt-3 h-10 w-10 stroke-[1.25] text-[var(--s-ink-2)]" aria-hidden />
           </div>
@@ -213,7 +215,7 @@ function Showcase({ onStart }: { onStart: () => void }) {
           on every screen size. On phones the rail is icon-over-label and the phone hangs off the right edge. */}
       <div className="s-wrap relative grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-6 sm:grid-cols-[200px_minmax(0,1fr)] sm:gap-x-8 lg:hidden" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
         <div className="col-span-2 min-w-0 lg:col-span-1">
-          <h1 id="hero-title" className="s-display s-load-1 max-w-[12ch]">Sell more treatments and memberships.</h1>
+          <h1 id="hero-title" className="s-display s-load-1 max-w-[12ch]">Sell more treatments and <span className="s-chrome">memberships</span>.</h1>
           <p className="s-lead s-load-2 mt-5 max-w-[32rem]">An app with your name on it that brings each patient back on time. We set it up with you in about a week.</p>
           <div className="s-load-3 mt-6 flex items-center gap-3 text-[1.3rem] font-semibold text-[var(--s-ink-2)]">See how <ArrowDown className="s-arrow h-6 w-6" aria-hidden /></div>
         </div>
@@ -618,7 +620,7 @@ function Footer() {
           <a href={`mailto:${CONTACT_EMAIL}`} className="s-focus mt-3 inline-block rounded font-medium text-[var(--s-ocean)] hover:underline">{CONTACT_EMAIL}</a>
         </div>
         <FooterCol title="Product" links={[["#product", "What it does"], ["#desk", "Front desk"], ["#pricing", "Pricing"]]} />
-        <FooterCol title="Also from Atlas" links={[["/venues", "For entertainment venues"], ["/medspa", "Med spa recall estimate"], [IOS_APP_URL, "AE Rewards on the App Store"]]} />
+        <FooterCol title="Also from Atlas" links={[["/venues", "For entertainment venues"], ["/medspa/app", "See your app free"], [IOS_APP_URL, "AE Rewards on the App Store"]]} />
         <FooterCol title="Company" links={[["/login", "Log in"], ["/support", "Support"], ["/legal/privacy", "Privacy"], ["/legal/terms", "Terms"], ["/legal/privacy#choices", "Your privacy choices"], ["/legal/california", "California notice"], ["/legal/health-data", "Consumer health data"]]} />
       </div>
       <div className="s-wrap mt-12 flex flex-col justify-between gap-3 border-t border-[var(--s-line)] pt-6 text-[13px] sm:flex-row"><span>© {new Date().getFullYear()} Atlas Engine. All rights reserved.</span><span>Bakersfield · Morro Bay, California</span></div>

@@ -177,15 +177,25 @@ export const LAUNCH_CALL = {
  * KEEP IN SYNC with TEAM_PROOF in apps/medspa/lib/offer.ts (tests/funnel-sync.test.ts checks).
  */
 export const TEAM_PROOF = {
-  eyebrow: "The team building your app",
-  // Side by side on a computer, stacked on a phone. `file` sits in this app's proof folder.
+  eyebrow: "Our team, out in the field",
+  // CP-252: up to 3 across on a computer, stacked on a phone. A post shows `youtube` (a YouTube id, played in
+  // place, youtube-nocookie) or `file` (a photo in this app's proof folder). To add an owner video: copy the
+  // first post, change id / youtube / the words. Quote owners word for word, and only with their OK.
   posts: [
+    {
+      id: "owner-video",
+      title: "A Morro Bay spa owner tries it.",
+      body: "We showed a spa owner in Morro Bay the app and the AI skin scan. Her answer: “I would be very interested in incorporating that into my business.”",
+      meta: "Morro Bay, CA · November 2026",
+      youtube: "dCTa10nHVfE", file: null, w: 16, h: 9,
+      alt: "A Morro Bay spa owner reacts to the app and the AI skin scan (video, 1:53)",
+    },
     {
       id: "flippos",
       title: "Live at Flippo's in Morro Bay.",
       body: "Flippo's Arcade & Batting Cage runs its rewards app on Atlas. We built the app, the banner and the table tents, and set it up at their counter in person. Your practice gets the same hands-on launch.",
       meta: "Flippo's · Morro Bay, CA",
-      file: "flippos-team.webp", w: 1200, h: 800,
+      youtube: null, file: "flippos-team.webp", w: 1200, h: 800,
       alt: "The Atlas Engine team at Flippo's Arcade & Batting Cage in Morro Bay, next to the rewards banner",
     },
     {
@@ -193,7 +203,7 @@ export const TEAM_PROOF = {
       title: "Built in a weekend at Cal Poly's AI Hackathon.",
       body: "In November our team entered Cal Poly's AI Hackathon and built an AI face-scan app for med spas from scratch in one weekend. Same team, same speed, on your launch.",
       meta: "Cal Poly · November 13–15, 2026",
-      file: "hackathon-team.webp", w: 670, h: 565,
+      youtube: null, file: "hackathon-team.webp", w: 670, h: 565,
       alt: "The Atlas Engine team at the Cal Poly AI Hackathon, November 2026",
     },
   ],
