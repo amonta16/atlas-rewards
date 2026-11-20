@@ -78,25 +78,25 @@ export const TEAM_PROOF = {
   // first post, change id / youtube / the words. Quote owners word for word, and only with their OK.
   posts: [
     {
+      id: "mission",
+      title: "Your clients love you. Their phone forgets you.",
+      body: "Between visits, your spa is nowhere on their phone. So we built Atlas: your own app, with your name on it, that brings them back.",
+      meta: "Francisco Vera & Andrew Montano",
+      youtube: null, file: "founders-atlas.webp", w: 1100, h: 872,
+      alt: "Francisco Vera (left) and Andrew Montano, founders of Atlas Engine, in navy Atlas polos",
+    },
+    {
       id: "owner-video",
-      title: "A Morro Bay spa owner tries it.",
-      body: "We showed a spa owner in Morro Bay the app. Her answer: “I would be very interested in incorporating that into my business.”",
+      title: "We showed a real spa owner. Here's what she said.",
+      body: "A spa owner in Morro Bay saw the app for the first time. Her exact words: “I would be very interested in incorporating that into my business.”",
       meta: "Morro Bay, CA · November 2026",
       youtube: "dCTa10nHVfE", file: null, w: 16, h: 9,
       alt: "A Morro Bay spa owner reacts to the app (video, 1:53)",
     },
     {
-      id: "mission",
-      title: "Why we started Atlas.",
-      body: "Independent med spas earn great clients, then have no place on their phone between visits. We started Atlas Engine so every practice has its own app, in its own name, that brings its clients back.",
-      meta: "Francisco Vera & Andrew Montano, founders",
-      youtube: null, file: "founders-atlas.webp", w: 1100, h: 872,
-      alt: "Francisco Vera (left) and Andrew Montano, founders of Atlas Engine, in navy Atlas polos",
-    },
-    {
       id: "process",
-      title: "Built with owners in the room.",
-      body: "We build every part of Atlas ourselves and test it with real owners before it ships. In November, at Cal Poly's AI Hackathon, we took the app to a Morro Bay spa owner for her honest take.",
+      title: "We don't guess. We ask owners.",
+      body: "We build every part of Atlas ourselves. Then real owners try it before it ships. In November, at Cal Poly's AI Hackathon, we sat down with a Morro Bay spa owner and asked for her honest take.",
       meta: "Cal Poly · November 2026",
       youtube: null, file: "founders-building.webp", w: 1100, h: 916,
       alt: "Two Atlas Engine founders working on a laptop at Cal Poly",

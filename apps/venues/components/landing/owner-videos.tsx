@@ -14,7 +14,7 @@ export function OwnerVideos() {
   return (
     <section aria-labelledby="owner-videos-h" className="bg-white py-14 sm:py-20">
       <div className="s-wrap">
-        <h2 id="owner-videos-h" className="text-center text-[clamp(1.7rem,1.2rem+1.8vw,2.6rem)] font-bold tracking-[-0.03em] text-[#0B1B2B]">Hear it from med spa owners</h2>
+        <h2 id="owner-videos-h" className="text-center text-[clamp(1.7rem,1.2rem+1.8vw,2.6rem)] font-bold tracking-[-0.03em] text-[#0B1B2B]">Don&apos;t take our word for it. Hear it from owners.</h2>
         <div className="mx-auto mt-8 grid max-w-[1180px] gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {videos.map((v) => (
             <figure key={v.youtube} className="rounded-2xl border border-[#E3E6EA] bg-white p-4">
@@ -31,7 +31,7 @@ export function OwnerVideos() {
                 </span>
               </div>
               <p className="mt-3 text-[15px] font-semibold text-[#3A4A5C]">Owner video coming soon</p>
-              <p className="mt-1 text-[13.5px] text-[#6B7A8C]">A med spa owner on what changed after launch.</p>
+              <p className="mt-1 text-[13.5px] text-[#6B7A8C]">A med spa owner on what changed after launch day.</p>
             </div>
           ))}
         </div>

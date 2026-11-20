@@ -32,7 +32,7 @@ test("the launch-bonus window matches across apps", () => {
 
 test("CP-257: the proof cards match across apps, stay med spa only, and never say it was built in a weekend", () => {
   assert.deepEqual(M_TEAM, V_TEAM);
-  assert.deepEqual(V_TEAM.posts.map((p) => p.id), ["owner-video", "mission", "process"]);
+  assert.deepEqual(V_TEAM.posts.map((p) => p.id), ["mission", "owner-video", "process"]);
   for (const p of V_TEAM.posts) assert.ok(!!p.youtube !== !!p.file, `${p.id}: exactly one of youtube or file`);
   for (const p of V_TEAM.posts) {
     const text = `${p.title} ${p.body}`;

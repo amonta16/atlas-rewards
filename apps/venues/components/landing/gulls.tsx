@@ -16,17 +16,25 @@ const FLOCK: Gull[] = [
 ];
 
 export function Gulls({ tone = "dark", className = "" }: { tone?: "dark" | "light"; className?: string }) {
-  const color = tone === "light" ? "rgba(255,255,255,.7)" : "rgba(11,95,214,.55)";
+  const color = tone === "light" ? "rgba(255,255,255,.85)" : "rgba(11,95,214,.6)";
   return (
     <div aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
       {FLOCK.map((g, i) => (
-        <svg key={i} viewBox="0 0 40 16" className="s-gull" style={{
+        <svg key={i} viewBox="0 0 40 24" className="s-gull" style={{
           top: g.top, opacity: g.o,
-          ["--w" as string]: `${g.w}px`, ["--t" as string]: `${g.t}s`, ["--d" as string]: `${g.d}s`, ["--f" as string]: `${g.f}s`,
+          ["--w" as string]: `${g.w}px`, ["--t" as string]: `${g.t}s`, ["--d" as string]: `${g.d}s`, ["--f" as string]: `${g.f * 2.4}s`,
           ["--y1" as string]: `${g.y1}px`, ["--y2" as string]: `${g.y2}px`, ["--c" as string]: color,
         }}>
-          {/* a gull in flight: two curved wings meeting at the body */}
-          <path d="M0 7 C 6 0, 13 0, 20 8 C 27 0, 34 0, 40 7 C 34 5, 27 6.5, 21.5 14 L 20 16 L 18.5 14 C 13 6.5, 6 5, 0 7 Z" fill="currentColor" />
+          {/* CP-259: a folded paper bird. Faceted wings in two shades flap in short bursts (.s-wings), then hold
+              for a glide; the body is a folded diamond with a small head. */}
+          <g className="s-wings">
+            <polygon points="20,12 2,2 13,13" fill="currentColor" />
+            <polygon points="20,12 13,13 8,6.5" fill="currentColor" opacity=".55" />
+            <polygon points="20,12 38,2 27,13" fill="currentColor" opacity=".8" />
+            <polygon points="20,12 27,13 32,6.5" fill="currentColor" opacity=".45" />
+          </g>
+          <polygon points="12,13 20,11.5 28,13 20,17" fill="currentColor" opacity=".9" />
+          <polygon points="28,13 34,10.5 30,15" fill="currentColor" />
         </svg>
       ))}
     </div>

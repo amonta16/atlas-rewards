@@ -94,7 +94,7 @@ export function Showcase({ onStart, embedded = false }: { onStart: () => void; e
             <div key={`t-${i}`} className="s-load-1 relative z-[1] self-center pr-6">
               <h2 className="s-h2 !text-[clamp(1.6rem,1.2rem+1.1vw,2.2rem)] text-white">{features[i].title}</h2>
               <p className="s-lead mt-5 max-w-[26rem] text-[1.05rem] text-white/85">{features[i].blurb}</p>
-              <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus mt-8">Build my app <ArrowRight className="h-4 w-4" /></button>
+              {!embedded && <button type="button" onClick={onStart} className="s-btn s-btn-light s-focus mt-8">Build my app <ArrowRight className="h-4 w-4" /></button>}
             </div>
             <div aria-hidden />
             <dl key={`f-${i}`} className="s-load-2 relative z-[1] flex flex-col justify-center gap-9 pl-6">
@@ -177,10 +177,11 @@ export function Showcase({ onStart, embedded = false }: { onStart: () => void; e
 
         <div className="col-span-2 lg:col-span-1">
           <p className="s-body max-w-[36rem] text-[15px] sm:hidden">{features[i].blurb}</p>
-          <div className="s-load-4 mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center lg:mt-2">
+          {/* CP-259: on the funnel the sticky bar is the CTA, so no button row here */}
+          {!embedded && <div className="s-load-4 mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center lg:mt-2">
             <button type="button" onClick={onStart} className="s-btn s-btn-primary s-focus">Build my app <ArrowRight className="h-4 w-4" /></button>
             <span className="s-small">{MEDSPA_OFFER_COPY.ctaNote} Month to month.</span>
-          </div>
+          </div>}
         </div>
       </div>
     </section>

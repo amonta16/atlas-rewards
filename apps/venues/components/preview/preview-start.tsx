@@ -427,19 +427,19 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto brightness-0 invert" />
             <a href="/med-spas" className="text-[14px] font-semibold text-white/85 hover:text-white">How it works</a>
           </header>
-          <main className="s-wrap relative pb-20 pt-8 text-center sm:pb-24 sm:pt-14">
+          <main className="s-wrap relative pb-32 pt-3 text-center sm:pb-40 sm:pt-6">
             <p className="s-rise inline-flex items-center gap-2 rounded-full bg-white/12 py-1.5 pl-1.5 pr-3.5 text-[13px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
               <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#0B5FD6]">Free</span>
               For med spas
             </p>
-            <h1 className="s-rise mx-auto mt-6 max-w-[15ch] text-[clamp(2.5rem,1.6rem+3.6vw,4.6rem)] font-bold leading-[1.02] tracking-[-0.035em] text-white" style={{ ["--d" as string]: ".08s" }}>
+            <h1 className="s-rise mx-auto mt-5 max-w-[15ch] text-[clamp(2.3rem,1.5rem+3.2vw,4.1rem)] font-bold leading-[1.03] tracking-[-0.035em] text-white lg:max-w-[20ch]" style={{ ["--d" as string]: ".08s" }}>
               See your <span className="s-chrome-light">patient app</span> before you spend a dollar.
             </h1>
-            <p className="s-rise mx-auto mt-5 max-w-[34rem] text-[18px] leading-relaxed text-white/85" style={{ ["--d" as string]: ".16s" }}>
-              Type your practice&apos;s name. We read your website and build your own app: your logo, your colors, your treatments.
+            <p className="s-rise mx-auto mt-4 max-w-[32rem] text-[17px] leading-snug text-white/85" style={{ ["--d" as string]: ".16s" }}>
+              Type your spa&apos;s name. Watch your own app appear: your logo, your colors, your treatments.
             </p>
 
-            <div className="s-rise relative mx-auto mt-9 w-full max-w-[560px] text-left" style={{ ["--d" as string]: ".24s" }}>
+            <div className="s-rise relative mx-auto mt-7 w-full max-w-[560px] text-left" style={{ ["--d" as string]: ".24s" }}>
               <label htmlFor="pv-search" className="sr-only">Your med spa&apos;s name</label>
               {/* CP-253: says "click here". A blue border with a light that travels around it (site.css .s-glowfield)
                   and a soft pulse, plus a Build button inside: it starts the top suggestion, or puts the cursor in the box. */}
@@ -478,7 +478,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               )}
               {searchError && <p role="alert" className="mx-auto mt-3 w-fit rounded-full bg-white px-3 py-1 text-center text-[14px] font-medium text-red-700">{searchError}</p>}
             </div>
-            <ul className="s-rise mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[14.5px] text-white/90" style={{ ["--d" as string]: ".32s" }}>
+            <ul className="s-rise mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[14.5px] text-white/90" style={{ ["--d" as string]: ".32s" }}>
               {/* CP-246: one timing claim across the page (the title says "about a minute" too). */}
               {["Free", "No card needed", "Ready in about a minute"].map((t) => (
                 <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#BFE0FF]" aria-hidden />{t}</li>
@@ -489,18 +489,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
           </main>
         </div>
 
-        <section className="relative bg-white">
-          <div className="s-wrap pb-14 pt-12 text-center sm:pt-16">
-            {/* CP-237: three real med spa previews on 3D phones, a seamless 6 s loop (white + multiply). */}
-            <figure className="s-rise relative mx-auto w-full max-w-[880px]" style={{ ["--d" as string]: ".4s" }}>
+        {/* CP-259: the 3 phones in a white card lifted over the bottom of the blue hero, so they're in view
+            without scrolling (their video is white + multiply, so it needs the white card). */}
+        <section className="relative flow-root bg-white">
+          <div className="s-wrap pb-6 text-center">
+            <figure className="s-rise relative z-[1] mx-auto -mt-24 w-full max-w-[920px] rounded-[28px] bg-white px-3 pb-3 pt-4 shadow-[0_40px_90px_-40px_rgba(2,20,70,.55)] ring-1 ring-black/5 sm:-mt-32" style={{ ["--d" as string]: ".36s" }}>
               <TrioVideo />
-              <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Three med spa apps, each built from the practice&apos;s own website.</figcaption>
+              <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Real med spa apps. Each one built from the spa&apos;s own website.</figcaption>
             </figure>
-            <p className="mx-auto mt-8 max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C]">
-              No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
-              (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}
-              <a href={SMS_CONSENT_PAGE} className="underline">SMS consent</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
-            </p>
           </div>
         </section>
         {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
@@ -510,6 +506,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         <ReviewStrip />
         {/* CP-258: owner videos (placeholders until the first real ones) */}
         <OwnerVideos />
+        {/* CP-259: the fine print, at the very bottom instead of under the phones (room for the sticky bar below it) */}
+        <footer className="border-t border-[#0B1B2B]/8 bg-white pb-28 pt-8">
+          <p className="s-wrap mx-auto max-w-[40rem] text-center text-[12.5px] leading-relaxed text-[#6B7A8C]">
+            No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
+            (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}
+            <a href={SMS_CONSENT_PAGE} className="underline">SMS consent</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
+          </p>
+        </footer>
         {/* CP-254: the CTA that follows you down the page once the search box is out of view */}
         <StickyBuildBar targetId="pv-search-box" inputId="pv-search" />
       </div>
