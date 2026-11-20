@@ -171,13 +171,14 @@ export const LAUNCH_CALL = {
 };
 
 /**
- * CP-251 · team proof: two post cards (Flippo's, the hackathon), near the bottom of /medspa/app, before the reviews. The
- * hackathon project was a separate product built from scratch that weekend, not Atlas, so this
- * credits the TEAM, never "Atlas placed". Photo: public/landing/hackathon-team.webp.
- * KEEP IN SYNC with TEAM_PROOF in apps/medspa/lib/offer.ts (tests/funnel-sync.test.ts checks).
+ * CP-251/257 · team proof, as post cards near the bottom of the med spa pages (/medspa/app, /med-spas,
+ * /p/<slug>), before the reviews: the owner video, why we started Atlas, how we build. Med spa only (no venue
+ * clients). Never frame Atlas as built at the hackathon or in a weekend: Atlas came first; the hackathon was
+ * a face-scan prototype we showed a real owner. Photos: founders-atlas.webp, founders-building.webp.
+ * KEEP IN SYNC across apps/medspa/lib/offer.ts and apps/venues/lib/landing/medspa-funnel.ts (tests/funnel-sync.test.ts).
  */
 export const TEAM_PROOF = {
-  eyebrow: "Our team, out in the field",
+  eyebrow: "The team behind your app",
   // CP-252: up to 3 across on a computer, stacked on a phone. A post shows `youtube` (a YouTube id, played in
   // place, youtube-nocookie) or `file` (a photo in this app's proof folder). To add an owner video: copy the
   // first post, change id / youtube / the words. Quote owners word for word, and only with their OK.
@@ -185,26 +186,26 @@ export const TEAM_PROOF = {
     {
       id: "owner-video",
       title: "A Morro Bay spa owner tries it.",
-      body: "We showed a spa owner in Morro Bay the app and the AI skin scan. Her answer: “I would be very interested in incorporating that into my business.”",
+      body: "We showed a spa owner in Morro Bay the app. Her answer: “I would be very interested in incorporating that into my business.”",
       meta: "Morro Bay, CA · November 2026",
       youtube: "dCTa10nHVfE", file: null, w: 16, h: 9,
-      alt: "A Morro Bay spa owner reacts to the app and the AI skin scan (video, 1:53)",
+      alt: "A Morro Bay spa owner reacts to the app (video, 1:53)",
     },
     {
-      id: "flippos",
-      title: "Live at Flippo's in Morro Bay.",
-      body: "Flippo's Arcade & Batting Cage runs its rewards app on Atlas. We built the app, the banner and the table tents, and set it up at their counter in person. Your practice gets the same hands-on launch.",
-      meta: "Flippo's · Morro Bay, CA",
-      youtube: null, file: "flippos-team.webp", w: 1200, h: 800,
-      alt: "The Atlas Engine team at Flippo's Arcade & Batting Cage in Morro Bay, next to the rewards banner",
+      id: "mission",
+      title: "Why we started Atlas.",
+      body: "Independent med spas earn great clients, then have no place on their phone between visits. We started Atlas Engine so every practice has its own app, in its own name, that brings its clients back.",
+      meta: "Founders · Central Coast, CA",
+      youtube: null, file: "founders-atlas.webp", w: 1100, h: 872,
+      alt: "Two Atlas Engine founders in navy Atlas polos",
     },
     {
-      id: "hackathon",
-      title: "Built in a weekend at Cal Poly's AI Hackathon.",
-      body: "In November our team entered Cal Poly's AI Hackathon and built an AI face-scan app for med spas from scratch in one weekend. Same team, same speed, on your launch.",
-      meta: "Cal Poly · November 13–15, 2026",
-      youtube: null, file: "hackathon-team.webp", w: 670, h: 565,
-      alt: "The Atlas Engine team at the Cal Poly AI Hackathon, November 2026",
+      id: "process",
+      title: "Built with owners in the room.",
+      body: "We build every part of Atlas ourselves and test it with real owners before it ships. In November, at Cal Poly's AI Hackathon, we took the app to a Morro Bay spa owner for her honest take.",
+      meta: "Cal Poly · November 2026",
+      youtube: null, file: "founders-building.webp", w: 1100, h: 916,
+      alt: "Two Atlas Engine founders working on a laptop at Cal Poly",
     },
   ],
 };

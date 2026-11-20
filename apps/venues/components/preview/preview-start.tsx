@@ -77,7 +77,7 @@ const PROGRESS: Record<Step, [number, number]> = {
 };
 
 /** CP-246: a real count of med spas that built their app this week (GET /api/preview/stats). Hidden under 3 or on any failure. */
-function BuiltThisWeek() {
+function BuiltThisWeek({ light = false }: { light?: boolean } = {}) {
   const [n, setN] = useState<number | null>(null);
   useEffect(() => {
     let off = false;
@@ -88,7 +88,7 @@ function BuiltThisWeek() {
   }, []);
   if (n === null) return null;
   return (
-    <p className="mt-3 flex items-center gap-2 text-[14px] font-semibold text-[#0B1B2B]">
+    <p className={`mt-3 flex items-center gap-2 text-[14px] font-semibold ${light ? "text-white" : "text-[#0B1B2B]"}`}>
       <span className="relative flex h-2.5 w-2.5" aria-hidden><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
       {n} med spas built their app this week
     </p>
@@ -401,33 +401,31 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
     return (
       <div className="site min-h-[100dvh] overflow-x-clip bg-white">
         {honeypot}
-        <header className="s-wrap relative z-10 flex h-[72px] items-center justify-between">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
-          <a href="/med-spas" className="text-[14px] font-semibold text-[#3A4A5C] hover:text-[#0B1B2B]">How it works</a>
-        </header>
-        {/* CP-252: the Origami-style hero. Centered, the faint grid with a radial wash, gulls gliding behind,
-            a blur-up entrance and one word in blue chrome. The 3 phones sit centered under the search. */}
-        <main className="relative overflow-hidden">
-          {/* CP-256: brand colour, without crowding the words. Soft ocean-blue light at the edges (the same
-              glows as the /med-spas hero), the centre left white so the headline and search stay crisp,
-              and a faint ice-blue floor under the phones. The grid draws on top, tinted blue. */}
+        {/* CP-257: the hero in brand blue (inverted from CP-252/256's white). Ocean gradient, a faint white grid,
+            white gulls and type, "patient app" in light chrome, and the white search box popping off the blue with
+            a white light travelling round it. The 3 phones sit in the white section below (their video is white +
+            multiply, which only blends on white). */}
+        <div className="s-ocean relative overflow-hidden">
           <div aria-hidden className="pointer-events-none absolute inset-0">
-            <div className="s-blob absolute -right-[16%] -top-[22%] h-[720px] w-[720px] rounded-full bg-[radial-gradient(closest-side,rgba(57,160,255,.36),transparent)]" />
-            <div className="absolute -left-[20%] top-[18%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(11,95,214,.20),transparent)]" />
-            <div className="absolute inset-x-0 bottom-0 h-[55%] bg-[radial-gradient(70%_60%_at_50%_100%,rgba(57,160,255,.24),transparent)]" />
+            <div className="s-blob absolute -right-[14%] -top-[30%] h-[760px] w-[760px] rounded-full bg-[radial-gradient(closest-side,rgba(143,200,255,.35),transparent)]" />
+            <div className="absolute -left-[18%] bottom-[-30%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(6,49,143,.45),transparent)]" />
           </div>
-          <div aria-hidden className="s-gridbg" />
-          <Gulls className="h-[520px]" />
-          <div className="s-wrap relative pb-16 pt-8 text-center sm:pt-14">
-            <p className="s-rise inline-flex items-center gap-2 rounded-full border border-[#0B1B2B]/10 bg-white/80 px-3.5 py-1.5 text-[13px] font-semibold text-[#3A4A5C] shadow-[0_6px_18px_-12px_rgba(11,27,43,.35)] backdrop-blur">
-              <span className="rounded-full bg-[#0B5FD6] px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-white">Free</span>
+          <div aria-hidden className="s-gridbg-dark" />
+          <Gulls tone="light" className="h-[520px]" />
+          <header className="s-wrap relative z-10 flex h-[72px] items-center justify-between">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto brightness-0 invert" />
+            <a href="/med-spas" className="text-[14px] font-semibold text-white/85 hover:text-white">How it works</a>
+          </header>
+          <main className="s-wrap relative pb-20 pt-8 text-center sm:pb-24 sm:pt-14">
+            <p className="s-rise inline-flex items-center gap-2 rounded-full bg-white/12 py-1.5 pl-1.5 pr-3.5 text-[13px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#0B5FD6]">Free</span>
               For med spas
             </p>
-            <h1 className="s-rise mx-auto mt-6 max-w-[15ch] text-[clamp(2.5rem,1.6rem+3.6vw,4.6rem)] font-bold leading-[1.02] tracking-[-0.035em] text-[#0B1B2B]" style={{ ["--d" as string]: ".08s" }}>
-              See your <span className="s-chrome">patient app</span> before you spend a dollar.
+            <h1 className="s-rise mx-auto mt-6 max-w-[15ch] text-[clamp(2.5rem,1.6rem+3.6vw,4.6rem)] font-bold leading-[1.02] tracking-[-0.035em] text-white" style={{ ["--d" as string]: ".08s" }}>
+              See your <span className="s-chrome-light">patient app</span> before you spend a dollar.
             </h1>
-            <p className="s-rise mx-auto mt-5 max-w-[34rem] text-[18px] leading-relaxed text-[#3A4A5C]" style={{ ["--d" as string]: ".16s" }}>
+            <p className="s-rise mx-auto mt-5 max-w-[34rem] text-[18px] leading-relaxed text-white/85" style={{ ["--d" as string]: ".16s" }}>
               Type your practice&apos;s name. We read your website and build your own app: your logo, your colors, your treatments.
             </p>
 
@@ -435,7 +433,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               <label htmlFor="pv-search" className="sr-only">Your med spa&apos;s name</label>
               {/* CP-253: says "click here". A blue border with a light that travels around it (site.css .s-glowfield)
                   and a soft pulse, plus a Build button inside: it starts the top suggestion, or puts the cursor in the box. */}
-              <div id="pv-search-box" className="s-glowfield rounded-[18px] p-[2px]">
+              <div id="pv-search-box" className="s-glowfield s-glowfield-light rounded-[18px] p-[2px]">
                 <div className="relative z-[1] flex h-[62px] items-center gap-3 rounded-2xl bg-white pl-5 pr-2">
                   <Search className="h-5 w-5 shrink-0 text-[#0B5FD6]" aria-hidden />
                   <input
@@ -468,19 +466,23 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
                   <li className="px-4 pb-1 pt-1.5 text-right text-[11px] text-[#8A97A8]">Search by Google</li>
                 </ul>
               )}
-              {searchError && <p role="alert" className="mt-3 text-center text-[14px] font-medium text-red-700">{searchError}</p>}
+              {searchError && <p role="alert" className="mx-auto mt-3 w-fit rounded-full bg-white px-3 py-1 text-center text-[14px] font-medium text-red-700">{searchError}</p>}
             </div>
-            <ul className="s-rise mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[14.5px] text-[#3A4A5C]" style={{ ["--d" as string]: ".32s" }}>
+            <ul className="s-rise mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[14.5px] text-white/90" style={{ ["--d" as string]: ".32s" }}>
               {/* CP-246: one timing claim across the page (the title says "about a minute" too). */}
               {["Free", "No card needed", "Ready in about a minute"].map((t) => (
-                <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#0B5FD6]" aria-hidden />{t}</li>
+                <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#BFE0FF]" aria-hidden />{t}</li>
               ))}
             </ul>
-            <div className="flex justify-center"><BuiltThisWeek /></div>
+            <div className="flex justify-center"><BuiltThisWeek light /></div>
             {/* CP-253: no price on this page (no setup fee any more); the Launch Plan call covers it. */}
+          </main>
+        </div>
 
+        <section className="relative bg-white">
+          <div className="s-wrap pb-14 pt-12 text-center sm:pt-16">
             {/* CP-237: three real med spa previews on 3D phones, a seamless 6 s loop (white + multiply). */}
-            <figure className="s-rise relative mx-auto mt-10 w-full max-w-[880px]" style={{ ["--d" as string]: ".4s" }}>
+            <figure className="s-rise relative mx-auto w-full max-w-[880px]" style={{ ["--d" as string]: ".4s" }}>
               <TrioVideo />
               <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Three med spa apps, each built from the practice&apos;s own website.</figcaption>
             </figure>
@@ -490,7 +492,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               <a href={SMS_CONSENT_PAGE} className="underline">SMS consent</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
             </p>
           </div>
-        </main>
+        </section>
         {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
         <TeamProof />
         <ReviewStrip />

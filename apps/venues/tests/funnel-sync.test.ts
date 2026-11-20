@@ -30,13 +30,17 @@ test("the launch-bonus window matches across apps", () => {
   assert.equal(M_BONUS.active, V_BONUS.active);
 });
 
-test("CP-251: the proof cards match across apps; the hackathon card credits the team, not Atlas", () => {
+test("CP-257: the proof cards match across apps, stay med spa only, and never say it was built in a weekend", () => {
   assert.deepEqual(M_TEAM, V_TEAM);
-  assert.equal(V_TEAM.posts.length, 3);
+  assert.deepEqual(V_TEAM.posts.map((p) => p.id), ["owner-video", "mission", "process"]);
   for (const p of V_TEAM.posts) assert.ok(!!p.youtube !== !!p.file, `${p.id}: exactly one of youtube or file`);
-  const hack = V_TEAM.posts.find((p) => p.id === "hackathon")!;
-  assert.match(hack.body, /our team/i);
-  for (const p of V_TEAM.posts) assert.doesNotMatch(`${p.title} ${p.body}`, /Atlas (placed|won|finished)|top 10/i);
+  for (const p of V_TEAM.posts) {
+    const text = `${p.title} ${p.body}`;
+    assert.doesNotMatch(text, /Atlas (placed|won|finished)|top 10/i);
+    assert.doesNotMatch(text, /(in|over) (one|a|1) weekend|in (two|2) days|from scratch/i, `${p.id}: no "built in a weekend" framing`);
+    assert.doesNotMatch(text, /Flippo|arcade|batting/i, `${p.id}: med spa pages only`);
+    assert.doesNotMatch(text, /scan/i, `${p.id}: the app is the star, not the face scan`);
+  }
 });
 
 test("the mechanism makes no recall-sending claim (not Live in the messaging library)", () => {

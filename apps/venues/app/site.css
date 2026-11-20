@@ -159,3 +159,16 @@
   .s-glowfield, .s-glowfield::before { animation: none; }
   .s-glowfield { box-shadow: 0 0 0 5px rgba(11,95,214,.10), 0 18px 40px -24px rgba(11,95,214,.55); }
 }
+
+/* CP-257 · the blue hero on /medspa/app.
+ * .s-gridbg-dark       the same 80 px grid, in faint white for an ocean background, fading out downward.
+ * .s-glowfield-light   the search box's travelling light, in white and ice blue so it reads on blue; the pulse is a
+ *                      soft white halo. (The field itself is white, so it already stands off the blue.) */
+.s-gridbg-dark { pointer-events: none; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 0), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 0); background-size: 80px 80px; background-position: center -1px; -webkit-mask-image: linear-gradient(#000 40%, transparent 95%); mask-image: linear-gradient(#000 40%, transparent 95%); }
+.s-glowfield-light { background: rgba(255,255,255,.55); animation-name: s-glowpulse-light; }
+.s-glowfield-light::before { background: conic-gradient(from 0deg, rgba(255,255,255,.55) 0deg, rgba(255,255,255,.55) 200deg, #BFE0FF 260deg, #fff 300deg, #BFE0FF 330deg, rgba(255,255,255,.55) 360deg); }
+.s-glowfield-light:focus-within { box-shadow: 0 0 0 6px rgba(255,255,255,.28), 0 22px 44px -24px rgba(2,20,70,.6); }
+@keyframes s-glowpulse-light { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0), 0 22px 44px -24px rgba(2,20,70,.55) } 50% { box-shadow: 0 0 0 8px rgba(255,255,255,.22), 0 22px 44px -24px rgba(2,20,70,.55) } }
+@media (prefers-reduced-motion: reduce) {
+  .s-glowfield-light { box-shadow: 0 0 0 5px rgba(255,255,255,.2), 0 22px 44px -24px rgba(2,20,70,.55); }
+}
