@@ -94,7 +94,12 @@ The patient app on Google Play. It is its own app: name **MedSpa App**, gold spa
 - [ ] **Back up the upload key.** Folder `C:\Users\andre\atlas-keys\`: `medspa-upload.jks` + `medspa-upload.properties` (the password is inside). Put a copy in your password manager and on a USB stick. Lose it and every future update waits on a Google support reset. Never put it in git.
 - [ ] **Firebase project "MedSpa App"** (separate from AE Rewards): console.firebase.google.com → Create a project → "MedSpa App" (Analytics off) → Project settings → General → Add app → Android → package `com.atlasengine.medspa`, nickname "MedSpa App", no SHA-1 → Register → download **google-services.json** → save as `C:\Users\andre\atlas-keys\medspa-google-services.json`. Then Project settings → Service accounts → Generate new private key → save as `C:\Users\andre\atlas-keys\medspa-firebase-service-account.json` (secret: don't email it).
 - [ ] Tell Claude when both files are there. Claude then sets Vercel env (with your OK): **atlas-medspa** `FIREBASE_SERVICE_ACCOUNT` + `MEDSPA_PUSH_SECRET`, **atlas-rewards** `MEDSPA_PUSH_SECRET` (same value), and rebuilds the release file with push.
-- [ ] **Check your Play account type:** Play Console → Settings → Developer account → Account details. *Personal, created after Nov 13 2023* → you need a closed test with **12+ testers opted in for 14 days in a row** before you can publish (step 4). Recruit them now (friends, family, staff at partner spas; each needs a Google account and an Android phone). *Organization* → skip step 4.
+- [ ] **Move the Play account to the LLC (decided 2026-11-20).** The account is personal; Google lets you convert it in place (AE Rewards stays on it). Do this BEFORE creating the MedSpa App so the store shows the LLC as the developer.
+      1. Play Console Home must show no pending verification warnings.
+      2. Play Console → Account details → About you → enter the organization website `https://www.atlas-engine.app` → Save → **Send verification request**. Wait until it shows verified.
+      3. Same page → **Change account type** → **Create new payments profile** (the personal one can't be reused) → Company/business, size 1–10, the LLC's legal name, address and phone exactly as on the D-U-N-S record → enter the **D-U-N-S number** → verify the contact email and phone (one-time codes) → upload documents if Google asks for legal name/address proof → **Link your payments profile** → Confirm → Save.
+      4. Wait for the approval email, then **wait 72 hours** before submitting a new app (Google's rule). The change is one-way (no going back to personal).
+      5. Ask Play support (Play Console → Help → Contact support) whether the 12-tester / 14-day closed test still applies to a converted account. Google's pages only say it applies to *personal* accounts created after Nov 13 2023 and don't mention converted ones. If yes, recruit 12 testers and do step 4 below; if no, skip step 4.
 
 ### 2. Create the app in Play Console
 - [ ] Home → **Create app** → App name `MedSpa App` · Default language English (United States) · App · Free → tick the declarations → Create.
@@ -122,7 +127,7 @@ Med spa rules for the listing (text, screenshots, graphic): **no toxin/filler br
 - [ ] Government app: No. News app: No. Sensitive permissions: none (camera only, for the QR scanner and the selfie).
 - [ ] **Decide before sending for review:** the demo clinic Google's reviewers use (Glow Aesthetics) shows BOTOX® Cosmetic / JUVÉDERM® / Restylane names, "FDA-approved" wording and BEFORE/AFTER "Real results". That's inside the app, which Claude has not changed. It may pass, but it's the most likely reason for a rejection. Options: leave it and see, or have Claude give the demo clinic neutral treatment names and hide before/after there.
 
-### 4. Closed test (personal accounts only), then production
+### 4. Closed test (only if Play support says it still applies), then production
 - [ ] Testing → **Closed testing** → Create track → promote the internal release (or upload the same AAB) → Testers: an email list with **12+ Google accounts** → Save → send them the **opt-in link**. Each tester taps it, joins, installs from Play, and keeps it installed **14 days in a row**.
 - [ ] After 14 days: Dashboard → **Apply for production** (answer the questions about the test) → once approved: Production → Create release → promote the tested release → Start rollout.
 
