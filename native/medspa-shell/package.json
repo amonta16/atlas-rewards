@@ -1,0 +1,24 @@
+{
+  "name": "atlas-medspa-mobile-shell",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor shell for the Atlas Med Spa patient app (Google Play). Loads the live med.atlas-engine.app; native push, camera and deep links are bridged in.",
+  "scripts": {
+    "sync": "cap sync android",
+    "android": "cap open android",
+    "run:android": "cap run android",
+    "assets": "capacitor-assets generate --android",
+    "bundle": "cd android && gradlew.bat bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/push-notifications": "^8.1.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2",
+    "typescript": "^5.9.3"
+  }
+}

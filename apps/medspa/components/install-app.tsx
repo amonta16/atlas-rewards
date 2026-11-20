@@ -5,12 +5,14 @@
  *   Android · Chrome's own Install prompt when it offers one, otherwise the menu steps.
  *   Computer· a QR code to open this clinic's app on the phone.
  * Home shows a dismissible card on phones. Profile always has the row.
- * Neither shows once the app is running from the Home Screen.
+ * Neither shows once the app is running from the Home Screen, or inside the
+ * MedSpa App from Google Play (it's already installed).
  */
 import { useCallback, useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import { IcClose, IcNext, IcPhone } from "./icons";
 import { Portal } from "./portal";
+import { isNativeApp } from "@/lib/native";
 
 type PromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 type Device = "ios" | "android" | "computer";
@@ -26,7 +28,7 @@ function useInstall() {
     const ua = nav.userAgent;
     const ipadAsMac = /Macintosh/.test(ua) && nav.maxTouchPoints > 1;
     setDevice(/iPhone|iPad|iPod/.test(ua) || ipadAsMac ? "ios" : /Android/.test(ua) ? "android" : "computer");
-    setInstalled(window.matchMedia?.("(display-mode: standalone)").matches || nav.standalone === true);
+    setInstalled(isNativeApp() || window.matchMedia?.("(display-mode: standalone)").matches || nav.standalone === true);
     setReady(true);
     const onPrompt = (e: Event) => { e.preventDefault(); setPrompt(e as PromptEvent); };
     const onInstalled = () => { setInstalled(true); setPrompt(null); };

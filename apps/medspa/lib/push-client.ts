@@ -2,7 +2,14 @@
  * Browser side of push (web push via the venue app's VAPID keys).
  * iPhone: web push only works once the app is added to the Home Screen
  * (iOS 16.4+), so we detect that and explain instead of failing silently.
+ *
+ * Inside the MedSpa App (Google Play, lib/native.ts) the same three calls use
+ * FCM instead: the OS permission dialog, then the device token is saved for
+ * the clinic. One token belongs to one clinic at a time (unique user + endpoint),
+ * exactly like a browser's web-push endpoint.
  */
+import { isNativeApp, nativePlatform, nativePushPermission, nativePushToken } from "./native";
+
 export type PushState = "unsupported" | "needs-install" | "blocked" | "off" | "on";
 
 const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -13,8 +20,37 @@ const DEMO_KEY = "ms_push_demo_on";
 const demoOn = () => { try { return localStorage.getItem(DEMO_KEY) === "1"; } catch { return false; } };
 const setDemo = (on: boolean) => { try { if (on) localStorage.setItem(DEMO_KEY, "1"); else localStorage.removeItem(DEMO_KEY); } catch { /* fine */ } };
 
-export async function pushState(demo = false): Promise<PushState> {
+// The token this app last saved, and for which clinic.
+const NATIVE_KEY = "ms_native_push";
+type NativeSaved = { token: string; businessId: string };
+const nativeSaved = (): NativeSaved | null => { try { return JSON.parse(localStorage.getItem(NATIVE_KEY) ?? "null"); } catch { return null; } };
+const setNativeSaved = (v: NativeSaved | null) => { try { if (v) localStorage.setItem(NATIVE_KEY, JSON.stringify(v)); else localStorage.removeItem(NATIVE_KEY); } catch { /* fine */ } };
+
+async function saveNativeToken(token: string, businessId: string): Promise<boolean> {
+  const res = await fetch("/api/notifications/subscribe", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ platform: nativePlatform() ?? "android", token, business_id: businessId }),
+  }).catch(() => null);
+  if (!res?.ok) return false;
+  setNativeSaved({ token, businessId });
+  return true;
+}
+
+async function nativeState(businessId: string | undefined, demo: boolean): Promise<PushState> {
+  const perm = await nativePushPermission();
+  if (!perm) return "unsupported";
+  if (perm === "denied") return "blocked";
+  if (demo) return perm === "granted" && demoOn() ? "on" : "off";
+  const saved = nativeSaved();
+  if (perm !== "granted" || !businessId || saved?.businessId !== businessId) return "off";
+  // FCM tokens rotate: quietly re-register and re-save if it changed.
+  void nativePushToken().then((t) => { if (t && t !== saved.token) void saveNativeToken(t, businessId); });
+  return "on";
+}
+
+export async function pushState(demo = false, businessId?: string): Promise<PushState> {
   if (typeof window === "undefined") return "unsupported";
+  if (isNativeApp()) return nativeState(businessId, demo);
   const w = window as unknown as { PushManager?: unknown; Notification?: unknown };
   const supported = "serviceWorker" in navigator && !!w.PushManager && !!w.Notification;
   if (!supported) return isIOS() && !standalone() ? "needs-install" : "unsupported";
@@ -33,6 +69,12 @@ function keyBytes(base64: string) {
 
 /** Ask permission, subscribe and save it for this clinic. `demo` shows a local test notification instead of saving. */
 export async function turnOnPush(businessId: string, opts: { demo?: boolean; clinicName?: string } = {}): Promise<PushState> {
+  if (isNativeApp()) {
+    const token = await nativePushToken();
+    if (!token) return (await nativePushPermission()) === "denied" ? "blocked" : "off";
+    if (opts.demo) { setDemo(true); return "on"; }
+    return (await saveNativeToken(token, businessId)) ? "on" : "off";
+  }
   const reg = await navigator.serviceWorker.register("/sw-push.js", { scope: "/" });
   await navigator.serviceWorker.ready;
   const perm = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
@@ -56,6 +98,12 @@ export async function turnOnPush(businessId: string, opts: { demo?: boolean; cli
 
 export async function turnOffPush(): Promise<PushState> {
   setDemo(false);
+  if (isNativeApp()) {
+    const saved = nativeSaved();
+    if (saved) await fetch("/api/notifications/subscribe", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ endpoint: `fcm-medspa:${saved.token}` }) }).catch(() => {});
+    setNativeSaved(null);
+    return "off";
+  }
   const reg = await navigator.serviceWorker.getRegistration("/");
   const sub = await reg?.pushManager.getSubscription();
   if (sub) {

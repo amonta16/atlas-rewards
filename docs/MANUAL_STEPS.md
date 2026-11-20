@@ -84,14 +84,54 @@ Until this is on, the app's sign-in screen uses email + password by itself. It s
 - [ ] Try the new desk locally: `npm run medspa:dev`, open http://localhost:3100/spa-by-the-bay/desk and sign in with your Atlas admin email + password. (http://localhost:3100/demo/desk works with no login.)
 - [ ] After go-live, give each clinic its desk link: `https://med.atlas-engine.app/<clinic-slug>/desk`. Staff sign in with the same email + password they use for the manager portal. Add front-desk staff in the manager portal → Team, as before.
 
-## Ship the med spa app to the App Store / Google Play (Phase 6, not built yet)
-Accounts and setup only you can do (start these now, some take days):
+## Google Play: the MedSpa App (Android)
+The patient app on Google Play. It is its own app: name **MedSpa App**, gold sparkle icon, its own Firebase project, nothing shared on screen with AE Rewards. It opens the live med.atlas-engine.app, so web updates reach it without a new upload.
+- Package id: `com.atlasengine.medspa` (permanent once uploaded; patients never see it).
+- Project: `native/medspa-shell` (Capacitor 8, targets Android 16 / API 36, the level Google Play requires for new apps in 2026).
+- Release file: `native/medspa-shell/android/app/build/outputs/bundle/release/app-release.aab` (Claude builds it; it is not in git).
+
+### 1. Do now (once)
+- [ ] **Back up the upload key.** Folder `C:\Users\andre\atlas-keys\`: `medspa-upload.jks` + `medspa-upload.properties` (the password is inside). Put a copy in your password manager and on a USB stick. Lose it and every future update waits on a Google support reset. Never put it in git.
+- [ ] **Firebase project "MedSpa App"** (separate from AE Rewards): console.firebase.google.com → Create a project → "MedSpa App" (Analytics off) → Project settings → General → Add app → Android → package `com.atlasengine.medspa`, nickname "MedSpa App", no SHA-1 → Register → download **google-services.json** → save as `C:\Users\andre\atlas-keys\medspa-google-services.json`. Then Project settings → Service accounts → Generate new private key → save as `C:\Users\andre\atlas-keys\medspa-firebase-service-account.json` (secret: don't email it).
+- [ ] Tell Claude when both files are there. Claude then sets Vercel env (with your OK): **atlas-medspa** `FIREBASE_SERVICE_ACCOUNT` + `MEDSPA_PUSH_SECRET`, **atlas-rewards** `MEDSPA_PUSH_SECRET` (same value), and rebuilds the release file with push.
+- [ ] **Check your Play account type:** Play Console → Settings → Developer account → Account details. *Personal, created after Nov 13 2023* → you need a closed test with **12+ testers opted in for 14 days in a row** before you can publish (step 4). Recruit them now (friends, family, staff at partner spas; each needs a Google account and an Android phone). *Organization* → skip step 4.
+
+### 2. Create the app in Play Console
+- [ ] Home → **Create app** → App name `MedSpa App` · Default language English (United States) · App · Free → tick the declarations → Create.
+- [ ] Testing → **Internal testing** → Create new release → **Play App Signing: accept the default (Google creates and keeps the app signing key)** → upload `app-release.aab` → release name `1 (1.0)` → notes "First release" → Save → Review → Start rollout. Add yourself under Testers to install it from the Play Store.
+- [ ] After that upload: Test and release → Setup → **App integrity** → App signing → copy the **App signing key certificate SHA-256** and send it to Claude. It goes into `ANDROID_APP_SHA256` on atlas-medspa so clinic QR links (med.atlas-engine.app/…) open straight into the app. Until then those links open in the browser (the app itself works fine).
+
+### 3. Store listing and app content (Grow → Store listing, Policy → App content)
+Med spa rules for the listing (text, screenshots, graphic): **no toxin/filler brand names** (no BOTOX®, JUVÉDERM®, Restylane), **no before/after photos**, **no medical claims** ("FDA-approved", "treats", "cures").
+- [ ] **Store listing**: App name `MedSpa App`. Short description (80 chars) + full description: Claude can draft them in your voice. App icon: `native/medspa-shell/resources/play-icon-512.png`. Feature graphic 1024×500 and 2–8 phone screenshots: Claude can make them from the demo clinic, following the rules above. Category: **Beauty**. Contact email `hello@atlas-engine.app`, website `https://med.atlas-engine.app`.
+- [ ] **Privacy policy**: `https://www.atlas-engine.app/legal/privacy`
+- [ ] **App access**: "All or some functionality is restricted" → instructions: *"No login is needed to review the app. Open the app, type Glow in Search by name, tap Glow Aesthetics (our example clinic). Shop, rewards, offers, membership and the AI skin scan all work there. Signing in uses a one-time code texted to a phone number."* (If Google asks for a login anyway, tell Claude; a reviewer test number can be set up.)
+- [ ] **Ads**: No ads.
+- [ ] **Content rating**: questionnaire → your email → category "All other app types" → No to violence, sexual content, language, controlled substances, gambling; users interact or share content: No; shares location: No; purchases of physical goods or services: Yes.
+- [ ] **Target audience**: **18 and over** only. Not designed for children.
+- [ ] **Data safety** (encrypted in transit: Yes; users can ask for deletion: Yes):
+      Personal info: **Name, Email address, Phone number**: collected, not shared, for App functionality + Account management.
+      Financial info: **Purchase history**: collected (card details go on Stripe's page, not in the app), App functionality.
+      Photos and videos: **Photos**: collected, optional, the AI skin scan selfie; processed by our service provider (Perfect Corp), not stored by Atlas (provider deletes within 30 days). App functionality.
+      Health and fitness: **Health info**: optional skin-scan scores saved to the patient's profile. App functionality.
+      App activity: **App interactions** (points, rewards, visits): App functionality, Analytics.
+      Device or other IDs: **Device ID** (the push notification token): App functionality.
+- [ ] **Account deletion**: `https://www.atlas-engine.app/account/delete` (also in the app: Profile → Delete account).
+- [ ] **Health apps declaration** (if Play asks): it's a cosmetic beauty and rewards app; the skin scan is cosmetic guidance, not a diagnosis. Don't tick any medical or clinical feature.
+- [ ] **Financial features**: "My app doesn't provide any financial features" (Klarna is offered on Stripe's checkout page, not by the app).
+- [ ] Government app: No. News app: No. Sensitive permissions: none (camera only, for the QR scanner and the selfie).
+- [ ] **Decide before sending for review:** the demo clinic Google's reviewers use (Glow Aesthetics) shows BOTOX® Cosmetic / JUVÉDERM® / Restylane names, "FDA-approved" wording and BEFORE/AFTER "Real results". That's inside the app, which Claude has not changed. It may pass, but it's the most likely reason for a rejection. Options: leave it and see, or have Claude give the demo clinic neutral treatment names and hide before/after there.
+
+### 4. Closed test (personal accounts only), then production
+- [ ] Testing → **Closed testing** → Create track → promote the internal release (or upload the same AAB) → Testers: an email list with **12+ Google accounts** → Save → send them the **opt-in link**. Each tester taps it, joins, installs from Play, and keeps it installed **14 days in a row**.
+- [ ] After 14 days: Dashboard → **Apply for production** (answer the questions about the test) → once approved: Production → Create release → promote the tested release → Start rollout.
+
+### Every later update
+- [ ] Only needed when the app shell changes (icon, name, permissions, a new native feature). Web changes go live without Play. Claude bumps `versionCode` in `native/medspa-shell/android/app/build.gradle`, builds the AAB with your upload key, and you upload it in Play Console.
+
+## App Store (iPhone): later
 - [ ] Apple Developer Program, enrolled as the business (Atlas Engine LLC). Needs a free D-U-N-S number first (can take 1–2 weeks). $99/yr.
-- [ ] Google Play Console. If your existing account is a *personal* one, new apps need a closed test with 12+ testers for 14 days before production. An *organization* account (same D-U-N-S) skips that.
 - [ ] A way to build iOS: Xcode only runs on a Mac. Either borrow/buy a Mac, or use a cloud Mac build service (e.g. Codemagic; Claude can set up the config).
-- [ ] Decide: one "Atlas Med Spa" app where patients pick their clinic (one listing under Atlas's account), or a branded app per clinic (Apple requires those to be published from each clinic's own developer account).
-- [ ] Clinic content per clinic: real treatments, prices, photos, booking method, at least one gift.
-- [ ] Privacy policy + support URL for the store listing, and store screenshots (Claude can make these).
 
 ## Done by Claude (no action needed)
 - 2026-11-08 · CP-237 committed (not deployed): 3D phones video on /medspa/app, "built" only after the scan animation, front-desk welcome email after the last step, preview front desk at `med.atlas-engine.app/<slug>/desk` (no sign-in, nothing saved), Twilio texting from +1 775 252 4211 (off until `PREVIEW_SMS_SEND=1`). See db/history/checkpoint-237-preview-desk-sms/README.md.

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- MedSpa App palette (outside the web app only: icon, splash, notifications). -->
+    <color name="brand_champagne">#EFE5D6</color>
+    <color name="brand_gold">#B08D57</color>
+</resources>
