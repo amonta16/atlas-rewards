@@ -195,9 +195,9 @@ export const TEAM_PROOF = {
       id: "mission",
       title: "Why we started Atlas.",
       body: "Independent med spas earn great clients, then have no place on their phone between visits. We started Atlas Engine so every practice has its own app, in its own name, that brings its clients back.",
-      meta: "Founders · Central Coast, CA",
+      meta: "Francisco Vera & Andrew Montano, founders",
       youtube: null, file: "founders-atlas.webp", w: 1100, h: 872,
-      alt: "Two Atlas Engine founders in navy Atlas polos",
+      alt: "Francisco Vera (left) and Andrew Montano, founders of Atlas Engine, in navy Atlas polos",
     },
     {
       id: "process",
@@ -208,6 +208,18 @@ export const TEAM_PROOF = {
       alt: "Two Atlas Engine founders working on a laptop at Cal Poly",
     },
   ],
+};
+
+/**
+ * CP-258 · owner videos on /medspa/app, under the sliding review screenshots. Each entry is one owner
+ * saying something on camera, played in place (YouTube id, youtube-nocookie). Add real ones here, word for
+ * word in `quote`, only with the owner's OK. Until there are `slots` of them, placeholder cards fill the row
+ * while `showSlots` is true; set it to false to hide the placeholders and show only real videos.
+ */
+export const OWNER_VIDEOS = {
+  showSlots: true,
+  slots: 3,
+  videos: [] as Array<{ youtube: string; name: string; practice: string; city: string; quote: string }>,
 };
 
 export const FOUNDING = {

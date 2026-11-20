@@ -20,6 +20,8 @@ import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { Gulls } from "@/components/landing/gulls"; // CP-252
 import { StickyBuildBar } from "./sticky-build-bar"; // CP-254
+import { Showcase } from "@/components/site/showcase"; // CP-258
+import { OwnerVideos } from "@/components/landing/owner-videos"; // CP-258
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
@@ -396,6 +398,14 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
 
   const honeypot = <input ref={hp} type="text" name="website_url_hp" tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" />;
 
+  /** CP-258: "Build my app" further down the page: back to the search box, cursor in it. */
+  const toSearch = () => {
+    track("hero_cta_clicked", { source: "medspa_app:showcase" });
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById("pv-search-box")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    window.setTimeout(() => (document.getElementById("pv-search") as HTMLInputElement | null)?.focus({ preventScroll: true }), reduce ? 0 : 450);
+  };
+
   /* ───────────── search (landing) ───────────── */
   if (step === "search") {
     return (
@@ -495,7 +505,11 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         </section>
         {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
         <TeamProof />
+        {/* CP-258: the /med-spas product showcase (tabs + changing phone), so owners see how it works in detail */}
+        <Showcase embedded onStart={toSearch} />
         <ReviewStrip />
+        {/* CP-258: owner videos (placeholders until the first real ones) */}
+        <OwnerVideos />
         {/* CP-254: the CTA that follows you down the page once the search box is out of view */}
         <StickyBuildBar targetId="pv-search-box" inputId="pv-search" />
       </div>
