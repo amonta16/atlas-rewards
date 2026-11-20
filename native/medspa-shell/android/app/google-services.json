@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "415400925495",
+    "project_id": "medspa-app-1249d",
+    "storage_bucket": "medspa-app-1249d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:415400925495:android:28916bd86545c5f69de2b2",
+        "android_client_info": {
+          "package_name": "com.atlasengine.medspa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC57OctUekV5o_ww-wgl-tT6tDOO5PEKq4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
