@@ -1,0 +1,408 @@
+<!doctype html>
+<!--
+  CP-262 · Occasion art for automated offers (Desk → Journey → Automated offers).
+  One illustrated card per occasion, 1000×600 (5:3, the patient app's scratch-card shape):
+  a hero scene for the occasion on the right, a hand-drawn doodle pattern behind it, bold
+  outlines and flat colour. Open art.html?slug=halloween to see one; render.mjs writes
+  public/offer-art/<slug>.jpg. Everything is drawn here, no photos or outside art.
+  Keep the bottom-left (x < 480, y > 380) calm: the patient's name tag is drawn there.
+-->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#000}svg{display:block}</style></head>
+<body><div id="one"></div>
+<script>
+const W = 1000, H = 600;
+
+/* ── helpers ────────────────────────────────────────────────── */
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+const seedOf = (str) => [...str].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+const f = (n) => (+n).toFixed(1);
+/** outlined shape attributes */
+const S = (fill, o, w = 7) => `fill="${fill}" stroke="${o}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+const L = (o, w = 7) => `fill="none" stroke="${o}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
+const gloss = (d, w = 9, op = .85) => `<path d="${d}" fill="none" stroke="#fff" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+const heartD = (cx, cy, s) => `M${f(cx)} ${f(cy + .6 * s)} C${f(cx - 1.1 * s)} ${f(cy - .1 * s)},${f(cx - .55 * s)} ${f(cy - .95 * s)},${f(cx)} ${f(cy - .35 * s)} C${f(cx + .55 * s)} ${f(cy - .95 * s)},${f(cx + 1.1 * s)} ${f(cy - .1 * s)},${f(cx)} ${f(cy + .6 * s)}Z`;
+const starD = (cx, cy, r, inner = .45, pts = 5, rot = -90) => { let p = ""; for (let i = 0; i < pts * 2; i++) { const a = (rot + i * 180 / pts) * Math.PI / 180, rr = i % 2 ? r * inner : r; p += `${i ? "L" : "M"}${f(cx + Math.cos(a) * rr)} ${f(cy + Math.sin(a) * rr)}`; } return p + "Z"; };
+const sparkleD = (cx, cy, r) => `M${cx} ${cy - r} Q${cx + r * .14} ${cy - r * .14} ${cx + r} ${cy} Q${cx + r * .14} ${cy + r * .14} ${cx} ${cy + r} Q${cx - r * .14} ${cy + r * .14} ${cx - r} ${cy} Q${cx - r * .14} ${cy - r * .14} ${cx} ${cy - r}Z`;
+const sparkle = (cx, cy, r, c, o) => `<path d="${sparkleD(cx, cy, r)}" ${o ? S(c, o, 5) : `fill="${c}"`}/>`;
+
+/* Doodles: hand-drawn outline motifs scattered behind the scene (jittered grid, so it never looks tiled). */
+const DOODLE = {
+  heart: (c) => `<path d="M0 12 C-20 -2,-14 -20,0 -8 C14 -20,20 -2,0 12" ${L(c, 4.5)}/>`,
+  heartLoop: (c) => `<path d="M-2 14 C-24 -2,-14 -22,0 -8 C12 -22,26 -4,2 14 C-6 20,-14 24,-20 30" ${L(c, 4.5)}/>`,
+  star: (c) => `<path d="${starD(0, 0, 16)}" ${L(c, 4)}/>`,
+  sparkle: (c) => `<path d="${sparkleD(0, 0, 15)}" ${L(c, 4)}/>`,
+  snow: (c) => { let s = ""; for (let i = 0; i < 6; i++) s += `<g transform="rotate(${i * 60})"><path d="M0 0V-17M0 -11l-5 -5M0 -11l5 -5" ${L(c, 4)}/></g>`; return s; },
+  clover: (c) => `<path d="M0 0 C-6 -18,-24 -16,-16 -4 C-24 2,-14 12,0 0 C14 12,24 2,16 -4 C24 -16,6 -18,0 0 C-8 8,-6 20,0 14 C6 20,8 8,0 0 M2 10 Q6 20,12 26" ${L(c, 4)}/>`,
+  flower: (c) => { let s = ""; for (let i = 0; i < 5; i++) s += `<ellipse cy="-11" rx="6.5" ry="10" transform="rotate(${i * 72})" ${L(c, 4)}/>`; return s + `<circle r="4" ${L(c, 4)}/>`; },
+  squiggle: (c) => `<path d="M-22 0 q5.5 -10 11 0 t11 0 t11 0 t11 0" ${L(c, 4.5)}/>`,
+  dot: (c) => `<circle r="5" fill="${c}"/>`,
+  ring: (c) => `<circle r="9" ${L(c, 4)}/>`,
+  tag: (c) => `<path d="M-18 -12 H8 L20 0 L8 12 H-18 Z" ${L(c, 4)}/><circle cx="8" r="3" fill="${c}"/>`,
+  percent: (c) => `<text font-family="Segoe UI,Arial" font-weight="800" font-size="34" text-anchor="middle" dominant-baseline="central" fill="none" stroke="${c}" stroke-width="2.5">%</text>`,
+  cloud: (c) => `<path d="M-22 8 A10 10 0 0 1 -14 -8 A13 13 0 0 1 10 -10 A10 10 0 0 1 22 8 Z" ${L(c, 4)}/>`,
+  wave: (c) => `<path d="M-24 0 C-16 -10,-8 -10,0 0 S16 10,24 0" ${L(c, 4.5)}/>`,
+  sun: (c) => { let s = `<circle r="8" ${L(c, 4)}/>`; for (let i = 0; i < 8; i++) s += `<path d="M0 -13V-19" transform="rotate(${i * 45})" ${L(c, 4)}/>`; return s; },
+  bat: (c) => `<path d="M0 -2 C-3 -7,-6 -4,-8 -4 C-12 -8,-18 -6,-22 -2 C-18 -2,-16 2,-14 5 C-11 2,-8 3,-6 6 C-4 3,-2 3,0 5 C2 3,4 3,6 6 C8 3,11 2,14 5 C16 2,18 -2,22 -2 C18 -6,12 -8,8 -4 C6 -4,3 -7,0 -2Z" fill="${c}"/>`,
+  egg: (c) => `<ellipse rx="12" ry="16" ${L(c, 4)}/><path d="M-11 -1 l4.5 -4 4.5 4 4.5 -4 4.5 4 4 -3" ${L(c, 3.5)}/>`,
+  coin: (c) => `<circle r="12" ${L(c, 4)}/><circle r="6" ${L(c, 3)}/>`,
+};
+function doodles(seed, kinds, color, step = 118, opacity = .5) {
+  const r = rng(seed); let out = "";
+  for (let y = -40, row = 0; y < H + 60; y += step * .82, row++) {
+    for (let x = -40 + (row % 2 ? step / 2 : 0); x < W + 60; x += step) {
+      const px = x + (r() - .5) * step * .5, py = y + (r() - .5) * step * .5, k = kinds[Math.floor(r() * kinds.length)];
+      out += `<g transform="translate(${f(px)} ${f(py)}) rotate(${f((r() - .5) * 70)}) scale(${f(1.5 + r() * .8)})">${DOODLE[k](color)}</g>`;
+    }
+  }
+  return `<g opacity="${opacity}">${out}</g>`;
+}
+
+/* ── scenes (each returns the hero, drawn around x≈700, y≈300) ─────────────── */
+
+function cake(o) {
+  const drips = (x, y, w, c) => {
+    const n = Math.max(3, Math.round(w / 46)), seg = w / n, lens = [26, 10, 40, 16, 32, 12, 36];
+    let d = `M${x} ${y + 16} Q${x} ${y} ${x + 16} ${y} H${x + w - 16} Q${x + w} ${y} ${x + w} ${y + 16} V${y + 26}`;
+    for (let i = 0; i < n; i++) { const right = x + w - i * seg, mid = right - seg / 2, len = lens[i % lens.length]; d += ` L${f(mid + 11)} ${y + 26} V${y + 26 + len} A11 11 0 0 1 ${f(mid - 11)} ${y + 26 + len} V${y + 26}`; }
+    return `<path d="${d} L${x} ${y + 26} Z" ${S(c, o)}/>`;
+  };
+  const sprinkles = (x0, y0, w, h, seed) => { const r = rng(seed), cs = ["#ff5d8f", "#4cc9f0", "#ffd166", "#7bd389", "#9b5de5"]; let s = ""; for (let i = 0; i < 16; i++) { const x = x0 + r() * w, y = y0 + r() * h; s += `<rect x="${f(x)}" y="${f(y)}" width="16" height="6" rx="3" fill="${cs[i % cs.length]}" transform="rotate(${f(r() * 180)} ${f(x + 8)} ${f(y + 3)})"/>`; } return s; };
+  const candle = (x, c) => `<rect x="${x - 11}" y="150" width="22" height="84" rx="6" ${S("#fff", o, 6)}/><path d="M${x - 11} 172 l22 -12 M${x - 11} 196 l22 -12 M${x - 11} 220 l22 -12" stroke="${c}" stroke-width="7"/><rect x="${x - 11}" y="150" width="22" height="84" rx="6" ${L(o, 6)}/>
+    <path d="M${x} 150 V138" ${L(o, 5)}/><path d="M${x} 92 C${x + 22} 116,${x + 16} 140,${x} 140 C${x - 16} 140,${x - 22} 116,${x} 92Z" ${S("#ffb703", o, 5)}/><path d="M${x} 112 C${x + 9} 124,${x + 6} 134,${x} 134 C${x - 6} 134,${x - 9} 124,${x} 112Z" fill="#fff3b0"/>`;
+  return `
+  <!-- balloon -->
+  <path d="M905 262 C900 330,930 380,905 450" ${L(o, 4)}/>
+  <ellipse cx="905" cy="170" rx="70" ry="86" ${S("#ffd166", o)}/><path d="M897 255 l8 10 l8 -10Z" ${S("#ffd166", o, 5)}/>${gloss("M868 120 Q880 104 898 100", 9)}
+  <ellipse cx="700" cy="508" rx="230" ry="30" ${S("#ffffff", o)}/>
+  <rect x="525" y="330" width="350" height="170" rx="26" ${S("#ffe8d6", o)}/>
+  ${sprinkles(550, 400, 300, 80, 3)}
+  ${drips(525, 330, 350, "#ff5d8f")}
+  <rect x="595" y="230" width="210" height="112" rx="22" ${S("#9b5de5", o)}/>
+  ${sprinkles(615, 290, 170, 40, 9)}
+  ${drips(595, 230, 210, "#ffffff")}
+  ${candle(645, "#ff5d8f")}${candle(700, "#4cc9f0")}${candle(755, "#ffd166")}
+  ${gloss("M548 372 V430", 8, .7)}`;
+}
+
+function giftBox(o) {
+  const teal = "#26a69a", tealD = "#1c7f76", yel = "#ffd166";
+  return `
+  ${sparkle(600, 225, 26, "#fff3b0", o)}${sparkle(800, 210, 34, "#fff3b0", o)}${sparkle(700, 160, 18, "#fff", o)}
+  <path d="${heartD(655, 250, 26)}" ${S("#ff6b8b", o, 5)}/><path d="${heartD(752, 262, 20)}" ${S("#ff6b8b", o, 5)}/>
+  <circle cx="560" cy="290" r="7" fill="#fff"/><circle cx="845" cy="290" r="8" fill="#fff"/><circle cx="728" cy="214" r="6" fill="#fff"/>
+  <!-- box -->
+  <rect x="560" y="318" width="290" height="208" rx="14" ${S(teal, o)}/>
+  <rect x="675" y="318" width="60" height="208" ${S(yel, o)}/>
+  <rect x="544" y="300" width="322" height="46" rx="10" ${S(tealD, o)}/>
+  <rect x="675" y="300" width="60" height="46" ${S(yel, o)}/>
+  ${gloss("M584 370 V480", 8, .55)}
+  <!-- lid, flying off -->
+  <g transform="translate(720 150) rotate(-16)">
+    <path d="M-10 -52 C-60 -110,-120 -90,-98 -58 C-84 -40,-40 -44,-10 -52Z" ${S(yel, o)}/>
+    <path d="M10 -52 C60 -110,120 -90,98 -58 C84 -40,40 -44,10 -52Z" ${S(yel, o)}/>
+    <rect x="-172" y="-50" width="344" height="62" rx="12" ${S(teal, o)}/>
+    <rect x="-32" y="-50" width="64" height="62" ${S(yel, o)}/>
+    <rect x="-20" y="-70" width="40" height="34" rx="12" ${S(yel, o)}/>
+    ${gloss("M-150 -32 H-70", 8, .6)}
+  </g>`;
+}
+
+function flutes(o) {
+  const flute = (x, rot) => `<g transform="translate(${x} 470) rotate(${rot})">
+    <path d="M0 -14 V68" ${L(o, 9)}/><ellipse cx="0" cy="72" rx="44" ry="12" ${S("#f4ecff", o)}/>
+    <path d="M-38 -260 C-40 -150,-26 -36,0 -16 C26 -36,40 -150,38 -260 Z" ${S("#f4ecff", o)}/>
+    <path d="M-37 -196 C-36 -120,-24 -42,0 -24 C24 -42,36 -120,37 -196 Z" fill="#ffc94d"/>
+    <path d="M-37 -196 H37" ${L(o, 5)}/>
+    <circle cx="-10" cy="-120" r="6" fill="#fff6d6"/><circle cx="8" cy="-80" r="5" fill="#fff6d6"/><circle cx="-4" cy="-160" r="4" fill="#fff6d6"/><circle cx="12" cy="-140" r="4" fill="#fff6d6"/>
+    <path d="M-38 -260 C-40 -150,-26 -36,0 -16 C26 -36,40 -150,38 -260 Z" ${L(o)}/>
+    ${gloss("M-24 -240 C-26 -170,-20 -110,-12 -76", 7, .8)}
+  </g>`;
+  let rays = ""; for (let i = 0; i < 9; i++) { const a = (-160 + i * 17.5) * Math.PI / 180; rays += `<path d="M${f(700 + Math.cos(a) * 46)} ${f(192 + Math.sin(a) * 46)} L${f(700 + Math.cos(a) * 92)} ${f(192 + Math.sin(a) * 92)}" ${L("#ffd166", 8)}/>`; }
+  return `${rays}${flute(640, 14)}${flute(760, -14)}
+  ${sparkle(560, 170, 22, "#ffd166", o)}${sparkle(850, 140, 28, "#ffd166", o)}${sparkle(880, 330, 16, "#fff", o)}
+  <path d="${heartD(565, 330, 22)}" ${S("#ff6b8b", o, 5)}/>`;
+}
+
+function plane(o) {
+  return `
+  <path d="M250 150 C330 40,470 70,452 160 C436 238,330 210,370 150 C420 80,520 230,598 296" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="2 22" stroke-linecap="round"/>
+  <path d="${heartD(300, 92, 26)}" ${S("#ff6b8b", o, 5)}/><path d="${heartD(500, 210, 18)}" ${S("#ff6b8b", o, 5)}/>
+  <!-- paper airplane -->
+  <path d="M600 300 L930 120 L700 340 Z" ${S("#ffffff", o)}/>
+  <path d="M700 340 L930 120 L728 420 Z" ${S("#dcd6ff", o)}/>
+  <path d="M700 340 L930 120 L800 330 Z" ${S("#f3f0ff", o)}/>
+  <path d="M700 340 L728 420" ${L(o, 7)}/>
+  ${gloss("M640 296 L860 172", 7, .7)}
+  <!-- clouds -->
+  <path d="M640 500 A30 30 0 0 1 668 452 A42 42 0 0 1 746 444 A32 32 0 0 1 800 500 Z" ${S("#ffffff", o)}/>
+  <path d="M820 270 A20 20 0 0 1 840 238 A28 28 0 0 1 892 232 A22 22 0 0 1 930 270 Z" ${S("#ffffff", o, 6)}/>
+  ${sparkle(880, 420, 20, "#fff3b0", o)}`;
+}
+
+function popper(o) {
+  const r = rng(41), cs = ["#ffd166", "#ff5d8f", "#4cc9f0", "#7bd389", "#ffffff", "#9b5de5"];
+  let conf = "";
+  for (let i = 0; i < 46; i++) {
+    const a = (-165 + r() * 120) * Math.PI / 180, d = 90 + r() * 300, x = 690 + Math.cos(a) * d, y = 300 + Math.sin(a) * d * .9;
+    if (y > 360 && x < 500) continue;
+    const c = cs[i % cs.length], k = r();
+    conf += k < .45 ? `<rect x="${f(x)}" y="${f(y)}" width="26" height="12" rx="3" ${S(c, o, 4)} transform="rotate(${f(r() * 180)} ${f(x + 13)} ${f(y + 6)})"/>`
+      : k < .75 ? `<circle cx="${f(x)}" cy="${f(y)}" r="${f(7 + r() * 6)}" ${S(c, o, 4)}/>`
+      : `<path d="${starD(x, y, 14)}" ${S(c, o, 4)}/>`;
+  }
+  const streamer = (d, c) => `<path d="${d}" ${L(o, 17)}/><path d="${d}" ${L(c, 9)}/>`;
+  return `${streamer("M690 300 C640 230,700 190,650 140 S600 60,560 70", "#ff5d8f")}
+  ${streamer("M690 300 C620 290,600 230,540 240 S470 200,440 160", "#4cc9f0")}
+  ${streamer("M690 300 C720 220,790 230,780 150 S820 70,860 60", "#ffd166")}
+  ${conf}
+  <g transform="translate(700 300) rotate(-40)">
+    <defs><clipPath id="cone"><path d="M-84 0 L0 250 L84 0 Z"/></clipPath></defs>
+    <path d="M-84 0 L0 250 L84 0 Z" fill="#ffffff"/>
+    <g clip-path="url(#cone)">${[0, 1, 2, 3, 4, 5].map((i) => `<path d="M-120 ${i * 50 + 8} L120 ${i * 50 - 40} V${i * 50 - 16} L-120 ${i * 50 + 32}Z" fill="#3d5af1"/>`).join("")}</g>
+    <path d="M-84 0 L0 250 L84 0 Z" ${L(o)}/>
+    <ellipse cx="0" cy="0" rx="86" ry="26" ${S("#ffd166", o)}/><ellipse cx="0" cy="0" rx="62" ry="14" fill="${o}" opacity=".85"/>
+  </g>`;
+}
+
+function bags(o) {
+  const gold = "#d9b26a", bag = (x, y, w, h, rot, fill, line) => `<g transform="rotate(${rot} ${x + w / 2} ${y + h})">
+    <path d="M${x + w * .28} ${y + 4} C${x + w * .28} ${y - 70},${x + w * .72} ${y - 70},${x + w * .72} ${y + 4}" ${L(line, 9)}/>
+    <path d="M${x} ${y} H${x + w} L${x + w + 14} ${y + h} H${x - 14} Z" ${S(fill, line, 6)}/>
+    <path d="M${x + w * .2} ${y + 34} H${x + w * .8}" ${L(line, 4)} opacity=".5"/>
+  </g>`;
+  return `${bag(560, 210, 200, 250, -8, gold, "#0b0b0c")}
+  ${bag(690, 250, 220, 260, 6, "#2a2a31", gold)}
+  <!-- hang tag -->
+  <path d="M770 200 C760 240,770 280,786 312" ${L(gold, 4)}/>
+  <g transform="rotate(18 800 360)">
+    <path d="M748 320 H840 L872 360 L840 400 H748 Q736 400 736 388 V332 Q736 320 748 320Z" ${S("#f6efe0", "#0b0b0c", 6)}/>
+    <circle cx="846" cy="360" r="8" ${S("#2a2a31", "#0b0b0c", 4)}/>
+    <text x="790" y="362" font-family="Segoe UI,Arial" font-weight="900" font-size="58" text-anchor="middle" dominant-baseline="central" fill="#1a1a1f">%</text>
+  </g>
+  ${sparkle(560, 160, 22, gold)}${sparkle(905, 190, 30, gold)}${sparkle(930, 470, 16, gold)}`;
+}
+
+function ornaments(o) {
+  const orn = (cx, cy, r, c, band, decor) => {
+    const top = cy - r;
+    return `<path d="M${cx} -10 V${top - 26}" ${L(o, 4)}/><path d="M${cx - 12} ${top - 30} a12 12 0 0 1 24 0" ${L(o, 5)}/>
+      <rect x="${cx - r * .28}" y="${top - 24}" width="${r * .56}" height="30" rx="6" ${S("#f2c14e", o, 6)}/>
+      <defs><clipPath id="b${cx}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/>
+      <g clip-path="url(#b${cx})">${decor(cx, cy, r, band)}</g>
+      <circle cx="${cx}" cy="${cy}" r="${r}" ${L(o)}/>
+      ${gloss(`M${cx - r * .62} ${cy - r * .2} A${r * .66} ${r * .66} 0 0 1 ${cx - r * .2} ${cy - r * .62}`, 10, .8)}`;
+  };
+  const zig = (cx, cy, r, c) => { let d = `M${cx - r} ${cy - 10}`; for (let x = cx - r; x < cx + r; x += 24) d += ` L${x + 12} ${cy + 12} L${x + 24} ${cy - 10}`; return `<rect x="${cx - r}" y="${cy - 26}" width="${2 * r}" height="52" fill="${c}"/><path d="${d}" ${L("#b3122e", 6)}/><path d="M${cx - r} ${cy - 26} H${cx + r} M${cx - r} ${cy + 26} H${cx + r}" ${L("#0a2e22", 5)}/>`; };
+  const dots = (cx, cy, r, c) => { let s = ""; for (let y = cy - r; y < cy + r; y += 34) for (let x = cx - r + ((y / 34) % 2 ? 17 : 0); x < cx + r; x += 34) s += `<circle cx="${x}" cy="${y}" r="7" fill="${c}"/>`; return s; };
+  const stripes = (cx, cy, r, c) => [-1, 0, 1].map((k) => `<path d="M${cx - r} ${cy + k * 40 + 14} Q${cx} ${cy + k * 40 - 10} ${cx + r} ${cy + k * 40 + 14}" ${L(c, 12)}/>`).join("");
+  const leaf = (x, y, rot) => `<path d="M0 0 C10 -10,20 -6,24 -18 C30 -10,40 -12,44 -2 C36 2,34 12,44 20 C32 22,26 18,20 30 C14 20,8 14,0 0Z" transform="translate(${x} ${y}) rotate(${rot}) scale(1.6)" ${S("#2f9e5b", o, 4)}/>`;
+  return `${orn(590, 230, 74, "#1f8a4c", "#f4f1ea", stripes)}
+  ${orn(840, 210, 84, "#f4f1ea", "#1f8a4c", dots)}
+  ${orn(715, 360, 118, "#f2c14e", "#f4f1ea", zig)}
+  ${leaf(860, 420, 20)}${leaf(860, 420, 110)}<circle cx="866" cy="430" r="14" ${S("#e63946", o, 5)}/><circle cx="890" cy="414" r="12" ${S("#e63946", o, 5)}/><circle cx="886" cy="442" r="11" ${S("#e63946", o, 5)}/>
+  ${sparkle(940, 340, 20, "#fff", o)}${sparkle(500, 120, 16, "#fff", o)}`;
+}
+
+function basket(o) {
+  const egg = (cx, cy, rx, ry, rot, c, id, decor) => `<g transform="rotate(${rot} ${cx} ${cy})"><defs><clipPath id="${id}"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"/></clipPath></defs>
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${c}"/><g clip-path="url(#${id})">${decor(cx, cy, rx, ry)}</g>
+    <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" ${L(o)}/>${gloss(`M${cx - rx * .55} ${cy - ry * .3} Q${cx - rx * .45} ${cy - ry * .7} ${cx - rx * .1} ${cy - ry * .82}`, 8, .7)}</g>`;
+  const zigD = (cx, y, rx) => { let d = `M${cx - rx} ${y}`; for (let x = cx - rx; x < cx + rx; x += 22) d += ` L${x + 11} ${y - 16} L${x + 22} ${y}`; return d; };
+  const zz = (cx, cy, rx) => `<path d="${zigD(cx, cy, rx)}" ${L("#fff", 9)}/><path d="${zigD(cx, cy + 40, rx)}" ${L("#9b5de5", 7)}/><path d="${zigD(cx, cy - 40, rx)}" ${L("#ff8fab", 7)}/>`;
+  const dd = (cx, cy, rx, ry) => { let s = ""; for (let y = cy - ry; y < cy + ry; y += 30) for (let x = cx - rx + ((Math.round(y) / 30) % 2 ? 15 : 0); x < cx + rx; x += 30) s += `<circle cx="${x}" cy="${y}" r="7" fill="#fff"/>`; return s + `<path d="M${cx - rx} ${cy + 6} H${cx + rx}" ${L("#ff5d8f", 12)}/>`; };
+  const ss = (cx, cy, rx) => [-36, 0, 36].map((k, i) => `<path d="M${cx - rx} ${cy + k} H${cx + rx}" ${L(["#ffd166", "#ffffff", "#ff8fab"][i], 12)}/>`).join("");
+  let weave = `<defs><clipPath id="bk"><path d="M566 400 L854 400 L816 548 L604 548 Z"/></clipPath></defs><g clip-path="url(#bk)">`;
+  for (let x = 560; x < 870; x += 30) weave += `<path d="M${x} 400 L${x + (x - 710) * -.13} 550" ${L("#a8682e", 5)}/>`;
+  for (const y of [440, 476, 512]) weave += `<path d="M560 ${y} H860" ${L("#a8682e", 5)}/>`;
+  weave += `</g>`;
+  let grass = "M560 392"; for (let x = 560; x < 860; x += 20) grass += ` L${x + 10} 356 L${x + 20} 392`;
+  return `<path d="M590 400 C590 150,830 150,830 400" ${L(o, 30)}/><path d="M590 400 C590 150,830 150,830 400" ${L("#d08c4a", 16)}/>
+  ${egg(640, 330, 54, 72, -16, "#ff8fab", "e1", dd)}
+  ${egg(810, 336, 52, 70, 14, "#7bd3f7", "e3", ss)}
+  ${egg(724, 312, 60, 82, 0, "#b8f2c8", "e2", (cx, cy, rx) => zz(cx, cy - 20, rx))}
+  <path d="${grass} Z" ${S("#7bd389", o, 6)}/>
+  <path d="M566 400 L854 400 L816 548 L604 548 Z" fill="#d08c4a"/>
+  ${weave}<path d="M566 400 L854 400 L816 548 L604 548 Z" ${L(o)}/>
+  <rect x="548" y="382" width="324" height="38" rx="14" ${S("#b8733a", o)}/>
+  ${gloss("M572 392 H700", 7, .45)}
+  <path d="${heartD(905, 190, 24)}" ${S("#ff8fab", o, 5)}/>${sparkle(530, 210, 20, "#fff", o)}`;
+}
+
+function fireworks(o) {
+  const burst = (cx, cy, r, c, n, seed) => { const rr = rng(seed); let s = ""; for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + rr() * .1; s += `<path d="M${f(cx + Math.cos(a) * r * .28)} ${f(cy + Math.sin(a) * r * .28)} L${f(cx + Math.cos(a) * r * .82)} ${f(cy + Math.sin(a) * r * .82)}" ${L(c, 9)}/><circle cx="${f(cx + Math.cos(a) * r)}" cy="${f(cy + Math.sin(a) * r)}" r="8" fill="${c}"/>`; } return s + `<circle cx="${cx}" cy="${cy}" r="12" fill="${c}"/>`; };
+  return `<path d="M700 600 C690 480,712 400,700 330" fill="none" stroke="#ffd166" stroke-width="6" stroke-dasharray="4 18" stroke-linecap="round"/>
+  <path d="M880 600 C900 470,870 330,870 250" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="4 18" stroke-linecap="round"/>
+  ${burst(700, 250, 170, "#ff4d5e", 18, 1)}${burst(700, 250, 92, "#ffd166", 12, 2)}
+  ${burst(880, 160, 100, "#ffffff", 14, 3)}${burst(545, 130, 80, "#8ecae6", 12, 4)}
+  ${sparkle(560, 330, 18, "#fff")}${sparkle(940, 360, 22, "#ffd166")}${sparkle(820, 380, 14, "#fff")}
+  <path d="${starD(905, 470, 46)}" ${S("#ff4d5e", o, 6)}/><path d="${starD(810, 520, 30)}" ${S("#ffffff", o, 6)}/>`;
+}
+
+function jackOLantern(o) {
+  return `<circle cx="790" cy="210" r="210" fill="#fff6cc" opacity=".12"/>
+  <circle cx="790" cy="210" r="150" ${S("#fff1b8", o)}/><circle cx="740" cy="170" r="26" fill="#f2df9a"/><circle cx="830" cy="250" r="34" fill="#f2df9a"/><circle cx="845" cy="150" r="16" fill="#f2df9a"/>
+  <g transform="translate(720 120) scale(3.2)">${DOODLE.bat("#1a0b26")}</g><g transform="translate(900 300) scale(2.2) rotate(-12)">${DOODLE.bat("#1a0b26")}</g>
+  <!-- big pumpkin -->
+  <path d="M684 268 C680 240,692 222,712 214 L722 230 C708 236,702 250,706 272 Z" ${S("#3f7d3a", o, 6)}/>
+  <ellipse cx="600" cy="410" rx="96" ry="132" ${S("#e8711a", o)}/>
+  <ellipse cx="800" cy="410" rx="96" ry="132" ${S("#e8711a", o)}/>
+  <ellipse cx="700" cy="410" rx="112" ry="140" ${S("#f58a1f", o)}/>
+  <path d="M640 290 C620 360,620 460,642 540 M760 290 C780 360,780 460,758 540" ${L("#c45a10", 6)} opacity=".6"/>
+  <path d="M620 372 L676 372 L650 318 Z" ${S("#ffd34d", o, 6)}/><path d="M724 372 L780 372 L750 318 Z" ${S("#ffd34d", o, 6)}/>
+  <path d="M688 410 L712 410 L700 390 Z" ${S("#ffd34d", o, 5)}/>
+  <path d="M590 438 Q700 540 810 438 L786 448 L770 434 L752 462 L730 444 L710 472 L690 444 L668 462 L650 434 L632 448 Z" ${S("#ffd34d", o, 6)}/>
+  ${gloss("M560 340 Q552 380 556 420", 9, .5)}
+  <!-- little pumpkin -->
+  <path d="M906 410 C904 396,912 386,924 382" ${L("#3f7d3a", 7)}/>
+  <ellipse cx="880" cy="470" rx="50" ry="58" ${S("#e8711a", o)}/><ellipse cx="940" cy="470" rx="50" ry="58" ${S("#e8711a", o)}/><ellipse cx="910" cy="470" rx="54" ry="62" ${S("#f58a1f", o)}/>`;
+}
+
+function umbrella(o) {
+  const segs = 6, R = 210; let wedges = "", scal = `M${-R} 0`;
+  for (let i = 0; i < segs; i++) { const a0 = Math.PI + i * Math.PI / segs, a1 = a0 + Math.PI / segs; wedges += `<path d="M0 -60 L${f(Math.cos(a0) * R)} ${f(Math.sin(a0) * R * .8)} A${R} ${R * .8} 0 0 1 ${f(Math.cos(a1) * R)} ${f(Math.sin(a1) * R * .8)} Z" fill="${i % 2 ? "#ffffff" : "#ef476f"}"/>`; }
+  for (let i = 0; i < segs; i++) { const x0 = -R + i * 2 * R / segs, x1 = x0 + 2 * R / segs; scal += ` Q${f((x0 + x1) / 2)} 34 ${f(x1)} 0`; }
+  return `<ellipse cx="800" cy="640" rx="360" ry="150" ${S("#ffd98e", o)}/>
+  <path d="M640 600 L790 190" ${L(o, 22)}/><path d="M640 600 L790 190" ${L("#f4f1ea", 10)}/>
+  <g transform="translate(780 200) rotate(-14)">
+    <defs><clipPath id="can"><path d="M${-R} 0 A${R} ${R * .8} 0 0 1 ${R} 0 ${scal.replace(`M${-R} 0`, "")} Z"/></clipPath></defs>
+    <path d="M${-R} 0 A${R} ${R * .8} 0 0 1 ${R} 0 L${-R} 0 Z" fill="#ef476f"/>
+    <g clip-path="url(#can)"><rect x="${-R}" y="${-R}" width="${2 * R}" height="${2 * R}" fill="#ef476f"/>${wedges}</g>
+    <path d="M${-R} 0 A${R} ${R * .8} 0 0 1 ${R} 0" ${L(o)}/><path d="${scal}" ${L(o)}/>
+    <circle cx="0" cy="${-R * .8}" r="12" ${S("#ffd166", o, 5)}/>
+  </g>
+  <!-- beach ball -->
+  <defs><clipPath id="ball"><circle cx="900" cy="470" r="78"/></clipPath></defs>
+  <circle cx="900" cy="470" r="78" fill="#fff"/>
+  <g clip-path="url(#ball)" transform="rotate(-20 900 470)">
+    <path d="M900 392 C840 430,840 510,900 548 C870 510,870 430,900 392Z" fill="#ef476f"/>
+    <path d="M900 392 C960 430,960 510,900 548 C930 510,930 430,900 392Z" fill="#118ab2"/>
+    <path d="M900 392 C820 400,800 470,822 520 C830 470,860 420,900 392Z" fill="#ffd166"/>
+    <path d="M900 392 C980 400,1000 470,978 520 C970 470,940 420,900 392Z" fill="#06d6a0"/>
+  </g>
+  <circle cx="900" cy="470" r="78" ${L(o)}/>${gloss("M852 440 A52 52 0 0 1 880 410", 9, .8)}
+  <!-- sunglasses -->
+  <g transform="translate(600 520) rotate(-8)"><path d="M-12 -6 Q0 -16 12 -6" ${L(o, 7)}/>
+    <rect x="-92" y="-24" width="80" height="52" rx="22" ${S("#1d3557", o)}/><rect x="12" y="-24" width="80" height="52" rx="22" ${S("#1d3557", o)}/>
+    ${gloss("M-76 -8 L-56 -14", 6, .7)}${gloss("M28 -8 L48 -14", 6, .7)}</g>
+  ${sparkle(940, 110, 22, "#fff", o)}`;
+}
+
+function poppies(o) {
+  const poppy = (cx, cy, s, rot) => `<g transform="translate(${cx} ${cy}) rotate(${rot}) scale(${s})">
+    ${[0, 90, 180, 270].map((a) => `<ellipse cx="0" cy="-44" rx="50" ry="48" transform="rotate(${a + 45})" ${S(a % 180 ? "#d62839" : "#e63946", o, 6)}/>`).join("")}
+    <circle r="30" ${S("#2b2d42", o, 6)}/>${[0, 60, 120, 180, 240, 300].map((a) => `<circle cx="${f(Math.cos(a * Math.PI / 180) * 16)}" cy="${f(Math.sin(a * Math.PI / 180) * 16)}" r="4.5" fill="#8d99ae"/>`).join("")}
+    ${gloss("M-60 -56 Q-40 -82 -12 -86", 8, .55)}</g>`;
+  const stem = (d) => `<path d="${d}" ${L(o, 16)}/><path d="${d}" ${L("#52b788", 8)}/>`;
+  return `${stem("M640 270 C650 380,620 480,640 620")}${stem("M820 330 C800 430,830 520,810 620")}${stem("M720 420 C730 500,700 560,712 620")}
+  <path d="M640 500 C600 470,570 480,560 500 C590 520,620 520,640 500Z" ${S("#52b788", o, 6)}/><path d="M812 520 C850 490,880 500,892 520 C860 540,830 540,812 520Z" ${S("#52b788", o, 6)}/>
+  ${poppy(640, 250, 1.15, 10)}${poppy(830, 310, 1, -14)}${poppy(728, 420, .85, 30)}
+  <path d="${starD(940, 130, 30)}" ${S("#f4f1ea", o, 5)}/><path d="${starD(540, 120, 22)}" ${S("#f4f1ea", o, 5)}/><path d="${starD(925, 470, 18)}" ${S("#f4f1ea", o, 4)}/>`;
+}
+
+function discoBall(o) {
+  const r = rng(77), cx = 700, cy = 300, R = 150, cs = ["#e9e9f6", "#c8c8e2", "#a7a7cc", "#ffffff", "#d9c6ff", "#ffe7a8", "#b9e6ff"];
+  let tiles = "";
+  for (let y = cy - R; y < cy + R; y += 30) for (let x = cx - R + ((y - cy) / 30 % 2 ? 15 : 0); x < cx + R; x += 30) tiles += `<rect x="${x}" y="${y}" width="27" height="27" rx="3" fill="${cs[Math.floor(r() * cs.length)]}"/>`;
+  let streamers = "";
+  [["M470 60 C520 120,440 160,500 220 S460 300,520 340", "#ff5d8f"], ["M930 40 C880 110,960 150,900 220 S950 300,890 360", "#ffd166"], ["M560 470 C600 520,540 560,600 600", "#4cc9f0"]].forEach(([d, c]) => { streamers += `<path d="${d}" ${L(o, 17)}/><path d="${d}" ${L(c, 9)}/>`; });
+  return `${streamers}<path d="M700 -10 V140" ${L("#e9e9f6", 5)}/>
+  <circle cx="${cx}" cy="${cy}" r="${R + 60}" fill="#b8a6ff" opacity=".12"/>
+  <defs><clipPath id="disco"><circle cx="${cx}" cy="${cy}" r="${R}"/></clipPath><radialGradient id="dshade" cx=".35" cy=".3" r=".8"><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#1b1440" stop-opacity=".55"/></radialGradient></defs>
+  <circle cx="${cx}" cy="${cy}" r="${R}" fill="#8f8fb8"/>
+  <g clip-path="url(#disco)">${tiles}<circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#dshade)"/></g>
+  <circle cx="${cx}" cy="${cy}" r="${R}" ${L(o)}/>
+  <rect x="${cx - 26}" y="${cy - R - 22}" width="52" height="30" rx="6" ${S("#d4af5a", o, 6)}/>
+  ${sparkle(cx - 60, cy - 70, 26, "#fff")}${sparkle(560, 170, 30, "#ffd166", o)}${sparkle(880, 200, 34, "#ffd166", o)}${sparkle(880, 440, 22, "#fff", o)}${sparkle(540, 420, 18, "#fff", o)}`;
+}
+
+function potOfGold(o) {
+  const bands = ["#ff595e", "#ff924c", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"];
+  let rb = ""; bands.forEach((c, i) => { const r = 330 - i * 30; rb += `<path d="M${800 - r} 520 A${r} ${r} 0 0 1 ${800 + r} 520" fill="none" stroke="${c}" stroke-width="31"/>`; });
+  const coin = (x, y, r = 22) => `<circle cx="${x}" cy="${y}" r="${r}" ${S("#ffd23f", o, 5)}/><circle cx="${x}" cy="${y}" r="${r * .55}" ${L("#e0a800", 4)}/>`;
+  return `<defs><clipPath id="rbc"><rect x="400" y="0" width="600" height="440"/></clipPath></defs>
+  <g>${rb}<path d="M${800 - 345} 520 A345 345 0 0 1 ${800 + 345} 520" ${L(o, 6)}/><path d="M${800 - 165} 520 A165 165 0 0 1 ${800 + 165} 520" ${L(o, 6)}/></g>
+  <path d="M900 470 A34 34 0 0 1 940 420 A48 48 0 0 1 1030 410 L1030 470 Z" ${S("#ffffff", o)}/>
+  <!-- cauldron -->
+  <path d="M530 540 l-14 40 M610 560 v40 M690 540 l14 40" ${L(o, 14)}/>
+  ${coin(560, 412)}${coin(600, 398)}${coin(640, 404)}${coin(682, 414)}${coin(578, 432)}${coin(622, 428)}${coin(664, 434)}${coin(610, 372, 24)}
+  <path d="M500 444 C470 560,750 560,720 444 Z" ${S("#2b2d42", o)}/>
+  <ellipse cx="610" cy="444" rx="128" ry="26" ${S("#3d405b", o)}/>
+  ${gloss("M520 470 Q522 510 548 530", 9, .35)}
+  ${coin(770, 520, 20)}${coin(810, 540, 18)}
+  ${sparkle(700, 330, 18, "#fff", o)}${sparkle(520, 330, 14, "#fff", o)}
+  <g transform="translate(900 470) scale(2.4)">${DOODLE.clover("#0b3b22").replace(/fill="none"/g, 'fill="#52d17c"')}</g>`;
+}
+
+function loveLetter(o) {
+  const r = rng(5);
+  let small = ""; [[560, 150, 26], [880, 120, 32], [935, 300, 20], [520, 280, 18], [800, 70, 16]].forEach(([x, y, s]) => { small += `<path d="${heartD(x, y, s)}" ${S(r() < .5 ? "#fff" : "#ffb3c7", o, 5)}/>`; });
+  return `${small}
+  <path d="M560 320 L715 200 L870 320 Z" ${S("#ffc2d4", o)}/>
+  <rect x="560" y="318" width="310" height="214" rx="14" ${S("#ffe1ea", o)}/>
+  <!-- the big heart, sliding out -->
+  <path d="${heartD(715, 280, 120)}" ${S("#e5383b", o)}/>
+  ${gloss("M630 232 Q650 196 690 196", 10, .8)}
+  <path d="M560 330 L715 440 L870 330 V520 Q870 532 858 532 H572 Q560 532 560 520 Z" ${S("#fff0f4", o)}/>
+  <path d="M560 532 L690 430 M870 532 L740 430" ${L(o, 6)} opacity=".5"/>
+  <circle cx="715" cy="444" r="26" ${S("#e5383b", o, 6)}/><path d="${heartD(715, 446, 11)}" fill="#ffb3c7"/>`;
+}
+
+function iceCream(o) {
+  let waffle = ""; for (let i = -6; i < 12; i++) waffle += `<path d="M${560 + i * 30} 330 l140 240" ${L("#c47f3c", 4)}/><path d="M${840 - i * 30} 330 l-140 240" ${L("#c47f3c", 4)}/>`;
+  const sp = rng(12); let spr = ""; for (let i = 0; i < 12; i++) { const a = sp() * Math.PI * 2, d = sp() * 70, x = 700 + Math.cos(a) * d, y = 210 + Math.sin(a) * d * .7; spr += `<rect x="${f(x)}" y="${f(y)}" width="15" height="6" rx="3" fill="${["#ff5d8f", "#ffd166", "#4cc9f0", "#9b5de5"][i % 4]}" transform="rotate(${f(sp() * 180)} ${f(x)} ${f(y)})"/>`; }
+  return `<!-- watermelon -->
+  <g transform="translate(895 470) rotate(-18)">
+    <path d="M-110 0 A110 110 0 0 0 110 0 Z" ${S("#52b788", o)}/><path d="M-92 0 A92 92 0 0 0 92 0 Z" fill="#f1faee"/><path d="M-82 0 A82 82 0 0 0 82 0 Z" fill="#ff6b6b"/>
+    <path d="M-110 0 H110" ${L(o)}/>${[[-40, 24], [0, 40], [40, 24], [-18, 60], [20, 58]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="5" ry="8" fill="#2b2d42"/>`).join("")}
+  </g>
+  <defs><clipPath id="cone2"><path d="M590 330 L700 580 L810 330 Z"/></clipPath></defs>
+  <path d="M590 330 L700 580 L810 330 Z" fill="#e9a55c"/><g clip-path="url(#cone2)">${waffle}</g><path d="M590 330 L700 580 L810 330 Z" ${L(o)}/>
+  <path d="M582 316 C582 250,818 250,818 316 C818 346,792 340,780 356 C768 372,750 350,736 360 C720 372,708 352,690 362 C672 372,660 348,640 360 C622 370,612 346,600 350 C586 354,582 336,582 316Z" ${S("#ff8fab", o)}/>
+  <circle cx="700" cy="215" r="92" ${S("#a8e6cf", o)}/>
+  ${spr}
+  ${gloss("M630 190 Q640 150 676 136", 9, .8)}
+  <path d="M712 128 C716 106,730 92,748 86" ${L(o, 5)}/><circle cx="706" cy="132" r="24" ${S("#e63946", o, 6)}/>${gloss("M696 124 l6 -6", 5, .9)}
+  <circle cx="545" cy="150" r="54" ${S("#ffd166", o)}/>${[0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<path d="M${f(545 + Math.cos(a * Math.PI / 180) * 70)} ${f(150 + Math.sin(a * Math.PI / 180) * 70)} L${f(545 + Math.cos(a * Math.PI / 180) * 92)} ${f(150 + Math.sin(a * Math.PI / 180) * 92)}" ${L(o, 8)}/>`).join("")}`;
+}
+
+/* ── the occasions ─────────────────────────────────────────── */
+// bg: [centre, edge] · o: outline · d: doodle kinds + colour · hero: the scene
+const T = {
+  birthday:        { bg: ["#8f73ff", "#5b3fd6"], o: "#24145e", d: [["squiggle", "star", "ring", "dot"], "#c9bbff"], z: 1.15, hero: cake },
+  welcome:         { bg: ["#ffb199", "#f2785c"], o: "#5c2214", d: [["sparkle", "heart", "dot"], "#ffe0d4"], z: 1.15, hero: giftBox },
+  anniversary:     { bg: ["#7a3fb0", "#3e1670"], o: "#23093f", d: [["star", "sparkle", "dot"], "#b48ce0"], z: 1.06, hero: flutes },
+  comeback:        { bg: ["#a3b1ff", "#6d7ef0"], o: "#1f2766", d: [["heart", "cloud", "dot"], "#dfe4ff"], z: 1.08, hero: plane },
+  custom_occasion: { bg: ["#ffa65c", "#f47b20"], o: "#5a2600", d: [["squiggle", "star", "ring"], "#ffd3ad"], z: 1.1, hero: popper },
+  black_friday:    { bg: ["#2a2a31", "#101013"], o: "#0b0b0c", d: [["tag", "percent", "dot"], "#3b3b44"], z: 1.12, hero: bags },
+  christmas:       { bg: ["#d3203f", "#8e0c24"], o: "#3d0410", d: [["snow", "star", "dot"], "#f28b9c"], z: 1.1, hero: ornaments },
+  easter:          { bg: ["#ffd666", "#f7b32b"], o: "#5a3410", d: [["flower", "egg", "dot"], "#fff1bf"], z: 1.12, hero: basket },
+  fourth_of_july:  { bg: ["#2b3f8f", "#141f55"], o: "#0a1033", d: [["star", "dot"], "#5a6fc0"], z: 1.1, hero: fireworks },
+  halloween:       { bg: ["#4a2675", "#1d0d33"], o: "#14071f", d: [["bat", "star", "dot"], "#6b4596"], z: 1.1, hero: jackOLantern },
+  labor_day:       { bg: ["#6fd0f7", "#2a9fd6"], o: "#0f3554", d: [["wave", "sun", "dot"], "#c7eefc"], z: 1.0, hero: umbrella },
+  memorial_day:    { bg: ["#55648f", "#2b3657"], o: "#141a30", d: [["star", "dot"], "#8792b8"], z: 1.08, hero: poppies },
+  new_years:       { bg: ["#3b2a7a", "#120d2e"], o: "#0a0720", d: [["sparkle", "star", "dot"], "#6c5bb5"], z: 1.14, hero: discoBall },
+  st_patricks:     { bg: ["#2fb768", "#13773d"], o: "#0b3b22", d: [["clover", "coin", "dot"], "#86e0a8"], z: 1.12, hero: potOfGold },
+  valentines:      { bg: ["#ff5c99", "#e0186a"], o: "#5a0f2c", d: [["heartLoop", "heart"], "#ffb0cf"], z: 1.22, hero: loveLetter },
+  summer_kickoff:  { bg: ["#4fe0d2", "#16a9a9"], o: "#0b4545", d: [["wave", "sun", "dot"], "#b9f5ef"], z: 1.04, hero: iceCream },
+};
+
+function card(slug) {
+  const t = T[slug]; if (!t) return "";
+  const s = seedOf(slug);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <defs>
+    <radialGradient id="bg" cx=".68" cy=".42" r=".85"><stop offset="0" stop-color="${t.bg[0]}"/><stop offset="1" stop-color="${t.bg[1]}"/></radialGradient>
+    <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="${s % 97}"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .5 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
+    <filter id="lift" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".22"/></filter>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+  ${doodles(s, t.d[0], t.d[1])}
+  <g filter="url(#lift)"><g transform="translate(700 320) scale(${t.z ?? 1}) translate(-700 -320)">${t.hero(t.o)}</g></g>
+  <rect width="${W}" height="${H}" fill="#808080" filter="url(#grain)" opacity=".07" style="mix-blend-mode:overlay"/>
+</svg>`;
+}
+
+const slug = new URLSearchParams(location.search).get("slug");
+document.getElementById("one").innerHTML = card(slug || "birthday");
+</script></body></html>

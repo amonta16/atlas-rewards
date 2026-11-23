@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@atlas/core/supabase/client";
 import { optimizedUrl } from "@atlas/core/img";
 import type { MsScratchGift } from "@/lib/gifts";
+import { ownOfferArt } from "@/lib/offer-art";
 import { IcNext as IcChevronRight, IcGift } from "./icons";
 import { GiftCodeModal } from "./gift-code";
 // CP-213: handwriting for the name tag (Dermis-style gift).
@@ -179,6 +180,7 @@ export function ScratchGift({ gift, slug, primary, pointsLabel, fullName, demo: 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const exp = expiresLabel(gift.expiresAt, mounted);
+  const occasionArt = ownOfferArt(gift.imageUrl);
 
   // Already scratched on this phone earlier → skip straight to Claim.
   // Demo / example gifts start covered on every load (CP-213).
@@ -201,14 +203,18 @@ export function ScratchGift({ gift, slug, primary, pointsLabel, fullName, demo: 
       // The tag's handwriting font must be ready before it is painted.
       try { await document.fonts?.load("600 30px Caveat"); } catch { /* falls back to cursive */ }
       ctx.globalCompositeOperation = "source-over";
-      // cover-fit the 600×360 art
-      const s = Math.max(r.width / 600, r.height / 360);
-      const dw = 600 * s, dh = 360 * s;
+      // cover-fit the art (the 600×360 parcel, or a 1000×600 occasion card)
+      const iw = img.naturalWidth || 600, ih = img.naturalHeight || 360;
+      const s = Math.max(r.width / iw, r.height / ih);
+      const dw = iw * s, dh = ih * s;
       ctx.drawImage(img, (r.width - dw) / 2, (r.height - dh) / 2, dw, dh);
       drawNameTag(ctx, r.width, r.height, tagName);
     };
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(giftFrontSvg(primary))}`;
-  }, [primary, tagName]);
+    // CP-262: an occasion's ready-made card wraps the gift (birthday cake, pumpkins …); anything else gets the parcel.
+    // Same-origin path, because clearedShare() reads the canvas back.
+    img.onerror = () => { img.onerror = null; img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(giftFrontSvg(primary))}`; };
+    img.src = occasionArt ?? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(giftFrontSvg(primary))}`;
+  }, [primary, tagName, occasionArt]);
 
   useEffect(() => {
     if (phase !== "covered") return;
@@ -292,7 +298,7 @@ export function ScratchGift({ gift, slug, primary, pointsLabel, fullName, demo: 
       <div ref={wrap} className="relative mt-4 aspect-[5/3] w-full select-none overflow-hidden rounded-[22px] bg-white ring-1 ring-[var(--ms-line)] shadow-[0_18px_40px_-26px_rgba(23,28,45,.55)]">
         {/* Underneath: the gift */}
         <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center" aria-hidden={covered}>
-          {gift.imageUrl ? (
+          {gift.imageUrl && !occasionArt ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={optimizedUrl(gift.imageUrl, 240)} alt="" className="h-16 w-16 rounded-2xl object-cover ring-1 ring-black/5" />
           ) : (

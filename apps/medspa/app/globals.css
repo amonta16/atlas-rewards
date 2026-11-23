@@ -44,6 +44,20 @@ body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
 }
 @keyframes ms-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 
+/* CP-262 · Desk → Automated offers preview: the push drops onto the phone, sits, then blurs away (Dermis style).
+ * One run per mount; the preview remounts it every few seconds. Reduced motion: it just sits there. */
+@keyframes offer-push {
+  0% { opacity: 0; transform: translateY(-26px) scale(.94); filter: blur(10px); }
+  10% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  13% { transform: translateY(0) scale(1.015); }
+  16%, 82% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  96%, 100% { opacity: 0; transform: translateY(-8px) scale(.98); filter: blur(10px); }
+}
+.offer-push { animation: offer-push 4.6s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes offer-art-in { from { opacity: 0; transform: scale(1.04); filter: blur(6px); } }
+.offer-art-in { animation: offer-art-in 420ms cubic-bezier(.2, .8, .2, 1) both; }
+@media (prefers-reduced-motion: reduce) { .offer-push, .offer-art-in { animation: none; } }
+
 /* ───────── Glide (CP-248): screens come from the card that opened them ─────────
  * The View Transitions styles for components/glide.tsx. Only transform and
  * opacity animate; 160–320 ms, ease-out. Reduced motion: a short fade. */

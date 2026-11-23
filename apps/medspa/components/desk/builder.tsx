@@ -31,6 +31,7 @@ import { RewardsView } from "./manager-views";
 import { IcCheck, IcGift, IcMore } from "../icons";
 import { MarketingView, OffersView } from "./marketing-views";
 import { EngineGate, LockPill, useEngineLocked } from "./engine-lock";
+import { offerArtPath, offerArtUrl } from "@/lib/offer-art";
 
 export type Section = "brand" | "clinic" | "treatments" | "skinscan" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "oneoff" | "campaigns" | "automations" | "rewards";
 type Tab = "journey" | "products" | "membership" | "rewards" | "settings";
@@ -134,7 +135,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
           {section === "results" && <ResultsSection cfg={cfg} setCfg={setCfg} upload={upload} />}
           {section === "skinscan" && <SkinScanSection cfg={cfg} setCfg={setCfg} slug={clinic.slug} defaultOn={clinic.demo} />}
           {section === "care" && <CareSection cfg={cfg} setCfg={setCfg} />}
-          {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} clinicName={clinic.name} />}
+          {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} clinicName={clinic.name} appIcon={d.app_icon_url || d.logo_url || null} primary={d.primary} />}
           {section === "oneoff" && <OffersView api={api} say={say} offersOn={offersOn} onOpenAutomated={() => setSection("gifts")} />}
           {section === "campaigns" && <MarketingView api={api} recall={recall} onOpenCare={() => setSection("care")} onOpenOffers={() => setSection("gifts")} onOpenInsights={onOpenInsights} />}
           {section === "automations" && <AutomationsSection api={api} say={say} brand={{ name: d.name, logoUrl: d.logo_url, primary: d.primary, heroUrl: d.hero_image_url, address: d.address || null }} />}
@@ -198,17 +199,20 @@ function Segmented<T extends string>({ value, options, onChange }: { value: T | 
     </div>
   );
 }
-function Photo({ url, onChange, upload, bucket = "business-heroes", folder, aspect = "aspect-[4/3]", label = "Add a photo", gray }: {
+function Photo({ url, fallback, onChange, upload, bucket = "business-heroes", folder, aspect = "aspect-[4/3]", label = "Add a photo", gray }: {
   url: string | null; onChange: (u: string | null) => void; upload: Upload; bucket?: "business-heroes" | "business-logos"; folder: string; aspect?: string; label?: string; gray?: boolean;
+  /** Shown when nothing is uploaded (CP-262: an offer's ready-made card). "Remove" goes back to it. */
+  fallback?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const shown = url || fallback || null;
   return (
     <div>
       <button type="button" onClick={() => ref.current?.click()} className={`relative block w-full overflow-hidden rounded-[18px] bg-page ${aspect}`}>
-        {url ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={url} alt="" className={`h-full w-full object-cover ${gray ? "grayscale" : ""}`} />
+        {shown ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={shown} alt="" className={`h-full w-full object-cover ${gray ? "grayscale" : ""}`} />
           : <span className="grid h-full place-items-center px-3 text-center text-[13.5px] text-sub">{busy ? "Uploading…" : label}</span>}
-        {url && <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-3 py-1 text-[12px] font-semibold">{busy ? "Uploading…" : "Change"}</span>}
+        {shown && <span className="absolute bottom-2 right-2 rounded-full bg-white/90 px-3 py-1 text-[12px] font-semibold">{busy ? "Uploading…" : "Change"}</span>}
       </button>
       {url && <button type="button" onClick={() => onChange(null)} className="mt-1.5 text-[12.5px] text-faint hover:text-red-600">Remove</button>}
       <input ref={ref} type="file" accept="image/*" hidden onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; setBusy(true); const u = await upload(f, bucket, folder); setBusy(false); if (u) onChange(u); }} />
@@ -680,45 +684,74 @@ const giftLine = (g: GiftOffer, rewards: RewardRow[]) =>
   : g.discount_type === "points_bonus" ? `+${g.discount_value ?? 0} points`
   : g.discount_type === "percent" ? `${g.discount_value ?? 0}% off` : g.discount_type === "flat_cents" ? `$${(g.discount_value ?? 0) / 100} off` : "A message, no gift";
 
-export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; say: (t: string) => void; upload: Upload; clinicName: string }) {
+// CP-262: sample patients for the preview. The tag on the patient's gift carries their own name.
+const SAMPLE_NAMES = ["Sarah", "Emma", "Olivia", "Mia"];
+
+export function GiftsSection({ api, say, upload, clinicName, appIcon, primary }: { api: DeskApi; say: (t: string) => void; upload: Upload; clinicName: string; appIcon?: string | null; primary?: string }) {
   const [rows, setRows] = useState<GiftOffer[] | null>(null);
   const [rewards, setRewards] = useState<RewardRow[]>([]);
   const [edit, setEdit] = useState<GiftOffer | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [beat, setBeat] = useState(0); // each beat drops the push in again, for the next sample patient
   const locked = useEngineLocked(); // preview desk: the offers can be read and edited, never switched on
   const load = () => { api.giftOffers().then(setRows).catch((e) => { say((e as Error).message); setRows([]); }); };
   useEffect(() => { load(); api.rewardsList().then((r) => setRewards(r.filter((x) => x.is_active))).catch(() => {}); }, [api]); // eslint-disable-line react-hooks/exhaustive-deps
-  const save = async (g: GiftOffer, msg: string) => { setBusy(true); try { await api.saveGiftOffer(g); say(msg); setEdit(null); load(); } catch (e) { say((e as Error).message); } setBusy(false); };
+  useEffect(() => { const t = window.setInterval(() => setBeat((b) => b + 1), 4800); return () => window.clearInterval(t); }, []);
+  // CP-262: every occasion comes with its own card. Saving one without a photo stores that card,
+  // so the patient app, the push and the inbox all show it, not just this screen.
+  const withArt = (g: GiftOffer): GiftOffer => (g.custom_image_url || g.default_image_url ? g : { ...g, custom_image_url: offerArtUrl(g.slug) });
+  const save = async (g: GiftOffer, msg: string) => { setBusy(true); try { await api.saveGiftOffer(withArt(g)); say(msg); setEdit(null); load(); } catch (e) { say((e as Error).message); } setBusy(false); };
   const current = rows?.find((g) => g.template_id === picked) ?? rows?.find((g) => g.is_active) ?? rows?.[0] ?? null;
-  const img = (g: GiftOffer) => g.custom_image_url ?? g.default_image_url;
+  const img = (g: GiftOffer) => g.custom_image_url || g.default_image_url || offerArtPath(g.slug);
   // "Happy Valentine's Day!" reads right for dates and birthdays, not for "Welcome gift".
   const festive = (g: GiftOffer) => g.trigger_type === "date" || g.trigger_type === "birthday";
+  const who = SAMPLE_NAMES[beat % SAMPLE_NAMES.length];
+  const claimBy = new Date(Date.now() + 7 * 86_400_000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(300px,380px)_1fr]">
-      {/* Preview */}
-      <section className={`rounded-[16px] bg-white p-4 ${shadow}`}>
+      {/* Preview: the patient's phone, with the push dropping in (CP-262, Dermis style) */}
+      <section className={`overflow-hidden rounded-[16px] bg-white p-4 pb-0 ${shadow}`}>
         {current ? <>
-          <div className="flex items-center gap-3 rounded-[12px] bg-[#F4F5F6] px-3.5 py-3">
-            <span className="w-[62px] shrink-0 truncate text-[8px] font-bold uppercase tracking-[0.14em]">{clinicName}</span>
-            <span className="min-w-0"><span className="block truncate text-[13px] font-semibold">{current.custom_title || (festive(current) ? `It's your ${current.name} gift!` : current.name)}</span><span className="block truncate text-[12.5px] text-sub">We&apos;ve made you a special gift... Tap to open!</span></span>
-          </div>
-          <p className="mt-3 text-center text-[12px] text-faint">Preview</p>
-          <div className="mx-auto mt-2 w-[250px] overflow-hidden rounded-t-[32px] border-[7px] border-b-0 border-[#1E2530] bg-white">
-            <div className="mx-auto h-[18px] w-[92px] rounded-b-[11px] bg-[#1E2530]" />
-            <div className="px-4 pb-5 pt-5 text-center">
-              <h3 className="text-[17px] font-semibold leading-tight tracking-[-0.01em]">{current.custom_title || (festive(current) ? `Happy ${current.name}!` : current.name)}</h3>
-              <p className="mt-1 text-[12.5px] text-sub">{current.custom_description || "We made you a special offer..."}</p>
-              <div className="mt-3 aspect-square overflow-hidden rounded-[12px] bg-page">
-                {img(current)
-                  // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={img(current)!} alt="" className="h-full w-full object-cover" />
-                  : <div className="grid h-full place-items-center"><IcGift className="h-10 w-10 text-faint" /></div>}
+          <p className="text-center text-[12px] text-faint">Preview</p>
+          <div className="relative mx-auto mt-3 w-[262px]">
+            {/* The push */}
+            <div key={`${current.template_id}:${beat}`} className="offer-push absolute inset-x-[-14px] top-[-2px] z-10 flex items-start gap-2.5 rounded-[18px] bg-[#EDEEF0]/95 px-3 py-2.5 shadow-[0_12px_30px_-12px_rgba(20,24,36,.45)] ring-1 ring-black/5 backdrop-blur" aria-label="Push notification preview">
+              {appIcon
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={appIcon} alt="" className="mt-0.5 h-8 w-8 shrink-0 rounded-[8px] object-cover ring-1 ring-black/5" />
+                : <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-[13px] font-bold text-white" style={{ background: primary || "#1E2530" }}>{clinicName.slice(0, 1)}</span>}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2"><span className="truncate text-[11px] font-semibold uppercase tracking-[0.04em] text-sub">{clinicName}</span><span className="shrink-0 text-[10.5px] text-faint">now</span></span>
+                <span className="block truncate text-[13px] font-semibold leading-snug">{current.custom_title || (festive(current) ? `It's your ${current.name} gift!` : current.name)}</span>
+                <span className="line-clamp-2 text-[12px] leading-snug text-sub">{current.custom_description || "We've made you a special gift... Tap to open!"}</span>
+              </span>
+            </div>
+            {/* The phone */}
+            <div className="overflow-hidden rounded-t-[36px] border-[8px] border-b-0 border-[#1E2530] bg-white">
+              <div className="relative flex h-[30px] items-center justify-between px-5 text-[11px] font-semibold">
+                <span>9:41</span>
+                <span className="absolute left-1/2 top-0 h-[20px] w-[86px] -translate-x-1/2 rounded-b-[12px] bg-[#1E2530]" />
+                <span className="flex items-center gap-1" aria-hidden>
+                  <span className="flex items-end gap-[1.5px]">{[4, 6, 8, 10].map((h) => <span key={h} className="w-[2.5px] rounded-[1px] bg-ink" style={{ height: h }} />)}</span>
+                  <span className="ml-1 h-[10px] w-[20px] rounded-[3px] border border-ink p-[1.5px]"><span className="block h-full w-[70%] rounded-[1px] bg-ink" /></span>
+                </span>
               </div>
-              <p className="mt-3 text-[13px] font-semibold">{giftLine(current, rewards)}</p>
+              <div className="px-3.5 pb-6 pt-4">
+                <div className="flex items-baseline justify-between"><span className="text-[17px] font-semibold tracking-[-0.01em]">A gift for you</span><span className="text-[11px] text-sub">Claim by {claimBy}</span></div>
+                <div className="relative mt-2.5 aspect-[5/3] overflow-hidden rounded-[14px] bg-page shadow-[0_12px_24px_-16px_rgba(23,28,45,.6)] ring-1 ring-black/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img key={img(current)} src={img(current)} alt="" className="offer-art-in h-full w-full object-cover" />
+                  <span className="absolute bottom-[12%] left-[6%] -rotate-[9deg] rounded-[3px] bg-[#fdf1f3] px-2.5 py-1 text-[15px] leading-none text-[#3a2328] shadow-[0_3px_8px_rgba(70,40,15,.28)]" style={{ fontFamily: "'Caveat','Bradley Hand','Segoe Print',cursive", fontWeight: 600 }}>{who}</span>
+                  <span className="absolute left-1/2 top-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#262b3d] px-2.5 py-1 text-[11px] font-medium text-white shadow-lg">Scratch to unwrap</span>
+                </div>
+                <p className="mt-3 text-center text-[15px] font-semibold leading-tight tracking-[-0.01em]">{current.custom_title || (festive(current) ? `Happy ${current.name}!` : current.name)}</p>
+                <p className="mt-1 text-center text-[12px] text-sub">{current.custom_description || "We made you a special offer..."}</p>
+                <p className="mt-2 text-center text-[12.5px] font-semibold" style={{ color: primary || undefined }}>{giftLine(current, rewards)}</p>
+              </div>
             </div>
           </div>
-        </> : <div className="h-72 animate-pulse rounded-[12px] bg-page" />}
+        </> : <div className="mb-4 h-72 animate-pulse rounded-[12px] bg-page" />}
       </section>
 
       {/* Occasions */}
@@ -732,10 +765,8 @@ export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; s
                 <li key={g.template_id} onClick={() => setPicked(g.template_id)} className={`grid cursor-pointer grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto_28px] items-center gap-3 rounded-[10px] border px-3 py-2 transition ${on ? "border-brand/30 bg-brand/[.06]" : "border-transparent bg-[#F7F8F8] hover:bg-page"} ${locked ? "grayscale [&>span]:opacity-60" : ""}`}>
                   <span className="flex min-w-0 items-center gap-2.5">
                     <span className="h-8 w-11 shrink-0 overflow-hidden rounded-[6px] bg-[#E4E6E8]">
-                      {img(g) && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={img(g)!} alt="" className="h-full w-full object-cover" loading="lazy" />
-                      )}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img(g)} alt="" className="h-full w-full object-cover object-[72%_50%]" loading="lazy" />
                     </span>
                     <span className={`truncate text-[13px] font-medium ${on ? "text-brand" : ""}`}>{g.custom_title || g.name}</span>
                   </span>
@@ -760,7 +791,7 @@ export function GiftsSection({ api, say, upload, clinicName }: { api: DeskApi; s
               <Field label="Title patients see"><Text value={edit.custom_title ?? ""} onChange={(v) => setEdit({ ...edit, custom_title: v || null })} placeholder={edit.name} /></Field>
               <Field label="Message"><Text area value={edit.custom_description ?? ""} onChange={(v) => setEdit({ ...edit, custom_description: v || null })} placeholder="Our thank-you for joining. Use it on any treatment." /></Field>
             </div>
-            <Field label="Photo"><Photo url={edit.custom_image_url ?? edit.default_image_url} onChange={(u) => setEdit({ ...edit, custom_image_url: u })} upload={upload} folder="medspa/gifts" aspect="aspect-square" /></Field>
+            <Field label="Card" hint="Ready-made for this occasion. Upload your own to swap it."><Photo url={edit.custom_image_url && edit.custom_image_url !== offerArtUrl(edit.slug) ? edit.custom_image_url : null} fallback={edit.default_image_url || offerArtPath(edit.slug)} onChange={(u) => setEdit({ ...edit, custom_image_url: u })} upload={upload} folder="medspa/gifts" aspect="aspect-[5/3]" /></Field>
           </div>
           <div className="mt-4 space-y-4">
             <Field label="The gift">

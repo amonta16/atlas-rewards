@@ -13,6 +13,7 @@
 import { demoScansKey, type ConcernId, type SavedScan } from "./skin-scan";
 import { createClient } from "@atlas/core/supabase/client";
 import { shrinkImage } from "@atlas/core/shrink-image";
+import { offerArtPath } from "./offer-art";
 import type { MonthlyReport } from "@atlas/core/reports/monthly";
 import SUITE_CATALOG from "./suite-catalog.json";
 
@@ -628,20 +629,21 @@ export function demoDeskApi(rewards: { id: string; name: string; point_cost: num
     { kind: "member", user_id: "s1", email: "jane@glowaesthetics.com", full_name: "Dr. Jane Preview", role: "business_manager", status: "active", token: null, created_at: ago(300) },
     { kind: "member", user_id: "s2", email: "frontdesk@glowaesthetics.com", full_name: "Kayla Ruiz", role: "business_staff", status: "active", token: null, created_at: ago(120) },
   ];
-  const tpl = (id: string, slug: string, name: string, trigger_type: GiftOffer["trigger_type"], description: string, on: boolean, rewardIdx: number | null, image: string, percent?: number): GiftOffer => ({
-    template_id: id, slug, name, emoji: null, description, default_image_url: `/medspa-example/${image}.jpg`, trigger_type, trigger_config: {}, config_id: on ? `c_${id}` : null, is_active: on,
+  // CP-262: each demo occasion shows its ready-made card (public/offer-art).
+  const tpl = (id: string, slug: string, name: string, trigger_type: GiftOffer["trigger_type"], description: string, on: boolean, rewardIdx: number | null, percent?: number): GiftOffer => ({
+    template_id: id, slug, name, emoji: null, description, default_image_url: offerArtPath(slug), trigger_type, trigger_config: {}, config_id: on ? `c_${id}` : null, is_active: on,
     custom_title: null, custom_description: null, custom_image_url: null, discount_type: percent ? "percent" : rewardIdx == null ? "none" : "reward", discount_value: percent ?? null,
     voice_message_url: null, gift_reward_id: rewardIdx == null ? null : rewards[rewardIdx]?.id ?? null, custom_trigger_config: null,
   });
   let gifts2: GiftOffer[] = [
-    tpl("t1", "welcome", "Welcome gift", "signup", "Sent when a patient joins the app.", true, 0, "t-ce-ferulic"),
-    tpl("t2", "birthday", "Birthday", "birthday", "Sent in their birthday week.", true, 3, "t-hydrafacial"),
-    tpl("t3", "winback", "We miss you", "inactivity", "Sent after 90 days without a visit.", true, null, "t-botox", 20),
-    tpl("t4", "anniversary", "Patient anniversary", "anniversary", "A year since they joined.", true, null, "t-morpheus8", 15),
-    tpl("t5", "valentines", "Valentine's Day", "date", "Sent on February 14.", true, null, "t-juvederm", 15),
-    tpl("t6", "mothers-day", "Mother's Day", "date", "Sent on Mother's Day.", true, null, "t-alma-harmony", 20),
-    tpl("t7", "black-friday", "Black Friday", "date", "Sent on Black Friday.", true, null, "t-sofwave", 25),
-    tpl("t8", "christmas", "Christmas", "date", "Sent on December 24.", false, null, "t-emface", 10),
+    tpl("t1", "welcome", "Welcome gift", "signup", "Sent when a patient joins the app.", true, 0),
+    tpl("t2", "birthday", "Birthday", "birthday", "Sent in their birthday week.", true, 3),
+    tpl("t3", "comeback", "We miss you", "inactivity", "Sent after 90 days without a visit.", true, null, 20),
+    tpl("t4", "anniversary", "Patient anniversary", "anniversary", "A year since they joined.", true, null, 15),
+    tpl("t5", "valentines", "Valentine's Day", "date", "Sent on February 14.", true, null, 15),
+    tpl("t6", "summer_kickoff", "Summer Kickoff", "date", "Sent at the start of summer.", true, null, 20),
+    tpl("t7", "black_friday", "Black Friday", "date", "Sent on Black Friday.", true, null, 25),
+    tpl("t8", "christmas", "Christmas", "date", "Sent on December 24.", false, null, 10),
   ];
   // CP-249: the demo lists the real suite catalog (generated from db/history/checkpoint-249-reward-automations/gen),
   // so its Automations page and email previews match what a live clinic gets. Counts are sample numbers.
