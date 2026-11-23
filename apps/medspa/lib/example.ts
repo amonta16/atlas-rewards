@@ -14,6 +14,7 @@
  *   · Med spa Home on demo businesses → the example scratch gift
  */
 import { DEFAULT_MEDSPA_CONFIG, newId, type MedspaConfig, type MedspaShopItem, type MedspaTreatment } from "@/lib/medspa";
+import { offerArtUrl } from "@/lib/offer-art";
 
 const IMG = "/medspa-example";
 export const EXAMPLE_IMG = {
@@ -140,7 +141,7 @@ export const EXAMPLE_GIFT = {
   title: "Welcome gift",
   description: "Our thank-you for joining. Use it on any treatment or product.",
   rewardName: "$25 off your first purchase",
-  imageUrl: EXAMPLE_IMG.t("ce-ferulic"),
+  imageUrl: offerArtUrl("welcome"), // CP-262: the Welcome card wraps the gift, same as a live clinic's
 };
 
 /** A complete medspa_config for the example clinic (fresh ids every call). */
