@@ -23,6 +23,8 @@
 import type { User } from "@supabase/supabase-js";
 
 export const HANDOFF_HEADER = "x-atlas-session";
+/** CP-261: the path the browser asked for (before the subdomain rewrite), set by middleware, for "sign in, then back here". */
+export const RETURN_PATH_HEADER = "x-atlas-return";
 const MAX_AGE_MS = 30_000;
 
 function secret(): string | null {

@@ -43,7 +43,7 @@ async function optOut(token: string | null): Promise<Outcome> {
 }
 
 function page(o: Outcome): string {
-  const name = o.name ? esc(o.name) : "this clinic";
+  const name = o.name ? esc(o.name) : "this business"; // CP-261: venues use it too
   const brand = o.logoUrl && /^https:\/\//i.test(o.logoUrl)
     ? `<img src="${esc(o.logoUrl)}" alt="${name}" style="height:40px;max-width:200px;object-fit:contain">`
     : `<div style="font-size:20px;font-weight:700;color:${o.primary}">${name}</div>`;

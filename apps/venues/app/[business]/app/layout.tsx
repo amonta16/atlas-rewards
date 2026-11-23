@@ -1,6 +1,8 @@
 import { preload } from "react-dom";
 import { optimizedUrl } from "@/lib/img";
 import { redirect, notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { RETURN_PATH_HEADER } from "@/lib/supabase/session-handoff";
 import { createClient, getCachedUser } from "@/lib/supabase/server";
 import { getBusinessBySlug, getFeaturedOffer, getMyMembership } from "@/lib/data/customer-app";
 import { CustomerAppShell } from "@/components/customer/app-shell";
@@ -53,7 +55,13 @@ export default async function CustomerAppLayout({
   // CP-45: slug-prefixed so path-based access (/<slug>/app, used by the
   // agency live preview + "Customer app" button) lands on this business's
   // login instead of 404ing. Subdomain access also resolves correctly.
-  if (!user) redirect(`/${params.business}/login`);
+  // CP-261: an email button (/app/rewards?redeem=…, /app/book?section=party) survives the sign-in:
+  // the login page sends them back to ?next once they're in.
+  if (!user) {
+    const back = headers().get(RETURN_PATH_HEADER) ?? "";
+    const ok = /^\/(?:[a-z0-9-]+\/)?app(?:[/?#]|$)/.test(back);
+    redirect(`/${params.business}/login${ok ? `?next=${encodeURIComponent(back)}` : ""}`);
+  }
   if (!business) notFound(); // CP-36: invalid slug → 404 instead of crash
 
   const supabase = createClient();

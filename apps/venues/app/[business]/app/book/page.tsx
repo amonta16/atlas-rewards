@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
  * treatment; its scheduling link (or the practice-wide one) wins, then
  * Atlas booking if it's on, then call / text / WhatsApp the clinic.
  */
-export default async function CustomerBookPage({ params, searchParams }: { params: { business: string }; searchParams?: { t?: string } }) {
+export default async function CustomerBookPage({ params, searchParams }: { params: { business: string }; searchParams?: { t?: string; section?: string } }) {
   const supabase = createClient();
   const { data: biz } = await supabase
     .from("businesses").select("*").eq("slug", params.business).single();
@@ -68,7 +68,8 @@ export default async function CustomerBookPage({ params, searchParams }: { param
   const { data: resRows } = await supabase.rpc("list_booking_resources", { p_business_id: business.id });
   const resources = ((resRows ?? []) as BookingResource[]).filter(r => r.is_active);
   if (resources.length > 0) {
-    return <ResourceBooking business={safeBusiness} resources={resources} />;
+    // CP-261: ?section=party (the birthday email) opens on that section.
+    return <ResourceBooking business={safeBusiness} resources={resources} initialSection={searchParams?.section ?? null} />;
   }
 
   const { data: tagRows } = await supabase.rpc("active_booking_tags", { p_business_id: business.id });
