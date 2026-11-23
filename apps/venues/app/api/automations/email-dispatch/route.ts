@@ -21,12 +21,19 @@
  * Emails from the NEW reward journeys (data.gated) are held as
  * skipped:'rewards_email_off' until REWARDS_EMAIL_SEND=1 (same idea as
  * LEAD_NURTURE_SEND), so they never start going to patients by accident.
+ *
+ * CP-261: rows with template = 'arcade' use the entertainment venue layout
+ * (lib/automations/arcade-email.ts): live points, the venue's prize-counter rewards
+ * and photos, ready prizes linking straight to Redeem. Rows with data.gate = 'venue'
+ * are held as skipped:'venue_email_off' until VENUE_EMAIL_SEND=1 (their own switch,
+ * so turning on med spa reward emails never turns on venue emails, or the reverse).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMachineSecret } from "@/lib/api-auth";
 import { renderEmail, emailFrom } from "@/lib/automations/email-template";
 import { renderRewardsEmail, type RewardsEmailReward } from "@/lib/automations/rewards-email";
+import { renderArcadeEmail, venueLinks, commafy } from "@/lib/automations/arcade-email";
 import { signUnsubscribeToken } from "@/lib/automations/unsubscribe-token";
 import { businessUrl } from "@/lib/utils";
 
@@ -44,13 +51,13 @@ type OutboxRow = {
   subject: string; preheader: string | null; heading: string | null; body: string;
   cta_label: string | null; cta_url: string | null; footnote: string | null; hero_url: string | null;
   idempotency_key: string; attempts: number;
-  template: string | null; data: { reward_id?: string; offer_name?: string; gated?: boolean } | null;
+  template: string | null; data: { reward_id?: string; offer_name?: string; gated?: boolean; gate?: string; redeem?: boolean } | null;
 };
 type RewardRow = { id: string; business_id: string; name: string; point_cost: number; image_url: string | null };
 type MemberRow = { id: string; points_balance: number | null; profiles: { full_name: string | null } | { full_name: string | null }[] | null };
 type Biz = {
   id: string; name: string; slug: string; logo_url: string | null; hero_image_url: string | null;
-  brand_colors: { primary?: string } | null; contact_info: { email?: string; address?: string } | null;
+  brand_colors: { primary?: string; secondary?: string } | null; contact_info: { email?: string; address?: string; phone?: string } | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -109,7 +116,7 @@ export async function GET(req: NextRequest) {
   const bizById = new Map(((bizRows ?? []) as Biz[]).map((b) => [b.id, b]));
 
   // CP-249: what the rewards layout needs, only when a claimed row uses it
-  const rewardRows = rows.filter((r) => r.template === "rewards");
+  const rewardRows = rows.filter((r) => r.template === "rewards" || r.template === "arcade");
   const rewardsByBiz = new Map<string, RewardsEmailReward[]>();
   const memberById = new Map<string, { points: number; firstName: string | null }>();
   if (rewardRows.length) {
@@ -149,7 +156,10 @@ export async function GET(req: NextRequest) {
       if (r.membership_id && optedOut.has(r.membership_id)) { await finish(r.id, { status: "skipped", error: "opted_out" }); skipped++; continue; }
       if (!r.membership_id) { await finish(r.id, { status: "skipped", error: "no_member" }); skipped++; continue; }
       if (TEST_ADDRESS.test(r.to_email)) { await finish(r.id, { status: "skipped", error: "test_address" }); skipped++; continue; }
-      if (r.data?.gated && process.env.REWARDS_EMAIL_SEND !== "1") { await finish(r.id, { status: "skipped", error: "rewards_email_off" }); skipped++; continue; }
+      // CP-261: venue emails have their own switch; checked first so REWARDS_EMAIL_SEND never releases them
+      if (r.data?.gate === "venue") {
+        if (process.env.VENUE_EMAIL_SEND !== "1") { await finish(r.id, { status: "skipped", error: "venue_email_off" }); skipped++; continue; }
+      } else if (r.data?.gated && process.env.REWARDS_EMAIL_SEND !== "1") { await finish(r.id, { status: "skipped", error: "rewards_email_off" }); skipped++; continue; }
 
       const unsubscribeUrl = businessUrl(root, { path: `/api/email/unsubscribe?t=${encodeURIComponent(signUnsubscribeToken(r.membership_id))}` });
       const brand = {
@@ -160,7 +170,31 @@ export async function GET(req: NextRequest) {
         address: biz.contact_info?.address ?? null,
       };
       const member = memberById.get(r.membership_id);
-      const { html, text } = r.template === "rewards" && member ? renderRewardsEmail({
+      const venue = venueLinks((path) => abs(path, biz.slug) ?? businessUrl(root, { slug: biz.slug, path }));
+      const { html, text } = r.template === "arcade" && member ? renderArcadeEmail({
+        brand: {
+          businessName: biz.name, logoUrl: abs(biz.logo_url), primary: biz.brand_colors?.primary ?? "#0284c7",
+          secondary: biz.brand_colors?.secondary ?? null, heroUrl: abs(biz.hero_image_url),
+          address: biz.contact_info?.address ?? null, phone: biz.contact_info?.phone ?? null,
+        },
+        subject: commafy(r.subject),
+        preheader: commafy(r.preheader),
+        firstName: member.firstName,
+        points: member.points,
+        headline: commafy(r.heading || r.subject),
+        body: commafy(r.body),
+        ctaLabel: r.cta_label,
+        // the email about one prize: its button opens Redeem on that prize
+        ctaUrl: r.data?.redeem && r.data?.reward_id ? venue.redeemUrl(r.data.reward_id) : abs(r.cta_url, biz.slug),
+        footnote: commafy(r.footnote),
+        rewardsUrl: venue.rewardsUrl,
+        redeemUrl: venue.redeemUrl,
+        prizes: (rewardsByBiz.get(r.business_id) ?? []).map((x) => ({ ...x, imageUrl: abs(x.imageUrl) })),
+        featuredPrizeId: r.data?.reward_id ?? null,
+        heroUrl: abs(r.hero_url),
+        quickLinks: venue.quickLinks,
+        unsubscribeUrl,
+      }) : r.template === "rewards" && member ? renderRewardsEmail({
         brand,
         subject: r.subject,
         preheader: r.preheader,
@@ -202,7 +236,7 @@ export async function GET(req: NextRequest) {
         body: JSON.stringify({
           from: emailFrom(biz.name).header,
           to: [r.to_email],
-          subject: r.subject,
+          subject: r.template === "arcade" ? commafy(r.subject) : r.subject,
           html,
           text,
           ...(replyTo.includes("@") ? { reply_to: replyTo } : {}),

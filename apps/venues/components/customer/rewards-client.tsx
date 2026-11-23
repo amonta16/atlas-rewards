@@ -113,13 +113,18 @@ export function RewardsClient({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const sp = new URLSearchParams(window.location.search);
+    // CP-261: "Get my invite link" in the Bring your crew email opens the refer sheet directly.
+    if (sp.get("focus") === "refer" && business.widget_config.referrals && membership?.referral_code) {
+      setReferOpen(true);
+      return;
+    }
     // CP-80: generalized focus targets — same scroll+flash treatment for
     // the review row (?focus=review) and the whole "Need more points?"
     // earn section (?focus=earn, used by "See ways to earn" on Home).
     const target =
       sp.get("focus") === "review" || window.location.hash === "#review-row"
         ? { id: "review-row", ring: "ring-rose-300" }
-        : sp.get("focus") === "earn" || window.location.hash === "#earn-section"
+        : sp.get("focus") === "earn" || sp.get("focus") === "refer" || window.location.hash === "#earn-section"
           ? { id: "earn-section", ring: "ring-amber-300" }
           : null;
     if (!target) return;
@@ -135,6 +140,7 @@ export function RewardsClient({
       );
     }, 250);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // CP-37.3: ?redeem=<reward_id> opens the RedeemFlow on this reward
