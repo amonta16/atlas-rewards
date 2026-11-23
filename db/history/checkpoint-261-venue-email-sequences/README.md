@@ -1,6 +1,6 @@
 # CP-261 · Email sequences for Flippo's (entertainment venues)
 
-**Status: NOT applied.** Dry-run on production inside an aborted transaction on 2026-11-22: everything compiled, the 10 journeys installed paused and passed `wf_validate`, and a med spa's `wf_suite_row` output was byte-identical before and after.
+**Status: `01` and `02` APPLIED to production on 2026-11-22** (migrations `cp261_01_venue_catalog`, `cp261_02_venue_engine`). `03` APPLIED the same day (migration `cp261_03_install_flippos`), before the merge: all 10 journeys installed **paused**, so nothing can queue until one is switched on. Switch nothing on until the branch is merged and deployed. Before applying, a dry-run inside an aborted transaction: everything compiled, the 10 journeys installed paused and passed `wf_validate`, and a med spa's `wf_suite_row` output was byte-identical before and after.
 
 Same engine as the med spa automations (CP-217 / CP-249), with its own catalog, its own email layout and its own send switch.
 
