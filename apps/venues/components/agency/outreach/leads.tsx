@@ -5,14 +5,15 @@
  */
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLink, Loader2, Phone, RefreshCw, RotateCcw, Search, X } from "lucide-react";
-import { MANUAL_STATUSES, REPLY_LABEL, STATUS_LABEL, type Lead, type LeadStatus } from "@/lib/outreach/shared";
+import { CalendarClock, ExternalLink, Loader2, MessageCircle, Phone, RefreshCw, RotateCcw, Search, X } from "lucide-react";
+import { FIT_LABEL, MANUAL_STATUSES, REPLY_LABEL, STATUS_LABEL, instagramUrl, type Fit, type Lead, type LeadStatus } from "@/lib/outreach/shared";
 import type { OutreachData } from "./outreach-app";
-import { ago, api, btnGhost, btnPrimary, card, Empty, input, inputBase, Note, StatusPill, useBusy, when } from "./ui";
+import { ago, api, btnGhost, btnPrimary, card, Empty, FitPill, input, inputBase, Note, StatusPill, useBusy, when } from "./ui";
 
 export function LeadsTab({ data, openId, setOpenId }: { data: OutreachData; openId: string | null; setOpenId: (id: string | null) => void }) {
   const [status, setStatus] = useState<LeadStatus | "all">("all");
   const [camp, setCamp] = useState("all");
+  const [fit, setFit] = useState<Fit | "all">("all");
   const [q, setQ] = useState("");
   const counts = useMemo(() => {
     const c = new Map<string, number>();
@@ -20,7 +21,7 @@ export function LeadsTab({ data, openId, setOpenId }: { data: OutreachData; open
     return c;
   }, [data.leads]);
   const list = data.leads.filter((l) =>
-    (status === "all" || l.status === status) && (camp === "all" || l.campaign_id === camp)
+    (status === "all" || l.status === status) && (camp === "all" || l.campaign_id === camp) && (fit === "all" || l.fit === fit)
     && (!q || `${l.business_name} ${l.email ?? ""} ${l.city ?? ""}`.toLowerCase().includes(q.toLowerCase())));
   const open = openId ? data.leads.find((l) => l.id === openId) ?? null : null;
   const campName = new Map(data.campaigns.map((c) => [c.id, c.name]));
@@ -40,6 +41,10 @@ export function LeadsTab({ data, openId, setOpenId }: { data: OutreachData; open
             {data.campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}{c.paused ? " (paused)" : ""}</option>)}
           </select>
         )}
+        <select className={`${inputBase} w-auto`} value={fit} onChange={(e) => setFit(e.target.value as Fit | "all")} aria-label="Fit">
+          <option value="all">Any fit</option>
+          {(Object.keys(FIT_LABEL) as Fit[]).map((f) => <option key={f} value={f}>{FIT_LABEL[f]}</option>)}
+        </select>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <Chip on={status === "all"} onClick={() => setStatus("all")}>All {data.leads.length}</Chip>
@@ -51,16 +56,17 @@ export function LeadsTab({ data, openId, setOpenId }: { data: OutreachData; open
       <div className={`${card} overflow-x-auto`}>
         <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
-            <tr><th className="px-3 py-2 font-medium">Spa</th><th className="px-3 py-2 font-medium">Email</th><th className="px-3 py-2 font-medium">Status</th><th className="px-3 py-2 font-medium">Step</th><th className="px-3 py-2 font-medium">Next / last</th><th className="px-3 py-2 font-medium">Campaign</th></tr>
+            <tr><th className="px-3 py-2 font-medium">Spa</th><th className="px-3 py-2 font-medium">Email</th><th className="px-3 py-2 font-medium">Fit</th><th className="px-3 py-2 font-medium">Status</th><th className="px-3 py-2 font-medium">Step</th><th className="px-3 py-2 font-medium">Next / last</th><th className="px-3 py-2 font-medium">Campaign</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {list.map((l) => (
               <tr key={l.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setOpenId(l.id)}>
                 <td className="px-3 py-2"><span className="font-medium text-slate-900">{l.business_name}</span><span className="block text-xs text-slate-500">{[l.city, l.state].filter(Boolean).join(", ")}</span></td>
                 <td className="px-3 py-2 text-slate-600">{l.email ?? <span className="text-slate-400">—</span>}</td>
+                <td className="px-3 py-2"><FitPill fit={l.fit} reason={l.fit_reason} /></td>
                 <td className="px-3 py-2"><StatusPill status={l.status} />{l.error && <span className="ml-1 text-xs text-amber-700" title={l.error}>!</span>}</td>
                 <td className="px-3 py-2 text-slate-600">{l.step}/{data.steps.filter((s) => s.enabled).length || 3}</td>
-                <td className="px-3 py-2 text-xs text-slate-500">{l.next_at ? `next ${ago(l.next_at)}` : l.last_reply_at ? `replied ${ago(l.last_reply_at)}` : ago(l.updated_at)}</td>
+                <td className="px-3 py-2 text-xs text-slate-500">{l.status === "later" && l.recontact_at ? `re-contact ${l.recontact_at}` : l.next_at ? `next ${ago(l.next_at)}` : l.last_reply_at ? `replied ${ago(l.last_reply_at)}` : ago(l.updated_at)}</td>
                 <td className="px-3 py-2 text-xs text-slate-500">{l.campaign_id ? campName.get(l.campaign_id) ?? "" : ""}</td>
               </tr>
             ))}
@@ -86,6 +92,10 @@ function LeadDrawer({ lead, data, onClose }: { lead: Lead; data: OutreachData; o
   const [email, setEmail] = useState(lead.email ?? "");
   const [first, setFirst] = useState(lead.first_name ?? "");
   const [notes, setNotes] = useState(lead.notes ?? "");
+  const [ig, setIg] = useState(lead.instagram ?? "");
+  const [laterOn, setLaterOn] = useState(false);
+  const [date, setDate] = useState(lead.recontact_at ?? new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10));
+  const calls = data.tasks.filter((t) => t.lead_id === lead.id);
   const { busy, setBusy, msg, setMsg } = useBusy();
   const msgs = data.messages.filter((m) => m.lead_id === lead.id).sort((a, b) => a.step - b.step);
   const replies = data.replies.filter((r) => r.lead_id === lead.id);
@@ -104,7 +114,7 @@ function LeadDrawer({ lead, data, onClose }: { lead: Lead; data: OutreachData; o
         <div className="sticky top-0 flex items-start justify-between gap-2 border-b border-slate-200 bg-white px-5 py-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{lead.business_name}</h2>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500"><StatusPill status={lead.status} />{lead.stopped_reason && <span>{lead.stopped_reason}</span>}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500"><StatusPill status={lead.status} /><FitPill fit={lead.fit} reason={lead.fit_reason} />{lead.stopped_reason && <span>{lead.stopped_reason}</span>}</div>
           </div>
           <button type="button" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
@@ -114,18 +124,23 @@ function LeadDrawer({ lead, data, onClose }: { lead: Lead; data: OutreachData; o
             <p className="flex flex-wrap gap-x-4">
               {lead.website && <a className="inline-flex items-center gap-1 text-sky-700 hover:underline" href={lead.website} target="_blank" rel="noreferrer">{lead.domain ?? "website"} <ExternalLink className="h-3 w-3" /></a>}
               {lead.phone && <a className="inline-flex items-center gap-1 text-sky-700 hover:underline" href={`tel:${lead.phone}`}><Phone className="h-3 w-3" />{lead.phone}</a>}
+              {lead.instagram && <a className="inline-flex items-center gap-1 text-sky-700 hover:underline" href={instagramUrl(lead.instagram)} target="_blank" rel="noreferrer"><MessageCircle className="h-3 w-3" />@{lead.instagram}</a>}
               {lead.rating != null && <span>★ {lead.rating} ({lead.reviews ?? 0})</span>}
             </p>
+            {lead.fit && lead.fit_reason && <p><span className="font-medium text-slate-700">{FIT_LABEL[lead.fit]}:</span> {lead.fit_reason}</p>}
             {lead.error && <p className="text-amber-800">{lead.error}</p>}
+            {calls.length > 0 && <p className="text-sky-800">Call due on the To-do list (step {calls[0].step}).</p>}
           </section>
 
           <section className="grid gap-3 sm:grid-cols-2">
             <label><span className="text-slate-600">Email</span><input className={`${input} mt-1`} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@spa.com" /></label>
             <label><span className="text-slate-600">First name (greeting)</span><input className={`${input} mt-1`} value={first} onChange={(e) => setFirst(e.target.value)} placeholder="there" /></label>
+            <label className="sm:col-span-2"><span className="text-slate-600">Instagram</span><input className={`${input} mt-1`} value={ig} onChange={(e) => setIg(e.target.value)} placeholder="@handle or instagram.com/… link" /></label>
+            {lead.ig_dm && <p className="text-xs text-slate-500 sm:col-span-2">Instagram DM Claude drafted: <span className="text-slate-700">{lead.ig_dm}</span></p>}
             <label className="sm:col-span-2"><span className="text-slate-600">Notes</span><textarea className={`${input} mt-1 min-h-[60px]`} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
             {lead.emails_found.length > 0 && <p className="text-xs text-slate-500 sm:col-span-2">Found on their site: {lead.emails_found.join(", ")}</p>}
             <div className="flex flex-wrap gap-2 sm:col-span-2">
-              <button type="button" className={btnPrimary} disabled={busy !== null} onClick={() => act("update_lead", { ...(email.trim() !== (lead.email ?? "") ? { email } : {}), first_name: first, notes })}>{busy === "update_lead" && <Loader2 className="h-4 w-4 animate-spin" />}Save</button>
+              <button type="button" className={btnPrimary} disabled={busy !== null} onClick={() => act("update_lead", { ...(email.trim() !== (lead.email ?? "") ? { email } : {}), first_name: first, notes, ...(ig.trim() !== (lead.instagram ?? "") ? { instagram: ig } : {}) })}>{busy === "update_lead" && <Loader2 className="h-4 w-4 animate-spin" />}Save</button>
               <button type="button" className={btnGhost} disabled={busy !== null || !!msgs.find((m) => m.step === 1 && m.status !== "draft")} onClick={() => act("enrich", { redraft: true })} title="Read their site again and redraft email 1">
                 {busy === "enrich" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Re-read site
               </button>
@@ -139,7 +154,18 @@ function LeadDrawer({ lead, data, onClose }: { lead: Lead; data: OutreachData; o
                 <button key={s} type="button" className={btnGhost} disabled={busy !== null || lead.status === s} onClick={() => act("set_status", { status: s }, `Marked ${STATUS_LABEL[s].toLowerCase()}. Its sequence has stopped.`)}>{STATUS_LABEL[s]}</button>
               ))}
             </div>
-            <p className="mt-1 text-xs text-slate-500">Any of these stops the remaining emails. Not interested also adds them to the do-not-contact list.</p>
+            <div className="mt-2">
+              {!laterOn
+                ? <button type="button" className={btnGhost} disabled={busy !== null} onClick={() => setLaterOn(true)}><CalendarClock className="h-4 w-4" /> {lead.status === "later" ? `Later: ${lead.recontact_at ?? "no date"} (change)` : "Later…"}</button>
+                : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input type="date" className={`${inputBase} w-auto`} value={date} onChange={(e) => setDate(e.target.value)} aria-label="Re-contact on" />
+                    <button type="button" className={btnPrimary} disabled={busy !== null || !date} onClick={() => act("later", { date })}>{busy === "later" && <Loader2 className="h-4 w-4 animate-spin" />}Re-contact then</button>
+                    <button type="button" className={btnGhost} onClick={() => setLaterOn(false)}>Cancel</button>
+                  </div>
+                )}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Any of these stops the remaining emails. Not interested also adds them to the do-not-contact list. Later puts them on the To-do list on that date.</p>
           </section>
 
           <section>

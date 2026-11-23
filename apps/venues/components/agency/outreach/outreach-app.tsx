@@ -4,15 +4,16 @@
  */
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, CircleDashed, Inbox, ListChecks, Loader2, Play, Search, Settings2, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleDashed, Inbox, ListChecks, Loader2, PhoneCall, Play, Search, Settings2, Users } from "lucide-react";
 import type { SetupStatus } from "@/lib/outreach/config";
-import type { Campaign, Lead, LeadStatus, Message, Reply, Settings, Step } from "@/lib/outreach/shared";
+import type { Campaign, Lead, LeadStatus, Message, Reply, Settings, Step, Task } from "@/lib/outreach/shared";
 import { STATUS_LABEL } from "@/lib/outreach/shared";
 import { FindTab } from "./find";
 import { ReviewTab } from "./review";
 import { LeadsTab } from "./leads";
 import { InboxTab } from "./inbox";
 import { SettingsTab } from "./settings";
+import { TodoTab, todoCount } from "./todo";
 import { ago, api, btnGhost, card } from "./ui";
 
 export type OutreachData = {
@@ -24,11 +25,12 @@ export type OutreachData = {
   leads: Lead[];
   messages: Message[];
   replies: Reply[];
+  tasks: Task[];
   suppressions: Array<{ value: string; reason: string; created_at: string }>;
   stats: { sentToday: number; sent7: number; sentAll: number; replies7: number; bounces7: number };
 };
 
-type Tab = "overview" | "find" | "review" | "leads" | "inbox" | "settings";
+type Tab = "overview" | "find" | "review" | "todo" | "leads" | "inbox" | "settings";
 
 export function OutreachApp({ data }: { data: OutreachData }) {
   const router = useRouter();
@@ -43,6 +45,7 @@ export function OutreachApp({ data }: { data: OutreachData }) {
     { id: "overview", label: "Overview", icon: ListChecks },
     { id: "find", label: "Find leads", icon: Search },
     { id: "review", label: "Review", icon: CheckCircle2, count: drafts.length },
+    { id: "todo", label: "To-do", icon: PhoneCall, count: todoCount(data) },
     { id: "leads", label: "Leads", icon: Users, count: data.leads.length },
     { id: "inbox", label: "Inbox", icon: Inbox, count: unhandled },
     { id: "settings", label: "Sequence & settings", icon: Settings2 },
@@ -50,8 +53,8 @@ export function OutreachApp({ data }: { data: OutreachData }) {
 
   async function runNow() {
     setRunning(true); setRunNote(null);
-    const r = await api<{ sent: number; wouldSend: number; notes: string[]; read: number; inbox: number }>("run_now");
-    setRunNote(r.ok ? [r.data.sent ? `Sent ${r.data.sent}.` : r.data.wouldSend ? `Would send ${r.data.wouldSend}.` : "", r.data.read ? `Read ${r.data.read} site(s).` : "", ...(r.data.notes ?? [])].filter(Boolean).join(" ") || "Nothing due right now." : r.error);
+    const r = await api<{ sent: number; wouldSend: number; notes: string[]; read: number; inbox: number; calls: number }>("run_now");
+    setRunNote(r.ok ? [r.data.sent ? `Sent ${r.data.sent}.` : r.data.wouldSend ? `Would send ${r.data.wouldSend}.` : "", r.data.read ? `Read ${r.data.read} site(s).` : "", r.data.calls ? `${r.data.calls} call(s) added to To-do.` : "", ...(r.data.notes ?? [])].filter(Boolean).join(" ") || "Nothing due right now." : r.error);
     setRunning(false);
     router.refresh();
   }
@@ -63,7 +66,7 @@ export function OutreachApp({ data }: { data: OutreachData }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Outreach</h1>
-          <p className="mt-1 text-sm text-slate-500">Find med spas, read their sites, send a short personal email and two follow-ups. Small volume, every first email reviewed by you.</p>
+          <p className="mt-1 text-sm text-slate-500">Find med spas, check they fit, send a short personal email and follow-ups (with a call if you want one). Small volume, every first email reviewed by you.</p>
         </div>
         <div className="flex items-center gap-2">
           <SendBadge live={data.setup.live} paused={data.settings.paused} />
@@ -86,7 +89,7 @@ export function OutreachApp({ data }: { data: OutreachData }) {
           <button key={t.id} type="button" onClick={() => setTab(t.id)}
             className={`-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium ${tab === t.id ? "border-sky-600 text-sky-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
             <t.icon className="h-4 w-4" /> {t.label}
-            {!!t.count && <span className={`rounded-full px-1.5 text-xs ${t.id === "review" || t.id === "inbox" ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600"}`}>{t.count}</span>}
+            {!!t.count && <span className={`rounded-full px-1.5 text-xs ${t.id === "review" || t.id === "inbox" || t.id === "todo" ? "bg-sky-600 text-white" : "bg-slate-100 text-slate-600"}`}>{t.count}</span>}
           </button>
         ))}
       </nav>
@@ -95,6 +98,7 @@ export function OutreachApp({ data }: { data: OutreachData }) {
         {tab === "overview" && <Overview data={data} go={setTab} />}
         {tab === "find" && <FindTab campaigns={data.campaigns} disabled={data.sqlMissing} placesReady={data.setup.places} onDone={() => setTab("review")} />}
         {tab === "review" && <ReviewTab data={data} showLead={showLead} />}
+        {tab === "todo" && <TodoTab data={data} showLead={showLead} />}
         {tab === "leads" && <LeadsTab data={data} openId={openLead} setOpenId={setOpenLead} />}
         {tab === "inbox" && <InboxTab data={data} showLead={showLead} />}
         {tab === "settings" && <SettingsTab data={data} />}
@@ -137,7 +141,8 @@ function Overview({ data, go }: { data: OutreachData; go: (t: Tab) => void }) {
     ["Reply rate", contacted ? `${rate}%` : "—", `${replied} of ${contacted} contacted`],
     ["Bounces (7 days)", data.stats.bounces7, data.stats.sent7 ? `${Math.round((data.stats.bounces7 / data.stats.sent7) * 100)}% (pauses above 5%)` : undefined],
   ];
-  const funnel: LeadStatus[] = ["new", "no_email", "review", "queued", "contacted", "done", "replied", "booked", "not_interested", "bounced", "unsubscribed", "stopped"];
+  const funnel: LeadStatus[] = ["new", "no_email", "review", "queued", "contacted", "done", "replied", "later", "booked", "not_interested", "bounced", "unsubscribed", "stopped"];
+  const fits = { good: data.leads.filter((l) => l.fit === "good").length, unsure: data.leads.filter((l) => l.fit === "unsure").length, no: data.leads.filter((l) => l.fit === "no").length };
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -159,6 +164,9 @@ function Overview({ data, go }: { data: OutreachData; go: (t: Tab) => void }) {
               </button>
             ))}
           </div>
+          {fits.good + fits.unsure + fits.no > 0 && (
+            <p className="mt-3 text-xs text-slate-500">Fit (Claude, from their sites): {fits.good} good · {fits.unsure} unsure · {fits.no} not a fit</p>
+          )}
         </div>
       </div>
       <div className="space-y-4">

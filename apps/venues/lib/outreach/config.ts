@@ -68,6 +68,8 @@ export function setupStatus() {
     places: !!process.env.GOOGLE_PLACES_API_KEY,
     ai: !!process.env.ANTHROPIC_API_KEY,
     from: smtpConfig()?.from ?? null,
+    /** The mailbox login, for "open in Gmail" links (CP-250b). */
+    user: smtpConfig()?.user ?? null,
   };
 }
 export type SetupStatus = ReturnType<typeof setupStatus>;

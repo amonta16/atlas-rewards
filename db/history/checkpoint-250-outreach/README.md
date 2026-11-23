@@ -2,10 +2,36 @@
 
 Admin → **Outreach** (`/agency/outreach`, agency_admin only). Find med spas, read their sites, Claude writes email 1, you approve it, then a 3-step sequence runs at a small daily cap. Replies, bounces and unsubscribes stop it. It's for Atlas's own sales, not a client feature.
 
-**Status: SQL applied to production 2026-11-18 (migration `cp250_outreach`). Sending OFF.** Nothing goes out until `OUTREACH_SEND=1` is set on Vercel.
+**Status: CP-250 SQL applied to production 2026-11-18 (migration `cp250_outreach`). CP-250b SQL applied 2026-11-22 (migration `cp250b_outreach_upgrades`). CP-250c SQL applied 2026-11-22 (migration `cp250c_instagram_step`). Sending OFF.** Nothing goes out until `OUTREACH_SEND=1` is set on Vercel.
 
 ## What's in this folder
 - `cp250_outreach.sql`: 7 tables (campaigns, leads, messages, replies, steps, settings, suppressions). All are service-role only (RLS on, no policies), and it's safe to re-run. It seeds the 3 steps and the settings row (cap 5/day, Mon–Fri, 8:00–16:00 in the spa's local time). Undo is at the top of the file.
+- `cp250b_outreach_upgrades.sql` (applied 2026-11-22): new columns for fit, the opener and notes, plus the `later` status and the `outreach_tasks` table. It also updates the seeded sequence, but only where it still matches the seed: step 1 gets `{opener}`, step 3 becomes a call, and "Last note" moves to step 4. It's additive and safe to re-run. Undo is at the top.
+- `cp250c_instagram_step.sql` (applied 2026-11-22): adds the lead's `instagram` handle and `ig_dm` draft, the `instagram_dm` step and task type, and the Sent / Replied / No IG outcomes. It puts the IG step at day 2 only where the sequence still matches the CP-250b seed. It's additive and safe to re-run.
+
+## CP-250b · upgrades after comparing with Origami (founder walkthrough, 2026-11-22)
+| Upgrade | What it does | Where |
+|---|---|---|
+| Fit check | The same Claude call that writes the email also rates each spa as good fit, unsure or not a fit, with a one-line reason. Chains and franchises, surgery-first practices and salons count as not a fit. Review shows good fits first and can filter by fit; "Skip all not a fit" clears the rest. Leads gets a Fit column and filter. | `write.ts` `readSpa`, Review, Leads |
+| Opener + your pitch | The default `write_mode = 'opener'`: Claude writes only the personal first line (`{opener}`) and the rest is your template word for word. Review shows the line Claude wrote. Choose "The whole email" to get v1's behavior back. Without AI there's an honest fallback line: "I came across X while looking at med spas in Y." | Settings → How Claude writes email 1 |
+| Notes → apply to all | Standing "notes for every draft" go into every draft, and Redraft takes a one-off note. "Redraft all" re-reads and rewrites every first email you haven't edited by hand. | Settings, Review |
+| Later | A "not now" reply automatically sets the status to Later, with a re-contact date 60 days out. You can also set Later by hand from the drawer with any date. Leads come up on To-do when their date arrives, with Open thread (Gmail), Followed up and 30 more days. | engine inbox, To-do |
+| Call step | A step can be a phone call instead of an email. When it's due, the spa shows up on To-do with its number, its local time and the script, and you log the outcome: talked, voicemail, no answer, not interested or booked. "Not interested" and "booked" stop the sequence; the others log a note and the emails carry on. A call step is skipped when there's no phone number. Add email and Add call append steps, up to 10. | `outreach_tasks`, To-do, Settings |
+| Already in Atlas | Before reading a site, the engine skips any spa whose name or phone matches an Atlas business (client or demo app), or whose website already made a /medspa preview or became a lead. | `engine.ts` `alreadyInAtlas` |
+
+Also fixed: Redraft could overwrite an email that had already been approved or sent. It now refuses.
+
+Deliberately not copied from Origami: LinkedIn automation (against LinkedIn's terms and risks the account), paid multi-provider data credits, many mailboxes, warm-up pools (Google discourages them), a chat agent or knowledge base, and CRM integrations or an API.
+
+## CP-250c · a manual Instagram DM step (2026-11-22)
+Andrew chose Instagram over LinkedIn for med spas. Nothing is sent to Instagram automatically, because automated DMs break Instagram's terms and risk the account. The step works like the call step:
+- **Handle:** reading a spa's site also picks up its Instagram handle from the links on its pages, most-linked profile first. Posts and reels are ignored. You can type or fix it in the lead's drawer as `@handle` or a profile link.
+- **DM:** the same Claude call that judges fit and writes the opener also drafts `ig_dm`: under 280 characters, one true detail from their site, a mention that you emailed them, and a low-effort question. No links, hashtags or emojis. The step's own text is the fallback.
+- **To-do:** when the step is due, the spa shows up under *Instagram DMs* with **Message @handle** (`ig.me/m/…` opens the DM thread in the app), its Profile, the editable DM and a **Copy** button. Where the browser blocks the clipboard, Copy uses the selected text instead. You send the DM yourself from the Atlas account, then log Sent, Replied, Not interested, Booked or No IG.
+- **Outcomes:** Replied, Not interested and Booked stop the emails (Not interested also adds the spa to do-not-contact). No IG clears the handle. Sent just logs a note. A spa without a handle skips the step.
+- **Timing:** each step waits from the one before it, and a step skipped for a spa (no handle, no phone) keeps its place in the calendar. So a spa without Instagram still gets email 2 on day 3, not day 1.
+- **Settings:** a step's type can be Email, Phone call or Instagram DM. *Add Instagram DM* appends one. DM text with a link is refused.
+- **Default sequence** (`cp250c_instagram_step.sql`, only where the steps still match the CP-250b seed and nothing has been drafted or sent): email day 0 → **Instagram DM day 2** → follow-up email day 3 → call day 5 → last note day 7.
 
 ## How it works
 | Piece | Where |
@@ -57,6 +83,8 @@ Optional: `OUTREACH_SMTP_HOST/PORT`, `OUTREACH_IMAP_HOST/PORT` (defaults are Gma
 
 ## Rollout
 1. ~~Review + apply `cp250_outreach.sql`~~ done 2026-11-18. The tables are additive: nothing existing changed, and the app on main doesn't read them.
+1b. ~~Apply `cp250b_outreach_upgrades.sql` before merging the CP-250b code~~ done 2026-11-22.
+1c. ~~Apply `cp250c_instagram_step.sql` before merging the CP-250c code~~ done 2026-11-22.
 2. Merge + deploy (adds the `/api/outreach/tick` cron, every 5 min).
 3. Search a city, approve a few drafts while sending is **off**: the Overview shows "would send N".
 4. Domain + DNS + warm-up (above), then set `OUTREACH_SEND=1`, start at cap 5.

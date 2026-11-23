@@ -1,12 +1,14 @@
 "use client";
 /**
- * components/agency/outreach/settings.tsx — CP-250 · the sequence (3 steps), sending rules,
- * campaigns, mailbox check and the do-not-contact list.
+ * components/agency/outreach/settings.tsx — CP-250 · the sequence, sending rules, campaigns,
+ * mailbox check and the do-not-contact list.
+ * CP-250b: call steps (a To-do call instead of an email), Add step, and the Writing card: whether
+ * Claude writes only the opening line or the whole first email, plus standing notes for every draft.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Loader2, MailCheck, Pause, Play, Save } from "lucide-react";
-import { DAY_NAMES, MAX_CAP, MERGE_TAGS, RAMP, type Settings, type Step } from "@/lib/outreach/shared";
+import { Ban, Loader2, MailCheck, MessageCircle, Pause, Phone, Play, Plus, Save } from "lucide-react";
+import { DAY_NAMES, MAX_CAP, MERGE_TAGS, RAMP, STEP_KIND_LABEL, type Settings, type Step, type StepKind, type WriteMode } from "@/lib/outreach/shared";
 import type { OutreachData } from "./outreach-app";
 import { api, btnGhost, btnPrimary, card, input, inputBase, Note, useBusy, when } from "./ui";
 
@@ -14,11 +16,18 @@ export function SettingsTab({ data }: { data: OutreachData }) {
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
       <div className="space-y-5">
+        <Writing settings={data.settings} disabled={data.sqlMissing} />
         <section className={`${card} p-4`}>
           <h2 className="font-medium text-slate-900">Sequence</h2>
-          <p className="mt-0.5 text-sm text-slate-500">Email 1 is written by Claude for each spa (this template is the fallback). Follow-ups are sent as replies in the same thread. Every email gets your signature, the postal address and an opt-out line. Tags: {MERGE_TAGS.join(" ")}</p>
-          {!data.steps.length && <p className="mt-3 text-sm text-amber-800">No steps yet: apply the CP-250 SQL (it seeds the three emails).</p>}
+          <p className="mt-0.5 text-sm text-slate-500">
+            {data.settings.write_mode === "full"
+              ? "Claude writes all of email 1 for each spa (this template is the fallback)."
+              : "Email 1 is your template; Claude writes the {opener} line for each spa from its website."}
+            {" "}Follow-ups are sent as replies in the same thread. A call or Instagram DM step puts the spa on your To-do list instead, for you to do by hand (skipped when there&apos;s no phone number or Instagram handle; Claude drafts each spa&apos;s DM from its site). Every email gets your signature, the postal address and an opt-out line. Tags: {MERGE_TAGS.join(" ")}
+          </p>
+          {!data.steps.length && <p className="mt-3 text-sm text-amber-800">No steps yet: apply the CP-250 SQL (it seeds the emails).</p>}
           <div className="mt-4 space-y-4">{data.steps.map((s) => <StepEditor key={s.step} s={s} />)}</div>
+          <AddStep steps={data.steps} disabled={data.sqlMissing} />
         </section>
         <Campaigns data={data} />
       </div>
@@ -36,6 +45,9 @@ function StepEditor({ s }: { s: Step }) {
   const [d, setD] = useState(s);
   const { busy, setBusy, msg, setMsg } = useBusy();
   const dirty = JSON.stringify(d) !== JSON.stringify(s);
+  const call = d.kind === "call";
+  const dm = d.kind === "instagram_dm";
+  const manual = call || dm;
   async function save() {
     setBusy("save"); setMsg(null);
     const r = await api("save_step", d);
@@ -46,23 +58,98 @@ function StepEditor({ s }: { s: Step }) {
   return (
     <div className="rounded-lg border border-slate-200 p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Step {s.step}</span>
+        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${call ? "bg-amber-50 text-amber-900" : dm ? "bg-pink-50 text-pink-900" : "bg-slate-100 text-slate-700"}`}>{call && <Phone className="h-3 w-3" />}{dm && <MessageCircle className="h-3 w-3" />}Step {s.step}</span>
         <input className={`${inputBase} w-auto flex-1`} value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} aria-label="Step name" />
         {s.step > 1 && (
           <label className="flex items-center gap-1 text-sm text-slate-600">wait
             <input type="number" min={0} max={60} className={`${inputBase} w-16`} value={d.delay_days} onChange={(e) => setD({ ...d, delay_days: Number(e.target.value) })} aria-label="Days to wait" /> days
           </label>
         )}
+        {s.step > 1 && (
+          <select className={`${inputBase} w-auto`} value={d.kind} onChange={(e) => setD({ ...d, kind: e.target.value as StepKind })} aria-label="Step type">
+            {(Object.keys(STEP_KIND_LABEL) as StepKind[]).map((k) => <option key={k} value={k}>{STEP_KIND_LABEL[k]}</option>)}
+          </select>
+        )}
         <label className="flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" className="accent-sky-600" checked={d.enabled} onChange={(e) => setD({ ...d, enabled: e.target.checked })} /> On</label>
       </div>
-      <input className={`${input} mt-2`} value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value })} placeholder={s.step === 1 ? "Subject" : "Blank = reply in the same thread (Re: email 1)"} aria-label="Subject" />
-      <textarea className={`${input} mt-2 min-h-[130px] leading-relaxed`} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value })} aria-label="Email body" />
+      {!manual && <input className={`${input} mt-2`} value={d.subject} onChange={(e) => setD({ ...d, subject: e.target.value })} placeholder={s.step === 1 ? "Subject" : "Blank = reply in the same thread (Re: email 1)"} aria-label="Subject" />}
+      {call && <p className="mt-2 text-xs text-slate-500">On the day, the spa shows up on your To-do list with its number and this script. The emails after it carry on either way.</p>}
+      {dm && <p className="mt-2 text-xs text-slate-500">On the day, the spa shows up on your To-do list with its Instagram link and a DM Claude drafted from its site (this text is the fallback). You send it yourself; nothing goes to Instagram automatically. No links in DMs.</p>}
+      <textarea className={`${input} mt-2 ${dm ? "min-h-[80px]" : "min-h-[130px]"} leading-relaxed`} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value })} aria-label={call ? "Call script" : dm ? "Instagram DM" : "Email body"} placeholder={call ? "What to say when they pick up" : undefined} />
       {s.step === 1 && <label className="mt-2 flex items-center gap-1.5 text-sm text-slate-600"><input type="checkbox" className="accent-sky-600" checked={d.ai} onChange={(e) => setD({ ...d, ai: e.target.checked })} /> Let Claude write email 1 from each spa&apos;s website</label>}
       <div className="mt-2 flex items-center gap-2">
         <button type="button" className={btnPrimary} disabled={!dirty || busy !== null} onClick={save}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save</button>
         <Note msg={msg} />
       </div>
     </div>
+  );
+}
+
+/** A new step at the end of the sequence (up to 10), saved straight away with a starting text. */
+function AddStep({ steps, disabled }: { steps: Step[]; disabled: boolean }) {
+  const router = useRouter();
+  const { busy, setBusy, msg, setMsg } = useBusy();
+  const next = Math.max(0, ...steps.map((s) => s.step)) + 1;
+  if (!steps.length || next > 10) return null;
+  async function add(kind: StepKind) {
+    setBusy(kind); setMsg(null);
+    const r = await api("save_step", kind === "call"
+      ? { step: next, kind, name: "Call the front desk", delay_days: 2, subject: "", enabled: true, body: "Hi, this is Andrew with Atlas Engine. I sent {spa_name} a couple of emails about a patient app. Who's the best person to talk to about that?" }
+      : kind === "instagram_dm"
+        ? { step: next, kind, name: "Instagram DM", delay_days: 2, subject: "", enabled: true, body: "Hi! I'm Andrew from Atlas Engine. I build branded patient apps for med spas, and I emailed {spa_name} about one. Would a quick preview of what yours could look like be useful?" }
+        : { step: next, kind, name: "Follow-up", delay_days: 4, subject: "", enabled: true, body: "Hi {first_name},\n\n" });
+    setMsg(r.ok ? { ok: true, text: `Added step ${next}. Edit it above.` } : { ok: false, text: r.error });
+    setBusy(null);
+    if (r.ok) router.refresh();
+  }
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <button type="button" className={btnGhost} disabled={disabled || busy !== null} onClick={() => add("email")}>{busy === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add email</button>
+      <button type="button" className={btnGhost} disabled={disabled || busy !== null} onClick={() => add("call")}>{busy === "call" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />} Add call</button>
+      <button type="button" className={btnGhost} disabled={disabled || busy !== null} onClick={() => add("instagram_dm")}>{busy === "instagram_dm" ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />} Add Instagram DM</button>
+      <Note msg={msg} />
+    </div>
+  );
+}
+
+/** How Claude writes email 1, and the notes every draft follows (tune one draft, then Redraft all). */
+function Writing({ settings, disabled }: { settings: Settings; disabled: boolean }) {
+  const router = useRouter();
+  const [mode, setMode] = useState<WriteMode>(settings.write_mode === "full" ? "full" : "opener");
+  const [notes, setNotes] = useState(settings.writing_notes ?? "");
+  const { busy, setBusy, msg, setMsg } = useBusy();
+  const dirty = mode !== settings.write_mode || notes.trim() !== (settings.writing_notes ?? "").trim();
+  async function save() {
+    setBusy("save"); setMsg(null);
+    const r = await api("save_writing", { write_mode: mode, writing_notes: notes });
+    setMsg(r.ok ? { ok: true, text: "Saved. New drafts use this; Review → Redraft all applies it to the waiting ones." } : { ok: false, text: r.error });
+    setBusy(null);
+    if (r.ok) router.refresh();
+  }
+  return (
+    <section className={`${card} p-4 text-sm`}>
+      <h2 className="font-medium text-slate-900">How Claude writes email 1</h2>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {([
+          ["opener", "Opening line only", "Claude writes one or two personal sentences from their site ({opener}). The rest is your template, word for word. Faster to review, every claim is yours."],
+          ["full", "The whole email", "Claude writes all of email 1 from their site, inside the same rules. More varied, more to check."],
+        ] as Array<[WriteMode, string, string]>).map(([v, label, text]) => (
+          <label key={v} className={`cursor-pointer rounded-lg border p-3 ${mode === v ? "border-sky-600 bg-sky-50/60" : "border-slate-200 hover:bg-slate-50"}`}>
+            <span className="flex items-center gap-2 font-medium text-slate-800"><input type="radio" name="write_mode" className="accent-sky-600" checked={mode === v} onChange={() => setMode(v)} />{label}</span>
+            <span className="mt-1 block text-xs text-slate-500">{text}</span>
+          </label>
+        ))}
+      </div>
+      <label className="mt-3 block"><span className="text-slate-600">Notes for every draft</span>
+        <textarea className={`${input} mt-1 min-h-[80px]`} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000}
+          placeholder={"e.g. Mention their membership if they have one. Keep the opener under 25 words. Never mention prices."} />
+      </label>
+      <p className="mt-1 text-xs text-slate-500">Claude follows these unless they break the built-in rules (no links, stats, brand names or medical claims).</p>
+      <div className="mt-3 flex items-center gap-2">
+        <button type="button" className={btnPrimary} disabled={disabled || !dirty || busy !== null} onClick={save}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save</button>
+        <Note msg={msg} />
+      </div>
+    </section>
   );
 }
 

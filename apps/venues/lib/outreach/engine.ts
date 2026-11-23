@@ -4,8 +4,11 @@
  *   1. Inbox    new mail in the outreach mailbox → replies, bounces, auto-replies matched to leads.
  *               A reply stops that lead's sequence; "no thanks"/unsubscribe/bounce also suppress it.
  *   2. Booked   a lead whose email booked a demo or opted in on /medspa → Booked, sequence stops.
- *   3. Read     up to 2 new leads: read their site, pick the email, Claude drafts email 1 → Review.
- *   4. Next     contacted leads whose next step is due get that step (templated), approved or in Review.
+ *   3. Read     up to 2 new leads: skip spas already in Atlas, read their site, pick the email, Claude
+ *               judges fit and writes the opener (or the whole email 1) → Review.
+ *   4. Next     contacted leads whose next step is due get that step: an email (templated, approved or
+ *               in Review) or, for a call or Instagram step (CP-250c), a task on the To-do list that
+ *               you do by hand. Nothing on Instagram is ever sent automatically.
  *   5. Send     at most ONE email per run, only inside the lead's send window, under the daily cap,
  *               after the random gap since the last send. Stamped 'sending' first so a retry can
  *               never double-send. Without OUTREACH_SEND=1 nothing goes out: the run reports what
@@ -15,16 +18,19 @@
 import { previewDb } from "@/lib/preview/store";
 import { PREVIEW_LINK, BOOK_LINK, fromAddress, postalAddress, sendLive, unsubscribeUrl } from "./config";
 import { readSite } from "./enrich";
-import { classifyReply, draftFirstEmail } from "./write";
+import { classifyReply, readSpa } from "./write";
 import { freshText, pollInbox } from "./inbox";
 import { newMessageId, sendMail } from "./mailer";
 import { inWindow, randomGapMs, startOfPacificDay, timezoneFor } from "./time";
 import {
-  DEFAULT_SETTINGS, fillTags, footer, greetingName,
+  DEFAULT_SETTINGS, fallbackOpener, fillTags, footer, greetingName, nameKey, nextStep, phoneKey, reachOf, waitDays,
   type Lead, type LeadStatus, type Message, type ReplyClass, type Settings, type Step,
 } from "./shared";
 
 const DAY = 86_400_000;
+/** "Not now" replies come back up after this many days. */
+export const LATER_DAYS = 60;
+export const laterDate = (from: number, days = LATER_DAYS) => new Date(from + days * DAY).toISOString().slice(0, 10);
 const FREEMAIL = /^(gmail|googlemail|yahoo|outlook|hotmail|live|icloud|me|aol|msn|comcast|att|sbcglobal)\./;
 export const db = () => previewDb();
 
@@ -34,8 +40,9 @@ export async function loadSettings(): Promise<Settings & { imap_uidvalidity: num
 }
 
 export async function loadSteps(): Promise<Step[]> {
-  const { data } = await db().from("outreach_steps").select("step, name, delay_days, subject, body, ai, enabled").order("step");
-  return (data ?? []) as Step[];
+  const { data } = await db().from("outreach_steps").select("*").order("step");
+  // Anything unknown (or a row from before CP-250b) is an email.
+  return ((data ?? []) as Step[]).map((s) => ({ ...s, kind: s.kind === "call" || s.kind === "instagram_dm" ? s.kind : "email" }));
 }
 
 export function mergeValues(lead: Pick<Lead, "first_name" | "business_name" | "city">) {
@@ -57,8 +64,11 @@ export async function suppress(value: string, reason: "unsubscribed" | "bounced"
 /** End a lead's sequence: status, no next step, open drafts/approved emails cancelled. */
 export async function stopLead(id: string, status: LeadStatus, reason: string | null, extra: Partial<Lead> = {}) {
   const d = db();
-  await d.from("outreach_leads").update({ status, next_at: null, stopped_reason: reason, updated_at: new Date().toISOString(), ...extra }).eq("id", id);
+  const now = new Date().toISOString();
+  await d.from("outreach_leads").update({ status, next_at: null, stopped_reason: reason, updated_at: now, ...extra }).eq("id", id);
   await d.from("outreach_messages").update({ status: "cancelled" }).eq("lead_id", id).in("status", ["draft", "approved"]);
+  // Open calls on the To-do list go too (a reply, booking or "no thanks" makes them moot).
+  await d.from("outreach_tasks").update({ done_at: now, outcome: "skipped" }).eq("lead_id", id).is("done_at", null);
 }
 
 /* ───────────────────────── 3 · read the site and draft email 1 ───────────────────────── */
@@ -73,17 +83,56 @@ async function alreadyInFunnel(email: string): Promise<boolean> {
   return !!(a.data?.length || b.data?.length);
 }
 
-export async function draftFromTemplate(lead: Lead, step: Step): Promise<{ subject: string; body: string }> {
-  const v = mergeValues(lead);
+export async function draftFromTemplate(lead: Lead, step: Step, opener?: string): Promise<{ subject: string; body: string }> {
+  const v = { ...mergeValues(lead), opener: opener ?? fallbackOpener(lead) };
   return { subject: fillTags(step.subject, v), body: fillTags(step.body, v) };
 }
 
-/** Read the spa's site (if it has one), choose the email, then draft email 1 into Review. */
-export async function enrichLead(id: string, opts: { redraft?: boolean } = {}): Promise<{ ok: boolean; note: string }> {
+/**
+ * CP-250b · is this spa already in Atlas? A business (client or demo app) with the same name or
+ * phone, or a /medspa preview or lead from the same website. Returns what matched, for the reason.
+ */
+export async function alreadyInAtlas(lead: Pick<Lead, "business_name" | "phone" | "domain">): Promise<string | null> {
+  const d = db();
+  const key = nameKey(lead.business_name);
+  const phone = phoneKey(lead.phone);
+  const { data: biz } = await d.from("businesses").select("name, contact_info").limit(2000);
+  for (const b of (biz ?? []) as Array<{ name: string | null; contact_info: { phone?: string } | null }>) {
+    if ((key.length >= 4 && nameKey(b.name) === key) || (phone && phoneKey(b.contact_info?.phone) === phone)) return `Already in Atlas (${b.name ?? "an app"})`;
+  }
+  if (lead.domain) {
+    const like = `%${lead.domain.replace(/[%_]/g, "")}%`;
+    const [a, b] = await Promise.all([
+      d.from("app_previews").select("id").ilike("website", like).limit(1),
+      d.from("landing_leads").select("id").ilike("website", like).limit(1),
+    ]);
+    if (a.data?.length || b.data?.length) return "Already made a preview or became a lead on /medspa";
+  }
+  return null;
+}
+
+/**
+ * Read the spa's site (if it has one), choose the email, judge fit, then draft email 1 into Review.
+ * `redraft` writes a new draft over an existing one (never over an approved or sent email);
+ * `note` is a one-off instruction from Redraft ("mention their membership").
+ */
+export async function enrichLead(id: string, opts: { redraft?: boolean; note?: string | null } = {}): Promise<{ ok: boolean; note: string }> {
   const d = db();
   const { data: lead } = await d.from("outreach_leads").select("*").eq("id", id).maybeSingle<Lead>();
   if (!lead) return { ok: false, note: "Lead not found." };
   const now = new Date().toISOString();
+
+  const existing = await d.from("outreach_messages").select("id, status").eq("lead_id", id).eq("step", 1).maybeSingle();
+  if (existing.data && existing.data.status !== "draft") return { ok: true, note: "Email 1 was already approved or sent: nothing to redraft." };
+  if (existing.data && !opts.redraft) return { ok: true, note: "Email 1 is already in Review." };
+
+  const inAtlas = await alreadyInAtlas(lead);
+  if (inAtlas) {
+    await d.from("outreach_leads").update({ enriched_at: now }).eq("id", id);
+    await stopLead(id, "stopped", inAtlas);
+    return { ok: true, note: `${inAtlas}: not cold-emailing them.` };
+  }
+
   let site: Awaited<ReturnType<typeof readSite>> = null;
   if (lead.website) site = await readSite(lead.website);
 
@@ -95,6 +144,7 @@ export async function enrichLead(id: string, opts: { redraft?: boolean } = {}): 
     if (site.domain && !lead.domain) patch.domain = site.domain;
     if (!lead.email && site.best) { patch.email = site.best; patch.email_source = "site"; patch.email_mx_ok = site.mxOk; }
     if (site.blockedNotice) patch.error = "Their site asks not to collect its addresses: add an email only if they gave it to you.";
+    if (!lead.instagram && site.instagram) patch.instagram = site.instagram;
   } else if (lead.website) {
     patch.error = "Couldn't read their website.";
   }
@@ -120,28 +170,40 @@ export async function enrichLead(id: string, opts: { redraft?: boolean } = {}): 
   const s1 = steps.find((s) => s.step === 1);
   if (!s1) { await d.from("outreach_leads").update(patch).eq("id", id); return { ok: false, note: "Step 1 is missing: apply the CP-250 SQL." }; }
 
-  const existing = await d.from("outreach_messages").select("id, status").eq("lead_id", id).eq("step", 1).maybeSingle();
-  if (existing.data && existing.data.status !== "draft" && !opts.redraft) {
-    await d.from("outreach_leads").update(patch).eq("id", id);
-    return { ok: true, note: "Email 1 was already approved or sent." };
+  const settings = await loadSettings();
+  const mode = settings.write_mode === "full" ? "full" : "opener";
+  const read = s1.ai && site
+    ? await readSpa({
+        businessName: merged.business_name, city: merged.city, rating: merged.rating, reviews: merged.reviews, siteText: site.text,
+        mode, template: s1.body, notes: settings.writing_notes ?? "", note: opts.note,
+      })
+    : null;
+  if (read) {
+    patch.fit = read.fit; patch.fit_reason = read.fit_reason || null;
+    if (read.ig_dm) patch.ig_dm = read.ig_dm;
+    if (read.first_name && !merged.first_name) { patch.first_name = read.first_name; merged.first_name = read.first_name; }
   }
 
-  let subject: string, body: string, ai = false, detail: string | null = null;
-  const draft = s1.ai && site ? await draftFirstEmail({ businessName: merged.business_name, city: merged.city, rating: merged.rating, reviews: merged.reviews, siteText: site.text }) : null;
-  if (draft) {
-    if (draft.first_name && !merged.first_name) { patch.first_name = draft.first_name; merged.first_name = draft.first_name; }
-    subject = draft.subject;
-    body = `Hi ${greetingName(merged)},\n\n${draft.body}`;
-    ai = true; detail = draft.detail || null;
+  let subject: string, body: string, ai = false, line: string | null = null;
+  if (read && mode === "full" && read.subject && read.body) {
+    subject = read.subject;
+    body = `Hi ${greetingName(merged)},\n\n${read.body}`;
+    ai = true; line = read.opener;
   } else {
-    ({ subject, body } = await draftFromTemplate(merged, s1));
+    // Opener mode (or a full draft that broke a rule): your template, with Claude's line if we have one.
+    ({ subject, body } = await draftFromTemplate(merged, s1, read?.opener ?? undefined));
+    if (read?.opener && s1.body.includes("{opener}")) { ai = true; line = read.opener; }
   }
   await d.from("outreach_leads").update({ ...patch, status: "review" }).eq("id", id);
   await d.from("outreach_messages").upsert(
-    { lead_id: id, step: 1, subject, body, ai, ai_detail: detail, status: "draft", approved_at: null, approved_by: null, error: null },
+    { lead_id: id, step: 1, subject, body, ai, ai_detail: read?.detail || null, ai_line: line, edited: false, status: "draft", approved_at: null, approved_by: null, error: null },
     { onConflict: "lead_id,step" },
   );
-  return { ok: true, note: draft ? "Read their site and drafted email 1." : s1.ai ? "Drafted from the template (the AI couldn't read enough of their site)." : "Drafted from the template." };
+  const fitNote = read ? ` ${read.fit === "good" ? "Good fit" : read.fit === "no" ? "Not a fit" : "Fit unsure"}${read.fit_reason ? `: ${read.fit_reason}` : ""}.` : "";
+  const what = ai
+    ? (mode === "full" ? "Read their site and drafted email 1." : "Read their site and wrote the opening line.")
+    : s1.ai ? "Drafted from the template (the AI couldn't read enough of their site)." : "Drafted from the template.";
+  return { ok: true, note: what + fitNote };
 }
 
 /* ───────────────────────── 1 · inbox ───────────────────────── */
@@ -204,9 +266,11 @@ async function runInbox(settings: Awaited<ReturnType<typeof loadSettings>>, out:
       // Keep the sequence going; just note it.
       await d.from("outreach_leads").update({ reply_class: cls, updated_at: new Date().toISOString() }).eq("id", lead.id);
     } else {
-      const status: LeadStatus = cls === "unsubscribe" ? "unsubscribed" : cls === "not_interested" ? "not_interested" : "replied";
+      const status: LeadStatus = cls === "unsubscribe" ? "unsubscribed" : cls === "not_interested" ? "not_interested" : cls === "not_now" ? "later" : "replied";
       if ((cls === "unsubscribe" || cls === "not_interested") && lead.email) await suppress(lead.email, cls === "unsubscribe" ? "unsubscribed" : "not_interested");
-      await stopLead(lead.id, status, `Replied (${cls.replace("_", " ")})`, { last_reply_at: item.date, reply_class: cls });
+      // CP-250b · "not now" goes on the Later list with a re-contact date (change it in the drawer).
+      const later = cls === "not_now" ? { recontact_at: laterDate(Date.parse(item.date) || Date.now()) } : {};
+      await stopLead(lead.id, status, `Replied (${cls.replace("_", " ")})`, { last_reply_at: item.date, reply_class: cls, ...later });
     }
   }
   await d.from("outreach_settings").update({ imap_uidvalidity: poll.uidvalidity, imap_last_uid: poll.lastUid }).eq("id", 1);
@@ -216,7 +280,7 @@ async function runInbox(settings: Awaited<ReturnType<typeof loadSettings>>, out:
 
 async function runBooked(out: TickResult) {
   const d = db();
-  const { data: leads } = await d.from("outreach_leads").select("id, email").in("status", ["contacted", "done", "replied", "queued"]).not("email", "is", null).limit(500);
+  const { data: leads } = await d.from("outreach_leads").select("id, email").in("status", ["contacted", "done", "replied", "queued", "later"]).not("email", "is", null).limit(500);
   if (!leads?.length) return;
   const byEmail = new Map(leads.map((l) => [String(l.email).toLowerCase(), String(l.id)]));
   const emails = Array.from(byEmail.keys());
@@ -239,11 +303,29 @@ async function runFollowups(settings: Settings, steps: Step[], now: number, out:
   const d = db();
   const { data: due } = await d.from("outreach_leads").select("*").eq("status", "contacted").lte("next_at", new Date(now).toISOString()).limit(50);
   for (const lead of (due ?? []) as Lead[]) {
-    const next = steps.find((s) => s.step > lead.step && s.enabled);
+    const reach = reachOf(lead);
+    const next = nextStep(steps, lead.step, reach);
     if (!next) { await d.from("outreach_leads").update({ status: "done", next_at: null }).eq("id", lead.id); continue; }
+
+    if (next.kind === "call" || next.kind === "instagram_dm") {
+      // CP-250b/c · a manual step: put it on the To-do list and move the sequence on (it doesn't block
+      // the emails). The Instagram DM is the one Claude drafted from their site, else the step's template.
+      const v = { ...mergeValues(lead), opener: "" };
+      const script = next.kind === "instagram_dm" && lead.ig_dm ? lead.ig_dm : fillTags(next.body, v);
+      const { error } = await d.from("outreach_tasks").insert({ lead_id: lead.id, kind: next.kind, step: next.step, script: script.slice(0, 2000), due_at: new Date(now).toISOString() });
+      if (error && error.code !== "23505") { out.notes.push(`To-do task: ${error.message.slice(0, 100)}`); continue; }
+      const after = nextStep(steps, next.step, reach);
+      await d.from("outreach_leads").update({
+        step: next.step, status: after ? "contacted" : "done",
+        next_at: after ? new Date(now + waitDays(steps, next.step, after) * DAY).toISOString() : null, updated_at: new Date(now).toISOString(),
+      }).eq("id", lead.id);
+      if (next.kind === "call") out.calls++; else out.dms++;
+      continue;
+    }
+
     const have = await d.from("outreach_messages").select("id").eq("lead_id", lead.id).eq("step", next.step).maybeSingle();
     if (have.data) continue;
-    const { subject, body } = await draftFromTemplate(lead, next);
+    const { subject, body } = await draftFromTemplate(lead, next, "");
     await d.from("outreach_messages").insert({
       lead_id: lead.id, step: next.step, subject, body, ai: false,
       status: settings.approve_followups ? "draft" : "approved",
@@ -316,10 +398,10 @@ async function sendOne(m: Message & { lead: Lead }, settings: Settings, steps: S
   }
   const sentAt = new Date(now).toISOString();
   await d.from("outreach_messages").update({ status: "sent", sent_at: sentAt, message_id: messageId, subject, error: null }).eq("id", m.id);
-  const next = steps.find((s) => s.step > m.step && s.enabled);
+  const next = nextStep(steps, m.step, reachOf(lead));
   await d.from("outreach_leads").update({
     step: m.step, status: next ? "contacted" : "done",
-    next_at: next ? new Date(now + next.delay_days * DAY).toISOString() : null,
+    next_at: next ? new Date(now + waitDays(steps, m.step, next) * DAY).toISOString() : null,
     error: null, updated_at: sentAt,
   }).eq("id", lead.id);
   return { ok: true, note: `Sent step ${m.step} to ${lead.business_name}` };
@@ -355,11 +437,11 @@ async function runGuard(now: number, out: TickResult) {
 
 /* ───────────────────────── the run ───────────────────────── */
 
-export type TickResult = { inbox: number; booked: number; read: number; followups: number; ready: number; sent: number; wouldSend: number; sentToday: number; live: boolean; notes: string[] };
+export type TickResult = { inbox: number; booked: number; read: number; followups: number; calls: number; dms: number; ready: number; sent: number; wouldSend: number; sentToday: number; live: boolean; notes: string[] };
 
 export async function runTick(opts: { force?: boolean; now?: number } = {}): Promise<TickResult> {
   const now = opts.now ?? Date.now();
-  const out: TickResult = { inbox: 0, booked: 0, read: 0, followups: 0, ready: 0, sent: 0, wouldSend: 0, sentToday: 0, live: sendLive(), notes: [] };
+  const out: TickResult = { inbox: 0, booked: 0, read: 0, followups: 0, calls: 0, dms: 0, ready: 0, sent: 0, wouldSend: 0, sentToday: 0, live: sendLive(), notes: [] };
   const settings = await loadSettings();
   const steps = await loadSteps();
   if (!steps.length) { out.notes.push("No sequence steps: apply the CP-250 SQL."); return out; }
@@ -377,6 +459,8 @@ export async function runTick(opts: { force?: boolean; now?: number } = {}): Pro
     out.inbox ? `${out.inbox} new in inbox` : null,
     out.read ? `read ${out.read} site${out.read > 1 ? "s" : ""}` : null,
     out.booked ? `${out.booked} booked` : null,
+    out.calls ? `${out.calls} call${out.calls > 1 ? "s" : ""} added to To-do` : null,
+    out.dms ? `${out.dms} Instagram DM${out.dms > 1 ? "s" : ""} added to To-do` : null,
     ...out.notes,
   ].filter(Boolean).join(" · ") || "Nothing due.";
   await db().from("outreach_settings").update({ last_tick_at: new Date(now).toISOString(), last_tick_note: note.slice(0, 400) }).eq("id", 1);

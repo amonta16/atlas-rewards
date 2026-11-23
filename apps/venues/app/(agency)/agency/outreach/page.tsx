@@ -4,14 +4,15 @@ import { db, loadSettings, loadSteps, sentSince } from "@/lib/outreach/engine";
 import { setupStatus } from "@/lib/outreach/config";
 import { startOfPacificDay } from "@/lib/outreach/time";
 import { OutreachApp, type OutreachData } from "@/components/agency/outreach/outreach-app";
-import type { Campaign, Lead, Message, Reply } from "@/lib/outreach/shared";
+import type { Campaign, Lead, Message, Reply, Task } from "@/lib/outreach/shared";
 
 /**
  * /agency/outreach — CP-250 · Atlas's own cold email to med spas.
  *   Overview   pipeline counts, sends today vs cap, replies, setup checklist, last engine run
  *   Find       Google Places search by area, CSV import, manual add
  *   Review     AI-drafted email 1 (and follow-ups, if set) waiting for approve / edit / skip
- *   Leads      every spa with status; drawer with its emails, replies and actions
+ *   To-do      CP-250b: calls from call steps, and "not now" spas due to re-contact
+ *   Leads      every spa with status and fit; drawer with its emails, replies and actions
  *   Inbox      replies, bounces and auto-replies read from the outreach mailbox
  *   Sequence   the 3 steps · Settings: cap, window, days, approval, pause, do-not-contact
  * agency_admin only (checked here; the sidebar flag is cosmetic).
@@ -33,13 +34,14 @@ export default async function OutreachPage() {
   const sqlMissing = !!probe.error;
 
   const now = Date.now();
-  const [settings, steps, leadsQ, campsQ, repliesQ, suppQ] = await Promise.all([
+  const [settings, steps, leadsQ, campsQ, repliesQ, suppQ, tasksQ] = await Promise.all([
     loadSettings(),
     sqlMissing ? Promise.resolve([]) : loadSteps(),
     d.from("outreach_leads").select("*").order("created_at", { ascending: false }).limit(1000),
     d.from("outreach_campaigns").select("*").order("created_at", { ascending: false }),
     d.from("outreach_replies").select("*").order("received_at", { ascending: false }).limit(300),
     d.from("outreach_suppressions").select("value, reason, created_at").order("created_at", { ascending: false }).limit(300),
+    d.from("outreach_tasks").select("*").is("done_at", null).order("due_at").limit(300),
   ]);
   const leads = (leadsQ.data ?? []) as Lead[];
   const ids = leads.map((l) => l.id);
@@ -62,6 +64,7 @@ export default async function OutreachPage() {
     leads,
     messages,
     replies,
+    tasks: (tasksQ.data ?? []) as Task[],
     suppressions: (suppQ.data ?? []) as OutreachData["suppressions"],
     stats: {
       sentToday: today,

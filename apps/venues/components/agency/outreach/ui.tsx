@@ -3,7 +3,7 @@
  * components/agency/outreach/ui.tsx — CP-250 · small shared pieces for Admin → Outreach.
  */
 import { useState } from "react";
-import { STATUS_LABEL, STATUS_TINT, type LeadStatus } from "@/lib/outreach/shared";
+import { FIT_LABEL, FIT_TINT, STATUS_LABEL, STATUS_TINT, type Fit, type LeadStatus } from "@/lib/outreach/shared";
 
 export const card = "rounded-xl border border-slate-200 bg-white";
 export const inputBase = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200";
@@ -68,4 +68,16 @@ export function Empty({ title, text }: { title: string; text: string }) {
       <p className="mt-1 text-sm text-slate-500">{text}</p>
     </div>
   );
+}
+
+/** CP-250b · Claude's fit call for a spa, with the reason on hover. */
+export function FitPill({ fit, reason }: { fit: Fit | null; reason?: string | null }) {
+  if (!fit) return null;
+  return <span title={reason ?? undefined} className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${FIT_TINT[fit]}`}>{FIT_LABEL[fit]}</span>;
+}
+
+/** CP-250b · the outreach mailbox's Gmail, searched for this address (the thread is there). */
+export function gmailSearch(mailbox: string | null, email: string): string {
+  const auth = mailbox ? `?authuser=${encodeURIComponent(mailbox)}` : "";
+  return `https://mail.google.com/mail/${auth}#search/${encodeURIComponent(email)}`;
 }

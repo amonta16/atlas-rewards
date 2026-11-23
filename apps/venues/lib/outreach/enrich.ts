@@ -10,7 +10,7 @@
 import dns from "node:dns";
 import { safeFetch } from "@/lib/preview/safe-fetch";
 import { absolutize, decodeEntities, findTags, pageText, pageTitle } from "@/lib/preview/html";
-import { EMAIL_RE, hostOf } from "./shared";
+import { EMAIL_RE, hostOf, instagramHandle } from "./shared";
 
 export type SiteRead = {
   website: string;
@@ -22,6 +22,8 @@ export type SiteRead = {
   title: string | null;
   pages: string[];
   blockedNotice: boolean;
+  /** CP-250c · their Instagram handle, from the links on their own pages. */
+  instagram: string | null;
 };
 
 const JUNK_EMAIL = /(\.(png|jpe?g|gif|webp|svg|css|js)$)|(^|@)(example|domain|email|yourdomain|sentry|wixpress|sentry-next|godaddy|squarespace|wordpress|schema|test)\./i;
@@ -48,6 +50,16 @@ export function emailsIn(html: string): string[] {
   const text = html.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ");
   for (const m of decodeEntities(text).matchAll(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)) add(m[0]);
   return Array.from(found);
+}
+
+/** CP-250c · Instagram profile handles linked from a page (most-linked first). */
+export function instagramIn(html: string): string[] {
+  const count = new Map<string, number>();
+  for (const m of html.matchAll(/(?:https?:)?\/\/(?:www\.|m\.)?(?:instagram\.com|instagr\.am)\/[^"'<>\s)]+/gi)) {
+    const h = instagramHandle(m[0]);
+    if (h) count.set(h, (count.get(h) ?? 0) + 1);
+  }
+  return Array.from(count.entries()).sort((a, b) => b[1] - a[1]).map(([h]) => h);
 }
 
 /** Same-domain addresses first, then role addresses in a sensible order, then anything else. */
@@ -120,5 +132,6 @@ export async function readSite(website: string): Promise<SiteRead | null> {
   const best = emails[0] ?? null;
   const mxOk = best ? await hasMx(best.split("@")[1]) : null;
   const text = pages.map((p) => `# ${p.url}\n${pageText(p.html, 6000)}`).join("\n\n").slice(0, 14_000);
-  return { website: home.url, domain, emails: emails.slice(0, 8), best: mxOk === false ? null : best, mxOk, text, title: pageTitle(home.html), pages: pages.map((p) => p.url), blockedNotice };
+  const instagram = pages.flatMap((p) => instagramIn(p.html))[0] ?? null;
+  return { website: home.url, domain, emails: emails.slice(0, 8), best: mxOk === false ? null : best, mxOk, text, title: pageTitle(home.html), pages: pages.map((p) => p.url), blockedNotice, instagram };
 }

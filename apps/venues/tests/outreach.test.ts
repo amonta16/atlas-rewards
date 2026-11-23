@@ -82,3 +82,74 @@ test("freshText keeps the reply and drops the quoted thread", () => {
   const t = "Sure, send it over!\n\nOn Tue, Nov 17, 2026 at 9:02 AM Andrew <a@b.com> wrote:\n> Hi Jane\n> ...";
   assert.equal(freshText(t), "Sure, send it over!");
 });
+
+/* ───────── CP-250b · upgrades after the Origami walkthrough ───────── */
+import { fallbackOpener, instagramHandle, nameKey, nextStep, phoneKey, waitDays, type Step, type StepKind } from "../lib/outreach/shared";
+import { instagramIn } from "../lib/outreach/enrich";
+
+const step = (n: number, kind: StepKind = "email", enabled = true): Step =>
+  ({ step: n, name: `s${n}`, delay_days: 2, subject: "", body: "x", ai: false, enabled, kind });
+const all = { phone: true, instagram: true };
+
+test("nextStep skips disabled steps, call steps without a phone, Instagram steps without a handle", () => {
+  const steps = [step(5), step(1), step(4, "call"), step(3), step(2, "instagram_dm")];
+  assert.equal(nextStep(steps, 1, all)?.step, 2);
+  assert.equal(nextStep(steps, 1, { phone: true, instagram: false })?.step, 3);
+  assert.equal(nextStep(steps, 3, all)?.step, 4);
+  assert.equal(nextStep(steps, 3, { phone: false, instagram: true })?.step, 5);
+  assert.equal(nextStep(steps, 5, all), null);
+  assert.equal(nextStep([step(1), step(2, "email", false), step(3)], 1, all)?.step, 3);
+});
+
+test("waitDays keeps a skipped step's place in the calendar and ignores turned-off steps", () => {
+  const d = (n: number, kind: StepKind, delay: number, enabled = true): Step => ({ ...step(n, kind, enabled), delay_days: delay });
+  // email d0 → IG +2 → email +1 → call +2 → email +2  (days 0, 2, 3, 5, 7)
+  const seq = [d(1, "email", 0), d(2, "instagram_dm", 2), d(3, "email", 1), d(4, "call", 2), d(5, "email", 2)];
+  const noIg = { phone: true, instagram: false };
+  assert.equal(waitDays(seq, 1, nextStep(seq, 1, all)!), 2);       // IG on day 2
+  assert.equal(waitDays(seq, 1, nextStep(seq, 1, noIg)!), 3);      // no Instagram: email 2 still on day 3
+  assert.equal(waitDays(seq, 3, nextStep(seq, 3, { phone: false, instagram: true })!), 4); // no phone: last note day 7
+  const off = [d(1, "email", 0), d(2, "instagram_dm", 2, false), d(3, "email", 1)];
+  assert.equal(waitDays(off, 1, nextStep(off, 1, all)!), 1);       // turned off: as if it weren't there
+});
+
+/* ───────── CP-250c · the manual Instagram step ───────── */
+test("instagramHandle reads @handles, bare handles and profile links, and refuses non-profiles", () => {
+  assert.equal(instagramHandle("@Glow.Spa"), "glow.spa");
+  assert.equal(instagramHandle("glow_medspa"), "glow_medspa");
+  assert.equal(instagramHandle("https://www.instagram.com/GlowMedSpa/?hl=en"), "glowmedspa");
+  assert.equal(instagramHandle("instagram.com/glowmedspa"), "glowmedspa");
+  assert.equal(instagramHandle("https://instagr.am/glowmedspa"), "glowmedspa");
+  assert.equal(instagramHandle("https://www.instagram.com/p/C1abcDEF/"), null);
+  assert.equal(instagramHandle("https://www.instagram.com/reel/xyz"), null);
+  assert.equal(instagramHandle("https://facebook.com/glow"), null);
+  assert.equal(instagramHandle("not a handle!"), null);
+  assert.equal(instagramHandle(""), null);
+});
+
+test("instagramIn finds the spa's profile among the links on its page, most-linked first", () => {
+  const html = `
+    <a href="https://www.instagram.com/glowmedspa/">IG</a>
+    <a href="//instagram.com/glowmedspa?igsh=abc">Follow us</a>
+    <a href="https://www.instagram.com/p/C1abc/">A post</a>
+    <a href="https://instagram.com/somepartner">Partner</a>
+    <a href="https://facebook.com/glow">FB</a>`;
+  assert.deepEqual(instagramIn(html), ["glowmedspa", "somepartner"]);
+});
+
+test("the {opener} tag: Claude's line, the honest fallback, or nothing without a hole", () => {
+  const tpl = "Hi {first_name},\n\n{opener}\n\nI build branded patient apps for {spa_name}.";
+  const v = { first_name: "Jane", spa_name: "Glow", city: "Fresno", preview_link: "P", book_link: "B" };
+  assert.equal(fillTags(tpl, { ...v, opener: "Saw your membership." }), "Hi Jane,\n\nSaw your membership.\n\nI build branded patient apps for Glow.");
+  assert.equal(fillTags(tpl, { ...v, opener: "" }), "Hi Jane,\n\nI build branded patient apps for Glow.");
+  assert.equal(fallbackOpener({ business_name: "Glow", city: "Fresno" }), "I came across Glow while looking at med spas in Fresno.");
+  assert.equal(fallbackOpener({ business_name: "Glow", city: null }), "I came across Glow and wanted to reach out.");
+});
+
+test("already-in-Atlas keys: names without punctuation, last 10 phone digits", () => {
+  assert.equal(nameKey("Glow Med Spa & Wellness, LLC"), "glowmedspaandwellnessllc");
+  assert.equal(nameKey("GLOW med-spa and wellness llc"), "glowmedspaandwellnessllc");
+  assert.equal(phoneKey("+1 (661) 555-0123"), "6615550123");
+  assert.equal(phoneKey("661-555-0123"), "6615550123");
+  assert.equal(phoneKey("555-0123"), null);
+});

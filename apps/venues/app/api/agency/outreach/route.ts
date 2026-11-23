@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient as createServer } from "@/lib/supabase/server";
 import { searchPlaces } from "@/lib/outreach/places-search";
-import { db, enrichLead, loadSettings, runTick, stopLead, suppress } from "@/lib/outreach/engine";
+import { db, enrichLead, laterDate, loadSettings, runTick, stopLead, suppress } from "@/lib/outreach/engine";
 import { sendMail, verifySmtp } from "@/lib/outreach/mailer";
 import { verifyImap } from "@/lib/outreach/inbox";
 import { postalAddress, smtpConfig, unsubscribeUrl } from "@/lib/outreach/config";
 import { timezoneFor } from "@/lib/outreach/time";
-import { EMAIL_RE, MANUAL_STATUSES, MAX_CAP, footer, hostOf, type LeadStatus } from "@/lib/outreach/shared";
+import { EMAIL_RE, MANUAL_STATUSES, MAX_CAP, OUTCOMES, OUTCOME_LABEL, footer, hostOf, instagramHandle, type LeadStatus, type StepKind, type TaskKind } from "@/lib/outreach/shared";
 
 /**
  * POST /api/agency/outreach — CP-250 · Admin → Outreach (agency_admin only). One endpoint, { action, ... }:
@@ -14,17 +14,22 @@ import { EMAIL_RE, MANUAL_STATUSES, MAX_CAP, footer, hostOf, type LeadStatus } f
  *   add_places    { campaign_id?, places: PlaceHit[] }  save picked results as leads (dedup by place/domain)
  *   import        { campaign_id?, rows: [...] }         CSV rows: business_name, website, email, first_name, city, state, phone
  *   add_manual    { campaign_id?, ...one row }
- *   enrich        { lead_id, redraft? }                 read site + draft email 1
+ *   enrich        { lead_id, redraft?, note? }          read site, judge fit, draft email 1 (note: one-off instruction)
  *   approve       { message_id, subject, body }         save edits, approve (email 1 queues the lead)
  *   save_draft    { message_id, subject, body }
  *   skip          { lead_id }                           don't contact this spa
- *   update_lead   { lead_id, email?, first_name?, notes? }
+ *   update_lead   { lead_id, email?, first_name?, notes?, instagram?, ig_dm? }
  *   set_status    { lead_id, status }                   replied / booked / not interested / stopped
  *   retry         { message_id }                        a failed email back to approved
  *   handle_reply  { reply_id, lead_id? }                mark handled (and link to a lead)
  *   campaign      { name, area? } | { campaign_id, paused }
- *   save_step     { step, name, delay_days, subject, body, enabled }
+ *   save_step     { step, name, delay_days, subject, body, enabled, kind }   kind 'call' / 'instagram_dm' = a To-do task, not an email
  *   save_settings { daily_cap, send_days, window_start, window_end, approve_followups, paused, from_name, signature }
+ *   save_writing  { write_mode, writing_notes }         CP-250b: opener vs whole email, standing notes for every draft
+ *   skip_unfit                                          CP-250b: skip every spa in Review that Claude marked "not a fit"
+ *   later         { lead_id, date }                     CP-250b: stop the sequence, re-contact on that date
+ *   recontacted   { lead_id }                           CP-250b: you followed up by hand → Replied
+ *   task_done     { task_id, outcome, note? }           CP-250b/c: a call or Instagram DM from the To-do list, with how it went
  *   suppress      { value }                             email or @domain
  *   check_mailbox                                       log in to SMTP + IMAP, send nothing
  *   test_email    { step? , subject, body }             send a preview to the admin's own email from the outreach mailbox
@@ -142,7 +147,7 @@ export async function POST(req: Request) {
 
       case "enrich": {
         if (!leadId) return bad("Bad lead.");
-        return NextResponse.json(await enrichLead(leadId, { redraft: b.redraft === true }));
+        return NextResponse.json(await enrichLead(leadId, { redraft: b.redraft === true, note: nul(b.note, 300) }));
       }
 
       case "approve":
@@ -151,13 +156,15 @@ export async function POST(req: Request) {
         const subject = str(b.subject, 160);
         const body = typeof b.body === "string" ? b.body.replace(/\r\n/g, "\n").trim().slice(0, 4000) : "";
         if (!body) return bad("The email is empty.");
-        const { data: m } = await d.from("outreach_messages").select("id, lead_id, step, status").eq("id", msgId).maybeSingle();
+        const { data: m } = await d.from("outreach_messages").select("id, lead_id, step, status, subject, body").eq("id", msgId).maybeSingle();
         if (!m) return bad("Email not found.");
         if (!["draft", "approved"].includes(String(m.status))) return bad("That email was already sent or cancelled.");
         if (m.step === 1 && !subject) return bad("Email 1 needs a subject.");
         if (/https?:\/\//i.test(body) && m.step === 1) return bad("Keep links out of email 1: it lands in the inbox more often. Links go in email 2.");
         const approve = b.action === "approve";
-        await d.from("outreach_messages").update({ subject, body, ...(approve ? { status: "approved", approved_at: new Date().toISOString(), approved_by: me.id } : {}) }).eq("id", msgId);
+        // Edited by hand → "Redraft all" leaves it alone.
+        const edited = subject !== String(m.subject ?? "").trim() || body !== String(m.body ?? "").trim();
+        await d.from("outreach_messages").update({ subject, body, ...(edited ? { edited: true } : {}), ...(approve ? { status: "approved", approved_at: new Date().toISOString(), approved_by: me.id } : {}) }).eq("id", msgId);
         if (approve && m.step === 1) {
           const { data: lead } = await d.from("outreach_leads").select("email").eq("id", m.lead_id).maybeSingle();
           if (!lead?.email) return bad("This spa has no email yet.");
@@ -182,6 +189,13 @@ export async function POST(req: Request) {
         }
         if ("first_name" in b) patch.first_name = nul(b.first_name, 60);
         if ("notes" in b) patch.notes = nul(b.notes, 2000);
+        if ("instagram" in b) {
+          const raw = str(b.instagram, 200);
+          const h = instagramHandle(raw);
+          if (raw && !h) return bad("That doesn't look like an Instagram handle or profile link.");
+          patch.instagram = h;
+        }
+        if ("ig_dm" in b) patch.ig_dm = nul(b.ig_dm, 500);
         const { error } = await d.from("outreach_leads").update(patch).eq("id", leadId);
         if (error) return bad(error.code === "23505" ? "Another lead already has that email." : error.message);
         // A spa that had no email can now be drafted.
@@ -233,14 +247,17 @@ export async function POST(req: Request) {
       case "save_step": {
         const step = Number(b.step);
         const delay = Math.round(Number(b.delay_days));
-        const body = typeof b.body === "string" ? b.body.replace(/\r\n/g, "\n").slice(0, 4000) : "";
+        const body = typeof b.body === "string" ? b.body.replace(/\r\n/g, "\n").slice(0, step === 1 ? 4000 : 2000) : "";
+        const kind: StepKind = b.kind === "call" || b.kind === "instagram_dm" ? b.kind : "email";
         if (!Number.isInteger(step) || step < 1 || step > 10) return bad("Bad step.");
+        if (step === 1 && kind === "call") return bad("Step 1 is always the first email.");
         if (!Number.isFinite(delay) || delay < 0 || delay > 60) return bad("Wait between 0 and 60 days.");
-        if (!body.trim()) return bad("The email is empty.");
+        if (!body.trim()) return bad(kind === "call" ? "Write a short call script." : kind === "instagram_dm" ? "Write the DM (Claude's draft for each spa replaces it when there is one)." : "The email is empty.");
+        if (kind === "instagram_dm" && /https?:\/\/|www\./i.test(body)) return bad("Keep links out of the DM: it reads as spam.");
         if (step === 1 && !str(b.subject, 160)) return bad("Email 1 needs a subject.");
         const { error } = await d.from("outreach_steps").upsert({
-          step, name: str(b.name, 60) || `Step ${step}`, delay_days: step === 1 ? 0 : delay, subject: str(b.subject, 160), body,
-          enabled: b.enabled !== false, ai: step === 1 ? b.ai !== false : false, updated_at: new Date().toISOString(),
+          step, name: str(b.name, 60) || `Step ${step}`, delay_days: step === 1 ? 0 : delay, subject: kind === "email" ? str(b.subject, 160) : "", body,
+          enabled: b.enabled !== false, ai: step === 1 ? b.ai !== false : false, kind, updated_at: new Date().toISOString(),
         }, { onConflict: "step" });
         if (error) return bad(`Couldn't save: ${error.message}. Has the CP-250 SQL been applied?`, 500);
         return NextResponse.json({ ok: true });
@@ -262,6 +279,64 @@ export async function POST(req: Request) {
           paused, ...(paused ? {} : { paused_reason: null }), from_name: fromName, signature, updated_at: new Date().toISOString(),
         }).eq("id", 1);
         if (error) return bad(`Couldn't save: ${error.message}. Has the CP-250 SQL been applied?`, 500);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "save_writing": {
+        const mode = b.write_mode === "full" ? "full" : "opener";
+        const notes = typeof b.writing_notes === "string" ? b.writing_notes.replace(/\r\n/g, "\n").trim().slice(0, 1000) : "";
+        const { error } = await d.from("outreach_settings").update({ write_mode: mode, writing_notes: notes, updated_at: new Date().toISOString() }).eq("id", 1);
+        if (error) return bad(`Couldn't save: ${error.message}. Has the CP-250b SQL been applied?`, 500);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "skip_unfit": {
+        const { data: unfit } = await d.from("outreach_leads").select("id").eq("status", "review").eq("fit", "no").limit(500);
+        for (const l of unfit ?? []) await stopLead(String(l.id), "stopped", "Not a fit (skipped in review)");
+        return NextResponse.json({ ok: true, note: `Skipped ${unfit?.length ?? 0}.` });
+      }
+
+      case "later": {
+        if (!leadId) return bad("Bad lead.");
+        const date = str(b.date, 10);
+        const t = Date.parse(`${date}T12:00:00Z`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(t)) return bad("Pick a date.");
+        if (t < Date.now() - 86_400_000 || t > Date.now() + 400 * 86_400_000) return bad("Pick a date in the next year.");
+        await stopLead(leadId, "later", `Re-contact on ${date}`, { recontact_at: date });
+        return NextResponse.json({ ok: true, note: `On the Later list until ${date}.` });
+      }
+
+      case "recontacted": {
+        if (!leadId) return bad("Bad lead.");
+        await stopLead(leadId, "replied", "Followed up by hand", { recontact_at: null });
+        return NextResponse.json({ ok: true });
+      }
+
+      case "task_done": {
+        const tid = typeof b.task_id === "string" && UUID.test(b.task_id) ? b.task_id : null;
+        if (!tid) return bad("Bad task.");
+        const { data: t } = await d.from("outreach_tasks").select("id, lead_id, kind, done_at").eq("id", tid).maybeSingle();
+        if (!t) return bad("Task not found.");
+        const kind = (t.kind === "instagram_dm" ? "instagram_dm" : "call") as TaskKind;
+        const outcome = OUTCOMES[kind].find((o) => o === b.outcome);
+        if (!outcome) return bad("Bad outcome.");
+        const now = new Date().toISOString();
+        await d.from("outreach_tasks").update({ done_at: now, outcome }).eq("id", tid);
+        const { data: l } = await d.from("outreach_leads").select("email, notes").eq("id", t.lead_id).maybeSingle();
+        const note = nul(b.note, 500);
+        const line = `${now.slice(0, 10)} ${kind === "call" ? "call" : "Instagram"}: ${OUTCOME_LABEL[outcome].toLowerCase()}${note ? `. ${note}` : ""}`;
+        await d.from("outreach_leads").update({ notes: [line, l?.notes].filter(Boolean).join("\n").slice(0, 2000), updated_at: now }).eq("id", t.lead_id);
+        if (outcome === "not_interested") {
+          if (l?.email) await suppress(String(l.email), "not_interested");
+          await stopLead(String(t.lead_id), "not_interested", kind === "call" ? "Said no on the phone" : "Said no on Instagram");
+        } else if (outcome === "booked") {
+          await stopLead(String(t.lead_id), "booked", kind === "call" ? "Booked on the phone" : "Booked from Instagram");
+        } else if (outcome === "replied") {
+          // In a conversation on Instagram: more cold emails would be odd. You take it from here.
+          await stopLead(String(t.lead_id), "replied", "Replied on Instagram", { last_reply_at: now });
+        } else if (outcome === "no_ig") {
+          await d.from("outreach_leads").update({ instagram: null }).eq("id", t.lead_id);
+        }
         return NextResponse.json({ ok: true });
       }
 
