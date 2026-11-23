@@ -13,11 +13,12 @@
  *
  * CP-238: the first tab is Journey, every follow-up in one place:
  *   Automated offers (birthday, holiday, win-back gifts) · One-time offers
- *   (scratch-card promos, was Desk → Offers) · Campaigns (recall, win-back and
- *   the ad plan, was Desk → Atlas Engine) · Automations (CP-249: every manager,
- *   with a preview of each email, see automations-view.tsx).
+ *   (scratch-card promos, was Desk → Offers) · Automations (CP-249: every
+ *   manager, with a preview of each email, see automations-view.tsx).
+ * CP-263: Campaigns (a planning page with nothing to run) is gone, and the
+ * Skin scan tab holds the patients' scans (was a sidebar page) next to its setup.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { glidePanel } from "../glide";
 import { createClient } from "@atlas/core/supabase/client";
 import { shrinkImage } from "@atlas/core/shrink-image";
@@ -28,22 +29,24 @@ import type { DeskApi, GiftOffer, RewardRow } from "@/lib/desk-api";
 import { AutomationsSection } from "./automations-view";
 import { Modal } from "./ui";
 import { RewardsView } from "./manager-views";
-import { IcCheck, IcGift, IcMore } from "../icons";
-import { MarketingView, OffersView } from "./marketing-views";
+import { IcCheck, IcMore } from "../icons";
+import { OffersView } from "./marketing-views";
 import { EngineGate, LockPill, useEngineLocked } from "./engine-lock";
 import { offerArtPath, offerArtUrl } from "@/lib/offer-art";
 
-export type Section = "brand" | "clinic" | "treatments" | "skinscan" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "oneoff" | "campaigns" | "automations" | "rewards";
-type Tab = "journey" | "products" | "membership" | "rewards" | "settings";
+export type Section = "brand" | "clinic" | "treatments" | "skinscan" | "memberships" | "shop" | "booking" | "providers" | "results" | "care" | "gifts" | "oneoff" | "automations" | "rewards" | "scans";
+type Tab = "journey" | "products" | "skinscan" | "membership" | "rewards" | "settings";
 type Cfg = MedspaConfig & { memberships?: MedspaPlan[] };
 const shadow = "shadow-[0_10px_30px_-24px_rgba(23,27,38,.45)]";
 const dollars = (c: number | null | undefined) => (c == null ? "" : String(c / 100));
 const toCents = (v: string) => { const n = parseFloat(v.replace(/[^0-9.]/g, "")); return Number.isFinite(n) ? Math.round(n * 100) : null; };
 const price = (c: number | null | undefined) => (c == null || c <= 0 ? "No price yet" : `$${(c / 100).toLocaleString("en-US")}`);
 
-export function BuilderView({ clinic, canBrand, initial, say, api, initialSection = "gifts", offersOn, recall, onOpenInsights }: {
+export function BuilderView({ clinic, canBrand, initial, say, api, initialSection = "gifts", offersOn, scans }: {
   clinic: { id: string; slug: string; name: string; demo: boolean }; canBrand: boolean; initial: BuilderData; say: (t: string) => void; api: DeskApi; initialSection?: Section;
-  offersOn: boolean; recall: { enabled: boolean; lead_days: number; followup_days: number }; onOpenInsights: () => void;
+  offersOn: boolean;
+  /** CP-263: the patients' skin scans (was its own sidebar page), shown under Skin scan → Scans. */
+  scans?: ReactNode;
 }) {
   const [d, setD] = useState<BuilderData>(initial);
   const [cfg, setCfg] = useState<Cfg>(() => readMedspaConfig(initial.cfg) as Cfg);
@@ -93,8 +96,10 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
   }
 
   const TABS: { id: Tab; label: string; subs: { id: Section; label: string }[] }[] = [
-    { id: "journey", label: "Journey", subs: [{ id: "gifts", label: "Automated offers" }, { id: "oneoff", label: "One-time offers" }, { id: "campaigns", label: "Campaigns" }, { id: "automations", label: "Automations" }] },
-    { id: "products", label: "Products", subs: [{ id: "treatments", label: "Treatments" }, { id: "shop", label: "Shop" }, { id: "results", label: "Results" }, { id: "skinscan", label: "AI skin scan" }] },
+    { id: "journey", label: "Journey", subs: [{ id: "gifts", label: "Automated offers" }, { id: "oneoff", label: "One-time offers" }, { id: "automations", label: "Automations" }] },
+    { id: "products", label: "Products", subs: [{ id: "treatments", label: "Treatments" }, { id: "shop", label: "Shop" }, { id: "results", label: "Results" }] },
+    // CP-263: the scans page moved in from the sidebar, next to its setup.
+    { id: "skinscan", label: "Skin scan", subs: [...(scans ? [{ id: "scans" as Section, label: "Scans" }] : []), { id: "skinscan", label: "Setup" }] },
     { id: "membership", label: "Membership", subs: [{ id: "memberships", label: "Plans" }] },
     { id: "rewards", label: "Rewards", subs: [{ id: "rewards", label: "Rewards" }] },
     { id: "settings", label: "Settings", subs: [...(canBrand ? [{ id: "brand" as Section, label: "Brand" }] : []), { id: "clinic", label: "Clinic details" }, { id: "booking", label: "Booking" }, { id: "providers", label: "Providers" }, { id: "care", label: "Care & recall" }] },
@@ -137,7 +142,7 @@ export function BuilderView({ clinic, canBrand, initial, say, api, initialSectio
           {section === "care" && <CareSection cfg={cfg} setCfg={setCfg} />}
           {section === "gifts" && <GiftsSection api={api} say={say} upload={upload} clinicName={clinic.name} appIcon={d.app_icon_url || d.logo_url || null} primary={d.primary} />}
           {section === "oneoff" && <OffersView api={api} say={say} offersOn={offersOn} onOpenAutomated={() => setSection("gifts")} />}
-          {section === "campaigns" && <MarketingView api={api} recall={recall} onOpenCare={() => setSection("care")} onOpenOffers={() => setSection("gifts")} onOpenInsights={onOpenInsights} />}
+          {section === "scans" && scans}
           {section === "automations" && <AutomationsSection api={api} say={say} brand={{ name: d.name, logoUrl: d.logo_url, primary: d.primary, heroUrl: d.hero_image_url, address: d.address || null }} />}
           {section === "rewards" && <RewardsView api={api} say={say} />}
         </div>

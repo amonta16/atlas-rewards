@@ -1,20 +1,18 @@
 "use client";
 /**
- * App Builder → Journey → One-time offers and → Campaigns (managers).
- * CP-238: these were the Desk → Offers and Desk → Atlas Engine tabs.
+ * App Builder → Journey → One-time offers (managers). CP-238: was Desk → Offers.
  *
- *   Offers       · one-time promos (upsert_offer, delete_offer). Patients get
- *                  the newest one as the scratch gift on Home and claim it with
- *                  save_offer, then show the code at the desk.
- *   Atlas Engine · what runs in the patient app today (recall, automated offers,
- *                  win-back) and the ad plan. Nothing here sends or tracks ads
- *                  yet, so the copy says "planning".
+ *   Offers · one-time promos (upsert_offer, delete_offer). Patients get the
+ *            newest one as the scratch gift on Home and claim it with
+ *            save_offer, then show the code at the desk.
+ *
+ * CP-263: the Campaigns view (Atlas Engine planning page) was removed; it had
+ * nothing to run. ?view=marketing now opens Automated offers.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DeskApi, DeskOffer, GiftOffer } from "@/lib/desk-api";
-import { IcEngine, IcNext, IcTag } from "../icons";
+import type { DeskApi, DeskOffer } from "@/lib/desk-api";
+import { IcNext, IcTag } from "../icons";
 import { Empty, Modal } from "./ui";
-import { EngineGate } from "./engine-lock";
 
 const card = "rounded-[16px] bg-white shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]";
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -148,94 +146,4 @@ function OfferModal({ api, init, onClose, onSaved }: { api: DeskApi; init: DeskO
       {init.id && <button type="button" disabled={busy !== null} onClick={del} className="mt-3 w-full text-center text-[14px] font-medium text-red-600">{busy === "delete" ? "Deleting…" : "Delete offer"}</button>}
     </Modal>
   );
-}
-
-/* ───────────── Atlas Engine ───────────── */
-
-const AD_PLAYS = [
-  { id: "new-patient", name: "New-patient offer", channel: "Instagram + Facebook", hook: "A first-visit special that ends at your app's join link, so every lead becomes a patient you can reach again.", lands: "Join link + welcome gift" },
-  { id: "before-after", name: "Before & after showcase", channel: "Instagram Reels", hook: "Your consented gallery, cut into reels. Proof sells the consult; the consult sells the plan.", lands: "Book a consult" },
-  { id: "membership", name: "Membership launch", channel: "Meta + in-app", hook: "Sell the monthly plan to warm patients: member pricing, banked credit, and a signup bonus.", lands: "Memberships" },
-  { id: "referral", name: "Review & referral engine", channel: "Organic + retargeting", hook: "Happy-patient clips with a points reason to share. Reviews rank you; referrals fill the book.", lands: "Invite a friend" },
-];
-
-export function MarketingView({ api, recall, onOpenCare, onOpenOffers, onOpenInsights }: {
-  api: DeskApi; recall: { enabled: boolean; lead_days: number; followup_days: number };
-  onOpenCare?: () => void; onOpenOffers?: () => void; onOpenInsights: () => void;
-}) {
-  const [offers, setOffers] = useState<GiftOffer[] | null>(null);
-  useEffect(() => { api.giftOffers().then(setOffers).catch(() => setOffers([])); }, [api]);
-  const active = (offers ?? []).filter((o) => o.is_active);
-  return (
-    <div className="space-y-3.5">
-      <section className="relative overflow-hidden rounded-[16px] p-5 text-white" style={{ background: "radial-gradient(120% 140% at 100% 0%, #1d6fb8 0%, #0d3b74 45%, #0a1f3f 100%)" }}>
-        <div className="flex items-start gap-3.5">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-white/10 ring-1 ring-white/20"><IcEngine className="h-6 w-6" /></span>
-          <div className="min-w-0">
-            <p className="text-[11.5px] font-semibold uppercase tracking-[0.14em] text-white/60">Atlas Engine</p>
-            <h2 className="text-[22px] font-bold leading-tight">Campaigns</h2>
-            <p className="mt-1 max-w-2xl text-[13.5px] leading-relaxed text-white/75">Two engines fill your book: the <b className="text-white">always-on</b> one inside the patient app, and the <b className="text-white">ad engine</b> that feeds it new patients. Run the first from here today; plan the second with your Atlas partner.</p>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-[13.5px] font-semibold">Always-on · live in the patient app</h2>
-        <EngineGate className="rounded-[16px]"><div className="grid gap-3.5 md:grid-cols-3">
-          <EngineCard title="Recall messages" on={recall.enabled} onClick={onOpenCare} foot="Settings → Care & recall"
-            body={recall.enabled ? `Every treatment has a due window; patients hear from you ${recall.lead_days} days before, again ${recall.followup_days} days after.` : "Off. Turn it on and every logged treatment chases its own rebooking."} />
-          <EngineCard title="Automated offers" on={active.length > 0} onClick={onOpenOffers} foot="Journey → Automated offers"
-            body={offers == null ? "…" : active.length > 0 ? `${active.length} running: ${active.slice(0, 3).map((o) => o.name).join(", ")}${active.length > 3 ? "…" : ""}.` : "None running. Birthday, holiday and win-back offers are one switch each."} />
-          <EngineCard title="Win-back" on onClick={onOpenInsights} foot="Insights → Inactive patients"
-            body="Patients who haven't visited in 30 to 90 days get a one-tap &quot;we miss you&quot; with bonus points or a free reward." />
-        </div></EngineGate>
-      </section>
-
-      <section className={`${card} p-4`}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div><h2 className="text-[13.5px] font-semibold">Ad engine</h2><p className="text-[12.5px] text-sub">Paid campaigns that land in your app. Planned here, run with your Atlas partner.</p></div>
-          <span className="rounded-full bg-[#F4F5F6] px-2.5 py-1 text-[11.5px] font-semibold text-sub">Planning view</span>
-        </div>
-        <ol className="mt-3 flex flex-wrap items-center gap-1.5 rounded-[12px] bg-[#F7F8F8] px-3 py-2.5 text-[12.5px] font-medium" aria-label="The funnel every play feeds">
-          {["Ad", "App install", "First visit", "Member"].map((s, i) => (
-            <li key={s} className="flex items-center gap-1.5">
-              {i > 0 && <IcNext className="h-3 w-3 text-faint" strokeWidth={2.2} />}
-              <span className={`rounded-full px-2.5 py-1 ${i === 3 ? "bg-brand text-white" : "bg-white ring-1 ring-line"}`}>{s}</span>
-            </li>
-          ))}
-        </ol>
-        <div className="mt-2.5 grid gap-2.5 md:grid-cols-2">
-          {AD_PLAYS.map((p) => (
-            <div key={p.id} className="rounded-[12px] bg-[#F7F8F8] p-3.5">
-              <div className="flex items-center justify-between gap-2"><span className="text-[13.5px] font-semibold">{p.name}</span><span className="rounded-full bg-[#E9EBED] px-2 py-0.5 text-[11.5px] font-semibold text-sub">Draft</span></div>
-              <p className="mt-1 text-[12.5px] leading-snug text-sub">{p.hook}</p>
-              <p className="mt-1.5 flex justify-between gap-3 text-[12px]"><span className="text-faint">{p.channel}</span><span className="font-semibold text-brand">{p.lands}</span></p>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2.5 rounded-[12px] border border-dashed border-line p-3.5">
-          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-[13px] font-semibold">Per-campaign results you&apos;ll see here</span><span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">Tracking coming soon</span></div>
-          <p className="mt-1 text-[12.5px] text-sub">Sent, opened, redeemed and booked for each campaign.</p>
-        </div>
-      </section>
-
-      <section className={`${card} p-4`}>
-        <h2 className="text-[13.5px] font-semibold">Email &amp; SMS blasts</h2>
-        <p className="text-[12.5px] text-sub">One-off sends to segments (lapsed, birthdays, members). Coming soon.</p>
-      </section>
-    </div>
-  );
-}
-
-function EngineCard({ title, on, body, foot, onClick }: { title: string; on: boolean; body: string; foot: string; onClick?: () => void }) {
-  const inner = (
-    <>
-      <span className="flex items-center justify-between gap-2"><span className="text-[13.5px] font-semibold">{title}</span><span className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${on ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{on ? "On" : "Off"}</span></span>
-      <span className="mt-1 block text-[12.5px] leading-snug text-sub">{body}</span>
-      <span className="mt-2 flex items-center gap-1 text-[12.5px] font-semibold text-brand">{foot}{onClick && <IcNext className="h-3 w-3" strokeWidth={2.4} />}</span>
-    </>
-  );
-  return onClick
-    ? <button type="button" onClick={onClick} className={`${card} block w-full p-4 text-left transition hover:shadow-card`}>{inner}</button>
-    : <div className={`${card} p-4`}>{inner}</div>;
 }

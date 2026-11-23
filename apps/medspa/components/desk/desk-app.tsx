@@ -5,17 +5,22 @@
  *
  *   Home           · managers: the clinic's numbers + live activity feed
  *   Check in       · find a patient by phone / name / code, or scan their QR
- *                    (patient check-in code, reward voucher or gift) → patient panel
- *   Client profiles· every patient
+ *                    (patient check-in code, reward voucher or gift) → patient panel;
+ *                    its second tab is Client profiles, every patient (CP-263)
  *   Patients due   · who's due for their next treatment (recall)
  *   Shop summary   · Shop orders to take payment for / hand over
- *   Insights · Memberships · App Builder: managers
+ *   Memberships · App Builder: managers (Skin scans live in App Builder → Skin scan)
  *   Payouts · Billing · Team: managers, in the quieter group under the main nav
  *
  * CP-238: Offers and Atlas Engine are no longer sidebar tabs. One-time offers,
  * automated offers and campaigns all live in App Builder → Journey
  * (?view=offers / ?view=marketing still land there). Home opens with the
  * "Get started" cards, checklist and access card for new owners.
+ *
+ * CP-263, decluttered: Insights is gone (Home has the numbers; ?view=insights
+ * opens Home), the monthly report email still opens its report (?view=reports),
+ * Client profiles is a tab of Check in, and Skin scans moved into App Builder
+ * (front-desk staff, who have no App Builder, keep it in the sidebar).
  *
  * All reads and writes go through lib/desk-api.ts (the same database
  * functions as the patient app and the manager portal).
@@ -27,8 +32,7 @@ import { useSearchParams } from "next/navigation";
 import { glidePanel, glidePush, tabDir } from "../glide";
 import { demoDeskApi, liveDeskApi, type ActivityRow, type DeskApi, type DeskGift, type DeskMember, type DeskVoucher, type DueRow, type LookupResult, type OrderRow, type PatientDetail, type Provider, type Treatment } from "@/lib/desk-api";
 import { formatPhone } from "@/lib/format";
-import { Wordmark } from "../chrome";
-import { IcBag, IcBank, IcBell, IcCard, IcChart, IcCheck, IcClock, IcClose, IcEye, IcFaceScan, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
+import { IcBag, IcBank, IcBell, IcCard, IcCheck, IcClock, IcClose, IcEye, IcFaceScan, IcGift, IcHome, IcNext, IcOut, IcPeople, IcPhone, IcQr, IcRefresh, IcSearch, IcSpark, IcUser } from "../icons";
 import type { Staff } from "@/lib/staff";
 import { Card, Empty, Modal } from "./ui";
 import { RewardsView, TeamView } from "./manager-views";
@@ -36,7 +40,7 @@ import { HomeView } from "./home-view";
 import { MembershipsView, PatientsView, PayoutsView, ReviewsCard } from "./people-views";
 import type { MedspaPlan } from "@/lib/plans";
 import { BuilderView, type Section as BuilderSection } from "./builder";
-import { InsightsView } from "./insights-views";
+import { MonthlyReportView } from "./insights-views";
 import { SetupHome, type GoLive, type SetupTarget } from "./get-started";
 import { BillingView } from "./billing-view";
 import { SkinScansView } from "./skin-scans-view";
@@ -62,9 +66,9 @@ type DeskClinic = {
   /** CP-238: what access this desk has and how the owner goes live (Home → Your access). */
   goLive: GoLive;
 };
-type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "insights" | "offers" | "marketing" | "automations" | "billing";
-const VIEW_IDS: View[] = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "insights", "offers", "marketing", "automations", "billing"];
-const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "insights", "offers", "marketing", "automations", "billing"];
+type View = "checkin" | "patients" | "due" | "orders" | "skinscans" | "activity" | "overview" | "memberships" | "payouts" | "rewards" | "team" | "builder" | "reports" | "offers" | "marketing" | "automations" | "billing";
+const VIEW_IDS: View[] = ["checkin", "patients", "due", "orders", "skinscans", "activity", "overview", "memberships", "payouts", "rewards", "team", "builder", "reports", "offers", "marketing", "automations", "billing"];
+const MANAGER_ONLY: View[] = ["overview", "memberships", "rewards", "team", "builder", "payouts", "reports", "offers", "marketing", "automations", "billing"];
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0 })}`;
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -77,7 +81,7 @@ const rel = (iso: string) => {
 const initials = (n: string | null) => (n ?? "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 const RULE: Record<string, string> = { visit: "Check-in", purchase: "Purchase", redemption: "Reward redeemed", manual_adjust: "Points removed", reversal: "Undo", referral_referrer: "Referral", birthday: "Birthday", review: "Review" };
 
-export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: { clinic: DeskClinic; staff: Staff; builder: BuilderData | null; initialView?: View | "reports"; initialMonth?: string | null }) {
+export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: { clinic: DeskClinic; staff: Staff; builder: BuilderData | null; initialView?: View | "insights"; initialMonth?: string | null }) {
   // Audit step 4: a preview desk can show the owner's own patients (CSV, kept in this browser).
   const [imported, setImported] = useState<Imported | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -95,11 +99,13 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   // CP-248: the view and the open patient live in the URL (?view=…&patient=…), so
   // browser Back / swipe-back step back through the desk instead of leaving it.
   const params = useSearchParams();
-  const rawView = (params?.get("view") ?? initialView ?? null) as View | "reports" | null;
-  // "reports" (the monthly email's button) is a tab inside Insights.
+  const rawView = (params?.get("view") ?? initialView ?? null) as View | "insights" | null;
   // CP-238: the old Offers / Atlas Engine tabs now live in App Builder → Journey.
   // CP-249: ?view=automations opens App Builder → Journey → Automations.
-  const wanted = rawView === "reports" ? "insights" : rawView === "offers" || rawView === "marketing" || rawView === "automations" ? "builder" : rawView;
+  // CP-263: Insights is gone (→ Home); a manager's Skin scans are in App Builder.
+  const scansInBuilder = staff.isManager && !!builder;
+  const wanted = rawView === "insights" ? "overview"
+    : rawView === "offers" || rawView === "marketing" || rawView === "automations" || (rawView === "skinscans" && scansInBuilder) ? "builder" : rawView;
   const view: View = wanted && VIEW_IDS.includes(wanted) && (staff.isManager || !MANAGER_ONLY.includes(wanted)) ? wanted : staff.isManager ? "overview" : "checkin";
   // Patients opened this session, so Back / Forward can show their panel again.
   const people = useRef(new Map<string, DeskMember>());
@@ -112,7 +118,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     const hadPatient = !!u.searchParams.get("patient");
     u.searchParams.set("view", next.view);
     if (next.patient) u.searchParams.set("patient", next.patient.membership_id); else u.searchParams.delete("patient");
-    if (next.view !== "insights") u.searchParams.delete("month");
+    if (next.view !== "reports") u.searchParams.delete("month");
     const href = u.pathname + u.search;
     if (href === window.location.pathname + window.location.search) return;
     if (next.patient && hadPatient) {
@@ -139,9 +145,7 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     window.addEventListener("popstate", reset);
     return () => window.removeEventListener("popstate", reset);
   }, []);
-  const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "marketing" ? "campaigns" : initialView === "automations" ? "automations" : "gifts");
-  const [reportLink, setReportLink] = useState(initialView === "reports");
-  useEffect(() => { if (view !== "insights") setReportLink(false); }, [view]);
+  const [builderSection, setBuilderSection] = useState<BuilderSection>(initialView === "offers" ? "oneoff" : initialView === "automations" ? "automations" : initialView === "skinscans" && scansInBuilder ? "scans" : "gifts");
   const openBuilder = (s: BuilderSection) => { setBuilderSection(s); setView("builder"); };
   const [counts, setCounts] = useState<{ due: number; orders: number; reviews: number }>({ due: 0, orders: 0, reviews: 0 });
   const [scanTick, setScanTick] = useState(0);
@@ -168,12 +172,10 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   const NAV: NavItem[] = [
     ...(staff.isManager ? [{ id: "overview" as View, label: "Home", Icon: IcHome }] : []),
     { id: "checkin", label: "Check in", Icon: IcQr, badge: counts.reviews },
-    { id: "patients", label: "Client profiles", Icon: IcUser },
     { id: "due", label: "Patients due", Icon: IcClock, badge: counts.due },
     { id: "orders", label: "Shop orders", Icon: IcBag, badge: counts.orders },
-    { id: "skinscans", label: "Skin scans", Icon: IcFaceScan },
+    ...(scansInBuilder ? [] : [{ id: "skinscans" as View, label: "Skin scans", Icon: IcFaceScan }]),
     ...(staff.isManager ? [
-      { id: "insights" as View, label: "Insights", Icon: IcChart },
       { id: "memberships" as View, label: "Memberships", Icon: IcRefresh },
       ...(builder ? [{ id: "builder" as View, label: "App Builder", Icon: IcSpark }] : []),
     ] : [{ id: "activity" as View, label: "Activity", Icon: IcSpark }]),
@@ -185,9 +187,9 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
   ] : [];
   const hour = new Date().getHours();
   const greeting = `${hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}, ${clinic.name}`;
-  const title = view === "overview" ? greeting : view === "rewards" ? "Rewards" : [...NAV, ...ACCOUNT].find((n) => n.id === view)?.label;
+  const title = view === "overview" ? greeting : view === "rewards" ? "Rewards" : view === "patients" ? "Check in" : view === "reports" ? "Monthly report" : view === "skinscans" ? "Skin scans" : [...NAV, ...ACCOUNT].find((n) => n.id === view)?.label;
   const navButton = ({ id, label, Icon, badge }: NavItem, quiet = false) => {
-    const on = view === id || (id === "builder" && view === "rewards");
+    const on = view === id || (id === "builder" && view === "rewards") || (id === "checkin" && view === "patients");
     return (
       <button key={id} type="button" data-glide-tab-url={`/${clinic.slug}/desk?view=${id}`} onClick={() => (id === "builder" && view !== "builder" ? openBuilder("gifts") : setView(id))} aria-current={on ? "page" : undefined}
         className={`flex shrink-0 items-center gap-3 rounded-[12px] border px-3.5 transition ${quiet ? "py-2 text-[13.5px]" : "py-2.5 text-[14.5px]"} ${on ? "border-brand/30 bg-white font-semibold text-brand shadow-[0_2px_10px_-6px_rgba(23,27,38,.25)]" : `border-transparent font-medium ${quiet ? "text-sub" : "text-[#3F4450]"} hover:bg-white hover:text-ink`}`}>
@@ -278,6 +280,15 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
             )}
           </>
         )}
+        {(view === "checkin" || view === "patients") && (
+          // CP-263: Client profiles lives inside Check in.
+          <div role="tablist" aria-label="Check in" className="no-scrollbar -mt-1 mb-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-[10px] bg-[#ECEEEF] p-1">
+            {([["checkin", "Check in"], ["patients", "Client profiles"]] as const).map(([id, label]) => (
+              <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)}
+                className={`shrink-0 rounded-[8px] px-3 py-1.5 text-[12.5px] font-medium ${view === id ? "bg-white text-ink shadow-card" : "text-sub"}`}>{label}</button>
+            ))}
+          </div>
+        )}
         {view === "patients" && portal && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[16px] bg-white px-4 py-3 shadow-[0_10px_30px_-26px_rgba(23,27,38,.5)]">
             <p className="text-[13.5px] text-sub">{imported ? <><b className="text-ink">{imported.members.length.toLocaleString("en-US")} of your patients</b>, from your file. It stays on this computer.</> : "These are sample patients. Import yours to see them here."}</p>
@@ -296,13 +307,14 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
         {view === "activity" && <Activity api={api} />}
         {view === "skinscans" && <SkinScansView api={api} enabled={clinic.skinScan} clinicName={clinic.name} slug={clinic.slug} onOpen={open} say={say}
           onSettings={staff.isManager && builder ? () => openBuilder("skinscan") : undefined} />}
-        {view === "insights" && staff.isManager && <InsightsView api={api} say={say} demo={clinic.demo} clinic={{ name: clinic.name, primary: clinic.primary, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl }} initialTab={reportLink ? "reports" : "live"} initialMonth={reportLink ? initialMonth ?? null : null} />}
+        {view === "reports" && staff.isManager && <MonthlyReportView api={api} say={say} demo={clinic.demo} clinic={{ name: clinic.name, primary: clinic.primary, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl }} initialMonth={initialMonth ?? null} />}
         {view === "billing" && staff.isManager && <BillingView api={api} demo={clinic.demo} onOpenPayouts={() => setView("payouts")} />}
         {view === "memberships" && staff.isManager && <MembershipsView api={api} say={say} plans={((builder?.cfg as { memberships?: MedspaPlan[] } | undefined)?.memberships) ?? []} onEdit={builder ? () => openBuilder("memberships") : undefined} onOpenPayouts={() => setView("payouts")} />}
         {view === "payouts" && staff.isManager && <PayoutsView api={api} slug={clinic.slug} demo={clinic.demo} />}
         {view === "rewards" && staff.isManager && <RewardsView api={api} say={say} />}
         {view === "builder" && builder && <BuilderView key={builderSection} initialSection={builderSection} clinic={{ id: clinic.id, slug: clinic.slug, name: clinic.name, demo: clinic.demo }} canBrand={staff.role === "agency_admin" || clinic.demo} initial={builder} say={say} api={api}
-          offersOn={clinic.offersOn} recall={clinic.recall} onOpenInsights={() => setView("insights")} />}
+          offersOn={clinic.offersOn}
+          scans={<SkinScansView api={api} enabled={clinic.skinScan} clinicName={clinic.name} slug={clinic.slug} onOpen={open} say={say} onSettings={() => openBuilder("skinscan")} />} />}
         {view === "team" && staff.isManager && <TeamView api={api} say={say} deskUrl={typeof window !== "undefined" ? `${window.location.origin}/${clinic.slug}/desk` : `/${clinic.slug}/desk`} />}
       </main>
 
