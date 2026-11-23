@@ -385,7 +385,8 @@ async function sendOne(m: Message & { lead: Lead }, settings: Settings, steps: S
   const { data: claimed } = await d.from("outreach_messages").update({ status: "sending" }).eq("id", m.id).eq("status", "approved").select("id");
   if (!claimed?.length) return { ok: false, note: "Already being sent." };
 
-  const unsub = unsubscribeUrl(lead.id);
+  // CP-250d · a link (and its headers) only in opt-out style 'link'; by default the opt-out is a reply.
+  const unsub = settings.optout_style === "link" ? unsubscribeUrl(lead.id) : null;
   const text = `${m.body.trim()}\n\n${footer(settings.signature, postalAddress(), unsub)}`;
   const messageId = newMessageId();
   try {

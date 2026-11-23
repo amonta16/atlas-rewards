@@ -33,6 +33,16 @@ Andrew chose Instagram over LinkedIn for med spas. Nothing is sent to Instagram 
 - **Settings:** a step's type can be Email, Phone call or Instagram DM. *Add Instagram DM* appends one. DM text with a link is refused.
 - **Default sequence** (`cp250c_instagram_step.sql`, only where the steps still match the CP-250b seed and nothing has been drafted or sent): email day 0 → **Instagram DM day 2** → follow-up email day 3 → call day 5 → last note day 7.
 
+## CP-250d · opt-out style (2026-11-22)
+The first test email landed in Gmail's Promotions tab. A visible unsubscribe link plus the `List-Unsubscribe` and `List-Unsubscribe-Post` headers are bulk-mail signals. At 5–30 personal emails a day, a reply-based opt-out meets CAN-SPAM: a working return address, honored at once.
+- **Settings → Sending rules → Opt-out style:**
+  - **Reply only** (new default): the footer ends with `Not for you? Just reply "no thanks" and I won't email again.` There's no link and no List-Unsubscribe headers.
+  - **Reply + unsubscribe link:** the CP-250 behavior, a signed one-click link plus the headers.
+- The postal address stays in every email in both modes.
+- One footer function is used by the engine, *Test to me* and the Review preview, so the preview shows exactly what sends.
+- Opt-outs keep working. Any reply stops the sequence, and "no thanks", "not interested", "unsubscribe", "remove me" or a reply starting with "stop" also adds the address to do-not-contact. `/api/outreach/unsubscribe` keeps working for links already sent.
+- SQL: `cp250d_optout_style.sql` adds `outreach_settings.optout_style` (`'reply'` | `'link'`, default `'reply'`). Apply it before merging: until then Sending rules can't save, though sends already default to reply-only.
+
 ## How it works
 | Piece | Where |
 |---|---|

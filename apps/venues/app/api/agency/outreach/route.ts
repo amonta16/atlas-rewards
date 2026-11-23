@@ -24,7 +24,7 @@ import { EMAIL_RE, MANUAL_STATUSES, MAX_CAP, OUTCOMES, OUTCOME_LABEL, footer, ho
  *   handle_reply  { reply_id, lead_id? }                mark handled (and link to a lead)
  *   campaign      { name, area? } | { campaign_id, paused }
  *   save_step     { step, name, delay_days, subject, body, enabled, kind }   kind 'call' / 'instagram_dm' = a To-do task, not an email
- *   save_settings { daily_cap, send_days, window_start, window_end, approve_followups, paused, from_name, signature }
+ *   save_settings { daily_cap, send_days, window_start, window_end, approve_followups, paused, from_name, signature, optout_style }
  *   save_writing  { write_mode, writing_notes }         CP-250b: opener vs whole email, standing notes for every draft
  *   skip_unfit                                          CP-250b: skip every spa in Review that Claude marked "not a fit"
  *   later         { lead_id, date }                     CP-250b: stop the sequence, re-contact on that date
@@ -277,6 +277,7 @@ export async function POST(req: Request) {
         const { error } = await d.from("outreach_settings").update({
           daily_cap: cap, window_start: ws, window_end: we, send_days: days, approve_followups: b.approve_followups === true,
           paused, ...(paused ? {} : { paused_reason: null }), from_name: fromName, signature, updated_at: new Date().toISOString(),
+          optout_style: b.optout_style === "link" ? "link" : "reply",
         }).eq("id", 1);
         if (error) return bad(`Couldn't save: ${error.message}. Has the CP-250 SQL been applied?`, 500);
         return NextResponse.json({ ok: true });
@@ -360,7 +361,8 @@ export async function POST(req: Request) {
         const body = typeof b.body === "string" ? b.body.slice(0, 4000) : "";
         if (!body.trim()) return bad("Nothing to send.");
         const s = await loadSettings();
-        const unsub = unsubscribeUrl("00000000-0000-0000-0000-000000000000");
+        // Same opt-out style as the real sends, so the test shows exactly what spas will get.
+        const unsub = s.optout_style === "link" ? unsubscribeUrl("00000000-0000-0000-0000-000000000000") : null;
         await sendMail({ to: me.email, subject: `[TEST] ${subject}`, text: `${body.trim()}\n\n${footer(s.signature, postalAddress(), unsub)}`, fromName: s.from_name, unsubscribeUrl: unsub });
         return NextResponse.json({ ok: true, to: me.email });
       }

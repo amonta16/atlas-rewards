@@ -153,3 +153,38 @@ test("already-in-Atlas keys: names without punctuation, last 10 phone digits", (
   assert.equal(phoneKey("661-555-0123"), "6615550123");
   assert.equal(phoneKey("555-0123"), null);
 });
+
+/* ───────── CP-250d · opt-out style: reply only (default) or reply + link ───────── */
+import { DEFAULT_SETTINGS } from "../lib/outreach/shared";
+import { unsubscribeHeaders } from "../lib/outreach/mailer";
+import { classifyReply } from "../lib/outreach/write";
+
+test("reply-only footer: no link, keeps the postal address; link style keeps today's line", () => {
+  assert.equal(DEFAULT_SETTINGS.optout_style, "reply");
+  const reply = footer("Andrew", "123 Main St, Bakersfield, CA", null);
+  assert.match(reply, /123 Main St/);
+  assert.match(reply, /Just reply "no thanks" and I won't email again\.$/);
+  assert.doesNotMatch(reply, /https?:|link/);
+  const link = footer("Andrew", "123 Main St, Bakersfield, CA", "https://x/u");
+  assert.match(link, /123 Main St/);
+  assert.match(link, /use this link and I won't email again: https:\/\/x\/u$/);
+  assert.match(footer("Andrew", null, null), /postal address missing/);
+});
+
+test("List-Unsubscribe headers only go on emails that carry a link", () => {
+  assert.deepEqual(unsubscribeHeaders(null, "a@b.com"), {});
+  assert.deepEqual(unsubscribeHeaders(undefined, "a@b.com"), {});
+  assert.deepEqual(unsubscribeHeaders("https://x/u", "a@b.com"), {
+    "List-Unsubscribe": "<https://x/u>, <mailto:a@b.com?subject=unsubscribe>",
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  });
+});
+
+test("reply opt-outs are caught by the rules, no AI needed: no thanks, unsubscribe, stop", async () => {
+  assert.equal(await classifyReply("Re: quick question", "No thanks"), "not_interested");
+  assert.equal(await classifyReply("Re: quick question", "not interested, we're all set"), "not_interested");
+  assert.equal(await classifyReply("Re: quick question", "Please unsubscribe me"), "unsubscribe");
+  assert.equal(await classifyReply("Re: quick question", "STOP"), "unsubscribe");
+  assert.equal(await classifyReply("Re: quick question", "please stop."), "unsubscribe");
+  assert.equal(await classifyReply("Unsubscribe", ""), "unsubscribe");
+});

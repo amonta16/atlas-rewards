@@ -189,6 +189,15 @@ function SendingRules({ settings, disabled }: { settings: Settings; disabled: bo
         <span className="text-xs text-slate-500">o&apos;clock</span>
       </div>
       <label className="mt-3 flex items-center gap-1.5 text-slate-600"><input type="checkbox" className="accent-sky-600" checked={s.approve_followups} onChange={(e) => setS({ ...s, approve_followups: e.target.checked })} /> Follow-ups also wait in Review</label>
+      <label className="mt-3 block"><span className="text-slate-600">Opt-out style</span>
+        <select className={`${inputBase} mt-1 block w-full`} value={s.optout_style ?? "reply"} onChange={(e) => setS({ ...s, optout_style: e.target.value === "link" ? "link" : "reply" })}>
+          <option value="reply">Reply only (recommended)</option>
+          <option value="link">Reply + unsubscribe link</option>
+        </select>
+      </label>
+      <p className="mt-1 text-xs text-slate-500">{(s.optout_style ?? "reply") === "link"
+        ? "Adds a one-click unsubscribe link and the List-Unsubscribe headers. Those read as bulk mail, so emails are more likely to land in Promotions."
+        : "Ends with \u201cJust reply \u2018no thanks\u2019 and I won\u2019t email again.\u201d No link, no bulk-mail headers. Any reply stops the sequence, and \u201cno thanks\u201d, \u201cunsubscribe\u201d or \u201cstop\u201d also adds them to do-not-contact. The postal address stays either way."}</p>
       <label className="mt-3 block"><span className="text-slate-600">From name</span><input className={`${input} mt-1`} value={s.from_name} onChange={(e) => setS({ ...s, from_name: e.target.value })} /></label>
       <label className="mt-3 block"><span className="text-slate-600">Signature</span><textarea className={`${input} mt-1 min-h-[60px]`} value={s.signature} onChange={(e) => setS({ ...s, signature: e.target.value })} /></label>
       <div className="mt-3 flex items-center gap-2">
