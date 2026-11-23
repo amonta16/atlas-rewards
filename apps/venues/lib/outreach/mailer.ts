@@ -3,15 +3,28 @@
  *
  * Plain text, no tracking pixel, no link rewriting: it reads (and is filtered) like a person's email.
  * Follow-ups thread under email 1 (In-Reply-To / References), which is honest: they ARE replies
- * to our own earlier email. Unsubscribe headers (one-click + mailto) go on every email.
+ * to our own earlier email. Unsubscribe headers (one-click + mailto) go on only when the email carries
+ * an unsubscribe link (CP-250d opt-out style 'link'); in the default 'reply' style there are none,
+ * because they mark the email as bulk mail.
  */
 import { randomUUID } from "node:crypto";
 import { fromAddress, smtpConfig } from "./config";
 
 export type OutgoingMail = {
   to: string; subject: string; text: string; fromName?: string;
-  inReplyTo?: string | null; unsubscribeUrl: string;
+  inReplyTo?: string | null;
+  /** Set only in opt-out style 'link': adds List-Unsubscribe + one-click headers. */
+  unsubscribeUrl?: string | null;
 };
+
+/** The List-Unsubscribe headers for an email with a link; none for a reply-only opt-out. */
+export function unsubscribeHeaders(url: string | null | undefined, mailbox: string): Record<string, string> {
+  if (!url) return {};
+  return {
+    "List-Unsubscribe": `<${url}>, <mailto:${mailbox}?subject=unsubscribe>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
 
 async function transport() {
   const cfg = smtpConfig();
@@ -40,10 +53,7 @@ export async function sendMail(m: OutgoingMail, messageId = newMessageId()): Pro
   await t.sendMail({
     from, to: m.to, subject: m.subject, text: m.text, messageId,
     ...(m.inReplyTo ? { inReplyTo: m.inReplyTo, references: [m.inReplyTo] } : {}),
-    headers: {
-      "List-Unsubscribe": `<${m.unsubscribeUrl}>, <mailto:${addr}?subject=unsubscribe>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-    },
+    headers: unsubscribeHeaders(m.unsubscribeUrl, addr),
   });
   return messageId;
 }

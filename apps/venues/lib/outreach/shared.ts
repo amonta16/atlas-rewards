@@ -134,7 +134,14 @@ export type Settings = {
   paused: boolean; paused_reason: string | null; from_name: string; signature: string;
   next_send_after: string | null; last_tick_at: string | null; last_tick_note: string | null;
   write_mode: WriteMode; writing_notes: string;
+  optout_style: OptoutStyle;
 };
+/**
+ * CP-250d · how an email lets people opt out. 'reply' (default): "just reply no thanks", no link and no
+ * List-Unsubscribe headers, which read as bulk mail and push it into Promotions. 'link': that line plus
+ * a signed one-click link and the headers (the CP-250 behaviour).
+ */
+export type OptoutStyle = "reply" | "link";
 /** CP-250b · 'opener': Claude writes only the personal first line ({opener}); 'full': the whole email. */
 export type WriteMode = "opener" | "full";
 
@@ -142,7 +149,7 @@ export const DEFAULT_SETTINGS: Settings = {
   daily_cap: 5, send_days: [1, 2, 3, 4, 5], window_start: 8, window_end: 16, gap_min_minutes: 4, gap_max_minutes: 12,
   approve_followups: false, paused: false, paused_reason: null, from_name: "Andrew Montano",
   signature: "Andrew Montano\nAtlas Engine · atlas-engine.app", next_send_after: null, last_tick_at: null, last_tick_note: null,
-  write_mode: "opener", writing_notes: "",
+  write_mode: "opener", writing_notes: "", optout_style: "reply",
 };
 
 /** The warm-up ramp the Settings tab recommends for a brand-new domain (per mailbox, per day). */
@@ -184,13 +191,18 @@ export function greetingName(lead: Pick<Lead, "first_name" | "business_name">): 
   return lead.first_name?.trim() || "there";
 }
 
-/** The footer every email ends with: signature, postal address (CAN-SPAM), plain-words opt-out. */
-export function footer(signature: string, postal: string | null, unsubscribe: string): string {
+/**
+ * The footer every email ends with: signature, postal address (CAN-SPAM, in both opt-out styles) and
+ * a plain-words opt-out. With no unsubscribe link (opt-out style 'reply') the opt-out is the reply.
+ */
+export function footer(signature: string, postal: string | null, unsubscribe: string | null): string {
   return [
     signature.trim(),
     postal ? postal : "[postal address missing: set MAIL_POSTAL_ADDRESS]",
     "",
-    `Not for you? Reply "no thanks" or use this link and I won't email again: ${unsubscribe}`,
+    unsubscribe
+      ? `Not for you? Reply "no thanks" or use this link and I won't email again: ${unsubscribe}`
+      : `Not for you? Just reply "no thanks" and I won't email again.`,
   ].join("\n");
 }
 

@@ -4,7 +4,8 @@ import { db, stopLead, suppress } from "@/lib/outreach/engine";
 
 /**
  * GET/POST /api/outreach/unsubscribe?l=<lead id>&s=<sig> — CP-250.
- * The opt-out link in every outreach email (CAN-SPAM). Signed, so nobody can unsubscribe someone
+ * The opt-out link in outreach emails sent with opt-out style "link" (CP-250d; the default "reply" style has
+ * no link). Keep it working for every link already sent. Signed, so nobody can unsubscribe someone
  * else; works without logging in, takes effect at once, and stays working (no expiry). POST is the
  * one-click List-Unsubscribe-Post that Gmail and Apple Mail send.
  */

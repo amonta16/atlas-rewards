@@ -134,6 +134,8 @@ const ClassSchema = z.object({
 export async function classifyReply(subject: string, body: string): Promise<ReplyClass> {
   const t = `${subject}\n${body}`.toLowerCase();
   if (/\b(unsubscribe|remove me|take me off|stop emailing|do not (contact|email))\b/.test(t)) return "unsubscribe";
+  // CP-250d · with a reply-only opt-out, a bare "stop" (or "STOP.") is an opt-out too.
+  if (/^\s*(please\s+)?stop\b/.test(body.toLowerCase())) return "unsubscribe";
   if (/out of (the )?office|on vacation|away until|auto-?reply|automatic reply|currently out/.test(t)) return "out_of_office";
   if (/^\s*(no thanks|no thank you|not interested)\b/.test(body.toLowerCase())) return "not_interested";
   const c = await client(30_000);

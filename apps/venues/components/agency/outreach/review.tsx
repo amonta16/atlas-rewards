@@ -11,7 +11,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ExternalLink, Loader2, Mail, RefreshCw, Send, Sparkles, Square, X } from "lucide-react";
-import { FIT_LABEL, FIT_ORDER, type Fit, type Lead, type Message } from "@/lib/outreach/shared";
+import { FIT_LABEL, FIT_ORDER, footer, type Fit, type Lead, type Message, type OptoutStyle } from "@/lib/outreach/shared";
 import type { OutreachData } from "./outreach-app";
 import { api, btnDanger, btnGhost, btnPrimary, card, Empty, FitPill, input, Note, useBusy } from "./ui";
 
@@ -59,7 +59,7 @@ export function ReviewTab({ data, showLead }: { data: OutreachData; showLead: (i
       </div>
       <RedraftAll drafts={all.filter((m) => m.step === 1 && !m.edited)} />
       <Note msg={msg} />
-      {drafts.map((m) => <DraftCard key={m.id} m={m} lead={leads.get(m.lead_id)!} signature={data.settings.signature} showLead={showLead} />)}
+      {drafts.map((m) => <DraftCard key={m.id} m={m} lead={leads.get(m.lead_id)!} signature={data.settings.signature} optout={data.settings.optout_style} postal={data.setup.postal} showLead={showLead} />)}
       {!drafts.length && <p className="text-sm text-slate-500">None with that fit.</p>}
       {noEmail.length > 0 && <NoEmailList leads={noEmail} showLead={showLead} />}
     </div>
@@ -103,7 +103,7 @@ function RedraftAll({ drafts }: { drafts: Message[] }) {
   );
 }
 
-function DraftCard({ m, lead, signature, showLead }: { m: Message; lead: Lead; signature: string; showLead: (id: string) => void }) {
+function DraftCard({ m, lead, signature, optout, postal, showLead }: { m: Message; lead: Lead; signature: string; optout: OptoutStyle; postal: boolean; showLead: (id: string) => void }) {
   const router = useRouter();
   const [subject, setSubject] = useState(m.subject);
   const [body, setBody] = useState(m.body);
@@ -156,7 +156,8 @@ function DraftCard({ m, lead, signature, showLead }: { m: Message; lead: Lead; s
             <textarea className={`${input} mt-1 min-h-[180px] font-[inherit] leading-relaxed`} value={body} onChange={(e) => setBody(e.target.value)} maxLength={4000} />
           </label>
           <p className={`text-xs ${words > 130 ? "text-amber-700" : "text-slate-500"}`}>{words} words{words > 130 ? ". Shorter first emails get more replies." : ""}</p>
-          <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 font-sans text-xs text-slate-500">{`${signature}\n[postal address]\n\nNot for you? Reply "no thanks" or use this link and I won't email again: [unsubscribe link]`}</pre>
+          {/* The footer exactly as it sends (same function as the engine), with the address and link as placeholders. */}
+          <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 font-sans text-xs text-slate-500">{footer(signature, postal ? "[your postal address]" : null, optout === "link" ? "[unsubscribe link]" : null)}</pre>
         </div>
         <aside className="space-y-3 text-sm">
           {m.ai_line && m.body.includes(m.ai_line) && (
