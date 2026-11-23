@@ -41,7 +41,7 @@ The first test email landed in Gmail's Promotions tab. A visible unsubscribe lin
 - The postal address stays in every email in both modes.
 - One footer function is used by the engine, *Test to me* and the Review preview, so the preview shows exactly what sends.
 - Opt-outs keep working. Any reply stops the sequence, and "no thanks", "not interested", "unsubscribe", "remove me" or a reply starting with "stop" also adds the address to do-not-contact. `/api/outreach/unsubscribe` keeps working for links already sent.
-- SQL: `cp250d_optout_style.sql` adds `outreach_settings.optout_style` (`'reply'` | `'link'`, default `'reply'`). Apply it before merging: until then Sending rules can't save, though sends already default to reply-only.
+- SQL: `cp250d_optout_style.sql` adds `outreach_settings.optout_style` (`'reply'` | `'link'`, default `'reply'`). Applied to production 2026-11-23 (migration `cp250d_optout_style`).
 
 ## How it works
 | Piece | Where |

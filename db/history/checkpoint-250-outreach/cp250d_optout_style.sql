@@ -1,4 +1,5 @@
 -- CP-250d · How each outreach email lets people opt out. Additive and safe to re-run.
+-- Applied to production 2026-11-23 as migration cp250d_optout_style (same statement).
 --
 -- The first test email landed in Gmail's Promotions tab. A visible unsubscribe link plus the
 -- List-Unsubscribe / List-Unsubscribe-Post headers are bulk-mail signals. At 5–30 personal emails a day,
