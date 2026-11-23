@@ -57,6 +57,8 @@ import { GuestAppLink } from "@/components/staff/app-switch";
 // CP-147: Booking v2 — schedule + walk-ins + resource set-up.
 import { BookingsDesk } from "@/components/manager/bookings-desk";
 import { CampaignsStudio } from "@/components/manager/campaigns-studio";
+// CP-261: entertainment venues get the live email automations in Campaigns.
+import { VenueAutomations } from "@/components/manager/venue-automations";
 // CP-208: med spa manager home (Dermis-style overview) + Marketing tab.
 import { MedspaOverview } from "@/components/manager/medspa-overview";
 import { MedspaMarketing } from "@/components/manager/medspa-marketing";
@@ -1131,7 +1133,9 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
         {seen.has("news") && <Pane on={tab === "news"}><NewsManager business={business} /></Pane>}
         {seen.has("campaigns") && <Pane on={tab === "campaigns"}>{isMedspa
           ? <MedspaMarketing business={business} openOffers={() => { setOffersSubTab("automated"); setTab("offers"); }} openInsights={() => setTab("insights")} />
-          : <CampaignsStudio business={business} />}</Pane>}
+          : business.layout_preset === "entertainment"
+            ? <VenueCampaigns business={business} />
+            : <CampaignsStudio business={business} />}</Pane>}
         {seen.has("waivers") && <Pane on={tab === "waivers"}><ManagerWaiversTab business={business} /></Pane>}
         {seen.has("billing") && <Pane on={tab === "billing"}><ManagerBilling business={business} /></Pane>}
         {seen.has("membership") && <Pane on={tab === "membership"}><MembershipStudio business={business} /></Pane>}
@@ -1158,6 +1162,29 @@ function ManagerDashboardInner({ business: initialBusiness, recent: initialRecen
       </div>
     </div>
     </>
+  );
+}
+
+/**
+ * CP-261: Campaigns for entertainment venues — the live email automations first, the one-time blast
+ * composer (CP-160, still a design preview) second. ?tab=campaigns&view=blasts opens the second.
+ */
+function VenueCampaigns({ business }: { business: Business }) {
+  const [view, setView] = useState<"automations" | "blasts">(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "blasts" ? "blasts" : "automations");
+  return (
+    <div className="space-y-4">
+      <div className="inline-flex rounded-xl bg-zinc-100 p-1 gap-1" role="tablist" aria-label="Campaigns view">
+        {([["automations", "Automations"], ["blasts", "One-time blasts"]] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)}
+            className={cn("rounded-lg px-4 py-2 text-xs font-bold transition-colors flex items-center gap-1.5",
+              view === id ? "bg-white text-zinc-900 shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+            {id === "automations" ? <Bell className="h-3.5 w-3.5" /> : <Megaphone className="h-3.5 w-3.5" />}{label}
+          </button>
+        ))}
+      </div>
+      {view === "automations" ? <VenueAutomations business={business} /> : <CampaignsStudio business={business} />}
+    </div>
   );
 }
 

@@ -32,7 +32,7 @@ export function MedspaStartPage() {
       <div aria-hidden className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent via-transparent to-[#06318F]/40" />
       <header className="relative z-10">
         <div className="s-wrap flex h-[68px] items-center justify-between">
-          <a href="/medspa" className="s-focus rounded-md" aria-label="Atlas Engine for med spas">
+          <a href="/med-spas" className="s-focus rounded-md" aria-label="Atlas Engine for med spas">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/atlas-engine-logo.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
           </a>

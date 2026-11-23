@@ -5,7 +5,7 @@ import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
 import { CtaBar, PreviewStage } from "@/components/preview-stage";
 import { PreviewGate } from "@/components/preview-gate";
 import { BonusDetails, BonusTiles, PreviewTopBar, type OwnerMode } from "@/components/launch-bonus";
-import { CallOffer, Mechanism, PostScript, ProofRow } from "@/components/preview-close";
+import { CallOffer, Mechanism, PostScript, ProofRow, TeamProof } from "@/components/preview-close";
 
 /**
  * /p/<slug> — CP-232 · the instant app preview a med spa owner lands on after the ad.
@@ -37,7 +37,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-[#F5F6F5]">
       <header className="mx-auto flex h-16 max-w-6xl items-center px-5">
-        <a href={`${SITE}/medspa`} className="text-[15px] font-bold tracking-[0.18em] text-ink">ATLAS ENGINE</a>
+        <a href={`${SITE}/med-spas`} className="text-[15px] font-bold tracking-[0.18em] text-ink">ATLAS ENGINE</a>
       </header>
       {children}
     </div>
@@ -161,6 +161,8 @@ export default async function PreviewPage({ params, searchParams }: { params: { 
       {/* The bottom of the page: the bonuses in full, then real reviews */}
       <div className="mx-auto max-w-6xl px-5 pb-36 lg:pb-20">
         <BonusDetails apiOrigin={SITE} slug={slug} walkthroughUrl={`${SITE}/medspa/walkthrough/${slug}?src=bonus`} enabled={!taken} brand={brand} owner={owner} />
+        {/* CP-251: the team (hackathon), then the reviews */}
+        <TeamProof primary={primary} />
         <Reviews images={reviews} />
         {!taken && <PostScript businessName={row.business_name} walkthroughUrl={book("ps")} primary={primary} expires={expires} />}
       </div>

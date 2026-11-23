@@ -34,7 +34,7 @@ function nextDays(n: number): Date[] {
   return out;
 }
 
-export function ResourceBooking({ business, resources }: { business: Business; resources: BookingResource[] }) {
+export function ResourceBooking({ business, resources, initialSection = null }: { business: Business; resources: BookingResource[]; initialSection?: string | null }) {
   const primary = business.brand_colors.primary;
   const secondary = business.brand_colors.secondary;
   const pay = paymentProviderFor(business);
@@ -59,7 +59,14 @@ export function ResourceBooking({ business, resources }: { business: Business; r
   // CP-155.1: section chips on top of the list (Andrew) — one section shown at
   // a time, so the other kinds of bookings are visible without scrolling.
   const groups = useMemo(() => groupResources(resources), [resources]);
-  const [sectionIdx, setSectionIdx] = useState(0);
+  // CP-261: ?section=party opens the first section whose name (or a resource in it) matches.
+  const [sectionIdx, setSectionIdx] = useState(() => {
+    const q = (initialSection ?? "").trim().toLowerCase().replace(/[^a-z0-9 ]/g, "");
+    if (!q) return 0;
+    const stem = q.replace(/(ies|s)$/, "");
+    const hit = groups.findIndex(g => g.category.toLowerCase().includes(stem) || g.items.some(r => r.name.toLowerCase().includes(stem)));
+    return hit < 0 ? 0 : hit;
+  });
   const days = useMemo(() => nextDays(Math.min(14, (resource?.horizon_days ?? 14) + 1)), [resource?.horizon_days]);
 
   // CP-157: live occupancy per resource ("2 of 6 in use", "Fully booked ·

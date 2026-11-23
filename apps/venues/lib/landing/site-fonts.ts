@@ -15,11 +15,8 @@ export const instrumentSerif = localFont({
   variable: "--font-site-display",
 });
 
-export const manrope = localFont({
-  src: "../../node_modules/@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2",
-  weight: "200 800",
-  display: "swap",
-  variable: "--font-site-body",
-});
+// CP-251: Manrope is declared once, in site-font-body.ts (the funnel pages import only that file).
+import { manrope } from "./site-font-body";
+export { manrope };
 
 export const siteFontClass = `${instrumentSerif.variable} ${manrope.variable}`;

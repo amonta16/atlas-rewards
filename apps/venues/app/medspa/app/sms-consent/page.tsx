@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { siteFontClass } from "@/lib/landing/site-fonts";
+import { siteBodyFontClass as siteFontClass } from "@/lib/landing/site-font-body"; // CP-251: no display serif on funnel pages
 import { SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 import "../../../site.css";
 

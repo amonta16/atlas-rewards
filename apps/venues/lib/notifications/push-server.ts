@@ -66,9 +66,43 @@ type SubRow = { id: string; endpoint: string; p256dh: string | null; auth: strin
  * deliver() they're already the exact tenant-correct audience.
  * Cleans up dead subscriptions on either path. Never throws.
  */
+// MedSpa App (the med spa Google Play app) rows: "fcm-medspa:<token>". They
+// belong to a separate Firebase project, so this server never sends them
+// itself: it hands them to the med spa app's own sender.
+const MEDSPA_PREFIX = "fcm-medspa:";
+
+async function deliverMedspa(subs: SubRow[], payload: PushPayload): Promise<{ sent: number; failed: number; deadIds: string[] }> {
+  const secret = (process.env.MEDSPA_PUSH_SECRET ?? "").trim();
+  if (!subs.length || !secret) return { sent: 0, failed: 0, deadIds: [] };
+  const origin = process.env.MEDSPA_APP_ORIGIN || "https://med.atlas-engine.app";
+  try {
+    const res = await fetch(`${origin}/api/push/deliver`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-medspa-push-secret": secret },
+      body: JSON.stringify({
+        tokens: subs.map((s) => s.endpoint.slice(MEDSPA_PREFIX.length)),
+        payload: { title: payload.title, body: payload.body ?? "", link_path: payload.link_path ?? "/", kind: payload.kind ?? "generic", slug: payload.slug ?? null },
+      }),
+      cache: "no-store",
+    });
+    if (!res.ok) { console.warn("[push-server] medspa deliver failed:", res.status); return { sent: 0, failed: subs.length, deadIds: [] }; }
+    const j = (await res.json().catch(() => ({}))) as { sent?: number; failed?: number; dead?: string[] };
+    const dead = new Set(j.dead ?? []);
+    return {
+      sent: j.sent ?? 0,
+      failed: j.failed ?? 0,
+      deadIds: subs.filter((s) => dead.has(s.endpoint.slice(MEDSPA_PREFIX.length))).map((s) => s.id),
+    };
+  } catch (e: any) {
+    console.warn("[push-server] medspa deliver error:", e?.message ?? e);
+    return { sent: 0, failed: subs.length, deadIds: [] };
+  }
+}
+
 async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: number; failed: number }> {
   if (!subs.length) return { sent: 0, failed: 0 };
 
+  const medspaSubs = subs.filter((s) => s.endpoint.startsWith(MEDSPA_PREFIX));
   const nativeSubs = subs.filter((s) => s.endpoint.startsWith("fcm:"));
 
   // CP-99 double-notification fix: a user who installed the native app but
@@ -79,10 +113,10 @@ async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: nu
   // existing dead-row cleanup removes it and web push resumes automatically
   // on the next send.
   const nativeUsers = new Set(
-    nativeSubs.map((s) => s.user_id).filter((u): u is string => !!u),
+    [...nativeSubs, ...medspaSubs].map((s) => s.user_id).filter((u): u is string => !!u),
   );
   const webSubs = subs.filter(
-    (s) => !s.endpoint.startsWith("fcm:")
+    (s) => !s.endpoint.startsWith("fcm:") && !s.endpoint.startsWith(MEDSPA_PREFIX)
       && !(s.user_id && nativeUsers.has(s.user_id)),
   );
 
@@ -105,6 +139,10 @@ async function deliver(subs: SubRow[], payload: PushPayload): Promise<{ sent: nu
     else if (result === "failed") failed++;
     // "disabled" (no Firebase env yet) counts as neither — silent skip
   }));
+
+  // MedSpa App (its own sender + Firebase project)
+  const ms = await deliverMedspa(medspaSubs, payload);
+  sent += ms.sent; failed += ms.failed; deadIds.push(...ms.deadIds);
 
   // Web push (VAPID)
   if (webSubs.length && configureVapid()) {

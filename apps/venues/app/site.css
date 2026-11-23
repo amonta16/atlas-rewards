@@ -104,3 +104,76 @@
   .s-reveal, .s-screen { transition: none !important; }
   .s-reveal { opacity: 1 !important; transform: none !important; }
 }
+
+/* ───────────── CP-252 · the Origami-style feel (med spa pages) ─────────────
+ * .s-chrome      one headline word in blue chrome; a bright band sweeps across it every 7 s.
+ *                Ocean blue only (brand rule: never purple). Reduced motion: the still gradient.
+ * .s-chrome-light the same on dark/ocean backgrounds (white → ice → sky).
+ * .s-rise        blur-up entrance (Origami's hero_enter): opacity, 14 px rise and a 6 px blur.
+ *                Stagger with style={{ "--d": ".12s" }}.
+ * .s-gridbg      the faint 80 px grid behind a centered hero, faded out with a radial wash.
+ * .s-gull        a seagull gliding across the hero (components/landing/gulls.tsx). Hidden with
+ *                reduced motion: decoration, nothing to read. */
+.s-chrome {
+  background-image: linear-gradient(100deg, var(--s-ink) 0%, var(--s-ink) 30%, #06318F 36%, #0B5FD6 42%, #39A0FF 47%, #CFE6FF 50%, #39A0FF 53%, #0B5FD6 58%, #06318F 64%, var(--s-ink) 70%, var(--s-ink) 100%);
+  background-size: 300% 100%; background-position: 100% 0; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  animation: s-chrome 7s cubic-bezier(.45,0,.25,1) 1s infinite;
+}
+.s-chrome-light {
+  background-image: linear-gradient(100deg, #fff 0%, #fff 30%, #D3E6FF 38%, #8FC8FF 45%, #fff 50%, #8FC8FF 55%, #D3E6FF 62%, #fff 70%, #fff 100%);
+  background-size: 300% 100%; background-position: 100% 0; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  animation: s-chrome 7s cubic-bezier(.45,0,.25,1) 1s infinite;
+}
+@keyframes s-chrome { 0% { background-position: 100% 0 } 45%, 100% { background-position: 0 0 } }
+@keyframes s-rise { from { opacity: 0; transform: translateY(14px); filter: blur(6px) } to { opacity: 1; transform: none; filter: none } }
+.s-rise { animation: s-rise .8s cubic-bezier(.22,1,.36,1) var(--d, 0s) backwards; }
+.s-gridbg { pointer-events: none; position: absolute; inset: 0; background-image: linear-gradient(rgba(11,95,214,.07) 1px, transparent 0), linear-gradient(90deg, rgba(11,95,214,.07) 1px, transparent 0); background-size: 80px 80px; background-position: center -1px; -webkit-mask-image: linear-gradient(#000 50%, transparent 92%); mask-image: linear-gradient(#000 50%, transparent 92%); }
+.s-gridbg::before { content: ""; position: absolute; inset: 0; background: radial-gradient(48% 38% at 50% 26%, rgba(255,255,255,.92) 35%, rgba(255,255,255,0) 100%); }
+.s-gull { position: absolute; left: 0; width: var(--w, 26px); height: auto; color: var(--c, rgba(11,95,214,.32)); animation: s-glide var(--t, 26s) linear var(--d, 0s) infinite; will-change: transform; }
+/* CP-259: paper-bird wings. Three quick flaps (the wings fold down past level), then a held glide. */
+.s-gull .s-wings { transform-box: view-box; transform-origin: 20px 12px; animation: s-flap var(--f, 2.6s) cubic-bezier(.45,0,.55,1) infinite; }
+@keyframes s-glide {
+  0% { transform: translate3d(-8vw, 0, 0) rotate(-2deg) }
+  25% { transform: translate3d(22vw, var(--y1, -14px), 0) rotate(-7deg) }
+  50% { transform: translate3d(52vw, var(--y2, 10px), 0) rotate(5deg) }
+  75% { transform: translate3d(82vw, var(--y1, -14px), 0) rotate(-6deg) }
+  100% { transform: translate3d(112vw, 0, 0) rotate(0deg) }
+}
+@keyframes s-flap {
+  0%, 36%, 100% { transform: scaleY(1) }
+  6%, 18%, 30% { transform: scaleY(-.55) }
+  12%, 24% { transform: scaleY(.95) }
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-chrome, .s-chrome-light { animation: none; background-position: 50% 0; }
+  .s-rise { animation: none; }
+  .s-gull { display: none; }
+}
+
+/* CP-253 · the "click here" field (the search on /medspa/app): a blue border with a light travelling around it
+ * (a slow spinning conic gradient behind a 2 px gap) and a soft blue pulse around the box. Stronger on focus.
+ * Reduced motion: a still blue border. */
+.s-glowfield { position: relative; overflow: hidden; isolation: isolate; background: #0B5FD6; animation: s-glowpulse 2.6s ease-in-out infinite; }
+.s-glowfield::before { content: ""; position: absolute; z-index: 0; left: 50%; top: 50%; width: 300%; aspect-ratio: 1; translate: -50% -50%; background: conic-gradient(from 0deg, #0B5FD6 0deg, #0B5FD6 200deg, #39A0FF 260deg, #E6F1FF 300deg, #39A0FF 330deg, #0B5FD6 360deg); animation: s-glowspin 3.6s linear infinite; }
+.s-glowfield:focus-within { animation: none; box-shadow: 0 0 0 6px rgba(11,95,214,.16), 0 22px 44px -24px rgba(11,95,214,.6); }
+@keyframes s-glowspin { to { rotate: 360deg } }
+@keyframes s-glowpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(57,160,255,.0), 0 18px 40px -24px rgba(11,95,214,.55) } 50% { box-shadow: 0 0 0 7px rgba(57,160,255,.16), 0 18px 40px -24px rgba(11,95,214,.55) } }
+@media (prefers-reduced-motion: reduce) {
+  .s-glowfield, .s-glowfield::before { animation: none; }
+  .s-glowfield { box-shadow: 0 0 0 5px rgba(11,95,214,.10), 0 18px 40px -24px rgba(11,95,214,.55); }
+}
+
+/* CP-257 · the blue hero on /medspa/app.
+ * .s-gridbg-dark       the same 80 px grid, in faint white for an ocean background, fading out downward.
+ * .s-glowfield-light   the search box's travelling light, in white and ice blue so it reads on blue; the pulse is a
+ *                      soft white halo. (The field itself is white, so it already stands off the blue.) */
+.s-gridbg-dark { pointer-events: none; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.07) 1px, transparent 0), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 0); background-size: 80px 80px; background-position: center -1px; -webkit-mask-image: linear-gradient(#000 40%, transparent 95%); mask-image: linear-gradient(#000 40%, transparent 95%); }
+.s-glowfield-light { background: rgba(255,255,255,.55); animation-name: s-glowpulse-light; }
+.s-glowfield-light::before { background: conic-gradient(from 0deg, rgba(255,255,255,.55) 0deg, rgba(255,255,255,.55) 200deg, #BFE0FF 260deg, #fff 300deg, #BFE0FF 330deg, rgba(255,255,255,.55) 360deg); }
+.s-glowfield-light:focus-within { box-shadow: 0 0 0 6px rgba(255,255,255,.28), 0 22px 44px -24px rgba(2,20,70,.6); }
+@keyframes s-glowpulse-light { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0), 0 22px 44px -24px rgba(2,20,70,.55) } 50% { box-shadow: 0 0 0 8px rgba(255,255,255,.22), 0 22px 44px -24px rgba(2,20,70,.55) } }
+@media (prefers-reduced-motion: reduce) {
+  .s-glowfield-light { box-shadow: 0 0 0 5px rgba(255,255,255,.2), 0 22px 44px -24px rgba(2,20,70,.55); }
+}

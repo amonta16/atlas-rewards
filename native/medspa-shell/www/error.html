@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MedSpa App</title>
+  <style>
+    :root { --gold:#8C6A38; --ink:#2b2622; --sub:#7a6f64; --soft:#EFE5D6; }
+    body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:#FBF8F3; color:var(--ink);
+           display:flex; align-items:center; justify-content:center; min-height:100vh;
+           padding:env(safe-area-inset-top,0px) 16px env(safe-area-inset-bottom,0px); box-sizing:border-box; }
+    .card { text-align:center; max-width:320px; }
+    .mark { width:72px; height:72px; border-radius:20px; display:block; margin:0 auto; }
+    h1 { font-size:1.2rem; margin:1.1rem 0 .4rem; }
+    p { color:var(--sub); font-size:.95rem; line-height:1.45; margin:0; }
+    button { margin-top:1.4rem; background:var(--gold); color:#fff; border:0; border-radius:14px;
+             padding:.85rem 1.7rem; font-size:1rem; font-weight:700; }
+    .spinner { width:34px; height:34px; margin:1.4rem auto 0; border-radius:50%;
+               border:4px solid var(--soft); border-top-color:var(--gold); animation:spin .9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #offline { display:none; }
+  </style>
+</head>
+<body>
+  <!--
+    Capacitor errorPath: shown when the live app fails to load. It probes
+    med.atlas-engine.app straight away and goes back the moment it answers,
+    so a blip recovers on its own. After a few failed probes it shows the
+    offline message (what Play's reviewers see in airplane mode) and keeps
+    retrying in the background.
+  -->
+  <div class="card">
+    <img class="mark" src="icon.png" alt="" />
+    <div id="reconnecting"><div class="spinner"></div></div>
+    <div id="offline">
+      <h1>You're offline</h1>
+      <p>This app needs an internet connection to load your rewards, memberships and offers. We'll reconnect as soon as you're back online.</p>
+      <button type="button" onclick="tryNow()">Try again</button>
+    </div>
+  </div>
+  <script>
+    var APP_URL = "https://med.atlas-engine.app/";
+    var fails = 0, probing = false;
+    function backToApp() { window.location.replace(APP_URL); }
+    function probe() {
+      if (probing) return;
+      probing = true;
+      var ctl = new AbortController();
+      var kill = setTimeout(function () { ctl.abort(); }, 5000);
+      fetch(APP_URL + "find", { method: "HEAD", mode: "no-cors", cache: "no-store", signal: ctl.signal })
+        .then(function () { clearTimeout(kill); backToApp(); })
+        .catch(function () {
+          clearTimeout(kill);
+          probing = false;
+          fails++;
+          if (fails >= 3) {
+            document.getElementById("reconnecting").style.display = "none";
+            document.getElementById("offline").style.display = "block";
+          }
+          setTimeout(probe, Math.min(2500 + fails * 500, 6000));
+        });
+    }
+    function tryNow() { fails = 0; probe(); }
+    window.addEventListener("online", tryNow);
+    probe();
+  </script>
+</body>
+</html>

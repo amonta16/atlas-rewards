@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MedspaStartPage } from "@/components/medspa/medspa-start-page";
 import { MetaPixel } from "@/components/venues/meta-pixel";
-import { siteFontClass } from "@/lib/landing/site-fonts";
+import { siteBodyFontClass as siteFontClass } from "@/lib/landing/site-font-body"; // CP-251: no display serif on funnel pages
 import "../../site.css";
 
 /**

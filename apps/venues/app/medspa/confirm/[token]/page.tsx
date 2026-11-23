@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { siteFontClass } from "@/lib/landing/site-fonts";
+import { siteBodyFontClass as siteFontClass } from "@/lib/landing/site-font-body"; // CP-251: no display serif on funnel pages
 import { MetaPixel } from "@/components/venues/meta-pixel";
 import { PrecallPage } from "@/components/medspa/precall-page";
 import { PRECALL_PREP, PRECALL_VIDEO, PRICE_BEFORE_CALL } from "@/lib/landing/medspa-funnel";

@@ -4,7 +4,7 @@ import { MetaPixel } from "@/components/venues/meta-pixel";
 import { OceanBackground } from "@/components/site/ocean-background";
 import { PreviewBooker } from "@/components/medspa/preview-booker";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { siteFontClass } from "@/lib/landing/site-fonts";
+import { siteBodyFontClass as siteFontClass } from "@/lib/landing/site-font-body"; // CP-251: no display serif on funnel pages
 import { getPreviewBySlug, isExpired, SLUG_RE } from "@/lib/preview/store";
 import "../../../site.css";
 
@@ -49,7 +49,7 @@ export default async function Page({ params, searchParams }: { params: { slug: s
           <div aria-hidden className="pointer-events-none fixed inset-0 bg-gradient-to-b from-transparent via-transparent to-[#06318F]/40" />
           <header className="relative z-10">
             <div className="s-wrap flex h-[68px] items-center justify-between">
-              <a href="/medspa" className="s-focus rounded-md" aria-label="Atlas Engine for med spas">
+              <a href="/med-spas" className="s-focus rounded-md" aria-label="Atlas Engine for med spas">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/atlas-engine-logo.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
               </a>

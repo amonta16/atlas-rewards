@@ -2,12 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { sharedCookieDomain, sharedCookieOptions } from "./cookie-domain";
 // CP-211: hand the verified user to the render so it doesn't call Auth again.
-import { HANDOFF_HEADER, authCookieHash, signHandoff } from "./session-handoff";
+import { HANDOFF_HEADER, RETURN_PATH_HEADER, authCookieHash, signHandoff } from "./session-handoff";
 
 /** Request headers with any client-supplied handoff removed (it's internal-only). */
 function scrubbedHeaders(request: NextRequest): Headers {
   const h = new Headers(request.headers);
   h.delete(HANDOFF_HEADER);
+  // CP-261: always ours, never the client's.
+  h.set(RETURN_PATH_HEADER, (request.nextUrl.pathname + request.nextUrl.search).slice(0, 500));
   return h;
 }
 

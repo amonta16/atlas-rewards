@@ -8,16 +8,16 @@ import { useEffect, useState } from "react";
 import { pushState, turnOffPush, turnOnPush, type PushState } from "@/lib/push-client";
 import { IcClose, IcSpark } from "./icons";
 
-function usePush(demo: boolean) {
+function usePush(demo: boolean, clinicId: string) {
   const [state, setState] = useState<PushState | null>(null);
-  useEffect(() => { pushState(demo).then(setState).catch(() => setState("unsupported")); }, [demo]);
+  useEffect(() => { pushState(demo, clinicId).then(setState).catch(() => setState("unsupported")); }, [demo, clinicId]);
   return [state, setState] as const;
 }
 
 const SHARE_HINT = "Tap the Share button, then “Add to Home Screen”. Open the app from your Home Screen to turn on notifications.";
 
 export function NotifyCard({ clinicId, clinicName, slug, demo }: { clinicId: string; clinicName: string; slug: string; demo: boolean }) {
-  const [state, setState] = usePush(demo);
+  const [state, setState] = usePush(demo, clinicId);
   const [busy, setBusy] = useState(false);
   const key = `ms_push_dismissed_${slug}`;
   const [hidden, setHidden] = useState(true);
@@ -46,7 +46,7 @@ export function NotifyCard({ clinicId, clinicName, slug, demo }: { clinicId: str
 }
 
 export function NotifyRow({ clinicId, clinicName, demo }: { clinicId: string; clinicName: string; demo: boolean }) {
-  const [state, setState] = usePush(demo);
+  const [state, setState] = usePush(demo, clinicId);
   const [busy, setBusy] = useState(false);
   if (!state || state === "unsupported") return null;
   const on = state === "on";

@@ -11,7 +11,41 @@
  *   PostScript  the TL;DR at the very bottom, selling against doing nothing
  * Server components; copy lives in lib/offer.ts (LAUNCH_CALL, MECHANISM, OFFER.guarantees).
  */
-import { LAUNCH_CALL, MECHANISM, OFFER } from "@/lib/offer";
+import { LAUNCH_CALL, MECHANISM, OFFER, TEAM_PROOF } from "@/lib/offer";
+import { YouTubeLite } from "./youtube-lite"; // CP-252
+
+/**
+ * CP-251 · team proof as crisp social-post cards (Flippo's, the hackathon), side by side on a computer and
+ * stacked on a phone, before the reviews. Post-styled but not fake posts: no X/LinkedIn mark, no counts.
+ */
+export function TeamProof({ primary }: { primary: string }) {
+  return (
+    <section aria-label={TEAM_PROOF.eyebrow} className="mx-auto mt-12 max-w-[1140px]">
+      <p className="text-center text-[12px] font-bold uppercase tracking-[0.12em]" style={{ color: primary }}>{TEAM_PROOF.eyebrow}</p>
+      <div className="mt-4 grid items-start gap-4 md:grid-cols-2 md:gap-5 lg:grid-cols-3">
+        {TEAM_PROOF.posts.map((p) => (
+          <article key={p.id} aria-labelledby={`pv-proof-${p.id}`} className="rounded-2xl border border-[#E3E6EA] bg-white p-5">
+            <header className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/atlas-icon-512.png" alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-full ring-1 ring-[#E3E6EA]" />
+              <span className="min-w-0">
+                <span className="block text-[16px] font-bold leading-tight text-[#0F1419]">Atlas Engine</span>
+                <span className="block truncate text-[14px] leading-tight text-[#536471]">{p.meta}</span>
+              </span>
+            </header>
+            <h2 id={`pv-proof-${p.id}`} className="mt-4 text-[17px] font-semibold leading-snug text-[#0F1419]">{p.title}</h2>
+            <p className="mt-2 text-[17px] leading-[1.5] text-[#0F1419]">{p.body}</p>
+            {p.youtube ? <YouTubeLite id={p.youtube} title={p.alt} className="mt-4" /> : p.file && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={`/proof/${p.file}`} alt={p.alt} width={p.w} height={p.h} loading="lazy" decoding="async"
+                className="mt-4 block h-auto w-full rounded-xl border border-[#E3E6EA] object-cover" />
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 const Tick = ({ color }: { color: string }) => (
   <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-white" style={{ background: color }} aria-hidden>

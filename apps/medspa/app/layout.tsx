@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { GlideOverlays } from "@/components/glide-overlays";
+import { NativeBridge } from "@/components/native-bridge";
 
 const hanken = localFont({ src: "./fonts/hanken.woff2", weight: "100 900", display: "swap", variable: "--font-hanken" });
 
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={hanken.variable}>
-      <body className="bg-page font-sans text-ink antialiased">{children}<GlideOverlays /></body>
+      <body className="bg-page font-sans text-ink antialiased">{children}<GlideOverlays /><NativeBridge /></body>
     </html>
   );
 }

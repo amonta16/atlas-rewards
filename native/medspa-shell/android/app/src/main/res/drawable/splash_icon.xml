@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ launch-screen icon: the gold sparkle, as a vector so it stays sharp.
+     The system masks this to a centered circle (2/3 of the size), so the artwork
+     is scaled to 55% around the center to keep the small sparkle inside it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group android:pivotX="50" android:pivotY="50" android:scaleX="0.55" android:scaleY="0.55">
+        <path android:fillColor="#B08D57"
+            android:pathData="M50,19 C53,41 59,47 81,50 C59,53 53,59 50,81 C47,59 41,53 19,50 C41,47 47,41 50,19 Z" />
+        <path android:fillColor="#C9AE84"
+            android:pathData="M74,24 C75,30 76,31 82,32 C76,33 75,34 74,40 C73,34 72,33 66,32 C72,31 73,30 74,24 Z" />
+    </group>
+</vector>

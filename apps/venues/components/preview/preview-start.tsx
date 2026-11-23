@@ -15,13 +15,17 @@
  * request failure ends on a clear message with a way forward, never a blank page.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
+import { TeamProof } from "@/components/landing/team-proof"; // CP-251
+import { Gulls } from "@/components/landing/gulls"; // CP-252
+import { StickyBuildBar } from "./sticky-build-bar"; // CP-254
+import { Showcase } from "@/components/site/showcase"; // CP-258
+import { OwnerVideos } from "@/components/landing/owner-videos"; // CP-258
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
 import { TrioVideo } from "@/components/landing/trio-video";
-import { FOUNDING } from "@/lib/landing/medspa-funnel";
 import { detectPlatform, e164, type Platform } from "@/lib/preview/sms";
 import { SMS_CONSENT_PAGE, SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 
@@ -75,7 +79,7 @@ const PROGRESS: Record<Step, [number, number]> = {
 };
 
 /** CP-246: a real count of med spas that built their app this week (GET /api/preview/stats). Hidden under 3 or on any failure. */
-function BuiltThisWeek() {
+function BuiltThisWeek({ light = false }: { light?: boolean } = {}) {
   const [n, setN] = useState<number | null>(null);
   useEffect(() => {
     let off = false;
@@ -86,7 +90,7 @@ function BuiltThisWeek() {
   }, []);
   if (n === null) return null;
   return (
-    <p className="mt-3 flex items-center gap-2 text-[14px] font-semibold text-[#0B1B2B]">
+    <p className={`mt-3 flex items-center gap-2 text-[14px] font-semibold ${light ? "text-white" : "text-[#0B1B2B]"}`}>
       <span className="relative flex h-2.5 w-2.5" aria-hidden><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:hidden" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
       {n} med spas built their app this week
     </p>
@@ -394,42 +398,70 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
 
   const honeypot = <input ref={hp} type="text" name="website_url_hp" tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" />;
 
+  /** CP-258: "Build my app" further down the page: back to the search box, cursor in it. */
+  const toSearch = () => {
+    track("hero_cta_clicked", { source: "medspa_app:showcase" });
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById("pv-search-box")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+    window.setTimeout(() => (document.getElementById("pv-search") as HTMLInputElement | null)?.focus({ preventScroll: true }), reduce ? 0 : 450);
+  };
+
   /* ───────────── search (landing) ───────────── */
   if (step === "search") {
     return (
       <div className="site min-h-[100dvh] overflow-x-clip bg-white">
         {honeypot}
-        <header className="s-wrap flex h-[72px] items-center justify-between">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto" />
-          <a href="/medspa" className="text-[14px] font-semibold text-[#3A4A5C] hover:text-[#0B1B2B]">How it works</a>
-        </header>
-        {/* CP-237: three grid items so the phones sit right under the search on phones (text, video, SMS note),
-            while on desktop the video spans both rows of the right column. */}
-        <main className="s-wrap grid items-center gap-10 pb-16 pt-6 lg:min-h-[calc(100dvh-72px)] lg:grid-cols-[0.95fr_1.05fr] lg:content-center lg:gap-x-16 lg:gap-y-0 lg:pb-10 lg:pt-0">
-          <div className="lg:col-start-1 lg:row-start-1">
-            <p className="text-[14px] font-semibold uppercase tracking-[0.12em] text-[#0B5FD6]">For med spas</p>
-            <h1 className="mt-4 max-w-[13ch] text-[clamp(2.4rem,1.6rem+3.4vw,4.3rem)] font-bold leading-[1.02] tracking-[-0.035em] text-[#0B1B2B]">
-              See your patient app before you spend a dollar.
+        {/* CP-257: the hero in brand blue (inverted from CP-252/256's white). Ocean gradient, a faint white grid,
+            white gulls and type, "patient app" in light chrome, and the white search box popping off the blue with
+            a white light travelling round it. The 3 phones sit in the white section below (their video is white +
+            multiply, which only blends on white). */}
+        <div className="s-ocean relative overflow-hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div className="s-blob absolute -right-[14%] -top-[30%] h-[760px] w-[760px] rounded-full bg-[radial-gradient(closest-side,rgba(143,200,255,.35),transparent)]" />
+            <div className="absolute -left-[18%] bottom-[-30%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(6,49,143,.45),transparent)]" />
+          </div>
+          <div aria-hidden className="s-gridbg-dark" />
+          <Gulls tone="light" className="h-[520px]" />
+          <header className="s-wrap relative z-10 flex h-[72px] items-center justify-between">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto brightness-0 invert" />
+            <a href="/med-spas" className="text-[14px] font-semibold text-white/85 hover:text-white">How it works</a>
+          </header>
+          <main className="s-wrap relative pb-32 pt-3 text-center sm:pb-40 sm:pt-6">
+            <p className="s-rise inline-flex items-center gap-2 rounded-full bg-white/12 py-1.5 pl-1.5 pr-3.5 text-[13px] font-semibold text-white ring-1 ring-white/30 backdrop-blur">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-[#0B5FD6]">Free</span>
+              For med spas
+            </p>
+            <h1 className="s-rise mx-auto mt-5 max-w-[15ch] text-[clamp(2.3rem,1.5rem+3.2vw,4.1rem)] font-bold leading-[1.03] tracking-[-0.035em] text-white lg:max-w-[20ch]" style={{ ["--d" as string]: ".08s" }}>
+              See your <span className="s-chrome-light">patient app</span> before you spend a dollar.
             </h1>
-            <p className="mt-5 max-w-[32rem] text-[18px] leading-relaxed text-[#3A4A5C]">
-              Type your practice&apos;s name. We read your website and build your own app: your logo, your colors, your treatments.
+            <p className="s-rise mx-auto mt-4 max-w-[32rem] text-[17px] leading-snug text-white/85" style={{ ["--d" as string]: ".16s" }}>
+              Type your spa&apos;s name. Watch your own app appear: your logo, your colors, your treatments.
             </p>
 
-            <div className="relative mt-8 w-full max-w-[540px]">
+            <div className="s-rise relative mx-auto mt-7 w-full max-w-[560px] text-left" style={{ ["--d" as string]: ".24s" }}>
               <label htmlFor="pv-search" className="sr-only">Your med spa&apos;s name</label>
-              <div className="flex h-[60px] items-center gap-3 rounded-2xl border border-[#0B1B2B]/15 bg-white pl-5 pr-3 shadow-[0_18px_40px_-28px_rgba(11,27,43,.45)] focus-within:border-[#0B5FD6] focus-within:ring-4 focus-within:ring-[#0B5FD6]/15">
-                <Search className="h-5 w-5 shrink-0 text-[#6B7A8C]" aria-hidden />
-                <input
-                  id="pv-search" type="text" role="combobox" aria-expanded={suggestions.length > 0} aria-controls={listId} aria-autocomplete="list"
-                  aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off" autoFocus enterKeyHint="search"
-                  placeholder="Your med spa's name" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKey}
-                  className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-[#0B1B2B] placeholder:text-[#8A97A8] focus:outline-none"
-                />
-                {searching && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#0B5FD6]" aria-label="Searching" />}
+              {/* CP-253: says "click here". A blue border with a light that travels around it (site.css .s-glowfield)
+                  and a soft pulse, plus a Build button inside: it starts the top suggestion, or puts the cursor in the box. */}
+              <div id="pv-search-box" className="s-glowfield s-glowfield-light rounded-[18px] p-[2px]">
+                <div className="relative z-[1] flex h-[62px] items-center gap-3 rounded-2xl bg-white pl-5 pr-2">
+                  <Search className="h-5 w-5 shrink-0 text-[#0B5FD6]" aria-hidden />
+                  <input
+                    id="pv-search" type="text" role="combobox" aria-expanded={suggestions.length > 0} aria-controls={listId} aria-autocomplete="list"
+                    aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined} autoComplete="off" autoFocus enterKeyHint="search"
+                    placeholder="Your med spa's name" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKey}
+                    className="h-full min-w-0 flex-1 bg-transparent text-[17px] text-[#0B1B2B] placeholder:text-[#6B7A8C] focus:outline-none"
+                  />
+                  {searching && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#0B5FD6]" aria-label="Searching" />}
+                  <button type="button"
+                    onClick={() => { const s = suggestions[active >= 0 ? active : 0]; if (s) start(s); else document.getElementById("pv-search")?.focus(); }}
+                    className="s-btn s-btn-primary s-focus !h-[46px] shrink-0 !px-4 !text-[15px]">
+                    <span className="hidden sm:inline">Build my app</span><span className="sm:hidden">Build</span><ArrowRight className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
               </div>
               {suggestions.length > 0 && (
-                <ul id={listId} role="listbox" className="absolute inset-x-0 top-[66px] z-20 overflow-hidden rounded-2xl border border-[#0B1B2B]/10 bg-white py-1.5 shadow-[0_24px_50px_-24px_rgba(11,27,43,.45)]">
+                <ul id={listId} role="listbox" className="absolute inset-x-0 top-[72px] z-20 overflow-hidden rounded-2xl border border-[#0B1B2B]/10 bg-white py-1.5 shadow-[0_24px_50px_-24px_rgba(11,27,43,.45)]">
                   {suggestions.map((s, i) => (
                     <li key={s.placeId} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
                       <button type="button" onMouseEnter={() => setActive(i)} onClick={() => start(s)} className={`flex w-full items-start gap-3 px-4 py-2.5 text-left ${i === active ? "bg-[#F1F6FD]" : ""}`}>
@@ -444,36 +476,46 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
                   <li className="px-4 pb-1 pt-1.5 text-right text-[11px] text-[#8A97A8]">Search by Google</li>
                 </ul>
               )}
-              {searchError && <p role="alert" className="mt-3 text-[14px] font-medium text-red-700">{searchError}</p>}
+              {searchError && <p role="alert" className="mx-auto mt-3 w-fit rounded-full bg-white px-3 py-1 text-center text-[14px] font-medium text-red-700">{searchError}</p>}
             </div>
-            <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[14.5px] text-[#3A4A5C]">
+            <ul className="s-rise mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[14.5px] text-white/90" style={{ ["--d" as string]: ".32s" }}>
               {/* CP-246: one timing claim across the page (the title says "about a minute" too). */}
               {["Free", "No card needed", "Ready in about a minute"].map((t) => (
-                <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#0B5FD6]" aria-hidden />{t}</li>
+                <li key={t} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#BFE0FF]" aria-hidden />{t}</li>
               ))}
             </ul>
-            <BuiltThisWeek />
-            {/* CP-237: the offer, up front. Numbers from lib/landing/medspa-funnel.ts. */}
-            <p className="mt-4 max-w-[34rem] text-[14.5px] leading-relaxed text-[#3A4A5C]">
-              {/* Audit step 5: no scarcity here; their area isn't known yet. */}
-              The preview is free. If you want it live, setup is <b className="text-[#0B1B2B]">{usd(FOUNDING.active ? FOUNDING.setupFounding : FOUNDING.setupFull)}</b> and one flat monthly plan.
-            </p>
+            <div className="flex justify-center"><BuiltThisWeek light /></div>
+            {/* CP-253: no price on this page (no setup fee any more); the Launch Plan call covers it. */}
+          </main>
+        </div>
 
+        {/* CP-259: the 3 phones in a white card lifted over the bottom of the blue hero, so they're in view
+            without scrolling (their video is white + multiply, so it needs the white card). */}
+        <section className="relative flow-root bg-white">
+          <div className="s-wrap pb-6 text-center">
+            <figure className="s-rise relative z-[1] mx-auto -mt-24 w-full max-w-[920px] rounded-[28px] bg-white px-3 pb-3 pt-4 shadow-[0_40px_90px_-40px_rgba(2,20,70,.55)] ring-1 ring-black/5 sm:-mt-32" style={{ ["--d" as string]: ".36s" }}>
+              <TrioVideo />
+              <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Real med spa apps. Each one built from the spa&apos;s own website.</figcaption>
+            </figure>
           </div>
-          {/* CP-237: three real med spa previews on 3D phones (projects/medspa-trio-3d), a seamless 6 s loop.
-              White background + multiply, so the video's edge disappears into the page. Wider than its column on desktop. */}
-          <figure className="relative mx-auto w-full max-w-[560px] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mx-0 lg:max-w-none">
-            <TrioVideo className="lg:w-[122%] lg:max-w-none" />
-            <figcaption className="mt-1 text-center text-[13px] text-[#6B7A8C] lg:w-[122%]">Three med spa apps, each built from the practice&apos;s own website.</figcaption>
-          </figure>
-          <p className="max-w-[34rem] border-t border-[#0B1B2B]/8 pt-4 text-[12.5px] leading-relaxed text-[#6B7A8C] lg:col-start-1 lg:row-start-2 lg:mt-8">
+        </section>
+        {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
+        <TeamProof />
+        {/* CP-258: the /med-spas product showcase (tabs + changing phone), so owners see how it works in detail */}
+        <Showcase embedded onStart={toSearch} />
+        <ReviewStrip />
+        {/* CP-258: owner videos (placeholders until the first real ones) */}
+        <OwnerVideos />
+        {/* CP-259: the fine print, at the very bottom instead of under the phones (room for the sticky bar below it) */}
+        <footer className="border-t border-[#0B1B2B]/8 bg-white pb-28 pt-8">
+          <p className="s-wrap mx-auto max-w-[40rem] text-center text-[12.5px] leading-relaxed text-[#6B7A8C]">
             No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
             (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}
             <a href={SMS_CONSENT_PAGE} className="underline">SMS consent</a> · <a href={SMS_TERMS_URL} className="underline">Terms</a> · <a href={SMS_PRIVACY_URL} className="underline">Privacy Policy</a>
           </p>
-        </main>
-        {/* CP-239: real client reviews, near the bottom (nothing renders until there are some). */}
-        <ReviewStrip />
+        </footer>
+        {/* CP-254: the CTA that follows you down the page once the search box is out of view */}
+        <StickyBuildBar targetId="pv-search-box" inputId="pv-search" />
       </div>
     );
   }
@@ -761,5 +803,4 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
   return null;
 }
 
-const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 

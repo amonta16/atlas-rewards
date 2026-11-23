@@ -4,7 +4,6 @@ import { getClinic, activeTreatments, skinScanOn } from "@/lib/clinic";
 import { getStaff } from "@/lib/staff";
 import { DeskApp } from "@/components/desk/desk-app";
 import { getBuilderData } from "@/lib/builder-data";
-import { OFFER } from "@/lib/offer";
 
 export const metadata = { title: "Front desk", robots: { index: false, follow: false } };
 const SITE = (process.env.VENUE_APP_ORIGIN || "https://www.atlas-engine.app").replace(/\/$/, "");
@@ -14,7 +13,6 @@ const activateUrl = (slug: string) => (CHECKOUT ? `${CHECKOUT}${CHECKOUT.include
 const HELP_EMAIL = "andrew@atlas-engine.app";
 /** Audit step 4: the 45 s first-login video (muted, captioned). Unset = no video. */
 const VSL = process.env.PREVIEW_DESK_VSL_URL ? { src: process.env.PREVIEW_DESK_VSL_URL, captions: process.env.PREVIEW_DESK_VSL_VTT || null } : null;
-const SETUP = OFFER.foundingActive ? OFFER.setupFounding : OFFER.setupFull;
 export const dynamic = "force-dynamic";
 
 /**
@@ -57,10 +55,10 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
         portal: clinic.preview ? { apiOrigin: SITE, walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk_bar`, vsl: VSL } : null,
         // CP-238: Home → Your access. The demo clinic books through the main /medspa calendar.
         goLive: clinic.preview
-          ? { kind: "preview", walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk`, activateUrl: activateUrl(clinic.slug), activateLabel: `Turn it on now, $${SETUP.toLocaleString("en-US")} setup`, expiresAt: clinic.preview.expiresAt, helpEmail: HELP_EMAIL }
+          ? { kind: "preview", walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk`, activateUrl: activateUrl(clinic.slug), activateLabel: "Turn it on now", expiresAt: clinic.preview.expiresAt, helpEmail: HELP_EMAIL }
           : demo
-            ? { kind: "demo", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL }
-            : { kind: "live", walkthroughUrl: `${SITE}/medspa`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL },
+            ? { kind: "demo", walkthroughUrl: `${SITE}/medspa/app`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL }
+            : { kind: "live", walkthroughUrl: `${SITE}/medspa/app`, activateUrl: null, expiresAt: null, helpEmail: HELP_EMAIL },
         skinScan: skinScanOn(clinic),
         recall: { enabled: clinic.cfg.recall.enabled, lead_days: clinic.cfg.recall.lead_days, followup_days: clinic.cfg.recall.followup_days },
         treatments: activeTreatments(clinic).map((t) => ({ id: t.id, name: t.name, recall_weeks: t.recall_weeks ?? null })),
