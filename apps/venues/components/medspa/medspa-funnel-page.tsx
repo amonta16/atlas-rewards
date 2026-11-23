@@ -391,7 +391,7 @@ function HowItWorks({ onStart }: { onStart: () => void }) {
   );
 }
 
-/* ───────────── CP-204: the offer — area lock, founding spots, three guarantees ───────────── */
+/* ───────────── CP-204: the offer — area lock, founding spots, the guarantees ───────────── */
 function Offer({ onStart }: { onStart: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
@@ -401,10 +401,10 @@ function Offer({ onStart }: { onStart: () => void }) {
         <div className="mx-auto max-w-[44rem] text-center">
           <p className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3.5 py-1.5 text-[13.5px] font-semibold text-white ring-1 ring-white/30"><MapPin className="h-4 w-4" aria-hidden />One med spa per {TERRITORY.radiusMiles}-mile area</p>
           <h2 id="offer-title" className="s-h2 mt-5 text-white">Your area, locked. Your risk, gone.</h2>
-          <p className="s-lead mx-auto mt-5 max-w-[36rem]">Once you&apos;re in, we won&apos;t work with another med spa within {TERRITORY.radiusMiles} miles of you for as long as you&apos;re a client. And every practice gets the same three promises.</p>
+          <p className="s-lead mx-auto mt-5 max-w-[36rem]">Once you&apos;re in, we won&apos;t work with another med spa within {TERRITORY.radiusMiles} miles of you for as long as you&apos;re a client. And every practice gets the same {GUARANTEES.length} promises.</p>
         </div>
 
-        <ul className="mt-14 grid gap-4 lg:grid-cols-3">
+        <ul className="mt-14 grid gap-4 md:grid-cols-2">
           {GUARANTEES.map((g, i) => (
             <li key={g.id} className={cn("flex flex-col rounded-[26px] p-6 sm:p-7", i === 0 ? "bg-white text-[var(--s-ink)] shadow-[0_30px_60px_-30px_rgba(2,20,70,.7)]" : "bg-white/10 text-white ring-1 ring-white/25 backdrop-blur")}>
               <span className={cn("grid h-11 w-11 place-items-center rounded-2xl", i === 0 ? "bg-[var(--s-ocean)] text-white" : "bg-white text-[var(--s-ocean)]")}><ShieldCheck className="h-6 w-6" aria-hidden /></span>
@@ -484,10 +484,12 @@ function Included({ onStart }: { onStart: () => void }) {
 /* ───────────── faq ─────────────
  * CP-204: the funnel's own list. Area lock and guarantee questions first; the
  * cost answer reflects the setup pricing in FOUNDING. The main site keeps MEDSPA_FAQ. */
+const PAYS = GUARANTEES.find((g) => g.id === "pays") ?? GUARANTEES[0];
 const FUNNEL_FAQ: { q: string; a: string }[] = [
+  { q: "How does the 100-patient guarantee work?", a: `${GUARANTEES[0].body} ${GUARANTEES[0].fine}` },
   { q: "What does \"one med spa per area\" mean?", a: `Once you're a client, we won't work with another med spa within ${TERRITORY.radiusMiles} miles of your practice for as long as you stay with us. If you cancel, the area opens back up.` },
   { q: "What does holding my area do?", a: `If your area is open, you can hold it free for ${HOLD.hours} hours. While it's held, no other med spa within ${TERRITORY.radiusMiles} miles can claim it. Book your call before the hold ends and it stays held through the call. No card, no commitment.` },
-  { q: "How does the pays-for-itself guarantee work?", a: `${GUARANTEES[0].body} ${GUARANTEES[0].fine}` },
+  { q: "How does the pays-for-itself guarantee work?", a: `${PAYS.body} ${PAYS.fine}` },
   ...MEDSPA_FAQ.map((f) => f.q === "What does it cost?"
     ? { q: f.q, a: `Setup is ${fmtMoney(FOUNDING.setupFull)}${FOUNDING.active ? ` (${fmtMoney(FOUNDING.setupFounding)} for our first ${FOUNDING.spots} founding practices)` : ""} and covers your app, banner, table tents, their design and QR scanners. Then one flat monthly plan, month to month, ${MONTHLY_PRICE ? `${fmtMoney(MONTHLY_PRICE)} a month` : "quoted on your walkthrough"}. No percentage of your treatment revenue, ever.` }
     : f),

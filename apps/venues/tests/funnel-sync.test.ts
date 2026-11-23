@@ -8,9 +8,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as venuesConsent from "../lib/preview/consent";
 import * as medspaConsent from "../../medspa/lib/sms-consent";
-import { LAUNCH_BONUS as V_BONUS, LAUNCH_CALL as V_CALL, TEAM_PROOF as V_TEAM } from "../lib/landing/medspa-funnel";
+import { GUARANTEES, LAUNCH_BONUS as V_BONUS, LAUNCH_CALL as V_CALL, TEAM_PROOF as V_TEAM } from "../lib/landing/medspa-funnel";
 import { CALL_MINUTES } from "../lib/landing/availability";
-import { LAUNCH_BONUS as M_BONUS, LAUNCH_CALL as M_CALL, MECHANISM, TEAM_PROOF as M_TEAM } from "../../medspa/lib/offer";
+import { LAUNCH_BONUS as M_BONUS, LAUNCH_CALL as M_CALL, MECHANISM, OFFER, TEAM_PROOF as M_TEAM } from "../../medspa/lib/offer";
 
 test("SMS consent wording is identical in both apps", () => {
   assert.equal(medspaConsent.SMS_INFO_CONSENT_TEXT, venuesConsent.SMS_INFO_CONSENT_TEXT);
@@ -46,4 +46,18 @@ test("CP-257: the proof cards match across apps, stay med spa only, and never sa
 test("the mechanism makes no recall-sending claim (not Live in the messaging library)", () => {
   const text = MECHANISM.steps.map((s) => `${s.t} ${s.d}`).join(" ");
   assert.doesNotMatch(text, /comes? due, (your app|we|it) sends?/i);
+});
+
+test("CP-264: the bonus total on the booking page is the sum of the bonuses the preview shows", () => {
+  assert.equal(V_BONUS.total, M_BONUS.bonuses.reduce((a, b) => a + b.value, 0));
+});
+
+test("CP-264: the guarantee lines match across apps, and the 100-patient one leads with its conditions in the fine print", () => {
+  assert.deepEqual(OFFER.guarantees, GUARANTEES.map((g) => g.short));
+  const g = GUARANTEES[0];
+  assert.equal(g.id, "users100");
+  assert.match(g.short, /^100 patients on your app in 90 days/);
+  assert.match(g.fine, /Atlas dashboard/);
+  assert.match(g.fine, /300 patient visits/);
+  assert.ok(GUARANTEES.some((x) => x.id === "pays"), "the pays-for-itself guarantee is still offered");
 });

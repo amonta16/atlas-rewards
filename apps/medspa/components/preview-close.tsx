@@ -128,7 +128,7 @@ export function CallOffer({ walkthroughUrl, primary, businessName }: { walkthrou
       </div>
       <div className="flex gap-3 border-t border-line bg-[#FAFAF9] px-5 py-4">
         <svg viewBox="0 0 24 24" className="mt-0.5 h-5 w-5 shrink-0" style={{ color: primary }} aria-hidden><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M8.8 12.2l2.2 2.2 4.2-4.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <p className="text-[14px] leading-snug"><b>If you go live, it {OFFER.guarantees[0].replace(/^./, (c) => c.toLowerCase())}.</b> <span className="text-sub">Month to month, cancel any month.</span></p>
+        <p className="text-[14px] leading-snug"><b>{OFFER.guarantees[0]}.</b> <span className="text-sub">And if you go live, it {(OFFER.guarantees.find((g) => g.startsWith("Pays")) ?? "Pays for itself").replace(/^./, (c) => c.toLowerCase())}. Month to month.</span></p>
       </div>
     </section>
   );

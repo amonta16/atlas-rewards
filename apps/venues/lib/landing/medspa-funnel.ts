@@ -150,7 +150,7 @@ export const TERRITORY = { radiusMiles: 10 };
  * your app and these come free. KEEP IN SYNC with LAUNCH_BONUS in apps/medspa/lib/offer.ts
  * (the medspa app shows them; this side enforces the window at booking).
  */
-export const LAUNCH_BONUS = { active: true, hours: 72 }; // CP-245.5: was 4
+export const LAUNCH_BONUS = { active: true, hours: 72, total: 2250 }; // CP-245.5: was 4. CP-264: total = the medspa app's bonus values summed (sync-tested)
 
 /**
  * CP-246 · the call, sold as its own offer ("sell the call, not the product"). A preview owner
@@ -178,31 +178,31 @@ export const LAUNCH_CALL = {
  * KEEP IN SYNC across apps/medspa/lib/offer.ts and apps/venues/lib/landing/medspa-funnel.ts (tests/funnel-sync.test.ts).
  */
 export const TEAM_PROOF = {
-  eyebrow: "The team behind your app",
+  eyebrow: "Why we built Atlas",
   // CP-252: up to 3 across on a computer, stacked on a phone. A post shows `youtube` (a YouTube id, played in
   // place, youtube-nocookie) or `file` (a photo in this app's proof folder). To add an owner video: copy the
   // first post, change id / youtube / the words. Quote owners word for word, and only with their OK.
   posts: [
     {
       id: "mission",
-      title: "Your clients love you. Their phone forgets you.",
-      body: "Between visits, your spa is nowhere on their phone. So we built Atlas: your own app, with your name on it, that brings them back.",
+      title: "You paid to get them in. Then their phone forgot you.",
+      body: "Every patient you win with ads walks out into a phone full of other brands. Your spa isn't one of them. Atlas fixes that: your own app, your name on their home screen, pulling them back for the next visit.",
       meta: "Francisco Vera & Andrew Montano",
       youtube: null, file: "founders-atlas.webp", w: 1100, h: 872,
       alt: "Francisco Vera (left) and Andrew Montano, founders of Atlas Engine, in navy Atlas polos",
     },
     {
       id: "owner-video",
-      title: "We showed a real spa owner. Here's what she said.",
-      body: "A spa owner in Morro Bay saw the app for the first time. Her exact words: “I would be very interested in incorporating that into my business.”",
+      title: "We put it in front of a real spa owner. Watch her reaction.",
+      body: "First time she'd ever seen it. A Morro Bay spa owner, on camera, her exact words: “I would be very interested in incorporating that into my business.”",
       meta: "Morro Bay, CA · November 2026",
       youtube: "dCTa10nHVfE", file: null, w: 16, h: 9,
       alt: "A Morro Bay spa owner reacts to the app (video, 1:53)",
     },
     {
       id: "process",
-      title: "We don't guess. We ask owners.",
-      body: "We build every part of Atlas ourselves. Then real owners try it before it ships. In November, at Cal Poly's AI Hackathon, we sat down with a Morro Bay spa owner and asked for her honest take.",
+      title: "Nothing ships until a real owner tries to break it.",
+      body: "We build every part of Atlas ourselves, then hand it to real spa owners before you ever see it. In November, at Cal Poly's AI Hackathon, we sat a Morro Bay owner down and asked for her brutally honest take.",
       meta: "Cal Poly · November 2026",
       youtube: null, file: "founders-building.webp", w: 1100, h: 916,
       alt: "Two Atlas Engine founders working on a laptop at Cal Poly",
@@ -233,6 +233,16 @@ export const FOUNDING = {
 export type Guarantee = { id: string; title: string; short: string; body: string; fine: string };
 /** Strongest first. The first one leads the ad and the page. */
 export const GUARANTEES: Guarantee[] = [
+  // CP-264 · the 100-patient guarantee (Andrew, Nov 23 2026). Leads the /medspa/app showcase. Counted from
+  // patient sign-ups in the dashboard; the 300-visit floor keeps it fair for very small practices.
+  // KEEP IN SYNC with OFFER.guarantees[0] in apps/medspa/lib/offer.ts (tests/funnel-sync.test.ts).
+  {
+    id: "users100",
+    title: "100 patients on your app in 90 days, or every dollar back.",
+    short: "100 patients on your app in 90 days, or every dollar back",
+    body: "If fewer than 100 of your patients have joined your app within 90 days of going live, we refund every dollar you've paid us.",
+    fine: "Counted in your Atlas dashboard: patients who create an account in your app from your go-live date. Requires your checkout banner, table tents and QR code out from day one, your front desk offering the app at checkout, and at least 300 patient visits at your practice in those 90 days. The refund covers the setup and monthly fees you've paid Atlas.",
+  },
   {
     id: "pays",
     title: "It pays for itself, or you stop paying.",

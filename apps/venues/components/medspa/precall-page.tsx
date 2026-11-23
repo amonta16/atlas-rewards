@@ -4,15 +4,14 @@
  *
  * Step 1 of the 2-step sale: the visitor arrives knowing what Atlas does, how
  * the call works and (if PRICE_BEFORE_CALL is set) what it costs, so the
- * walkthrough is a fit call, not a cold pitch. Three things to do here:
+ * walkthrough is a fit call, not a cold pitch. CP-264: just the video, then confirm and add to calendar:
  *   1. watch the short video (progress reported to /api/landing/precall)
  *   2. tap "Yes, I'll be there" (Andrew gets an email; Meta gets CallConfirmed)
  *   3. add it to the calendar
  */
 import { useEffect, useRef, useState } from "react";
-import { CalendarPlus, Check, CheckCircle2, Clock, Loader2, Play, ShieldCheck, Video } from "lucide-react";
+import { CalendarPlus, Check, CheckCircle2, Clock, Loader2, Play, Video } from "lucide-react";
 import { IntroVideo } from "@/components/medspa/intro-video"; // CP-205
-import { GUARANTEES } from "@/lib/landing/medspa-funnel";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing/analytics";
 import { CALL_MINUTES } from "@/lib/landing/availability";
@@ -66,9 +65,9 @@ export function PrecallPage(p: Props) {
               {confirmed ? <><CheckCircle2 className="h-4 w-4" aria-hidden /> Confirmed. See you then.</> : <><Clock className="h-4 w-4" aria-hidden /> One step left</>}
             </p>
             <h1 className="s-display s-load-2 mx-auto mt-5 max-w-[16ch] !text-[clamp(2.1rem,1.4rem+3vw,3.6rem)] text-white">
-              {confirmed ? `You're all set${p.firstName ? `, ${p.firstName}` : ""}.` : <>Your call isn&apos;t confirmed yet{p.firstName ? `, ${p.firstName}` : ""}.</>}
+              {confirmed ? `You're locked in${p.firstName ? `, ${p.firstName}` : ""}.` : <>Watch this, then confirm your spot{p.firstName ? `, ${p.firstName}` : ""}.</>}
             </h1>
-            <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{confirmed ? "Andrew will bring your numbers and the offer for your area. Here's everything in one place." : `${p.video.embed ? "Watch the short video" : "Read the 30-second version"}, then tap confirm so Andrew holds ${day} for ${p.business}.`}</p>
+            <p className="s-lead s-load-3 mx-auto mt-4 max-w-[34rem]">{day} at {time} · {CALL_MINUTES} min on video with Andrew</p>
           </div>
         )}
       </div>
@@ -82,116 +81,35 @@ export function PrecallPage(p: Props) {
             </div>
           ) : (
             <>
-              <div className="s-panel s-load-3 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-                <div className="flex items-center gap-4">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--s-ice)] text-[var(--s-ocean)]"><Video className="h-6 w-6" aria-hidden /></span>
-                  <div><div className="text-[17px] font-bold">{day}</div><div className="text-[14px] text-[var(--s-ink-3)]">{time} · {CALL_MINUTES} min on video with Andrew</div></div>
-                </div>
-                {p.meetUrl && <a href={p.meetUrl} target="_blank" rel="noopener" className="s-btn s-btn-quiet s-focus !h-11 text-[14px]">Video link</a>}
+              {/* CP-264: video first (placeholder until PRECALL_VIDEO.embed is set), then confirm + calendar. */}
+              <div className="s-panel s-load-3 overflow-hidden p-2 sm:p-3">
+                <PrecallVideo token={p.token} embed={p.video.embed} />
               </div>
+              {p.priceLine && <p className="mt-4 rounded-2xl bg-[var(--s-ice)] px-4 py-3 text-[14px] font-semibold text-[var(--s-ocean-deep)]">{p.priceLine}</p>}
 
-              <ol className="mt-10 space-y-5">
-                <Step n={1} done={false} title={p.video.embed ? "Watch this first" : "Read this first"} sub={p.video.embed ? `${p.video.minutes} minutes: what Atlas does, how the call works${p.priceLine ? ", what it costs" : ""}.` : "30 seconds: what Atlas is, what the call covers, what happens after."}>
-                  <PrecallVideo token={p.token} embed={p.video.embed} />
-                  {!p.video.embed && (
-                    <ul className="mt-4 grid gap-3 sm:grid-cols-3">
-                      {[["What Atlas is", "Your practice's own patient app: due-date reminders, memberships billed to your Stripe, rewards, and a front-desk list of who to call."], ["What the call is", "Not a pitch. Andrew walks through your numbers, how Atlas would run at your front desk, and the offer for your area. You decide."], ["What happens after", "If it's a yes, your area is locked to you and you're live at checkout within 7 days. Month to month."]].map(([t, d]) => (
-                        <li key={t} className="rounded-2xl bg-[var(--s-paper)] p-4 ring-1 ring-[var(--s-line)]"><div className="text-[14px] font-bold">{t}</div><p className="mt-1 text-[13.5px] leading-relaxed text-[var(--s-ink-2)]">{d}</p></li>
-                      ))}
-                    </ul>
-                  )}
-                  {p.priceLine && <p className="mt-4 rounded-2xl bg-[var(--s-ice)] px-4 py-3 text-[14px] font-semibold text-[var(--s-ocean-deep)]">{p.priceLine}</p>}
-                </Step>
-
-                <Step n={2} done={confirmed} title={confirmed ? "Confirmed" : "Confirm you'll be there"} sub={confirmed ? "Andrew has your spot held." : "So Andrew knows to hold the time. It takes one tap."}>
-                  {!confirmed && (
-                    <button type="button" onClick={confirm} disabled={sending} className="s-btn s-btn-primary s-focus mt-1 disabled:opacity-60">
-                      {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}Yes, I&apos;ll be there
-                    </button>
-                  )}
-                </Step>
-
-                <Step n={3} done={false} title="Add it to your calendar" sub="The invite from andrew@atlas-engine.app works too.">
-                  <div className="mt-1 flex flex-wrap gap-2">
-                    <a href={gcal} target="_blank" rel="noopener" className="s-btn s-btn-quiet s-focus !h-11 text-[14px]"><CalendarPlus className="h-4 w-4" aria-hidden />Google Calendar</a>
-                    <a href={ics} download="atlas-walkthrough.ics" className="s-btn s-btn-quiet s-focus !h-11 text-[14px]"><CalendarPlus className="h-4 w-4" aria-hidden />Apple / Outlook</a>
-                  </div>
-                </Step>
-              </ol>
-
-              {/* CP-205: do the work before the call, and show it */}
-              <section className="s-panel mt-10 overflow-hidden" aria-labelledby="build-title">
-                <div className="grid sm:grid-cols-[1fr_auto]">
-                  <div className="p-6 sm:p-8">
-                    <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-[var(--s-ocean)]">Before your call</p>
-                    <h2 id="build-title" className="s-h3 mt-1.5">Andrew is building {p.business}&apos;s app.</h2>
-                    <p className="s-body mt-2 text-[15px]">You&apos;ll see a preview of your own patient app on the call, with your name, logo and colors, not a generic demo.</p>
-                    <ol className="mt-5 grid gap-2.5">
-                      {[["Your area", "Held for you through the call", true], ["Your numbers", "Saved from your answers", true], ["Your app preview", "Built before the call", false], ["The call", `${day} at ${time}`, false]].map(([t, d, ok], i) => (
-                        <li key={String(t)} className="flex items-center gap-3">
-                          <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12px] font-bold", ok ? "bg-emerald-500 text-white" : i === 2 ? "bg-[var(--s-ocean)] text-white" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}>
-                            {ok ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : i === 2 ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> : i + 1}
-                          </span>
-                          <span className="text-[14.5px]"><b>{t}</b> <span className="text-[var(--s-ink-3)]">· {d}</span></span>
-                        </li>
-                      ))}
-                    </ol>
-                    <p className="s-small mt-5">Want it to look exactly like you? Reply to your confirmation email with your logo and treatment menu. Optional.</p>
-                  </div>
-                  <div aria-hidden className="relative hidden w-[220px] items-center justify-center bg-gradient-to-b from-[var(--s-ice)] to-white sm:flex">
-                    <div className="relative h-[300px] w-[150px] rounded-[30px] border-[6px] border-[var(--s-ink)] bg-white shadow-[0_30px_50px_-25px_rgba(2,20,70,.5)]">
-                      <div className="absolute left-1/2 top-2 h-1.5 w-12 -translate-x-1/2 rounded-full bg-[var(--s-ink)]" />
-                      <div className="mx-3 mt-7 grid gap-2.5">
-                        <div className="h-16 rounded-xl s-ocean" />
-                        <div className="h-3 w-3/4 animate-pulse rounded-full bg-[var(--s-ice)] motion-reduce:animate-none" />
-                        <div className="h-3 w-1/2 animate-pulse rounded-full bg-[var(--s-ice)] motion-reduce:animate-none" />
-                        <div className="mt-1 grid grid-cols-2 gap-2"><div className="h-12 animate-pulse rounded-lg bg-[var(--s-paper)] ring-1 ring-[var(--s-line)] motion-reduce:animate-none" /><div className="h-12 animate-pulse rounded-lg bg-[var(--s-paper)] ring-1 ring-[var(--s-line)] motion-reduce:animate-none" /></div>
-                        <div className="h-9 rounded-full bg-[var(--s-ocean)]/90" />
-                      </div>
-                      <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--s-ink)] px-2.5 py-1 text-[10.5px] font-bold text-white">In progress</span>
-                    </div>
-                  </div>
+              <div className="s-panel mt-5 p-5 sm:p-6">
+                <div className="flex items-center gap-4">
+                  <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-2xl", confirmed ? "bg-emerald-50 text-emerald-600" : "bg-[var(--s-ice)] text-[var(--s-ocean)]")}>{confirmed ? <CheckCircle2 className="h-6 w-6" aria-hidden /> : <Video className="h-6 w-6" aria-hidden />}</span>
+                  <div className="min-w-0"><div className="text-[17px] font-bold">{day}</div><div className="text-[14px] text-[var(--s-ink-3)]">{time} · {CALL_MINUTES} min · {p.business}</div></div>
                 </div>
-              </section>
-
-              {/* CP-204: the three promises, so they arrive at the call already knowing the risk is on us */}
-              <section className="s-ocean relative mt-10 overflow-hidden rounded-[28px] p-6 sm:p-8" aria-labelledby="promise-title">
-                <OceanBackground className="opacity-80" />
-                <div className="relative">
-                  <h2 id="promise-title" className="s-h3 text-white">Three promises that come with Atlas</h2>
-                  <ul className="mt-4 grid gap-3">
-                    {GUARANTEES.map((g) => <li key={g.id} className="flex gap-3 text-[15px] text-white"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" aria-hidden /><span><b>{g.title}</b> <span className="text-white/80">{g.body}</span></span></li>)}
-                  </ul>
-                  <p className="mt-4 text-[12.5px] text-white/70">Andrew walks through the fine print on the call; it&apos;s also written into your agreement.</p>
+                {!confirmed && (
+                  <button type="button" onClick={confirm} disabled={sending} className="s-btn s-btn-primary s-focus mt-5 w-full disabled:opacity-60">
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />}Yes, I&apos;ll be there
+                  </button>
+                )}
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <a href={gcal} target="_blank" rel="noopener" className="s-btn s-btn-quiet s-focus !h-11 text-[14px]"><CalendarPlus className="h-4 w-4" aria-hidden />Google Calendar</a>
+                  <a href={ics} download="atlas-walkthrough.ics" className="s-btn s-btn-quiet s-focus !h-11 text-[14px]"><CalendarPlus className="h-4 w-4" aria-hidden />Apple / Outlook</a>
                 </div>
-              </section>
-
-              <section className="s-panel mt-6 p-6 sm:p-8" aria-labelledby="prep-title">
-                <h2 id="prep-title" className="s-h3">To get the most out of 20 minutes</h2>
-                <ul className="mt-4 space-y-3">
-                  {p.prep.map((t) => <li key={t} className="flex gap-3 text-[15px] text-[var(--s-ink-2)]"><span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[var(--s-ice)] text-[var(--s-ocean)]"><Check className="h-3 w-3" strokeWidth={3} aria-hidden /></span>{t}</li>)}
-                </ul>
-                <p className="s-small mt-6">Need a different time? Reply to your confirmation email or write <a className="font-semibold text-[var(--s-ocean)]" href="mailto:andrew@atlas-engine.app">andrew@atlas-engine.app</a>.</p>
-              </section>
+                {p.meetUrl && <a href={p.meetUrl} target="_blank" rel="noopener" className="mt-3 block text-center text-[14px] font-semibold text-[var(--s-ocean)] underline">Your video link</a>}
+              </div>
+              <p className="s-small mt-5 text-center">Need a different time? Reply to your confirmation email or write <a className="font-semibold text-[var(--s-ocean)]" href="mailto:andrew@atlas-engine.app">andrew@atlas-engine.app</a>.</p>
             </>
           )}
         </div>
       </main>
       <footer className="s-wrap pb-10 text-center text-[13px] text-[var(--s-ink-3)]">© {new Date().getFullYear()} Atlas Engine · Bakersfield · Morro Bay, California · <a className="underline" href="/legal/privacy">Privacy</a> · <a className="underline" href="/legal/terms">Terms</a> · <a className="underline" href="/legal/privacy#choices">Your privacy choices</a></footer>
     </div>
-  );
-}
-
-function Step({ n, done, title, sub, children }: { n: number; done: boolean; title: string; sub: string; children?: React.ReactNode }) {
-  return (
-    <li className="s-panel flex gap-4 p-5 sm:p-6">
-      <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-full text-[15px] font-bold", done ? "bg-emerald-500 text-white" : "bg-[var(--s-ocean)] text-white")}>{done ? <Check className="h-4 w-4" strokeWidth={3} aria-hidden /> : n}</span>
-      <div className="min-w-0 flex-1">
-        <div className="text-[17px] font-bold">{title}</div>
-        <p className="mt-0.5 text-[14px] text-[var(--s-ink-3)]">{sub}</p>
-        {children && <div className="mt-4">{children}</div>}
-      </div>
-    </li>
   );
 }
 
@@ -220,7 +138,7 @@ function PrecallVideo({ token, embed }: { token: string; embed: string | null })
 
   if (!embed) {
     // CP-205: the Atlas logo animation + an end card until PRECALL_VIDEO.embed is set (the written version shows underneath).
-    return <IntroVideo where="medspa_precall" tall={false} rounded="rounded-2xl" title="Andrew's pre-call video is on its way." body="Until then, the 30-second version is right below." />;
+    return <IntroVideo where="medspa_precall" tall={false} rounded="rounded-2xl" eyebrow="Video coming soon" title="Watch this before your call." body="A short video from Andrew: what happens on the call and what you walk away with." />;
   }
   const src = `${embed}${embed.includes("?") ? "&" : "?"}autoplay=1&playsinline=1&api=1`;
   return (
