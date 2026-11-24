@@ -6,16 +6,31 @@
  *   right  the owner's photo (or video) in a 16:9 card: clinic name top-left, the headline bottom-left
  *   below  a tab per clinic; the active one fills a blue progress line and the next one takes over (7 s)
  *
- * Data: RESULTS in lib/landing/medspa-funnel.ts. Real case studies only (dashboard numbers, the owner's OK).
+ * Data: CP-275 · Admin → Reviews & Results → Results (site_case_studies, via /api/site-results). The
+ * RESULTS.cases list in lib/landing/medspa-funnel.ts is the fallback when there are none in the admin yet.
+ * Real case studies only (dashboard numbers, the owner's OK).
  * While there are fewer than RESULTS.slots and showSlots is on, placeholder cards fill the rest: no names,
  * no numbers, a "coming soon" photo. Reduced motion: no auto-advance (tabs still work).
  */
 import { useEffect, useState } from "react";
 import { BellRing, CalendarClock, Camera, Crown, Gift, ShoppingBag } from "lucide-react";
 import { RESULTS, type ResultUse } from "@/lib/landing/medspa-funnel";
+import type { CaseStudy } from "@/lib/landing/case-studies";
 import { YouTubeLite } from "@/components/landing/youtube-lite";
 
-type Case = (typeof RESULTS.cases)[number] & { placeholder?: boolean };
+/** One card, whichever source it came from: photo/logo are ready-to-use URLs. */
+type Case = {
+  id: string; clinic: string; headline: string; stats: Array<{ value: string; label: string }>; uses: ResultUse[];
+  photoSrc: string | null; logoSrc: string | null; youtube: string | null; placeholder?: boolean;
+};
+const fromConfig = (c: (typeof RESULTS.cases)[number]): Case => ({
+  id: c.id, clinic: c.clinic, headline: c.headline, stats: c.stats, uses: c.uses, youtube: c.youtube,
+  photoSrc: c.photo ? `/landing/results/${c.photo}` : null, logoSrc: c.logo ? `/landing/results/${c.logo}` : null,
+});
+const fromAdmin = (c: CaseStudy): Case => ({
+  id: c.id, clinic: c.clinic, headline: c.headline, stats: (c.stats ?? []).slice(0, 2), uses: c.uses ?? [],
+  youtube: c.youtube, photoSrc: c.photo_url, logoSrc: c.logo_url,
+});
 
 const USES: Record<ResultUse, { label: string; Icon: typeof Crown }> = {
   memberships: { label: "Memberships", Icon: Crown },
@@ -26,7 +41,7 @@ const USES: Record<ResultUse, { label: string; Icon: typeof Crown }> = {
 };
 
 const PLACEHOLDER = (n: number): Case => ({
-  id: `slot-${n}`, clinic: `Case study ${n}`, logo: null, photo: null, youtube: null, placeholder: true,
+  id: `slot-${n}`, clinic: `Case study ${n}`, logoSrc: null, photoSrc: null, youtube: null, placeholder: true,
   headline: "Real results, in the owner's own words. Coming soon.",
   stats: [{ value: "+—%", label: "Average patient spend" }, { value: "+$—", label: "Monthly membership revenue" }],
   uses: ["memberships", "rewards"],
@@ -35,7 +50,14 @@ const PLACEHOLDER = (n: number): Case => ({
 const STEP_MS = 7000;
 
 export function ResultsShowcase() {
-  const real: Case[] = RESULTS.cases;
+  // The admin's case studies (fetched after load; the placeholders show meanwhile), else the config list.
+  const [remote, setRemote] = useState<Case[] | null>(null);
+  useEffect(() => {
+    fetch("/api/site-results").then((r) => (r.ok ? r.json() : null))
+      .then((d: { results?: CaseStudy[] } | null) => setRemote((d?.results ?? []).map(fromAdmin)))
+      .catch(() => setRemote([]));
+  }, []);
+  const real: Case[] = (remote && remote.length ? remote : RESULTS.cases.map(fromConfig)).slice(0, RESULTS.slots);
   const list: Case[] = RESULTS.showSlots
     ? [...real, ...Array.from({ length: Math.max(0, RESULTS.slots - real.length) }, (_, i) => PLACEHOLDER(real.length + i + 1))]
     : real;
@@ -51,7 +73,7 @@ export function ResultsShowcase() {
   }, [idx, paused, still, list.length]);
 
   if (!list.length) return null;
-  const c = list[idx];
+  const c = list[Math.min(idx, list.length - 1)];
   const muted = c.placeholder;
 
   return (
@@ -91,9 +113,9 @@ export function ResultsShowcase() {
             <div className="relative aspect-square overflow-hidden rounded-[24px] bg-[#0B1B2B] shadow-[0_30px_60px_-30px_rgba(2,20,70,.55)] sm:aspect-video">
               {c.youtube ? (
                 <YouTubeLite id={c.youtube} title={`${c.clinic}: owner interview`} className="absolute inset-0 h-full" />
-              ) : c.photo ? (
+              ) : c.photoSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/landing/results/${c.photo}`} alt={`${c.clinic}, the owner`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
+                <img src={c.photoSrc} alt={`${c.clinic}, the owner`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <div className="absolute inset-0">
                   <div aria-hidden className="h-full w-full bg-[linear-gradient(135deg,#39A0FF_0%,#0B5FD6_45%,#06318F_100%)]" />
@@ -110,9 +132,9 @@ export function ResultsShowcase() {
                 <>
                   <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#06142B]/80 via-[#06142B]/10 to-[#06142B]/35" />
                   <div className="absolute left-5 top-5 sm:left-8 sm:top-7">
-                    {c.logo
+                    {c.logoSrc
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={`/landing/results/${c.logo}`} alt={c.clinic} className="h-8 w-auto brightness-0 invert sm:h-10" />
+                      ? <img src={c.logoSrc} alt={c.clinic} className="h-8 w-auto brightness-0 invert sm:h-10" />
                       : <span className="text-[18px] font-semibold uppercase tracking-[0.12em] text-white sm:text-[24px]">{c.clinic}</span>}
                   </div>
                   <figcaption className="absolute inset-x-5 bottom-5 max-w-[30ch] text-[18px] font-semibold leading-snug tracking-[-0.01em] text-white sm:inset-x-8 sm:bottom-7 sm:text-[26px]">
@@ -135,9 +157,9 @@ export function ResultsShowcase() {
                   <span aria-hidden className="absolute inset-x-2 top-0 h-[3px] overflow-hidden rounded-full bg-[#E3E8EF]">
                     {on && <span key={`${idx}-${paused}-${still}`} className={`block h-full rounded-full bg-[#0B5FD6] ${still || paused ? "w-full" : "s-results-bar"}`} />}
                   </span>
-                  {x.logo
+                  {x.logoSrc
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={`/landing/results/${x.logo}`} alt={x.clinic} className={`h-8 w-auto max-w-full object-contain transition-opacity ${on ? "opacity-100" : "opacity-50 group-hover:opacity-80"}`} />
+                    ? <img src={x.logoSrc} alt={x.clinic} className={`h-8 w-auto max-w-full object-contain transition-opacity ${on ? "opacity-100" : "opacity-50 group-hover:opacity-80"}`} />
                     : <span className={`text-[14px] font-semibold uppercase tracking-[0.12em] transition-colors ${x.placeholder ? (on ? "text-[#8A99AB]" : "text-[#C3CEDB]") : on ? "text-[#0B1B2B]" : "text-[#8A99AB] group-hover:text-[#3A4A5C]"}`}>{x.clinic}</span>}
                 </button>
               );
