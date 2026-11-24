@@ -14,12 +14,15 @@
  *               never double-send. Without OUTREACH_SEND=1 nothing goes out: the run reports what
  *               it would send.
  *   6. Guard    more than 5% bounces over the last 7 days (with 20+ sent) pauses sending.
+ *   +  Warm-up  CP-250e: at most one warm-up email to a friend/family address (warmup-run.ts), even while
+ *               real spas are paused. Replies and bounces from those addresses are logged as warm-up.
  */
 import { previewDb } from "@/lib/preview/store";
 import { PREVIEW_LINK, BOOK_LINK, fromAddress, postalAddress, sendLive, unsubscribeUrl } from "./config";
 import { readSite } from "./enrich";
 import { classifyReply, readSpa } from "./write";
 import { freshText, pollInbox } from "./inbox";
+import { warmupInbox, warmupTick } from "./warmup-run";
 import { newMessageId, sendMail } from "./mailer";
 import { inWindow, randomGapMs, startOfPacificDay, timezoneFor } from "./time";
 import {
@@ -246,6 +249,8 @@ async function runInbox(settings: Awaited<ReturnType<typeof loadSettings>>, out:
   const me = fromAddress();
   for (const item of poll.items) {
     if (item.from && item.from === me) continue;
+    // CP-250e · replies and bounces from warm-up contacts are warm-up, not leads.
+    if (await warmupInbox(item)) continue;
     const lead = await matchLead(item);
     if (!lead && item.kind !== "reply") continue; // unrelated bounce/auto mail: not ours to track
     const fresh = freshText(item.text);
@@ -452,6 +457,8 @@ export async function runTick(opts: { force?: boolean; now?: number } = {}): Pro
   const { data: fresh } = await db().from("outreach_leads").select("id").eq("status", "new").order("created_at").limit(2);
   for (const l of fresh ?? []) { await enrichLead(String(l.id)); out.read++; }
   await runFollowups(settings, steps, now, out);
+  try { const w = await warmupTick(settings, now); if (w) out.notes.push(w); }
+  catch (e) { out.notes.push(`Warm-up: ${e instanceof Error ? e.message.slice(0, 100) : "failed"}`); }
   await runSend(settings, steps, now, out, opts);
   await runGuard(now, out);
 

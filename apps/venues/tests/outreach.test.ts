@@ -188,3 +188,59 @@ test("reply opt-outs are caught by the rules, no AI needed: no thanks, unsubscri
   assert.equal(await classifyReply("Re: quick question", "please stop."), "unsubscribe");
   assert.equal(await classifyReply("Unsubscribe", ""), "unsubscribe");
 });
+
+/* ───────── CP-250e · mailbox warm-up ───────── */
+import { localPartsSafe, pickNote, pickThanks, warmupDay, warmupReadiness, warmupStats, warmupTarget, type WarmupLog } from "../lib/outreach/warmup";
+
+test("warm-up ramps 3 → 5 → 8 → 10 a day, half on weekends, max two per person", () => {
+  assert.equal(warmupTarget(1, false, 5), 3);
+  assert.equal(warmupTarget(4, false, 5), 5);
+  assert.equal(warmupTarget(10, false, 5), 8);
+  assert.equal(warmupTarget(20, false, 5), 10);
+  assert.equal(warmupTarget(10, true, 5), 4);
+  assert.equal(warmupTarget(10, false, 2), 4);
+  assert.equal(warmupTarget(10, false, 0), 0);
+  const start = "2026-11-24T16:00:00.000Z";
+  assert.equal(warmupDay(null, Date.parse(start)), 0);
+  assert.equal(warmupDay(start, Date.parse(start) + 3600_000), 1);
+  assert.equal(warmupDay(start, Date.parse(start) + 13.5 * 86_400_000), 14);
+});
+
+test("warm-up notes: honest, ask for a reply, no links, never the same twice in a row", () => {
+  let i = 0;
+  const seq = () => (i++ % 7) / 7;
+  for (let k = 0; k < 40; k++) {
+    const n = pickNote(k % 2 ? "Adrian Montano" : null, "quick favor", seq);
+    assert.notEqual(n.subject, "quick favor");
+    assert.doesNotMatch(`${n.subject} ${n.body}`, /https?:|www\.|\{name\}/);
+    assert.match(n.body, /repl/i);
+    if (k % 2) assert.match(n.body, /^(Hey|Hi) Adrian/); else assert.match(n.body, /^(Hey|Hi)[,!]/);
+  }
+  assert.ok(pickThanks(() => 0.99).length > 3);
+});
+
+test("warm-up stats and readiness: every check has to pass", () => {
+  const now = Date.parse("2026-12-10T20:00:00.000Z");
+  const row = (n: number, extra: Partial<WarmupLog> = {}): WarmupLog => ({ id: String(n), email: `p${n % 5}@x.com`, kind: "note", subject: "s", message_id: `<${n}>`, status: "sent", error: null, sent_at: new Date(now - n * 3600_000).toISOString(), replied_at: null, ...extra });
+  const log = Array.from({ length: 45 }, (_, n) => row(n, n % 4 === 0 ? { replied_at: new Date(now).toISOString() } : {}));
+  log.push(row(99, { kind: "ready" }), row(98, { status: "failed" }));
+  const stats = warmupStats(log, now);
+  assert.equal(stats.sent, 45);
+  assert.equal(stats.replies, 12);
+  assert.equal(stats.failed, 1);
+  assert.equal(stats.bounces, 0);
+  const dns = { domain: "getatlasengine.com", spf: true, dkim: true, dmarc: true };
+  const started = new Date(now - 15 * 86_400_000).toISOString();
+  const ok = warmupReadiness({ startedAt: started, now, stats, dns, postal: true, contacts: 5 });
+  assert.equal(ok.ready, true);
+  assert.equal(ok.day, 16);
+  assert.equal(warmupReadiness({ startedAt: started, now, stats, dns, postal: false, contacts: 5 }).ready, false);
+  assert.equal(warmupReadiness({ startedAt: started, now, stats, dns: { ...dns, dkim: false }, postal: true, contacts: 5 }).ready, false);
+  assert.equal(warmupReadiness({ startedAt: new Date(now - 5 * 86_400_000).toISOString(), now, stats, dns, postal: true, contacts: 5 }).ready, false);
+  assert.equal(warmupReadiness({ startedAt: started, now, stats: { ...stats, bounces: 1 }, dns, postal: true, contacts: 5 }).ready, false);
+});
+
+test("localPartsSafe reads the Pacific weekday and hour", () => {
+  assert.deepEqual(localPartsSafe(Date.parse("2026-11-28T20:00:00Z"), "America/Los_Angeles"), { hour: 12, weekend: true });
+  assert.deepEqual(localPartsSafe(Date.parse("2026-11-24T16:30:00Z"), "America/Los_Angeles"), { hour: 8, weekend: false });
+});
