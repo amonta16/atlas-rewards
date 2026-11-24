@@ -437,7 +437,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               Your med spa&apos;s own <span className="s-chrome-light">app</span>. Built in about a minute.
             </h1>
             <p className="s-rise mx-auto mt-4 max-w-[32rem] text-[17px] leading-snug text-white/85" style={{ ["--d" as string]: ".16s" }}>
-              Type your spa&apos;s name and watch it build itself: your logo, your colors, your real treatments. No call. No card. See it first, then decide.
+              Type your spa&apos;s name and watch it build itself: your logo, your colors, your real treatments. No call. No card.
             </p>
 
             <div className="s-rise relative mx-auto mt-7 w-full max-w-[560px] text-left" style={{ ["--d" as string]: ".24s" }}>
