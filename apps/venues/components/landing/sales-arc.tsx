@@ -1,26 +1,29 @@
 /**
  * components/landing/sales-arc.tsx — CP-265 · the /medspa/app hero background (replaces the paper birds there).
  * A soft half-circle rising from the bottom of the blue hero (three faint concentric arcs, a light glow inside,
- * a slow light travelling along the outer one), and small "payment received" notifications from a spa's app
- * that fade in and out sitting on the curve, Shopify-style: treatments, memberships, shop orders.
+ * a slow light travelling along the outer one), and small "payment received" notifications that fade in and
+ * out sitting on the curve, Shopify-style, each with the treatment's photo.
  *
- * Decoration only (aria-hidden, pointer-events none). The notifications are illustrative, like the phone
- * mockups: no practice is named and no figure is presented as a result. They only show from 1400 px up,
+ * CP-265: the sender is Spa by the Bay (a live Atlas app; Andrew OK'd showing its name publicly on 2026-11-08)
+ * and the items are from its real treatment menu. Its menu has no prices on file, so the amounts are
+ * illustrative. Decoration only (aria-hidden, pointer-events none). They only show from 1400 px up,
  * where there's room beside the search box; smaller screens get the arc alone. Reduced motion: the arc
  * stays, two notifications sit still, nothing moves. Styles: site.css .s-arc-run, .s-ping.
  */
 
-type Ping = { kind: "Treatment" | "Membership" | "Shop"; amount: string; item: string; side: "l" | "r"; deg: number };
+type Ping = { img: string; amount: string; item: string; side: "l" | "r"; deg: number };
+
+const SENDER = { name: "Spa by the Bay", color: "#008799" }; // its brand primary
 
 // One per side at a time, alternating sides every 3 s (site.css .s-ping: an 18 s loop, delay = 3 s × index).
 // deg = where on the outer arc the card sits, measured up from the base line (low = beside the search box).
 const PINGS: Ping[] = [
-  { kind: "Treatment", amount: "$520", item: "Botox, 40 units", side: "l", deg: 34 },
-  { kind: "Membership", amount: "$99/mo", item: "Glow Membership", side: "r", deg: 20 },
-  { kind: "Shop", amount: "$68", item: "Vitamin C serum", side: "l", deg: 20 },
-  { kind: "Treatment", amount: "$540", item: "HydraFacial, 3 sessions", side: "r", deg: 34 },
-  { kind: "Membership", amount: "$149/mo", item: "Injectables Club", side: "l", deg: 34 },
-  { kind: "Shop", amount: "$112", item: "SPF + retinol set", side: "r", deg: 20 },
+  { img: "neurotoxin", amount: "$520", item: "Neurotoxin, 40 units", side: "l", deg: 34 },
+  { img: "hydrafacial", amount: "$540", item: "HydraFacial, 3 sessions", side: "r", deg: 20 },
+  { img: "lipfiller", amount: "$650", item: "Lip filler, 1 syringe", side: "l", deg: 20 },
+  { img: "microneedling", amount: "$750", item: "Microneedling, 3 sessions", side: "r", deg: 34 },
+  { img: "ipl", amount: "$350", item: "IPL photofacial", side: "l", deg: 34 },
+  { img: "dermalfiller", amount: "$1,300", item: "Dermal filler, 2 syringes", side: "r", deg: 20 },
 ];
 
 // The arc's box: 2:1, centered on the hero's bottom edge. The outer arc's radius is 48% of the width.
@@ -57,14 +60,15 @@ export function SalesArc() {
           <div key={i} className="s-ping absolute w-[234px]" style={{ ...onArc(p.deg, p.side), ["--d" as string]: `${i * 3}s` }}>
             <div className="-translate-x-1/2 -translate-y-1/2">
               <div className="flex items-center gap-2.5 rounded-2xl bg-white/95 p-2.5 pr-3 text-left shadow-[0_18px_40px_-18px_rgba(2,20,70,.6)] ring-1 ring-white/60 backdrop-blur">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-[#0B5FD6] text-[15px] font-bold leading-none text-white">$</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`/landing/pings/${p.img}.webp`} alt="" width={96} height={96} loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded-[10px] object-cover ring-1 ring-black/5" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
-                    <span className="text-[10.5px] font-medium text-[#6B7A8C]">Your spa&apos;s app · now</span>
+                    <span className="text-[10.5px] font-semibold" style={{ color: SENDER.color }}>{SENDER.name} <span className="font-medium text-[#6B7A8C]">· now</span></span>
                     <span className="shrink-0 text-[13px] font-semibold leading-tight text-[#0E7A4F]">+{p.amount}</span>
                   </span>
                   <span className="block truncate text-[13px] font-semibold leading-tight text-[#0B1B2B]">{p.item}</span>
-                  <span className="block text-[11px] leading-snug text-[#6B7A8C]">{p.kind} · paid in your app</span>
+                  <span className="block text-[11px] leading-snug text-[#6B7A8C]">Paid in the app</span>
                 </span>
               </div>
             </div>
