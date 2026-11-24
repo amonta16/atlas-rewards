@@ -31,6 +31,19 @@ export const OFFER = {
 };
 
 /**
+ * CP-265 · the 100-Patient Guarantee in full, for /p/<slug> (components/guarantee-seal.tsx).
+ * KEEP IN SYNC with GUARANTEES[0] (id users100) in apps/venues/lib/landing/medspa-funnel.ts:
+ * body and fine must match word for word (tests/funnel-sync.test.ts). The fine print is what the
+ * client agreement must say too.
+ */
+export const GUARANTEE_100 = {
+  name: "The 100-Patient Guarantee",
+  line: "100 of your patients on your app within 90 days of going live, or we refund every dollar.",
+  body: "If fewer than 100 of your patients have joined your app within 90 days of going live, we refund every dollar you've paid us.",
+  fine: "Counted in your Atlas dashboard: patients who create an account in your app from your go-live date. Requires your checkout banner, table tents and QR code out from day one, your front desk offering the app at checkout, and at least 300 patient visits at your practice in those 90 days. The refund covers the setup and monthly fees you've paid Atlas.",
+};
+
+/**
  * CP-246 · the call, sold as its own offer. KEEP IN SYNC with LAUNCH_CALL in
  * apps/venues/lib/landing/medspa-funnel.ts; `minutes` with CALL_MINUTES in
  * apps/venues/lib/landing/availability.ts (what the calendar actually books).
