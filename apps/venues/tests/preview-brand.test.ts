@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { logoCandidates, normalizeLogo, initialsOf, logoPixels, logoTone, needsDarkening } from "../lib/preview/logo";
+import { logoCandidates, normalizeLogo, initialsOf, logoPixels, logoTone, needsDarkening, isBookingPlatformPage } from "../lib/preview/logo";
 import {
   themeColorFromHtml, contrastRatio, ensureContrast, paletteFromSeed, paletteIsReadable, dominantColors, parseColor,
   isUsableSeed, NEUTRAL_PALETTE, rgbToHsl, hexToRgb, cssBrandColors,
@@ -50,6 +50,54 @@ describe("logo candidates", () => {
   });
   test("no logo anywhere → empty list (monogram fallback)", () => {
     assert.deepEqual(logoCandidates("<html><body><img src='/team.jpg' alt='team'></body></html>", BASE), []);
+  });
+});
+
+describe("CP-270 · booking-platform pages and badges are never the spa's logo", () => {
+  // Trimmed from vibrantumedspa.janeapp.com (Google listed it as the spa's website): every head icon is Jane's.
+  const JANE = `<html><head>
+    <link href='https://assets-jane-usw2-51.janeapp.net/favicons/jane-2025-iphone-180x180.png?v=1' rel='apple-touch-icon' sizes='180x180'>
+    <link href='https://assets-jane-usw2-51.janeapp.net/favicons/jane-2025-favicon-96x96.png?v=1' rel='icon' sizes='96x96'>
+    <link href='https://assets-jane-usw2-51.janeapp.net/favicons/favicon.ico?v=1' rel='shortcut icon'>
+  </head><body>
+    <img alt="Vibrant U Med Spa" src="https://assets-jane-usw2-51.janeapp.net/pub/W1siZiIsImxvZ29fVmlicmFudFUiXV0?sha=f3&amp;for=vibrantumedspa.janeapp.com" />
+    <img alt="Pick a treatment to book" class="empty-state-image" src="https://assets-jane-usw2-51.janeapp.net/assets/EmptyState/empty-state-booking.png" />
+  </body></html>`;
+
+  test("a Jane booking page: Jane's icons are skipped, the image named after the spa is the logo", () => {
+    assert.equal(isBookingPlatformPage("https://vibrantumedspa.janeapp.com/"), true);
+    assert.deepEqual(logoCandidates(JANE, "https://vibrantumedspa.janeapp.com/", "Vibrant U Med Spa"), [
+      "https://assets-jane-usw2-51.janeapp.net/pub/W1siZiIsImxvZ29fVmlicmFudFUiXV0?sha=f3&for=vibrantumedspa.janeapp.com",
+    ]);
+  });
+
+  test("a booking page with no named image falls back to the monogram, never the platform's icon", () => {
+    assert.deepEqual(logoCandidates(JANE, "https://vibrantumedspa.janeapp.com/", "Some Other Clinic"), []);
+  });
+
+  test("the spa's own site: a 'Book with Vagaro' badge and platform-hosted images are skipped", () => {
+    const html = `<html><head><link rel="apple-touch-icon" href="/apple.png"></head><body>
+      <img src="https://www.vagaro.com/images/book-now-logo.png" alt="Book Now with Vagaro">
+      <img src="https://cdn.glossgenius.com/badge.png" class="footer-logo">
+      <img src="/img/header-logo.png" alt="Glow Aesthetics logo">
+    </body></html>`;
+    assert.equal(isBookingPlatformPage(BASE), false);
+    assert.deepEqual(logoCandidates(html, BASE, "Glow Aesthetics"), [
+      "https://glow.example/apple.png",
+      "https://glow.example/img/header-logo.png",
+    ]);
+  });
+
+  test("an image whose alt is the spa's name counts as a logo even without the word 'logo'", () => {
+    const html = `<html><body><img src="/brand/mark.png" alt="Glow Aesthetics"><img src="/team.jpg" alt="Our team"></body></html>`;
+    assert.deepEqual(logoCandidates(html, BASE, "Glow Aesthetics"), ["https://glow.example/brand/mark.png"]);
+    // Without a name the old behavior holds: no "logo" word, no candidate.
+    assert.deepEqual(logoCandidates(html, BASE), []);
+  });
+
+  test("a spa whose own name contains a platform word keeps its logo", () => {
+    const html = `<html><body><img src="/the-boulevard-logo.png" alt="Spa on the Boulevard"></body></html>`;
+    assert.deepEqual(logoCandidates(html, "https://boulevardspa.example/", "Spa on the Boulevard"), ["https://boulevardspa.example/the-boulevard-logo.png"]);
   });
 });
 

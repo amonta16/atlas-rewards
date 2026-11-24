@@ -85,7 +85,7 @@ export async function computePreview(input: { businessName: string; website: str
     : Promise.resolve("");
 
   // Logo
-  const candidates = ov.logoUrl ? [ov.logoUrl] : home ? logoCandidates(home.html, home.url) : [];
+  const candidates = ov.logoUrl ? [ov.logoUrl] : home ? logoCandidates(home.html, home.url, input.businessName) : [];
   const logo = candidates.length ? await fetchFirstLogo(candidates, { deadline: deadline - 120_000 }) : null;
   const logoUrl = logo && up.logo ? await up.logo(logo.png) : null;
   if (!logo) notes.push("logo: monogram");
