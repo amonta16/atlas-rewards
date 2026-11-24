@@ -6,6 +6,14 @@
  * "logo". Each candidate is downloaded through the SSRF guard and must decode
  * as a real image at least 32 px on its short side. The winner is re-encoded
  * to PNG (max 512 px), which also neutralizes SVG scripts before upload.
+ *
+ * CP-270 · booking platforms. Google often lists a spa's booking page as its
+ * website (Vibrant U Med Spa → vibrantumedspa.janeapp.com), and every icon in
+ * that page's head is the platform's own (we showed Jane's logo as theirs).
+ * On a booking-platform page the head icons and og:image are skipped, and the
+ * spa's logo is found as the <img> whose alt text is the spa's name. On any
+ * site, images that are a booking platform's badge ("Book with Vagaro") or
+ * that live on a platform's own domain are never the spa's logo.
  */
 import { absolutize, findTags } from "./html";
 import { safeFetch, type SafeFetchOptions } from "./safe-fetch";
@@ -15,8 +23,34 @@ const sizeOf = (sizes: string | undefined) => {
   return m ? Number(m[1]) : 0;
 };
 
+/**
+ * Booking and scheduling platforms whose pages (or badges) carry their own brand, not the spa's.
+ * A host matches itself and its subdomains. Their asset CDNs are listed too (janeapp.net).
+ */
+export const BOOKING_PLATFORM_HOSTS = [
+  "janeapp.com", "jane.app", "janeapp.net", "vagaro.com", "joinblvd.com", "blvd.co", "boulevard.io",
+  "mindbodyonline.com", "mindbody.io", "zenoti.com", "glossgenius.com", "square.site", "squareup.com",
+  "acuityscheduling.com", "as.me", "fresha.com", "mangomint.com", "schedulicity.com", "booksy.com",
+  "setmore.com", "gettimely.com", "phorest.com", "aestheticrecord.com", "patientnow.com",
+  "myaestheticspro.com", "calendly.com", "genbook.com", "styleseat.com", "zocdoc.com", "podium.com",
+];
+
+/** Words that mark an image as a platform's badge or logo rather than the spa's. */
+const PLATFORM_WORDS = /\b(jane ?app|vagaro|boulevard|mindbody|zenoti|glossgenius|acuity|fresha|mangomint|schedulicity|booksy|setmore|timely|phorest|calendly|zocdoc|podium|powered by|book (now )?(with|on))\b/i;
+
+const hostOf = (u: string | null | undefined) => { try { return new URL(u ?? "").hostname.toLowerCase(); } catch { return ""; } };
+const onHosts = (host: string, list: string[]) => !!host && list.some((d) => host === d || host.endsWith(`.${d}`));
+
+/** True when the page itself is a booking platform's page (the spa has no site of its own on file). */
+export function isBookingPlatformPage(url: string): boolean {
+  return onHosts(hostOf(url), BOOKING_PLATFORM_HOSTS);
+}
+
+/** Lower-case letters and digits only, for comparing a business name with an image's alt text. */
+const squash = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
 /** Ordered, de-duplicated logo candidates from a page. Pure: no network. */
-export function logoCandidates(html: string, baseUrl: string): string[] {
+export function logoCandidates(html: string, baseUrl: string, businessName?: string): string[] {
   const links = findTags(html, ["link"]);
   const metas = findTags(html, ["meta"]);
   const imgs = findTags(html, ["img"]);
@@ -39,14 +73,37 @@ export function logoCandidates(html: string, baseUrl: string): string[] {
     })
     .map((t) => t.attrs.href);
 
+  const srcOf = (t: { attrs: Record<string, string> }) => t.attrs.src || t.attrs["data-src"] || (t.attrs.srcset ?? "").split(",")[0]?.trim().split(/\s+/)[0];
+  const textOf = (t: { attrs: Record<string, string> }) => [t.attrs.src, t.attrs["data-src"], t.attrs.alt, t.attrs.class, t.attrs.id, t.attrs.title].filter(Boolean).join(" ");
+  const badge = (t: { attrs: Record<string, string> }) => PLATFORM_WORDS.test(textOf(t));
+
+  // CP-270: an image whose alt text is the spa's name (the way most sites, and Jane/Vagaro booking pages,
+  // mark up the logo). Needs a name of 4+ letters; "Glow" matches alt "Glow Aesthetics" and vice versa.
+  const name = squash(businessName ?? "");
+  const named = (t: { attrs: Record<string, string> }) => {
+    const alt = squash(t.attrs.alt ?? "");
+    return name.length >= 4 && alt.length >= 4 && (alt === name || alt.includes(name) || name.includes(alt));
+  };
+  // A name match wins over the badge words (a spa called "Spa on the Boulevard" keeps its logo).
+  const nameImgs = name ? imgs.filter(named).map(srcOf) : [];
+
   const logoImgs = imgs
-    .filter((t) => /logo/i.test([t.attrs.src, t.attrs["data-src"], t.attrs.alt, t.attrs.class, t.attrs.id].filter(Boolean).join(" ")))
-    .map((t) => t.attrs.src || t.attrs["data-src"] || (t.attrs.srcset ?? "").split(",")[0]?.trim().split(/\s+/)[0]);
+    .filter((t) => /logo/i.test(textOf(t)) && (!badge(t) || named(t)))
+    .map(srcOf);
+
+  // On a booking platform's page, everything in <head> is the platform's brand: use the page's images only.
+  const platformPage = isBookingPlatformPage(baseUrl);
+  const ordered = platformPage ? [...nameImgs, ...logoImgs] : [...apple, ...og, ...icons, ...nameImgs, ...logoImgs];
+  const ownNamed = new Set(nameImgs.map((h) => absolutize(h, baseUrl)));
 
   const out: string[] = [];
-  for (const href of [...apple, ...og, ...icons, ...logoImgs]) {
+  for (const href of ordered) {
     const abs = absolutize(href, baseUrl);
-    if (abs && !out.includes(abs)) out.push(abs);
+    if (!abs || out.includes(abs)) continue;
+    // On the spa's own site, an image hosted by a booking platform is that platform's badge, unless it's
+    // the one named after the spa. (On a platform page, its images are all on its CDN, so that check is off.)
+    if (!platformPage && onHosts(hostOf(abs), BOOKING_PLATFORM_HOSTS) && !ownNamed.has(abs)) continue;
+    out.push(abs);
   }
   return out;
 }
