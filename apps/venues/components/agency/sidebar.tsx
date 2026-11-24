@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet, Workflow, Smartphone, Filter, TrendingUp, Star, Send } from "lucide-react";
+import { LayoutGrid, Palette, Settings, ChevronsLeft, HelpCircle, LogOut, Shield, Radar, BarChart3, Rocket, Wallet, Smartphone, Filter, TrendingUp, Star, Send } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -22,8 +22,9 @@ const NAV: NavItem[] = [
   // CP-112: internal bookkeeping — hosting costs, bills, expenses, mileage,
   // receipts, accountant export. Server-side admin gate in the page.
   { href: "/agency/bookkeeping",  label: "Bookkeeping", icon: <Wallet className="h-4 w-4" />, adminOnly: true },
-  // Visual Automation Hub prototype (mock data). Admin gate in the page.
-  { href: "/agency/automations",  label: "Automations", icon: <Workflow className="h-4 w-4" />, adminOnly: true, badge: "New" },
+  // CP-275: the Automation Hub left the menu. Journeys install themselves on every new business
+  // (trg_wf_suite_on_business) and are switched on/off per business (med spa desk → Journey, venue
+  // manager → automations). The page still works at /agency/automations for editing journey copy.
   // CP-235: bird's-eye view of every funnel and site (not a builder). Admin gate in the page.
   { href: "/agency/funnels",      label: "Funnels",      icon: <Filter className="h-4 w-4" />, adminOnly: true },
   // CP-232: instant app previews (ads lead magnet). Admin gate in the page.
@@ -32,8 +33,8 @@ const NAV: NavItem[] = [
   { href: "/agency/lead-funnel",  label: "Lead Funnel",  icon: <TrendingUp className="h-4 w-4" />, adminOnly: true },
   // CP-250: Atlas's own cold email to med spas (find → read site → AI email 1 → review → 3 steps). Admin gate in the page.
   { href: "/agency/outreach",     label: "Outreach",     icon: <Send className="h-4 w-4" />, adminOnly: true, badge: "New" },
-  // CP-240: review screenshots for every site and funnel's review strip. Admin gate in the page.
-  { href: "/agency/reviews",      label: "Reviews",      icon: <Star className="h-4 w-4" />, adminOnly: true },
+  // CP-240 review screenshots + CP-275 client results, one menu item with two tabs. Admin gate in the page.
+  { href: "/agency/reviews",      label: "Reviews & Results", icon: <Star className="h-4 w-4" />, adminOnly: true },
   // CP-33: White Label tab hidden from sidebar — placeholder until we
   // actually build out the master Atlas brand splash. The route file
   // (/agency/white-label/page.tsx) is still there if we re-enable it.
