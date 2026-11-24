@@ -20,8 +20,9 @@ export function GuaranteeSeal({ className = "" }: { className?: string }) {
       <circle cx="60" cy="60" r="51.5" fill="none" stroke={INK} strokeWidth="0.8" />
       <circle cx="60" cy="60" r="31" fill={BLUE} />
       <circle cx="60" cy="60" r="27.5" fill="none" stroke="#fff" strokeOpacity=".45" strokeWidth="0.8" />
-      <text fill={INK} fontSize="9.2" fontWeight="700" letterSpacing="2.1" style={{ fontFamily: "inherit" }}>
-        <textPath href="#gs-ring" startOffset="0">PATIENT GUARANTEE · 90 DAYS · ATLAS ENGINE ·</textPath>
+      {/* Sized so the words just close up around the ring (circumference ≈ 258; this set measures ≈ 253). */}
+      <text fill={INK} fontSize="8.2" fontWeight="700" letterSpacing="1.5" style={{ fontFamily: "inherit" }}>
+        <textPath href="#gs-ring" startOffset="2">PATIENT GUARANTEE · 90 DAYS · ATLAS ENGINE · </textPath>
       </text>
       <text x="60" y="66.5" textAnchor="middle" fill="#fff" fontSize="21" fontWeight="800" letterSpacing="-0.5" style={{ fontFamily: "inherit" }}>100</text>
       <text x="60" y="77" textAnchor="middle" fill="#fff" fillOpacity=".85" fontSize="5.6" fontWeight="700" letterSpacing="1.4" style={{ fontFamily: "inherit" }}>PATIENTS</text>
