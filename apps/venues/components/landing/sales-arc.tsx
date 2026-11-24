@@ -1,19 +1,22 @@
 /**
- * components/landing/sales-arc.tsx — CP-265 · the /medspa/app hero background (replaces the paper birds there)
- * and the notifications that drop onto the phones below it.
+ * components/landing/sales-arc.tsx — CP-265/266 · the /medspa/app hero background (replaces the paper birds there)
+ * and the notifications on the 3D phones below it. Everything is a live feed: a purchase pops in, drifts up
+ * and fades out while the next one arrives below it.
  *
- *   SalesArc     a soft half-circle rising from the bottom of the blue hero (three faint concentric arcs, a
- *                glow inside, a slow light along the outer one) with "payment received" notifications:
- *                · 1400 px and up: twelve faint cards sitting on the two outer arcs, about three showing at
- *                  once, the far ones smaller and fainter (depth);
- *                · below that (phones, tablets, small laptops): small chips (photo + amount) that peek in
- *                  from the left and right edges, very faint, so the headline stays readable.
- *   PhoneToasts  an iPhone-style notification sliding down onto the 3D phones, one at a time (every size).
+ *   SalesArc     a soft half-circle rising from the bottom of the blue hero (three faint concentric arcs, a glow
+ *                inside, a slow light along the outer one) and the feed:
+ *                · 1440 px and up: two streams of faint cards, one each side of the text column, a new card
+ *                  every 2.4 s per side (staggered), each rising ~320 px over ~8 s, so ~3 per side are in flight
+ *                  at different heights, nearer ones larger and clearer than the ones higher up;
+ *                · below that: small chips (photo + amount) in the two open spaces on a phone (beside the
+ *                  "For med spas" pill and beside the checklist), each popping in, rising a little and fading.
+ *   PhoneToasts  notifications landing on the 3D phones like a lock-screen stack: each pops in, slides up as
+ *                the next arrives under it, and fades out at the top (every size).
  *
- * CP-265: the sender is Spa by the Bay (a live Atlas app; Andrew OK'd showing its name publicly on 2026-11-08)
- * and the items are from its real treatment menu. Its menu has no prices on file, so the amounts are
- * illustrative. Decoration only (aria-hidden, pointer-events none). Reduced motion: the arc stays still,
- * two hero cards and one toast sit still. Styles: site.css .s-arc-run, .s-ping, .s-chip, .s-toast.
+ * The sender is Spa by the Bay (a live Atlas app; Andrew OK'd showing its name publicly on 2026-11-08) and the
+ * items are from its real treatment menu. Its menu has no prices on file, so the amounts are illustrative.
+ * Decoration only (aria-hidden, pointer-events none). Reduced motion: nothing moves; one card per side, one
+ * chip and one toast sit still. Styles: site.css .s-arc-run, .s-flow, .s-chipflow, .s-toastflow.
  */
 
 type Ping = { img: string; amount: string; item: string };
@@ -37,26 +40,17 @@ const PINGS: Ping[] = [
   { img: "tightening", amount: "$1,050", item: "Microneedling, 6 sessions" },
 ];
 
-// Where each desktop card sits: side, ring (o = outer arc, i = inner arc), degrees up from the base line.
-// Near cards (outer, low) are larger and clearer; far ones (inner, or high) smaller and fainter.
-// All spots sit below the headline and outside the text column (checked at 1400–1920 px). Three show at once
-// (index i with i+1 and i+2), and same-side neighbours (i, i+2) never share a height.
-const SPOTS: Array<{ side: "l" | "r"; ring: "o" | "i"; deg: number }> = [
-  { side: "l", ring: "o", deg: 34 }, { side: "r", ring: "o", deg: 20 }, { side: "l", ring: "o", deg: 14 },
-  { side: "r", ring: "o", deg: 40 }, { side: "l", ring: "o", deg: 40 }, { side: "r", ring: "o", deg: 26 },
-  { side: "l", ring: "i", deg: 22 }, { side: "r", ring: "o", deg: 40 }, { side: "l", ring: "o", deg: 40 },
-  { side: "r", ring: "o", deg: 14 }, { side: "l", ring: "o", deg: 20 }, { side: "r", ring: "o", deg: 40 },
-];
-
-// The arc's box: 2:1, centered on the hero's bottom edge. Radii as a share of the width: outer 48%, inner 40.5%.
+// The arc's box: 2:1, centered on the hero's bottom edge.
 const BOX = "absolute bottom-0 left-1/2 aspect-[2/1] w-[clamp(760px,78vw,1180px)] -translate-x-1/2";
 
-function onArc(deg: number, side: "l" | "r", r: number) {
-  const a = (deg * Math.PI) / 180;
-  const x = 50 + (side === "l" ? -1 : 1) * r * Math.cos(a);
-  const y = 100 - 2 * r * Math.sin(a);
-  return { left: `${x.toFixed(2)}%`, top: `${y.toFixed(2)}%` };
-}
+// Desktop streams: 6 cards a side on a 14.4 s loop (one every 2.4 s), the right side offset by 1.2 s so the
+// two sides alternate. Each card gets its own sideways nudge (always outward, away from the text), depth and
+// opacity, so the feed looks organic rather than a conveyor belt.
+const STREAM = { perSide: 6, every: 2.4 };
+const FEEL = [
+  { x: 0, k: 1, o: 0.62 }, { x: -14, k: 0.92, o: 0.5 }, { x: -4, k: 1, o: 0.6 },
+  { x: -18, k: 0.88, o: 0.46 }, { x: -8, k: 0.96, o: 0.56 }, { x: -12, k: 0.9, o: 0.5 },
+];
 
 function Card({ p, compact = false }: { p: Ping; compact?: boolean }) {
   return (
@@ -76,6 +70,7 @@ function Card({ p, compact = false }: { p: Ping; compact?: boolean }) {
 }
 
 export function SalesArc() {
+  const loop = STREAM.perSide * STREAM.every;
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <svg viewBox="0 0 1000 500" className={BOX}>
@@ -94,32 +89,38 @@ export function SalesArc() {
         <path className="s-arc-run" d="M20,500 A480,480 0 0 1 980,500" pathLength={1000} fill="none" stroke="#fff" strokeOpacity=".75" strokeWidth="2" strokeLinecap="round" strokeDasharray="60 940" />
       </svg>
 
-      {/* 1400 px and up: twelve faint cards on the arcs, ~3 at a time (24 s loop, a new one every 2 s) */}
-      <div className={`${BOX} hidden min-[1400px]:block`}>
-        {PINGS.map((p, i) => {
-          const s = SPOTS[i];
-          const far = s.ring === "i" || s.deg >= 40;
-          return (
-            <div key={i} className="s-ping absolute w-[234px]"
-              style={{ ...onArc(s.deg, s.side, s.ring === "o" ? 48 : 40.5), ["--d" as string]: `${i * 2}s`, ["--o" as string]: far ? ".42" : ".62", ["--k" as string]: far ? ".86" : "1" }}>
-              <div className="-translate-x-1/2 -translate-y-1/2"><Card p={p} /></div>
-            </div>
-          );
-        })}
+      {/* 1440 px and up: a stream each side of the text column. Lanes sit 700 px out from the center (never
+          closer than 24 px to the edge), cards start just above the phones card and rise ~320 px. */}
+      <div className="hidden min-[1440px]:block">
+        {(["l", "r"] as const).map((side) =>
+          PINGS.slice(side === "l" ? 0 : STREAM.perSide, side === "l" ? STREAM.perSide : STREAM.perSide * 2).map((p, i) => {
+            const f = FEEL[i];
+            return (
+              <div key={`${side}${i}`} className="s-flow absolute top-[70%] w-[234px]"
+                style={{
+                  [side === "l" ? "left" : "right"]: "max(24px, calc(50% - 700px))",
+                  ["--p" as string]: `${loop}s`,
+                  ["--d" as string]: `${i * STREAM.every + (side === "r" ? STREAM.every / 2 : 0)}s`,
+                  ["--x" as string]: `${side === "l" ? f.x : -f.x}px`,
+                  ["--k" as string]: String(f.k), ["--o" as string]: String(f.o), ["--rise" as string]: "-320px",
+                }}>
+                <div className="-translate-y-1/2"><Card p={p} /></div>
+              </div>
+            );
+          }),
+        )}
       </div>
 
-      {/* Below 1400 px: chips (photo + amount) peeking in from the edges, very faint */}
-      {/* Only in the two clear lanes on a phone (measured at 375 px): beside the "For med spas" pill and beside
-          the checklist. Consecutive chips take different lanes; ~2 show at once (20 s loop, every 2.5 s). */}
-      <div className="min-[1400px]:hidden">
+      {/* Below 1440 px: chips in the two open spaces on a phone (measured at 375 px): beside the "For med spas"
+          pill and beside the checklist. Consecutive chips take different spots; each pops, rises and fades. */}
+      <div className="min-[1440px]:hidden">
         {PINGS.slice(0, 8).map((p, i) => {
           const lane = [
-            { top: "15.3%", side: "left", inset: "12px" }, { top: "76.4%", side: "right", inset: "-6px" },
-            { top: "15.3%", side: "right", inset: "12px" }, { top: "76.4%", side: "left", inset: "-6px" },
+            { top: "15.3%", side: "left", inset: "12px" }, { top: "77.8%", side: "right", inset: "-18px" },
+            { top: "15.3%", side: "right", inset: "12px" }, { top: "77.8%", side: "left", inset: "-18px" },
           ][i % 4];
-          const left = lane.side === "left";
           return (
-            <div key={i} className="s-chip absolute" style={{ top: lane.top, [lane.side]: lane.inset, ["--d" as string]: `${i * 2.5}s`, ["--x" as string]: left ? "-10px" : "10px" }}>
+            <div key={i} className="s-chipflow absolute" style={{ top: lane.top, [lane.side]: lane.inset, ["--d" as string]: `${i * 2.5}s` }}>
               <div className="flex -translate-y-1/2 items-center gap-1.5 rounded-full bg-white/95 py-1 pl-1 pr-2.5 shadow-[0_10px_24px_-12px_rgba(2,20,70,.6)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`/landing/pings/${p.img}.webp`} alt="" width={96} height={96} loading="lazy" decoding="async" className="h-6 w-6 rounded-full object-cover" />
@@ -133,13 +134,17 @@ export function SalesArc() {
   );
 }
 
-/** Notifications sliding down onto the 3D phones, one at a time. Put inside a `relative` box over the video. */
+/**
+ * Notifications landing on the 3D phones like a lock-screen stack: one every 2.4 s, each popping in a third of
+ * the way down, sliding up as the next arrives under it, and fading out near the top. Two are in view at once.
+ * Put inside a `relative` box over the video.
+ */
 export function PhoneToasts() {
   const list = [PINGS[0], PINGS[1], PINGS[2], PINGS[3], PINGS[7], PINGS[5]];
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[6%] z-[2] flex justify-center">
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[34%] z-[2] flex justify-center [--rise:-104px] sm:top-[30%] sm:[--rise:-140px]">
       {list.map((p, i) => (
-        <div key={i} className="s-toast absolute w-[min(78%,300px)] sm:w-[min(44%,320px)]" style={{ ["--d" as string]: `${i * 4}s` }}>
+        <div key={i} className="s-toastflow absolute w-[min(78%,300px)] sm:w-[min(44%,320px)]" style={{ ["--d" as string]: `${i * 2.4}s`, zIndex: i }}>
           <Card p={p} compact />
         </div>
       ))}
