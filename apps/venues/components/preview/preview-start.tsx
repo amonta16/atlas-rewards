@@ -16,7 +16,7 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
-import { SalesArc } from "@/components/landing/sales-arc"; // CP-265
+import { PhoneToasts, SalesArc } from "@/components/landing/sales-arc"; // CP-265
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { StickyBuildBar } from "./sticky-build-bar"; // CP-254
@@ -496,7 +496,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
           <div className="s-wrap pb-6 text-center">
             <figure className="s-rise relative z-[1] mx-auto -mt-24 w-full max-w-[920px] rounded-[28px] bg-white px-3 pb-3 pt-4 shadow-[0_40px_90px_-40px_rgba(2,20,70,.55)] ring-1 ring-black/5 sm:-mt-32" style={{ ["--d" as string]: ".36s" }}>
               {/* CP-265: no guarantee here, the page's only job is the search box; it's on the preview page. */}
-              <TrioVideo />
+              <div className="relative"><TrioVideo /><PhoneToasts /></div>
               <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Real med spa apps. Each one built from the spa&apos;s own website.</figcaption>
             </figure>
           </div>
