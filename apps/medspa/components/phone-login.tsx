@@ -3,7 +3,8 @@
  * Phone + texted code, Dermis style. Three short steps:
  *   1. phone number  →  Supabase sends a 6-digit code by SMS (Twilio)
  *   2. the code      →  verifyOtp signs the patient in
- *   3. their name    →  only the first time (profiles.full_name is empty)
+ *   3. their name    →  only the first time (profiles.full_name is empty), with their email
+ *      (CP-272: profiles.email is where the clinic's email automations send: receipts, rewards, offers)
  * The example clinic fakes steps 1–2 so a sales demo works without SMS.
  *
  * Email + password is the other door: it's the only one until text sign-in is
@@ -18,6 +19,7 @@ import { Wordmark } from "./chrome";
 
 type Step = "phone" | "code" | "name" | "email";
 const RESEND_SECONDS = 60; // Supabase allows one code per number per minute.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { slug: string; clinicName: string; logoUrl: string | null; next: string; demo: boolean; textOn: boolean }) {
   const router = useRouter();
@@ -29,6 +31,7 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { 
   const [code, setCode] = useState("");
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
+  const [mail, setMail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
@@ -63,15 +66,17 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { 
   }
 
   async function saveName() {
+    const address = mail.trim().toLowerCase();
+    if (!EMAIL_RE.test(address)) { setError("Please enter a valid email address."); return; }
     setBusy(true); setError(null);
     const full = `${first.trim()} ${last.trim()}`.trim();
     if (demo) {
-      await fetch("/api/demo-login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: full, phone: e164 }) });
+      await fetch("/api/demo-login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: full, phone: e164, email: address }) });
       return done();
     }
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) await supabase.from("profiles").upsert({ id: user.id, full_name: full, phone: e164 });
+    if (user) await supabase.from("profiles").upsert({ id: user.id, full_name: full, phone: e164, email: address });
     done();
   }
 
@@ -180,12 +185,15 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { 
       )}
 
       {step === "name" && (
-        <form className="flex flex-1 flex-col animate-rise" onSubmit={(e) => { e.preventDefault(); if (first.trim()) saveName(); }}>
-          <h1 className="mt-[14vh] text-center text-[30px] font-semibold tracking-[-0.02em]">What&apos;s your name?</h1>
+        <form className="flex flex-1 flex-col animate-rise" onSubmit={(e) => { e.preventDefault(); if (first.trim() && mail.trim()) saveName(); }}>
+          <h1 className="mt-[10vh] text-center text-[30px] font-semibold tracking-[-0.02em]">Almost done</h1>
           <p className="mt-2 text-center text-[15.5px] text-faint">So {clinicName} knows who&apos;s coming in.</p>
           <input className="field mt-8" placeholder="First name" autoComplete="given-name" value={first} onChange={(e) => setFirst(e.target.value)} autoFocus />
           <input className="field mt-3" placeholder="Last name" autoComplete="family-name" value={last} onChange={(e) => setLast(e.target.value)} />
-          <button type="submit" disabled={!first.trim() || busy} className="btn-ink mt-5">{busy ? "Saving…" : "Continue"}</button>
+          <input className="field mt-3" type="email" inputMode="email" placeholder="Email" autoComplete="email" value={mail} onChange={(e) => { setMail(e.target.value); setError(null); }} />
+          <p className="mt-2 px-1 text-[13px] leading-snug text-faint">For your receipts, rewards and offers from {clinicName}. Unsubscribe anytime.</p>
+          {error && <p className="mt-3 text-center text-[14px] text-red-600">{error}</p>}
+          <button type="submit" disabled={!first.trim() || !mail.trim() || busy} className="btn-ink mt-5">{busy ? "Saving…" : "Continue"}</button>
         </form>
       )}
     </div>

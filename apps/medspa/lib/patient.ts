@@ -23,6 +23,8 @@ export type Patient = {
   firstName: string | null;
   fullName: string | null;
   phone: string | null;
+  /** CP-272: profiles.email, the address the email automations send to (null = not given yet). */
+  email: string | null;
   points: number;
   membershipId: string | null;
   isMember: boolean;
@@ -34,7 +36,7 @@ export type Patient = {
 };
 
 const GUEST: Patient = {
-  signedIn: false, userId: null, firstName: null, fullName: null, phone: null,
+  signedIn: false, userId: null, firstName: null, fullName: null, phone: null, email: null,
   points: 0, membershipId: null, isMember: false, memberSince: null, planName: null, memberCode: null,
 };
 
@@ -43,10 +45,10 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
     const raw = cookies().get(DEMO_COOKIE)?.value;
     if (!raw) return GUEST;
     try {
-      const d = JSON.parse(decodeURIComponent(raw)) as { name?: string; phone?: string; plan?: string };
+      const d = JSON.parse(decodeURIComponent(raw)) as { name?: string; phone?: string; plan?: string; email?: string };
       const full = d.name?.trim() || "Alex Rivera";
       return {
-        ...GUEST, signedIn: true, fullName: full, firstName: full.split(" ")[0], phone: d.phone ?? null, points: Math.max(0, 240 + readDemoEarned(clinic) - readDemoVouchers().reduce((n, v) => n + v.point_cost, 0)), membershipId: "demo",
+        ...GUEST, signedIn: true, fullName: full, firstName: full.split(" ")[0], phone: d.phone ?? null, email: d.email || null, points: Math.max(0, 240 + readDemoEarned(clinic) - readDemoVouchers().reduce((n, v) => n + v.point_cost, 0)), membershipId: "demo",
         isMember: !!d.plan, planName: d.plan ?? null, memberCode: "ALEX24", memberSince: d.plan ? new Date().toISOString() : null,
       };
     } catch { return GUEST; }
@@ -66,7 +68,7 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
   }
 
   const [{ data: profile }, status, { data: memRow }] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone").eq("id", user.id).maybeSingle(),
+    supabase.from("profiles").select("full_name, phone, email").eq("id", user.id).maybeSingle(),
     supabase.rpc("member_membership_status", { p_business_id: clinic.id }),
     mem?.id
       ? supabase.from("business_memberships").select("membership_plan_label").eq("id", mem.id).maybeSingle()
@@ -80,6 +82,7 @@ export const getPatient = cache(async (clinic: Clinic): Promise<Patient> => {
     fullName: full,
     firstName: full ? full.split(" ")[0] : null,
     phone: (profile as { phone?: string | null } | null)?.phone ?? user.phone ?? null,
+    email: (profile as { email?: string | null } | null)?.email || user.email || null,
     points: mem?.points_balance ?? 0,
     membershipId: mem?.id ?? null,
     isMember: !status.error && !!s?.is_paid,
