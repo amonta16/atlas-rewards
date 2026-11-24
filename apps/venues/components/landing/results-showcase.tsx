@@ -55,12 +55,13 @@ export function ResultsShowcase() {
   const muted = c.placeholder;
 
   return (
-    <section aria-label="Results" className="border-t border-[#0B1B2B]/8 bg-white py-14 sm:py-20"
+    <section aria-labelledby="results-h" className="border-t border-[#0B1B2B]/8 bg-white py-14 sm:py-20"
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
       <div className="s-wrap">
         <p className="text-center text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0B5FD6]">Results</p>
+        <h2 id="results-h" className="mx-auto mt-2 max-w-[18ch] text-center text-[clamp(2rem,1.4rem+2.6vw,3.25rem)] font-bold leading-[1.04] tracking-[-0.035em] text-[#0B1B2B]">Results, not promises.</h2>
 
-        <div className="mx-auto mt-8 grid max-w-[1180px] gap-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-center lg:gap-12">
+        <div className="mx-auto mt-10 grid max-w-[1180px] gap-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-center lg:gap-12">
           {/* The numbers (under the photo on a phone) */}
           <div className="order-2 lg:order-1" aria-live="polite">
             <dl className="grid grid-cols-2 gap-6 lg:grid-cols-1 lg:gap-9">
