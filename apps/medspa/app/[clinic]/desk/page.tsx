@@ -47,7 +47,7 @@ export default async function Desk({ params, searchParams }: { params: { clinic:
   return (
     <DeskApp
       clinic={{
-        id: clinic.id, slug: clinic.slug, name: clinic.name, logoUrl: clinic.logoUrl, heroUrl: clinic.heroUrl, primary: clinic.primary, phone: clinic.phone,
+        id: clinic.id, slug: clinic.slug, name: clinic.name, logoUrl: clinic.logoUrl, iconUrl: clinic.appIconUrl ?? clinic.logoUrl, heroUrl: clinic.heroUrl, primary: clinic.primary, phone: clinic.phone,
         pointsPerDollar: clinic.pointsPerDollar, visitPoints: clinic.visitPoints, offersOn: clinic.offersOn, demo,
         // CP-237: an instant preview's desk says so, and links back to the app and the walkthrough.
         preview: clinic.preview ? { walkthroughUrl: `${SITE}/medspa/walkthrough/${clinic.slug}?src=desk`, expiresAt: clinic.preview.expiresAt } : null,
