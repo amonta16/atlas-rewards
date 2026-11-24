@@ -70,8 +70,8 @@ export function AsSeenAtSection() {
             </p>
             <h2 id="seen-title" className="s-h2 mt-6 max-w-[15ch]">Demoed live at Cal Poly&apos;s AI Hackathon.</h2>
             <p className="s-lead mt-6 max-w-[34rem]">
-              In November our team spent a weekend at the {event}, building a new AI skin-analysis prototype for med spas and
-              showing it working, live, to the judges and mentors. What we learned that weekend goes back into the Atlas app.
+              In November our team took a new AI skin-analysis prototype for med spas to the {event} and showed it working,
+              live, to the judges and mentors.
             </p>
           </div>
           <div>
