@@ -11,6 +11,10 @@ export const metadata = {
  * scan), the marketing funnels and instant app previews, every processor,
  * cookies / the Meta Pixel, and California privacy choices.
  *
+ * CP-273 (2026-11-24): matched to the Google Play Data safety form for the MedSpa App: the email asked at
+ * sign-up (receipts, rewards, offers from the clinic), push offers, the Play app by name, and the web
+ * account-deletion link Play requires.
+ *
  * NOTE: a sensible default for a B2B2C SaaS, not legal advice. Have a lawyer
  * review before relying on it (health-adjacent data, biometric laws, CCPA).
  */
@@ -18,12 +22,13 @@ export default function PrivacyPage() {
   return (
     <article className="prose prose-zinc max-w-none">
       <h1 className="text-3xl font-extrabold tracking-tight">Privacy Policy</h1>
-      <p className="text-sm text-zinc-500">Last updated: November 10, 2026</p>
+      <p className="text-sm text-zinc-500">Last updated: November 24, 2026</p>
 
       <p className="mt-4 leading-relaxed">
         Atlas Engine (&quot;Atlas,&quot; &quot;we,&quot; &quot;us&quot;) makes branded apps for local businesses: rewards
         apps for venues, and patient apps and a front desk for med spas. This policy covers those apps (including{" "}
-        <em>med.atlas-engine.app</em> and each business&apos;s own app), our website and sign-up pages at{" "}
+        <em>med.atlas-engine.app</em>, the <strong>MedSpa App</strong> on Google Play, and each business&apos;s own
+        app), our website and sign-up pages at{" "}
         <em>atlas-engine.app</em>, and the instant app previews we build for businesses. It explains what we collect, how
         we use it, and your choices.
       </p>
@@ -39,7 +44,11 @@ export default function PrivacyPage() {
       <h2 className="text-xl font-bold mt-10 mb-2">2. What we collect</h2>
       <p className="font-semibold">In a business&apos;s app (customers and patients)</p>
       <ul className="list-disc pl-6 space-y-1.5">
-        <li><strong>Account info</strong>: name, phone number, email, date of birth (if the business asks).</li>
+        <li>
+          <strong>Account info</strong>: name, phone number, email and date of birth (if the business asks). When you
+          sign up with your phone, we also ask for your email so the business can send your receipts, rewards and
+          offers.
+        </li>
         <li><strong>Rewards activity</strong>: visits and check-ins, points, rewards and offers, referrals, reviews you submit.</li>
         <li>
           <strong>Purchases</strong>: memberships, packages, products and gift cards you buy in the app, and your
@@ -97,6 +106,15 @@ export default function PrivacyPage() {
       <ul className="list-disc pl-6 space-y-1.5">
         <li>To run the app for the business you signed up with: rewards, purchases, bookings, care reminders, the skin scan.</li>
         <li>To send the texts, emails and notifications you asked for or agreed to.</li>
+        <li>
+          To send you emails from the business you signed up with: receipts and account emails, reward updates, and
+          offers and promotions from that business. Every promotional email has an unsubscribe link; receipts and
+          account emails still arrive after you unsubscribe.
+        </li>
+        <li>
+          If you turn on notifications, to send push notifications from that business: reminders, rewards and offers.
+          Turn them off at any time in Profile or your phone&apos;s settings.
+        </li>
         <li>To give businesses their dashboards and reports (mostly totals and trends; staff can see their own customers).</li>
         <li>To build and send the app preview a business owner requested, and to follow up about it.</li>
         <li>To keep the service secure, prevent abuse and fix problems.</li>
@@ -157,8 +175,9 @@ export default function PrivacyPage() {
       <h2 className="text-xl font-bold mt-10 mb-2">8. Your rights</h2>
       <ul className="list-disc pl-6 space-y-1.5">
         <li>
-          <strong>Delete your account</strong>: in the app, Profile → Delete account. This removes your profile and every
-          membership across businesses on Atlas, including saved skin scans.
+          <strong>Delete your account</strong>: in the app, Profile → Delete account, or on the web at{" "}
+          <a href="/account/delete" className="underline">atlas-engine.app/account/delete</a>. This removes your
+          profile and every membership across businesses on Atlas, including saved skin scans.
         </li>
         <li>
           <strong>Access, correct, export or delete</strong>: email{" "}
@@ -167,6 +186,7 @@ export default function PrivacyPage() {
           profile.
         </li>
         <li><strong>Notifications</strong>: turn them off in Profile or your phone&apos;s settings.</li>
+        <li><strong>Emails</strong>: use the unsubscribe link in any promotional email, or ask the business or us.</li>
         <li>
           <strong>California, EU/UK and other state residents</strong> have additional rights (know, delete, correct,
           limit use of sensitive information, opt out of sharing, appeal a decision). We use sensitive information (such
