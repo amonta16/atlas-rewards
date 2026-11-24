@@ -86,7 +86,9 @@ export function ResultsShowcase() {
         <div className="mx-auto mt-10 grid max-w-[1180px] gap-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-center lg:gap-12">
           {/* The numbers (under the photo on a phone) */}
           <div className="order-2 lg:order-1" aria-live="polite">
-            <dl className="grid grid-cols-2 gap-6 lg:grid-cols-1 lg:gap-9">
+            {/* CP-276: the same entrance as the main site's showcase (site.css .s-load-*), replayed per case */}
+            <div key={`n-${idx}`}>
+            <dl className="s-load-1 grid grid-cols-2 gap-6 lg:grid-cols-1 lg:gap-9">
               {c.stats.map((s) => (
                 <div key={s.label} className="border-l-[3px] border-[#0B5FD6] pl-4 sm:pl-5">
                   <dt className="sr-only">{s.label}</dt>
@@ -95,8 +97,8 @@ export function ResultsShowcase() {
                 </div>
               ))}
             </dl>
-            <p className="mt-8 text-[15px] font-semibold text-[#0B1B2B]">What they use</p>
-            <ul className="mt-3 space-y-2.5">
+            <p className="s-load-2 mt-8 text-[15px] font-semibold text-[#0B1B2B]">What they use</p>
+            <ul className="s-load-2 mt-3 space-y-2.5">
               {c.uses.map((u) => {
                 const { label, Icon } = USES[u];
                 return (
@@ -106,42 +108,51 @@ export function ResultsShowcase() {
                 );
               })}
             </ul>
+            </div>
           </div>
 
           {/* The owner */}
           <figure className="order-1 lg:order-2">
             <div className="relative aspect-square overflow-hidden rounded-[24px] bg-[#0B1B2B] shadow-[0_30px_60px_-30px_rgba(2,20,70,.55)] sm:aspect-video">
-              {c.youtube ? (
-                <YouTubeLite id={c.youtube} title={`${c.clinic}: owner interview`} className="absolute inset-0 h-full" />
-              ) : c.photoSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.photoSrc} alt={`${c.clinic}, the owner`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
-              ) : (
-                <div className="absolute inset-0">
-                  <div aria-hidden className="h-full w-full bg-[linear-gradient(135deg,#39A0FF_0%,#0B5FD6_45%,#06318F_100%)]" />
-                  <div aria-hidden className="s-gridbg-dark" />
-                  <div className="absolute inset-0 grid place-items-center pb-12 sm:pb-16">
-                    <span className="flex flex-col items-center gap-3 text-white/80">
-                      <span className="grid h-16 w-16 place-items-center rounded-full bg-white/12 ring-1 ring-white/30"><Camera className="h-7 w-7" aria-hidden /></span>
-                      <span className="text-[13px] font-semibold uppercase tracking-[0.14em]">Owner photo coming soon</span>
-                    </span>
-                  </div>
-                </div>
-              )}
-              {!c.youtube && (
-                <>
-                  <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#06142B]/80 via-[#06142B]/10 to-[#06142B]/35" />
-                  <div className="absolute left-5 top-5 sm:left-8 sm:top-7">
-                    {c.logoSrc
+              {list.map((x, k) => {
+                const on = k === idx;
+                return (
+                  <div key={x.id} className={`s-case${on ? " s-on" : ""}`} aria-hidden={!on}>
+                    {x.youtube ? (
+                      <YouTubeLite id={x.youtube} title={`${x.clinic}: owner interview`} className="absolute inset-0 h-full" />
+                    ) : x.photoSrc ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={c.logoSrc} alt={c.clinic} className="h-8 w-auto brightness-0 invert sm:h-10" />
-                      : <span className="text-[18px] font-semibold uppercase tracking-[0.12em] text-white sm:text-[24px]">{c.clinic}</span>}
+                      <img src={x.photoSrc} alt={on ? `${x.clinic}, the owner` : ""} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
+                    ) : (
+                      <div className="absolute inset-0">
+                        <div aria-hidden className="h-full w-full bg-[linear-gradient(135deg,#39A0FF_0%,#0B5FD6_45%,#06318F_100%)]" />
+                        <div aria-hidden className="s-gridbg-dark" />
+                        <div className="absolute inset-0 grid place-items-center pb-12 sm:pb-16">
+                          <span className="flex flex-col items-center gap-3 text-white/80">
+                            <span className="grid h-16 w-16 place-items-center rounded-full bg-white/12 ring-1 ring-white/30"><Camera className="h-7 w-7" aria-hidden /></span>
+                            <span className="text-[13px] font-semibold uppercase tracking-[0.14em]">Owner photo coming soon</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {!x.youtube && (
+                      <>
+                        <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#06142B]/80 via-[#06142B]/10 to-[#06142B]/35" />
+                        {/* keyed on the active case, so the rise replays each time this card comes round */}
+                        <div key={on ? `t-${idx}` : "t"} className={`absolute left-5 top-5 sm:left-8 sm:top-7${on ? " s-load-1" : ""}`}>
+                          {x.logoSrc
+                            // eslint-disable-next-line @next/next/no-img-element
+                            ? <img src={x.logoSrc} alt={x.clinic} className="h-8 w-auto brightness-0 invert sm:h-10" />
+                            : <span className="text-[18px] font-semibold uppercase tracking-[0.12em] text-white sm:text-[24px]">{x.clinic}</span>}
+                        </div>
+                        <figcaption key={on ? `c-${idx}` : "c"} className={`absolute inset-x-5 bottom-5 max-w-[30ch] text-[18px] font-semibold leading-snug tracking-[-0.01em] text-white sm:inset-x-8 sm:bottom-7 sm:text-[26px]${on ? " s-load-2" : ""}`}>
+                          {x.headline}
+                        </figcaption>
+                      </>
+                    )}
                   </div>
-                  <figcaption className="absolute inset-x-5 bottom-5 max-w-[30ch] text-[18px] font-semibold leading-snug tracking-[-0.01em] text-white sm:inset-x-8 sm:bottom-7 sm:text-[26px]">
-                    {c.headline}
-                  </figcaption>
-                </>
-              )}
+                );
+              })}
             </div>
           </figure>
         </div>
