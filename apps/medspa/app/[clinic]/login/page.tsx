@@ -1,4 +1,8 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { getCachedUser } from "@atlas/core/supabase/server";
 import { getClinic } from "@/lib/clinic";
+import { DEMO_COOKIE } from "@/lib/patient";
 import { PhoneLogin } from "@/components/phone-login";
 
 export const metadata = { title: "Sign in" };
@@ -19,6 +23,9 @@ export default async function Login({ params, searchParams }: { params: { clinic
   // Only same-clinic paths: never bounce to another site after sign-in.
   const next = searchParams.next && searchParams.next.startsWith(`${home}`) && !searchParams.next.startsWith("//") ? searchParams.next : home;
   const demo = clinic.isExample && clinic.id === "example";
+  // CP-271: picking a clinic now opens this screen first; anyone already signed in goes straight on.
+  const signedIn = demo ? !!cookies().get(DEMO_COOKIE)?.value : !!(await getCachedUser().catch(() => null));
+  if (signedIn) redirect(next);
   const textOn = demo || (await textSignInOn());
   return <div className="relative mx-auto min-h-[100dvh] max-w-md bg-page"><PhoneLogin slug={clinic.slug} clinicName={clinic.name} logoUrl={clinic.logoUrl} next={next} demo={demo} textOn={textOn} /></div>;
 }

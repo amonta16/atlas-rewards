@@ -103,7 +103,7 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { 
     <div className="flex min-h-[100dvh] flex-col px-6" style={{ paddingTop: "calc(2rem + env(safe-area-inset-top, 0px))", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}>
       {step === "phone" && (
         <div className="flex flex-1 flex-col animate-rise">
-          <div className="mt-[18vh] text-center"><Wordmark name={clinicName} logoUrl={logoUrl} size="lg" /></div>
+          <div className="mt-[9vh] text-center"><Wordmark name={clinicName} logoUrl={logoUrl} size="lg" /></div>
           <p className="mt-8 text-center text-[16px] text-faint">Welcome to {clinicName}</p>
           <h1 className="mt-1.5 text-center text-[30px] font-semibold leading-[1.15] tracking-[-0.02em]">Sign up or log in using your phone number</h1>
           <form className="mt-8" onSubmit={(e) => { e.preventDefault(); if (digits.length === 10) sendCode(); }}>
@@ -121,13 +121,13 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { 
           </form>
           <Terms />
           <button type="button" onClick={() => { setStep("email"); setError(null); }} className="mt-5 text-center text-[15px] font-medium text-brand">Use email instead</button>
-          <Link href={`/${slug}`} className="mt-auto pt-10 text-center text-[16px] underline underline-offset-4">Continue as guest</Link>
+          <Link href={`/${slug}`} className="mt-auto pt-6 text-center text-[16px] underline underline-offset-4">Continue as guest</Link>
         </div>
       )}
 
       {step === "email" && (
         <div className="flex flex-1 flex-col animate-rise">
-          <div className="mt-[10vh] text-center"><Wordmark name={clinicName} logoUrl={logoUrl} size="lg" /></div>
+          <div className="mt-[6vh] text-center"><Wordmark name={clinicName} logoUrl={logoUrl} size="lg" /></div>
           <p className="mt-7 text-center text-[16px] text-faint">Welcome to {clinicName}</p>
           <h1 className="mt-1.5 text-center text-[30px] font-semibold leading-[1.15] tracking-[-0.02em]">{isNew ? "Create your account" : "Log in with your email"}</h1>
           <form className="mt-7" onSubmit={(e) => { e.preventDefault(); emailSubmit(); }}>

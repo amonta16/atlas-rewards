@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ClinicHit } from "@/app/api/clinics/route";
 import { rememberClinic } from "@/lib/remember";
+import { createClient } from "@atlas/core/supabase/client";
 import { IcClose, IcNext, IcPin, IcQr } from "./icons";
 
 const Scanner = dynamic(() => import("@yudiel/react-qr-scanner").then((m) => m.Scanner), { ssr: false });
@@ -32,9 +33,16 @@ export function FindClinic() {
     return () => { clearTimeout(t); ctrl.abort(); };
   }, [q]);
 
-  function open(slug: string) {
+  /**
+   * CP-271 · picking a clinic (search, QR, join code) is the moment to join: someone who isn't signed in
+   * lands on that clinic's sign-up screen, with "Continue as guest" right there. Signed in → straight home.
+   * Direct links to a clinic still open its home screen.
+   */
+  async function open(slug: string) {
     rememberClinic(slug);
-    router.push(`/${slug}`);
+    let signedIn = false;
+    try { signedIn = !!(await createClient().auth.getSession()).data.session; } catch { /* treat as signed out */ }
+    router.push(signedIn ? `/${slug}` : `/${slug}/login?next=${encodeURIComponent(`/${slug}`)}`);
   }
 
   async function byCode(raw: string) {
