@@ -526,7 +526,7 @@ function OfferStack({ area }: { area: Area | null }) {
         ))}
       </ul>
       <div className="border-t border-[var(--s-line)] bg-[var(--s-paper)] px-5 py-4">
-        <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]"><ShieldCheck className="h-4 w-4" aria-hidden />Backed by three promises</div>
+        <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]"><ShieldCheck className="h-4 w-4" aria-hidden />Backed by {GUARANTEES.length} promises</div>
         <ul className="mt-2.5 grid gap-2">
           {GUARANTEES.map((g) => <li key={g.id} className="flex gap-2.5 text-[14px] font-semibold text-[var(--s-ink)]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--s-ocean)]" strokeWidth={3} aria-hidden />{g.short}</li>)}
         </ul>

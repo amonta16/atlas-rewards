@@ -16,6 +16,7 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
+import { GuaranteeBand, GuaranteeTerms } from "@/components/landing/guarantee-seal"; // CP-264
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { Gulls } from "@/components/landing/gulls"; // CP-252
@@ -433,10 +434,10 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
               For med spas
             </p>
             <h1 className="s-rise mx-auto mt-5 max-w-[15ch] text-[clamp(2.3rem,1.5rem+3.2vw,4.1rem)] font-bold leading-[1.03] tracking-[-0.035em] text-white lg:max-w-[20ch]" style={{ ["--d" as string]: ".08s" }}>
-              See your <span className="s-chrome-light">patient app</span> before you spend a dollar.
+              Your med spa&apos;s own <span className="s-chrome-light">app</span>. Built in about a minute.
             </h1>
             <p className="s-rise mx-auto mt-4 max-w-[32rem] text-[17px] leading-snug text-white/85" style={{ ["--d" as string]: ".16s" }}>
-              Type your spa&apos;s name. Watch your own app appear: your logo, your colors, your treatments.
+              Type your spa&apos;s name and watch it build itself: your logo, your colors, your real treatments. No call. No card. See it first, then decide.
             </p>
 
             <div className="s-rise relative mx-auto mt-7 w-full max-w-[560px] text-left" style={{ ["--d" as string]: ".24s" }}>
@@ -494,7 +495,9 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         <section className="relative flow-root bg-white">
           <div className="s-wrap pb-6 text-center">
             <figure className="s-rise relative z-[1] mx-auto -mt-24 w-full max-w-[920px] rounded-[28px] bg-white px-3 pb-3 pt-4 shadow-[0_40px_90px_-40px_rgba(2,20,70,.55)] ring-1 ring-black/5 sm:-mt-32" style={{ ["--d" as string]: ".36s" }}>
-              <TrioVideo />
+              {/* CP-264: the 100-patient guarantee as the card's top row (seal + one sentence), terms at the bottom. */}
+              <GuaranteeBand />
+              <div className="pt-3"><TrioVideo /></div>
               <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Real med spa apps. Each one built from the spa&apos;s own website.</figcaption>
             </figure>
           </div>
@@ -508,6 +511,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         <OwnerVideos />
         {/* CP-259: the fine print, at the very bottom instead of under the phones (room for the sticky bar below it) */}
         <footer className="border-t border-[#0B1B2B]/8 bg-white pb-28 pt-8">
+          <GuaranteeTerms />
           <p className="s-wrap mx-auto max-w-[40rem] text-center text-[12.5px] leading-relaxed text-[#6B7A8C]">
             No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
             (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}

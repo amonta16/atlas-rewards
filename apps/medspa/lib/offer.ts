@@ -23,6 +23,7 @@ export const OFFER = {
     "Your area, locked",
   ],
   guarantees: [
+    "100 patients on your app in 90 days, or every dollar back",
     "Pays for itself in 90 days, or you don't pay until it does",
     "Live in 7 days, or setup and month one are free",
     "Cancel any month and keep your banners, table tents and patient list",
@@ -72,31 +73,31 @@ export const MECHANISM = {
  * KEEP IN SYNC across apps/medspa/lib/offer.ts and apps/venues/lib/landing/medspa-funnel.ts (tests/funnel-sync.test.ts).
  */
 export const TEAM_PROOF = {
-  eyebrow: "The team behind your app",
+  eyebrow: "Why we built Atlas",
   // CP-252: up to 3 across on a computer, stacked on a phone. A post shows `youtube` (a YouTube id, played in
   // place, youtube-nocookie) or `file` (a photo in this app's proof folder). To add an owner video: copy the
   // first post, change id / youtube / the words. Quote owners word for word, and only with their OK.
   posts: [
     {
       id: "mission",
-      title: "Your clients love you. Their phone forgets you.",
-      body: "Between visits, your spa is nowhere on their phone. So we built Atlas: your own app, with your name on it, that brings them back.",
+      title: "You paid to get them in. Then their phone forgot you.",
+      body: "Every patient you win with ads walks out into a phone full of other brands. Your spa isn't one of them. Atlas fixes that: your own app, your name on their home screen, pulling them back for the next visit.",
       meta: "Francisco Vera & Andrew Montano",
       youtube: null, file: "founders-atlas.webp", w: 1100, h: 872,
       alt: "Francisco Vera (left) and Andrew Montano, founders of Atlas Engine, in navy Atlas polos",
     },
     {
       id: "owner-video",
-      title: "We showed a real spa owner. Here's what she said.",
-      body: "A spa owner in Morro Bay saw the app for the first time. Her exact words: “I would be very interested in incorporating that into my business.”",
+      title: "We put it in front of a real spa owner. Watch her reaction.",
+      body: "First time she'd ever seen it. A Morro Bay spa owner, on camera, her exact words: “I would be very interested in incorporating that into my business.”",
       meta: "Morro Bay, CA · November 2026",
       youtube: "dCTa10nHVfE", file: null, w: 16, h: 9,
       alt: "A Morro Bay spa owner reacts to the app (video, 1:53)",
     },
     {
       id: "process",
-      title: "We don't guess. We ask owners.",
-      body: "We build every part of Atlas ourselves. Then real owners try it before it ships. In November, at Cal Poly's AI Hackathon, we sat down with a Morro Bay spa owner and asked for her honest take.",
+      title: "Nothing ships until a real owner tries to break it.",
+      body: "We build every part of Atlas ourselves, then hand it to real spa owners before you ever see it. In November, at Cal Poly's AI Hackathon, we sat a Morro Bay owner down and asked for her brutally honest take.",
       meta: "Cal Poly · November 2026",
       youtube: null, file: "founders-building.webp", w: 1100, h: 916,
       alt: "Two Atlas Engine founders working on a laptop at Cal Poly",

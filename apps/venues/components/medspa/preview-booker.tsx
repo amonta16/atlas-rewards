@@ -4,9 +4,10 @@
  *
  * Before this, "Book 15 min" on a preview sent the owner through the whole /medspa/start quiz
  * (zip, 3 number questions, the results, a contact form, 2 more questions) before a calendar.
- * They already have their app; this page sells the call and asks only what the calendar needs:
+ * They already have their app; this page asks only what the calendar needs (CP-264: no selling here,
+ * the ad and the preview already did that):
  *
- *   the Launch Plan call (name, value, what they leave with, the guarantee, the bonus deadline)
+ *   one headline (the bonus total and deadline while the window runs)
  *   → name, mobile, role, practice today (+ email only if the preview has none), two optional SMS boxes
  *   → POST /api/landing/lead with preview_slug (practice, email and zip are filled on the server
  *     from the preview; qualifies as before; links the lead to the preview so booking ends the
@@ -15,9 +16,9 @@
  *   → the same calendar as /medspa/start (TimePicker), on this page.
  */
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CalendarDays, Check, Gift, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Gift, Loader2, Lock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GUARANTEES, LAUNCH_CALL, ROLES, STAGES } from "@/lib/landing/medspa-funnel";
+import { LAUNCH_BONUS, LAUNCH_CALL, ROLES, STAGES } from "@/lib/landing/medspa-funnel";
 import { CALL_MINUTES } from "@/lib/landing/availability";
 import { SMS_INFO_CONSENT_TEXT, SMS_MARKETING_CONSENT_TEXT, SMS_PRIVACY_URL, SMS_TERMS_URL } from "@/lib/preview/consent";
 import { track } from "@/lib/landing/analytics";
@@ -102,83 +103,53 @@ export function PreviewBooker({ slug, business, hasEmail, lead, bonusDeadline, s
     } finally { setBusy(false); }
   }
 
-  const guarantee = GUARANTEES[0];
   const callTitle = `${business}'s ${LAUNCH_CALL.name}`;
+  const bonusTotal = `$${LAUNCH_BONUS.total.toLocaleString("en-US")}`;
 
   return (
-    <div className="mx-auto max-w-[1060px]">
-      {phase !== "time" && (
-        <div className="mb-6 text-center sm:mb-8">
+    <div className={cn("mx-auto", phase === "time" ? "max-w-[1060px]" : "max-w-[560px]")}>
+      {/* CP-264: straight to booking. The ad and the preview already sold the call, so no takeaways list,
+          guarantee box or how-it-works here: one line on what's at stake, the short form, then the calendar. */}
+      {phase === "form" && (
+        <div className="mb-5 text-center sm:mb-6">
           <p className="s-load-1 text-[12.5px] font-bold uppercase tracking-[0.12em] text-white/80">{CALL_MINUTES} min · video · with Andrew</p>
-          <h1 className="s-load-1 mx-auto mt-2 max-w-[22ch] text-[clamp(1.85rem,1.3rem+2.4vw,2.9rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white">Book {callTitle}.</h1>
-          <p className="s-load-2 mx-auto mt-3 max-w-[36rem] text-[1.02rem] text-white/85">
-            Worth ${LAUNCH_CALL.value} on its own. Free with your app preview. You leave with all three below, whether or not you sign up.
-          </p>
+          <h1 className="s-load-1 mx-auto mt-2 max-w-[20ch] text-[clamp(1.85rem,1.3rem+2.4vw,2.7rem)] font-bold leading-[1.06] tracking-[-0.035em] text-white">
+            {bonusEnds ? <>Pick a time. Lock in your {bonusTotal} in bonuses.</> : <>Book {callTitle}.</>}
+          </h1>
+          {bonusEnds && (
+            <p className="s-load-2 mx-auto mt-3 inline-flex items-center gap-2 rounded-full bg-[#FFF6DD] px-3.5 py-1.5 text-[13.5px] font-bold text-[#5A4200]">
+              <Gift className="h-4 w-4 shrink-0" aria-hidden />Book before {bonusEnds}
+            </p>
+          )}
         </div>
       )}
 
-      <div className={cn("s-load-2 rounded-[30px] bg-white text-[var(--s-ink)] shadow-[0_40px_90px_-40px_rgba(2,20,70,.7)] ring-1 ring-white/60", phase === "time" ? "p-3 sm:p-5" : "p-5 sm:p-9")}>
+      <div className={cn("s-load-2 rounded-[30px] bg-white text-[var(--s-ink)] shadow-[0_40px_90px_-40px_rgba(2,20,70,.7)] ring-1 ring-white/60", phase === "time" ? "p-3 sm:p-5" : "p-5 sm:p-8")}>
         {phase === "form" && (
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-x-12 lg:gap-y-0">
-            {/* The call, sold. On a phone: takeaways → the form → the guarantee and the steps. */}
-            <section aria-labelledby="pb-get" className="lg:col-start-1 lg:row-start-1">
-              <h2 id="pb-get" className="text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--s-ocean)]">What you leave with</h2>
-              <ol className="mt-3 space-y-3">
-                {LAUNCH_CALL.takeaways.map((t, i) => (
-                  <li key={t.t} className="flex gap-3 rounded-2xl bg-[var(--s-paper)] p-3.5 ring-1 ring-[var(--s-line)]">
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--s-ocean)] text-[13px] font-bold text-white">{i + 1}</span>
-                    <span><span className="block text-[15px] font-bold leading-snug">{t.t}</span><span className="mt-0.5 block text-[13.5px] leading-snug text-[var(--s-ink-3)]">{t.d}</span></span>
-                  </li>
-                ))}
-              </ol>
-              {bonusEnds && (
-                <p className="mt-4 flex items-start gap-2.5 rounded-2xl bg-[#FFF6DD] p-3.5 text-[14px] font-semibold leading-snug text-[#5A4200] ring-1 ring-[#F2D27A]">
-                  <Gift className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />Book before {bonusEnds} and your 3 launch bonuses (launch videos, desk banner, software audit) are locked in.
-                </p>
-              )}
-            </section>
+          <form onSubmit={submit} noValidate aria-label="Your details">
+            <p className="text-[14px] text-[var(--s-ink-3)]">We have {business} on file. Just this, then pick a time:</p>
+            <div className="mt-4 grid gap-3">
+              <label className="grid gap-1.5"><span className="text-[13.5px] font-semibold">Your name</span><input name="name" autoComplete="name" className={FIELD} placeholder="Maria Lopez" /></label>
+              <label className="grid gap-1.5"><span className="text-[13.5px] font-semibold">Mobile</span><input name="phone" type="tel" inputMode="tel" autoComplete="tel" className={FIELD} placeholder="(805) 555-0123" /></label>
+              {!hasEmail && <label className="grid gap-1.5"><span className="text-[13.5px] font-semibold">Email (for the invite)</span><input name="email" type="email" inputMode="email" autoComplete="email" className={FIELD} placeholder="you@practice.com" /></label>}
+            </div>
+            <Chips legend="Your role" items={ROLES} value={role} onPick={setRole} />
+            <Chips legend="Your practice today" items={STAGES} value={stage} onPick={setStage} />
 
-            <section aria-label="The promise and the steps" className="order-last lg:order-none lg:col-start-1 lg:row-start-2">
-              <div className="rounded-2xl border border-[var(--s-line)] p-4 lg:mt-5">
-                <div className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--s-ocean)]"><ShieldCheck className="h-4 w-4" aria-hidden />If you go live</div>
-                <p className="mt-1.5 text-[15px] font-bold leading-snug">{guarantee.title}</p>
-                <p className="mt-1 text-[13.5px] leading-snug text-[var(--s-ink-3)]">{guarantee.body}</p>
-              </div>
-              <h2 className="mt-6 text-[13px] font-bold uppercase tracking-[0.1em] text-[var(--s-ocean)]">How it works</h2>
-              <ol className="mt-2.5 space-y-1.5 text-[14.5px] text-[var(--s-ink-2)]">
-                <li><b className="text-[var(--s-ink)]">1.</b> Tell us who you are (30 seconds) and pick a time.</li>
-                <li><b className="text-[var(--s-ink)]">2.</b> The invite and video link land in your email.</li>
-                <li><b className="text-[var(--s-ink)]">3.</b> On the call, we work through your numbers and your app together. You decide after.</li>
-              </ol>
-            </section>
+            <fieldset className="mt-5 space-y-2.5 rounded-2xl bg-[var(--s-paper)] p-3.5 text-[12.5px] leading-snug text-[var(--s-ink-3)] ring-1 ring-[var(--s-line)]">
+              <legend className="sr-only">Text messages (optional)</legend>
+              <label className="flex gap-2.5"><input type="checkbox" checked={info} onChange={(e) => setInfo(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" /><span>{SMS_INFO_CONSENT_TEXT}</span></label>
+              <label className="flex gap-2.5"><input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" /><span>{SMS_MARKETING_CONSENT_TEXT}</span></label>
+              <p>Both optional. <a className="underline" href={SMS_TERMS_URL}>Terms</a> · <a className="underline" href={SMS_PRIVACY_URL}>Privacy</a></p>
+            </fieldset>
+            <input name="website_url_hp" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
 
-            {/* The ask */}
-            <form onSubmit={submit} noValidate aria-labelledby="pb-form-h" className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
-              <h2 id="pb-form-h" className="text-[1.35rem] font-bold leading-tight tracking-[-0.02em]">Then pick a time</h2>
-              <p className="mt-1 text-[14px] text-[var(--s-ink-3)]">We have {business} on file already.</p>
-              <div className="mt-4 grid gap-3">
-                <label className="grid gap-1.5"><span className="text-[13.5px] font-semibold">Your name</span><input name="name" autoComplete="name" className={FIELD} placeholder="Maria Lopez" /></label>
-                <label className="grid gap-1.5"><span className="text-[13.5px] font-semibold">Mobile</span><input name="phone" type="tel" inputMode="tel" autoComplete="tel" className={FIELD} placeholder="(805) 555-0123" /></label>
-                {!hasEmail && <label className="grid gap-1.5"><span className="text-[13.5px] font-semibold">Email (for the invite)</span><input name="email" type="email" inputMode="email" autoComplete="email" className={FIELD} placeholder="you@practice.com" /></label>}
-              </div>
-              <Chips legend="Your role" items={ROLES} value={role} onPick={setRole} />
-              <Chips legend="Your practice today" items={STAGES} value={stage} onPick={setStage} />
-
-              <fieldset className="mt-5 space-y-2.5 rounded-2xl bg-[var(--s-paper)] p-3.5 text-[12.5px] leading-snug text-[var(--s-ink-3)] ring-1 ring-[var(--s-line)]">
-                <legend className="sr-only">Text messages (optional)</legend>
-                <label className="flex gap-2.5"><input type="checkbox" checked={info} onChange={(e) => setInfo(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" /><span>{SMS_INFO_CONSENT_TEXT}</span></label>
-                <label className="flex gap-2.5"><input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[#0B5FD6]" /><span>{SMS_MARKETING_CONSENT_TEXT}</span></label>
-                <p>Both optional. <a className="underline" href={SMS_TERMS_URL}>Terms</a> · <a className="underline" href={SMS_PRIVACY_URL}>Privacy</a></p>
-              </fieldset>
-              <input name="website_url_hp" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
-
-              {err && <p role="alert" className="mt-3 text-sm font-medium text-rose-600">{err}</p>}
-              <button type="submit" disabled={busy} className="s-btn s-btn-primary s-focus mt-4 w-full disabled:opacity-60">
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}See open times <ArrowRight className="h-4 w-4" aria-hidden />
-              </button>
-              <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-[12px] text-[var(--s-ink-3)]"><Lock className="h-3.5 w-3.5" aria-hidden />Only used to set up your call.</p>
-            </form>
-          </div>
+            {err && <p role="alert" className="mt-3 text-sm font-medium text-rose-600">{err}</p>}
+            <button type="submit" disabled={busy} className="s-btn s-btn-primary s-focus mt-4 w-full disabled:opacity-60">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}See open times <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+            <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-[12px] text-[var(--s-ink-3)]"><Lock className="h-3.5 w-3.5" aria-hidden />Only used to set up your call.</p>
+          </form>
         )}
 
         {phase === "time" && leadId && (
