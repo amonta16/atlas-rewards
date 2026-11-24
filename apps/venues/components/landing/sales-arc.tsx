@@ -3,8 +3,7 @@
  * and the notifications on the 3D phones below it. Everything is a live feed: a purchase pops in, drifts up
  * and fades out while the next one arrives below it.
  *
- *   SalesArc     a soft half-circle rising from the bottom of the blue hero (three faint concentric arcs, a glow
- *                inside, a slow light along the outer one) and the feed:
+ *   SalesArc     the feed over the blue hero (CP-267: the half-circle arcs behind it were removed):
  *                · 1440 px and up: two streams of faint cards, one each side of the text column, a new card
  *                  every 2.4 s per side (staggered), each rising ~320 px over ~8 s, so ~3 per side are in flight
  *                  at different heights, nearer ones larger and clearer than the ones higher up;
@@ -16,7 +15,7 @@
  * The sender is Spa by the Bay (a live Atlas app; Andrew OK'd showing its name publicly on 2026-11-08) and the
  * items are from its real treatment menu. Its menu has no prices on file, so the amounts are illustrative.
  * Decoration only (aria-hidden, pointer-events none). Reduced motion: nothing moves; one card per side, one
- * chip and one toast sit still. Styles: site.css .s-arc-run, .s-flow, .s-chipflow, .s-toastflow.
+ * chip and one toast sit still. Styles: site.css .s-flow, .s-chipflow, .s-toastflow.
  */
 
 type Ping = { img: string; amount: string; item: string };
@@ -39,9 +38,6 @@ const PINGS: Ping[] = [
   { img: "eyes", amount: "$390", item: "Neurotoxin, crow's feet" },
   { img: "tightening", amount: "$1,050", item: "Microneedling, 6 sessions" },
 ];
-
-// The arc's box: 2:1, centered on the hero's bottom edge.
-const BOX = "absolute bottom-0 left-1/2 aspect-[2/1] w-[clamp(760px,78vw,1180px)] -translate-x-1/2";
 
 // Desktop streams: 6 cards a side on a 14.4 s loop (one every 2.4 s), the right side offset by 1.2 s so the
 // two sides alternate. Each card gets its own sideways nudge (always outward, away from the text), depth and
@@ -73,21 +69,6 @@ export function SalesArc() {
   const loop = STREAM.perSide * STREAM.every;
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <svg viewBox="0 0 1000 500" className={BOX}>
-        <defs>
-          <radialGradient id="sa-glow" cx="50%" cy="100%" r="60%">
-            <stop offset="0" stopColor="#fff" stopOpacity=".14" />
-            <stop offset=".7" stopColor="#fff" stopOpacity=".04" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <path d="M20,500 A480,480 0 0 1 980,500 Z" fill="url(#sa-glow)" />
-        <path d="M20,500 A480,480 0 0 1 980,500" fill="none" stroke="#fff" strokeOpacity=".26" strokeWidth="1.2" />
-        <path d="M95,500 A405,405 0 0 1 905,500" fill="none" stroke="#fff" strokeOpacity=".14" strokeWidth="1" />
-        <path d="M170,500 A330,330 0 0 1 830,500" fill="none" stroke="#fff" strokeOpacity=".08" strokeWidth="1" />
-        {/* the light along the outer arc */}
-        <path className="s-arc-run" d="M20,500 A480,480 0 0 1 980,500" pathLength={1000} fill="none" stroke="#fff" strokeOpacity=".75" strokeWidth="2" strokeLinecap="round" strokeDasharray="60 940" />
-      </svg>
 
       {/* 1440 px and up: a stream each side of the text column. Lanes sit 700 px out from the center (never
           closer than 24 px to the edge), cards start just above the phones card and rise ~320 px. */}

@@ -154,15 +154,12 @@
 
 /* CP-265/266 · the /medspa/app hero feed and phone notifications (components/landing/sales-arc.tsx).
  * A live feed: each purchase pops in (a small overshoot), drifts up at a steady pace, and fades out at the top.
- * .s-arc-run    a short light that travels along the outer arc, then rests.
  * .s-flow       desktop stream card. Loop --p, start --d, rise --rise, sideways nudge --x, scale --k, opacity --o.
  *               Alive for the first 55% of the loop (≈8 s of 14.4 s), so ~3 per side are in flight at once.
  * .s-chipflow   phone chip: pops in, rises 26 px, fades; alive 22% of a 20 s loop (≈4.4 s), ~2 at once.
  * .s-toastflow  lock-screen stack on the 3D phones: pops in, slides up --rise as the next lands under it,
  *               fades near the top; alive 32% of a 14.4 s loop (≈4.6 s), 2 in view at once.
  * Reduced motion: nothing moves; the first card each side, the first chip and the first toast sit still. */
-.s-arc-run { stroke-dashoffset: 1000; animation: s-arc-run 9s cubic-bezier(.45,0,.55,1) 1.2s infinite; }
-@keyframes s-arc-run { 0% { stroke-dashoffset: 1000; opacity: 0 } 8% { opacity: 1 } 62% { opacity: 1 } 70%, 100% { stroke-dashoffset: -60; opacity: 0 } }
 
 .s-flow, .s-chipflow, .s-toastflow { opacity: 0; will-change: transform, opacity; animation-iteration-count: infinite; animation-delay: var(--d, 0s); animation-fill-mode: backwards; }
 .s-flow { animation-name: s-flow; animation-duration: var(--p, 14.4s); }
@@ -190,7 +187,6 @@
   100% { opacity: 0; transform: translateY(var(--rise, -120px)) scale(.96); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .s-arc-run { display: none; }
   .s-flow, .s-chipflow, .s-toastflow { animation: none; opacity: 0; }
   .s-flow:nth-child(1), .s-flow:nth-child(7) { opacity: .55; }
   .s-chipflow:nth-child(1), .s-toastflow:nth-child(1) { opacity: 1; }
