@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, CircleDashed, Inbox, ListChecks, Loader2, PhoneCall, Play, Search, Settings2, Users } from "lucide-react";
 import type { SetupStatus } from "@/lib/outreach/config";
 import type { Campaign, Lead, LeadStatus, Message, Reply, Settings, Step, Task } from "@/lib/outreach/shared";
+import type { DnsStatus, Readiness, WarmupContact, WarmupLog, WarmupStats } from "@/lib/outreach/warmup";
+import { WarmupCard } from "./warmup";
 import { STATUS_LABEL } from "@/lib/outreach/shared";
 import { FindTab } from "./find";
 import { ReviewTab } from "./review";
@@ -26,6 +28,8 @@ export type OutreachData = {
   messages: Message[];
   replies: Reply[];
   tasks: Task[];
+  /** CP-250e · mailbox warm-up */
+  warmup: { contacts: WarmupContact[]; recent: WarmupLog[]; stats: WarmupStats; readiness: Readiness; dns: DnsStatus; target: number };
   suppressions: Array<{ value: string; reason: string; created_at: string }>;
   stats: { sentToday: number; sent7: number; sentAll: number; replies7: number; bounces7: number };
 };
@@ -146,6 +150,7 @@ function Overview({ data, go }: { data: OutreachData; go: (t: Tab) => void }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
+      <div className="lg:col-span-3"><WarmupCard data={data} /></div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:col-span-2">
         {tiles.map(([label, value, hint]) => (
           <div key={label} className={`${card} p-4`}>

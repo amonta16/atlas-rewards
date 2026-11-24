@@ -43,6 +43,16 @@ The first test email landed in Gmail's Promotions tab. A visible unsubscribe lin
 - Opt-outs keep working. Any reply stops the sequence, and "no thanks", "not interested", "unsubscribe", "remove me" or a reply starting with "stop" also adds the address to do-not-contact. `/api/outreach/unsubscribe` keeps working for links already sent.
 - SQL: `cp250d_optout_style.sql` adds `outreach_settings.optout_style` (`'reply'` | `'link'`, default `'reply'`). Applied to production 2026-11-23 (migration `cp250d_optout_style`).
 
+## CP-250e · automated mailbox warm-up (2026-11-24)
+A new mailbox that suddenly emails strangers lands in spam, so the engine warms it up by itself before any real spa gets an email.
+- **Who:** the people in *Overview → Mailbox warm-up* (Andrew's own Gmail, family, friends). Their addresses live only in the database (`outreach_warmup_contacts`), never in the repo.
+- **What:** short, honest personal notes from the outreach mailbox, e.g. "testing my new work email, could you reply?", 12 versions that never repeat back to back. They ask for a reply, and to move the email out of Spam or Promotions. They have no links and no opt-out footer, because they're personal mail, not commercial. If someone replied, their next email is a short "thanks" in the same thread, like a real conversation.
+- **When and how many:** 8am–6pm Pacific, every day, spread across the day. The ramp is 3 a day (days 1–3), then 5 (days 4–7), 8 (days 8–14) and 10 after that. Weekends get half, and nobody gets more than 2 a day. At most one email per 5-minute engine run, and only with `OUTREACH_SEND=1`.
+- **Replies and bounces** from those addresses are recorded on `outreach_warmup_log`. They're not treated as lead replies and don't show up in the Inbox tab.
+- **Ready check**, all of which must pass: SPF, DKIM and DMARC published (checked live in DNS), 14 days of warm-up, 40+ warm-up emails, 8+ replies, no bounces, `MAIL_POSTAL_ADDRESS` set, and 3+ contacts. The first time everything passes, Andrew's own address (the contact marked "you") gets one email: "ready for real spas".
+- **Real spas wait** on the existing Pause switch. Real sending was paused on 2026-11-24, the moment `OUTREACH_SEND=1` was set, so 2 approved Las Vegas spa emails couldn't go out from a cold domain. **Go live** un-pauses real sends. While warm-up isn't finished, there's a "Go live anyway" button with a warning. Warm-up keeps running lightly after Go live.
+- SQL: `cp250e_warmup.sql` adds 2 tables plus 4 columns on `outreach_settings`. It's additive and safe to re-run.
+
 ## How it works
 | Piece | Where |
 |---|---|

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { db, loadSettings, loadSteps, sentSince } from "@/lib/outreach/engine";
-import { setupStatus } from "@/lib/outreach/config";
+import { postalAddress, setupStatus } from "@/lib/outreach/config";
+import { dnsStatus, loadWarmup } from "@/lib/outreach/warmup-run";
+import { WARMUP_TZ, localPartsSafe, warmupDay, warmupReadiness, warmupStats, warmupTarget } from "@/lib/outreach/warmup";
 import { startOfPacificDay } from "@/lib/outreach/time";
 import { OutreachApp, type OutreachData } from "@/components/agency/outreach/outreach-app";
 import type { Campaign, Lead, Message, Reply, Task } from "@/lib/outreach/shared";
@@ -15,6 +17,7 @@ import type { Campaign, Lead, Message, Reply, Task } from "@/lib/outreach/shared
  *   Leads      every spa with status and fit; drawer with its emails, replies and actions
  *   Inbox      replies, bounces and auto-replies read from the outreach mailbox
  *   Sequence   the 3 steps · Settings: cap, window, days, approval, pause, do-not-contact
+ *   Warm-up    CP-250e (on Overview): warm-up progress, readiness checks, contacts, Go live
  * agency_admin only (checked here; the sidebar flag is cosmetic).
  */
 export const dynamic = "force-dynamic";
@@ -55,6 +58,14 @@ export default async function OutreachPage() {
   const [today, sent7] = sqlMissing ? [0, 0] : await Promise.all([sentSince(startOfPacificDay(now)), sentSince(week)]);
   const replies = (repliesQ.data ?? []) as Reply[];
 
+  // CP-250e · warm-up: contacts, log, DNS and the readiness checks.
+  const [wu, dnsNow] = sqlMissing ? [{ contacts: [], log: [] }, null] : await Promise.all([loadWarmup().catch(() => ({ contacts: [], log: [] })), dnsStatus()]);
+  const activeContacts = wu.contacts.filter((c) => c.active).length;
+  const wStats = warmupStats(wu.log, now);
+  const wDns = dnsNow ?? { domain: null, spf: null, dkim: null, dmarc: null };
+  const readiness = warmupReadiness({ startedAt: settings.warmup_started_at, now, stats: wStats, dns: wDns, postal: !!postalAddress(), contacts: activeContacts });
+  const wl = localPartsSafe(now, WARMUP_TZ);
+
   const data: OutreachData = {
     sqlMissing,
     setup: setupStatus(),
@@ -65,6 +76,10 @@ export default async function OutreachPage() {
     messages,
     replies,
     tasks: (tasksQ.data ?? []) as Task[],
+    warmup: {
+      contacts: wu.contacts, recent: wu.log.slice(0, 30), stats: wStats, readiness, dns: wDns,
+      target: warmupTarget(warmupDay(settings.warmup_started_at, now) || 1, wl.weekend, activeContacts),
+    },
     suppressions: (suppQ.data ?? []) as OutreachData["suppressions"],
     stats: {
       sentToday: today,

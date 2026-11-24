@@ -135,6 +135,8 @@ export type Settings = {
   next_send_after: string | null; last_tick_at: string | null; last_tick_note: string | null;
   write_mode: WriteMode; writing_notes: string;
   optout_style: OptoutStyle;
+  /** CP-250e · mailbox warm-up (warmup.ts / warmup-run.ts). */
+  warmup_enabled: boolean; warmup_started_at: string | null; next_warmup_after: string | null; warmup_ready_notified_at: string | null;
 };
 /**
  * CP-250d · how an email lets people opt out. 'reply' (default): "just reply no thanks", no link and no
@@ -150,6 +152,7 @@ export const DEFAULT_SETTINGS: Settings = {
   approve_followups: false, paused: false, paused_reason: null, from_name: "Andrew Montano",
   signature: "Andrew Montano\nAtlas Engine · atlas-engine.app", next_send_after: null, last_tick_at: null, last_tick_note: null,
   write_mode: "opener", writing_notes: "", optout_style: "reply",
+  warmup_enabled: true, warmup_started_at: null, next_warmup_after: null, warmup_ready_notified_at: null,
 };
 
 /** The warm-up ramp the Settings tab recommends for a brand-new domain (per mailbox, per day). */

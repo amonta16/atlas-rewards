@@ -31,6 +31,10 @@ import { EMAIL_RE, MANUAL_STATUSES, MAX_CAP, OUTCOMES, OUTCOME_LABEL, footer, ho
  *   recontacted   { lead_id }                           CP-250b: you followed up by hand → Replied
  *   task_done     { task_id, outcome, note? }           CP-250b/c: a call or Instagram DM from the To-do list, with how it went
  *   suppress      { value }                             email or @domain
+ *   warmup_add    { email, name?, is_me? }              CP-250e: a friend/family address for warm-up
+ *   warmup_remove { email }
+ *   warmup_enabled { enabled }                          turn warm-up sending on/off
+ *   go_live                                             un-pause real spa emails (warm-up keeps going lightly)
  *   check_mailbox                                       log in to SMTP + IMAP, send nothing
  *   test_email    { step? , subject, body }             send a preview to the admin's own email from the outreach mailbox
  *   run_now                                             one engine run now (ignores the random gap; still obeys OUTREACH_SEND)
@@ -346,6 +350,31 @@ export async function POST(req: Request) {
         if (!(EMAIL_RE.test(v) || /^@[a-z0-9.-]+\.[a-z]{2,}$/.test(v))) return bad("Enter an email or @domain.com.");
         await suppress(v, "manual");
         return NextResponse.json({ ok: true });
+      }
+
+      case "warmup_add": {
+        const email = str(b.email, 200).toLowerCase();
+        if (!EMAIL_RE.test(email)) return bad("That email doesn't look right.");
+        const { error } = await d.from("outreach_warmup_contacts").upsert({ email, name: nul(b.name, 60), is_me: b.is_me === true, active: true }, { onConflict: "email" });
+        if (error) return bad(`Couldn't save: ${error.message}. Has the CP-250e SQL been applied?`, 500);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "warmup_remove": {
+        const email = str(b.email, 200).toLowerCase();
+        await d.from("outreach_warmup_contacts").delete().eq("email", email);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "warmup_enabled": {
+        const { error } = await d.from("outreach_settings").update({ warmup_enabled: b.enabled === true, updated_at: new Date().toISOString() }).eq("id", 1);
+        if (error) return bad(`Couldn't save: ${error.message}. Has the CP-250e SQL been applied?`, 500);
+        return NextResponse.json({ ok: true });
+      }
+
+      case "go_live": {
+        await d.from("outreach_settings").update({ paused: false, paused_reason: null, updated_at: new Date().toISOString() }).eq("id", 1);
+        return NextResponse.json({ ok: true, note: "Live: approved spa emails go out in the next send window, up to your daily cap." });
       }
 
       case "check_mailbox": {
