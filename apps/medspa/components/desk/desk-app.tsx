@@ -53,6 +53,8 @@ const Scanner = dynamic(() => import("@yudiel/react-qr-scanner").then((m) => m.S
 
 type DeskClinic = {
   id: string; slug: string; name: string; logoUrl: string | null; heroUrl: string | null; primary: string; phone: string | null; demo: boolean;
+  /** CP-269: the clinic's square app icon (or its logo), shown top-left instead of Atlas's. */
+  iconUrl: string | null;
   pointsPerDollar: number; visitPoints: number; offersOn: boolean;
   recall: { enabled: boolean; lead_days: number; followup_days: number };
   /** CP-241: the AI skin scan is on in the patient app. */
@@ -207,18 +209,18 @@ export function DeskApp({ clinic, staff, builder, initialView, initialMonth }: {
     <div className={`min-h-[100dvh] bg-[#F6F7F7] text-ink lg:flex ${portal && imported ? "pb-14" : ""}`}>
       {/* Sidebar */}
       <aside className="glide-desk-nav border-b border-line bg-[#F9FAFA] lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:w-[256px] lg:shrink-0 lg:flex-col lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2.5 px-5 py-4 lg:px-7 lg:pt-7">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/atlas-icon-512.png" alt="" className="h-9 w-9 rounded-[10px]" />
-          <span className="text-[20px] font-bold tracking-[-0.02em]">Atlas</span>
-        </div>
+        {/* CP-269: the clinic's own mark and name, not Atlas's (Atlas is credited at the bottom) */}
+        <div className="px-5 py-4 lg:px-7 lg:pt-7"><ClinicMark name={clinic.name} iconUrl={clinic.iconUrl} /></div>
         <nav aria-label="Desk" data-glide-tabs className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-3 lg:mt-5 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-y-auto lg:px-4">
           {NAV.map((n) => navButton(n))}
           {ACCOUNT.length > 0 && <span aria-hidden className="mx-1 shrink-0 self-stretch border-l border-line lg:mx-3.5 lg:my-3 lg:border-l-0 lg:border-t" />}
           {ACCOUNT.map((n) => navButton(n, true))}
         </nav>
         <div className="mt-auto hidden shrink-0 space-y-3 px-4 pb-5 pt-3 lg:block">
-          <div className="truncate rounded-[12px] border border-line bg-white px-3.5 py-2.5 text-[13.5px] font-semibold">{clinic.name}</div>
+          <p className="flex items-center gap-1.5 px-1 text-[12px] font-medium text-faint">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/atlas-icon-512.png" alt="" className="h-4 w-4 rounded-[4px]" />Powered by Atlas
+          </p>
           {goLive.kind !== "live" ? (
             <div className="rounded-[14px] bg-brand/[.08] p-4">
               <p className="text-[14px] font-semibold">{goLive.kind === "preview" ? "You're on a free preview" : "This is the demo"}</p>
@@ -793,5 +795,39 @@ function Activity({ api }: { api: DeskApi }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * CP-269 · the clinic's mark, top-left of the desk. A square icon sits beside the clinic's name; a wide logo
+ * (a wordmark, wider than 1.6 : 1) shows on its own, since it already says the name. No image, or one that
+ * fails to load: the clinic's initial in its brand color.
+ */
+function ClinicMark({ name, iconUrl }: { name: string; iconUrl: string | null }) {
+  const [shape, setShape] = useState<"square" | "wide" | "none">(iconUrl ? "square" : "none");
+  const img = useRef<HTMLImageElement>(null);
+  const measure = (i: HTMLImageElement | null) => {
+    if (!i || !i.complete) return;
+    if (!i.naturalWidth) { setShape("none"); return; }
+    if (i.naturalHeight && i.naturalWidth / i.naturalHeight > 1.6) setShape("wide");
+  };
+  // A cached image can finish loading before React attaches onLoad; check it once on mount too.
+  useEffect(() => { measure(img.current); }, []);
+  const initial = (name.trim()[0] ?? "A").toUpperCase();
+  if (shape === "wide" && iconUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={iconUrl} alt={name} className="h-10 w-auto max-w-[200px] object-contain object-left" />;
+  }
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      {shape === "square" && iconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img ref={img} src={iconUrl} alt="" className="h-9 w-9 shrink-0 rounded-[10px] bg-white object-contain ring-1 ring-line"
+          onLoad={(e) => measure(e.currentTarget)} onError={() => setShape("none")} />
+      ) : (
+        <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-brand text-[17px] font-bold text-white">{initial}</span>
+      )}
+      <span className="min-w-0 truncate text-[18px] font-bold leading-tight tracking-[-0.02em]">{name}</span>
+    </div>
   );
 }
