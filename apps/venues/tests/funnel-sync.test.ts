@@ -10,7 +10,7 @@ import * as venuesConsent from "../lib/preview/consent";
 import * as medspaConsent from "../../medspa/lib/sms-consent";
 import { GUARANTEES, LAUNCH_BONUS as V_BONUS, LAUNCH_CALL as V_CALL, TEAM_PROOF as V_TEAM } from "../lib/landing/medspa-funnel";
 import { CALL_MINUTES } from "../lib/landing/availability";
-import { LAUNCH_BONUS as M_BONUS, LAUNCH_CALL as M_CALL, MECHANISM, OFFER, TEAM_PROOF as M_TEAM } from "../../medspa/lib/offer";
+import { GUARANTEE_100, LAUNCH_BONUS as M_BONUS, LAUNCH_CALL as M_CALL, MECHANISM, OFFER, TEAM_PROOF as M_TEAM } from "../../medspa/lib/offer";
 
 test("SMS consent wording is identical in both apps", () => {
   assert.equal(medspaConsent.SMS_INFO_CONSENT_TEXT, venuesConsent.SMS_INFO_CONSENT_TEXT);
@@ -60,4 +60,10 @@ test("CP-264: the guarantee lines match across apps, and the 100-patient one lea
   assert.match(g.fine, /Atlas dashboard/);
   assert.match(g.fine, /300 patient visits/);
   assert.ok(GUARANTEES.some((x) => x.id === "pays"), "the pays-for-itself guarantee is still offered");
+});
+
+test("CP-265: the preview page's guarantee wording is the venue site's, word for word", () => {
+  assert.equal(GUARANTEE_100.body, GUARANTEES[0].body);
+  assert.equal(GUARANTEE_100.fine, GUARANTEES[0].fine);
+  assert.match(GUARANTEE_100.line, /^100 of your patients on your app within 90 days/);
 });

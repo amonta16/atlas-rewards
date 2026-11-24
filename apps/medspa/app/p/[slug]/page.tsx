@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GuaranteeTerms } from "@/components/guarantee-seal"; // CP-265
 import QRCode from "react-qr-code";
 import { getPreviewRow, getPreviewState, pitchFor, PREVIEW_SLUG_RE } from "@/lib/preview";
 import { AutoRefresh, PreviewActions } from "@/components/preview-actions";
@@ -164,6 +165,8 @@ export default async function PreviewPage({ params, searchParams }: { params: { 
         {/* CP-251: the team (hackathon), then the reviews */}
         <TeamProof primary={primary} />
         <Reviews images={reviews} />
+        {/* CP-265: the guarantee's full terms (the seal in the call offer links here) */}
+        {!taken && <GuaranteeTerms />}
         {!taken && <PostScript businessName={row.business_name} walkthroughUrl={book("ps")} primary={primary} expires={expires} />}
       </div>
     </Shell>

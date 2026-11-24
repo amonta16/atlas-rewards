@@ -152,6 +152,26 @@
   .s-gull { display: none; }
 }
 
+/* CP-265 · the /medspa/app hero background (components/landing/sales-arc.tsx).
+ * .s-arc-run  a short light that travels along the outer arc, left to right, then rests.
+ * .s-ping     a "payment received" card: rises in, holds about 5 s, fades up and out, on an 18 s loop
+ *             (stagger with --d). Reduced motion: no light; the first two cards sit still, the rest hide. */
+.s-arc-run { stroke-dashoffset: 1000; animation: s-arc-run 9s cubic-bezier(.45,0,.55,1) 1.2s infinite; }
+@keyframes s-arc-run { 0% { stroke-dashoffset: 1000; opacity: 0 } 8% { opacity: 1 } 62% { opacity: 1 } 70%, 100% { stroke-dashoffset: -60; opacity: 0 } }
+.s-ping { opacity: 0; animation: s-ping 18s cubic-bezier(.22,1,.36,1) var(--d, 0s) infinite; will-change: transform, opacity; }
+@keyframes s-ping {
+  0% { opacity: 0; transform: translateY(12px) scale(.97) }
+  3% { opacity: .92; transform: none }
+  27% { opacity: .92; transform: none }
+  31% { opacity: 0; transform: translateY(-8px) scale(.98) }
+  100% { opacity: 0; transform: translateY(-8px) scale(.98) }
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-arc-run { display: none; }
+  .s-ping { animation: none; opacity: 0; }
+  .s-ping:nth-child(1), .s-ping:nth-child(2) { opacity: .85; }
+}
+
 /* CP-253 · the "click here" field (the search on /medspa/app): a blue border with a light travelling around it
  * (a slow spinning conic gradient behind a 2 px gap) and a soft blue pulse around the box. Stronger on focus.
  * Reduced motion: a still blue border. */

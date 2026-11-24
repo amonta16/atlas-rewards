@@ -16,10 +16,9 @@
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
-import { GuaranteeBand, GuaranteeTerms } from "@/components/landing/guarantee-seal"; // CP-264
+import { SalesArc } from "@/components/landing/sales-arc"; // CP-265
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
-import { Gulls } from "@/components/landing/gulls"; // CP-252
 import { StickyBuildBar } from "./sticky-build-bar"; // CP-254
 import { Showcase } from "@/components/site/showcase"; // CP-258
 import { OwnerVideos } from "@/components/landing/owner-videos"; // CP-258
@@ -422,7 +421,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
             <div className="absolute -left-[18%] bottom-[-30%] h-[640px] w-[640px] rounded-full bg-[radial-gradient(closest-side,rgba(6,49,143,.45),transparent)]" />
           </div>
           <div aria-hidden className="s-gridbg-dark" />
-          <Gulls tone="light" className="h-[520px]" />
+          {/* CP-265: the half-circle and payment notifications (was the paper birds) */}
+          <SalesArc />
           <header className="s-wrap relative z-10 flex h-[72px] items-center justify-between">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/landing/atlas-engine-logo-navy.png" alt="Atlas Engine" width={1315} height={494} className="h-7 w-auto brightness-0 invert" />
@@ -495,9 +495,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         <section className="relative flow-root bg-white">
           <div className="s-wrap pb-6 text-center">
             <figure className="s-rise relative z-[1] mx-auto -mt-24 w-full max-w-[920px] rounded-[28px] bg-white px-3 pb-3 pt-4 shadow-[0_40px_90px_-40px_rgba(2,20,70,.55)] ring-1 ring-black/5 sm:-mt-32" style={{ ["--d" as string]: ".36s" }}>
-              {/* CP-264: the 100-patient guarantee as the card's top row (seal + one sentence), terms at the bottom. */}
-              <GuaranteeBand />
-              <div className="pt-3"><TrioVideo /></div>
+              {/* CP-265: no guarantee here, the page's only job is the search box; it's on the preview page. */}
+              <TrioVideo />
               <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Real med spa apps. Each one built from the spa&apos;s own website.</figcaption>
             </figure>
           </div>
@@ -511,7 +510,6 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         <OwnerVideos />
         {/* CP-259: the fine print, at the very bottom instead of under the phones (room for the sticky bar below it) */}
         <footer className="border-t border-[#0B1B2B]/8 bg-white pb-28 pt-8">
-          <GuaranteeTerms />
           <p className="s-wrap mx-auto max-w-[40rem] text-center text-[12.5px] leading-relaxed text-[#6B7A8C]">
             No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
             (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}
