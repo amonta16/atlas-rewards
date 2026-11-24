@@ -1,4 +1,5 @@
 -- CP-250e · Automated mailbox warm-up + a "ready for real spas" check. Additive and safe to re-run.
+-- Applied to production 2026-11-24 as migration cp250e_warmup (comments trimmed; same statements).
 --
 -- A brand-new domain/mailbox that suddenly emails strangers lands in spam. Warm-up builds reputation
 -- first: the engine sends a few honest, personal emails a day from the outreach mailbox to people who

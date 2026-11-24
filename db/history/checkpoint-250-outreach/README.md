@@ -51,7 +51,7 @@ A new mailbox that suddenly emails strangers lands in spam, so the engine warms 
 - **Replies and bounces** from those addresses are recorded on `outreach_warmup_log`. They're not treated as lead replies and don't show up in the Inbox tab.
 - **Ready check**, all of which must pass: SPF, DKIM and DMARC published (checked live in DNS), 14 days of warm-up, 40+ warm-up emails, 8+ replies, no bounces, `MAIL_POSTAL_ADDRESS` set, and 3+ contacts. The first time everything passes, Andrew's own address (the contact marked "you") gets one email: "ready for real spas".
 - **Real spas wait** on the existing Pause switch. Real sending was paused on 2026-11-24, the moment `OUTREACH_SEND=1` was set, so 2 approved Las Vegas spa emails couldn't go out from a cold domain. **Go live** un-pauses real sends. While warm-up isn't finished, there's a "Go live anyway" button with a warning. Warm-up keeps running lightly after Go live.
-- SQL: `cp250e_warmup.sql` adds 2 tables plus 4 columns on `outreach_settings`. It's additive and safe to re-run.
+- SQL: `cp250e_warmup.sql` adds 2 tables plus 4 columns on `outreach_settings`. Applied to production 2026-11-24 (migration `cp250e_warmup`), with the 5 warm-up contacts added in the database.
 
 ## How it works
 | Piece | Where |
