@@ -77,6 +77,10 @@
 .s-arrow { animation: s-arrow 1.8s ease-in-out infinite; }
 .s-screen { position: absolute; inset: 44px 0 0 0; opacity: 0; transform: translateY(10px) scale(.985); transition: opacity .55s cubic-bezier(.2,.8,.2,1), transform .55s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
 .s-screen.s-on { opacity: 1; transform: none; pointer-events: auto; }
+/* CP-276 · the Results photo card (components/landing/results-showcase.tsx): the same curve as .s-screen, full-bleed,
+ * with a slow settle-in zoom so the next owner photo eases into place. Reduced motion: no transition (below). */
+.s-case { position: absolute; inset: 0; opacity: 0; transform: scale(1.04); transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform 1.4s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.s-case.s-on { opacity: 1; transform: none; pointer-events: auto; }
 .s-rail-fill { transform-origin: top; transform: scaleY(0); }
 .s-rail-fill.s-on { animation: s-fill var(--s-dwell, 4.5s) linear forwards; }
 @keyframes s-fill { from { transform: scaleY(0) } to { transform: scaleY(1) } }
@@ -101,7 +105,7 @@
   .s-marquee > [aria-hidden="true"] { display: none; }
   .s-rail-fill.s-on { animation: none !important; transform: scaleY(1); }
   .s-ping::after { display: none; }
-  .s-reveal, .s-screen { transition: none !important; }
+  .s-reveal, .s-screen, .s-case { transition: none !important; }
   .s-reveal { opacity: 1 !important; transform: none !important; }
 }
 
