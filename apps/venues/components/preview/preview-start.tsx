@@ -19,6 +19,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, 
 import { PhoneToasts, SalesArc } from "@/components/landing/sales-arc"; // CP-265
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
+import { ResultsShowcase } from "@/components/landing/results-showcase"; // CP-268
 import { StickyBuildBar } from "./sticky-build-bar"; // CP-254
 import { Showcase } from "@/components/site/showcase"; // CP-258
 import { OwnerVideos } from "@/components/landing/owner-videos"; // CP-258
@@ -502,6 +503,8 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
           </div>
         </section>
         {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
+        {/* CP-268: client results (placeholders until real case studies are in RESULTS) */}
+        <ResultsShowcase />
         <TeamProof />
         {/* CP-258: the /med-spas product showcase (tabs + changing phone), so owners see how it works in detail */}
         <Showcase embedded onStart={toSearch} />

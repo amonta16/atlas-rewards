@@ -193,6 +193,10 @@
   .s-chipflow:nth-child(1) { opacity: .5; }
 }
 
+/* CP-268 · the results tabs: the active clinic's progress line fills over 7 s (components/landing/results-showcase.tsx). */
+.s-results-bar { width: 0; animation: s-results-bar 7s linear forwards; }
+@keyframes s-results-bar { to { width: 100% } }
+
 /* CP-253 · the "click here" field (the search on /medspa/app): a blue border with a light travelling around it
  * (a slow spinning conic gradient behind a 2 px gap) and a soft blue pulse around the box. Stronger on focus.
  * Reduced motion: a still blue border. */

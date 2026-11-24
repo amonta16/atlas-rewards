@@ -19,7 +19,7 @@ export function TeamProof() {
             <article key={p.id} aria-labelledby={`proof-${p.id}`} className="rounded-2xl border border-[#E3E6EA] bg-white p-5 sm:p-6">
               <header className="flex items-center gap-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/atlas-icon-512.png" alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-full ring-1 ring-[#E3E6EA]" />
+                <img src="/landing/founder-avatar.webp" alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-[#E3E6EA]" />
                 <span className="min-w-0">
                   <span className="block text-[16px] font-bold leading-tight text-[#0F1419]">Atlas Engine</span>
                   <span className="block truncate text-[14px] leading-tight text-[#536471]">{p.meta}</span>

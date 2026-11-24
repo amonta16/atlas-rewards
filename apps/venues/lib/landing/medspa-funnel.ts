@@ -222,6 +222,29 @@ export const OWNER_VIDEOS = {
   videos: [] as Array<{ youtube: string; name: string; practice: string; city: string; quote: string }>,
 };
 
+/**
+ * CP-268 · client results on /medspa/app, above "Why we built Atlas" (components/landing/results-showcase.tsx):
+ * big numbers on the left, the owner's photo or video on the right, and a row of clinic tabs that rotate.
+ * Real case studies only: every number comes from the clinic's own Atlas dashboard and goes up only with the
+ * owner's written OK. Until there are `slots` of them, placeholder cards fill the rest while `showSlots` is
+ * true (no names, no numbers); set it to false to show only real ones (the section hides when there are none).
+ * To add one: copy the example below into `cases`. `photo` is a file in public/landing/results/,
+ * `logo` likewise (optional; the clinic's name shows when there's no logo).
+ *   { id: "spa-by-the-bay", clinic: "Spa by the Bay", logo: null, photo: "spa-by-the-bay.webp", youtube: null,
+ *     headline: "See how Spa by the Bay used Atlas to …",
+ *     stats: [{ value: "+38%", label: "Average patient spend" }, { value: "+$4.2K", label: "Monthly membership revenue" }],
+ *     uses: ["memberships", "rewards"] }
+ */
+export type ResultUse = "memberships" | "rewards" | "recall" | "shop" | "push";
+export const RESULTS = {
+  showSlots: true,
+  slots: 4,
+  cases: [] as Array<{
+    id: string; clinic: string; logo: string | null; photo: string | null; youtube: string | null;
+    headline: string; stats: Array<{ value: string; label: string }>; uses: ResultUse[];
+  }>,
+};
+
 export const FOUNDING = {
   active: true,
   spots: 10,
