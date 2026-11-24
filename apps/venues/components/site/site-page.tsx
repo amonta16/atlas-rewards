@@ -31,6 +31,7 @@ import { DeskListMock } from "./site-mocks";
 import { SHOW_REVIEW_SLOTS, SITE_BADGES, SITE_REVIEWS, partnerLine, realReviews, reviewFor } from "@/lib/landing/site-reviews";
 import { ReviewQuote } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
+import { AsSeenAtSection } from "@/components/landing/as-seen-at"; // CP-277
 import { ReviewImageMarquee, useReviewImages } from "@/components/landing/review-images"; // CP-240
 // CP-194: Dermis-style client results band under the hero.
 import { ClientResults } from "./client-results";
@@ -69,6 +70,8 @@ function Page() {
         <Pricing onStart={() => start("pricing")} />
         <QuoteRow topic="pricing" skip={[reviewFor("recall")?.id ?? ""]} />
         <Compare />
+        {/* CP-277: "As seen at" the Cal Poly AI Hackathon (photo, event numbers, recap link) */}
+        <AsSeenAtSection />
         {/* CP-255: "Reviews" in the nav lands here: the proof cards (owner video, Flippo's, hackathon), then the reviews */}
         <div id="reviews" className="scroll-mt-16">
           <TeamProof />
