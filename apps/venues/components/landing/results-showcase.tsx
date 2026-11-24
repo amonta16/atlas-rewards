@@ -1,0 +1,149 @@
+"use client";
+/**
+ * components/landing/results-showcase.tsx — CP-268 · client results on /medspa/app, above "Why we built Atlas".
+ *
+ *   left   the results in big bold numbers (a blue rule beside each), then what the clinic uses
+ *   right  the owner's photo (or video) in a 16:9 card: clinic name top-left, the headline bottom-left
+ *   below  a tab per clinic; the active one fills a blue progress line and the next one takes over (7 s)
+ *
+ * Data: RESULTS in lib/landing/medspa-funnel.ts. Real case studies only (dashboard numbers, the owner's OK).
+ * While there are fewer than RESULTS.slots and showSlots is on, placeholder cards fill the rest: no names,
+ * no numbers, a "coming soon" photo. Reduced motion: no auto-advance (tabs still work).
+ */
+import { useEffect, useState } from "react";
+import { BellRing, CalendarClock, Camera, Crown, Gift, ShoppingBag } from "lucide-react";
+import { RESULTS, type ResultUse } from "@/lib/landing/medspa-funnel";
+import { YouTubeLite } from "@/components/landing/youtube-lite";
+
+type Case = (typeof RESULTS.cases)[number] & { placeholder?: boolean };
+
+const USES: Record<ResultUse, { label: string; Icon: typeof Crown }> = {
+  memberships: { label: "Memberships", Icon: Crown },
+  rewards: { label: "Rewards", Icon: Gift },
+  recall: { label: "Due-date reminders", Icon: CalendarClock },
+  shop: { label: "In-app shop", Icon: ShoppingBag },
+  push: { label: "Push offers", Icon: BellRing },
+};
+
+const PLACEHOLDER = (n: number): Case => ({
+  id: `slot-${n}`, clinic: `Case study ${n}`, logo: null, photo: null, youtube: null, placeholder: true,
+  headline: "Real results, in the owner's own words. Coming soon.",
+  stats: [{ value: "+—%", label: "Average patient spend" }, { value: "+$—", label: "Monthly membership revenue" }],
+  uses: ["memberships", "rewards"],
+});
+
+const STEP_MS = 7000;
+
+export function ResultsShowcase() {
+  const real: Case[] = RESULTS.cases;
+  const list: Case[] = RESULTS.showSlots
+    ? [...real, ...Array.from({ length: Math.max(0, RESULTS.slots - real.length) }, (_, i) => PLACEHOLDER(real.length + i + 1))]
+    : real;
+  const [idx, setIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [still, setStill] = useState(false);
+
+  useEffect(() => { setStill(!!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches); }, []);
+  useEffect(() => {
+    if (still || paused || list.length < 2) return;
+    const t = window.setTimeout(() => setIdx((i) => (i + 1) % list.length), STEP_MS);
+    return () => window.clearTimeout(t);
+  }, [idx, paused, still, list.length]);
+
+  if (!list.length) return null;
+  const c = list[idx];
+  const muted = c.placeholder;
+
+  return (
+    <section aria-label="Results" className="border-t border-[#0B1B2B]/8 bg-white py-14 sm:py-20"
+      onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
+      <div className="s-wrap">
+        <p className="text-center text-[13px] font-semibold uppercase tracking-[0.12em] text-[#0B5FD6]">Results</p>
+
+        <div className="mx-auto mt-8 grid max-w-[1180px] gap-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-center lg:gap-12">
+          {/* The numbers (under the photo on a phone) */}
+          <div className="order-2 lg:order-1" aria-live="polite">
+            <dl className="grid grid-cols-2 gap-6 lg:grid-cols-1 lg:gap-9">
+              {c.stats.map((s) => (
+                <div key={s.label} className="border-l-[3px] border-[#0B5FD6] pl-4 sm:pl-5">
+                  <dt className="sr-only">{s.label}</dt>
+                  <dd className={`text-[34px] font-bold leading-none tracking-[-0.03em] sm:text-[44px] ${muted ? "text-[#C3CEDB]" : "text-[#0B1B2B]"}`}>{s.value}</dd>
+                  <dd className="mt-2 text-[15px] leading-snug text-[#5B6B7E] sm:text-[16px]">{s.label}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-8 text-[15px] font-semibold text-[#0B1B2B]">What they use</p>
+            <ul className="mt-3 space-y-2.5">
+              {c.uses.map((u) => {
+                const { label, Icon } = USES[u];
+                return (
+                  <li key={u} className="flex items-center gap-3 text-[15.5px] text-[#3A4A5C]">
+                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#EAF2FF] text-[#0B5FD6]"><Icon className="h-4 w-4" aria-hidden /></span>{label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* The owner */}
+          <figure className="order-1 lg:order-2">
+            <div className="relative aspect-square overflow-hidden rounded-[24px] bg-[#0B1B2B] shadow-[0_30px_60px_-30px_rgba(2,20,70,.55)] sm:aspect-video">
+              {c.youtube ? (
+                <YouTubeLite id={c.youtube} title={`${c.clinic}: owner interview`} className="absolute inset-0 h-full" />
+              ) : c.photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={`/landing/results/${c.photo}`} alt={`${c.clinic}, the owner`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" decoding="async" />
+              ) : (
+                <div className="absolute inset-0">
+                  <div aria-hidden className="h-full w-full bg-[linear-gradient(135deg,#39A0FF_0%,#0B5FD6_45%,#06318F_100%)]" />
+                  <div aria-hidden className="s-gridbg-dark" />
+                  <div className="absolute inset-0 grid place-items-center pb-12 sm:pb-16">
+                    <span className="flex flex-col items-center gap-3 text-white/80">
+                      <span className="grid h-16 w-16 place-items-center rounded-full bg-white/12 ring-1 ring-white/30"><Camera className="h-7 w-7" aria-hidden /></span>
+                      <span className="text-[13px] font-semibold uppercase tracking-[0.14em]">Owner photo coming soon</span>
+                    </span>
+                  </div>
+                </div>
+              )}
+              {!c.youtube && (
+                <>
+                  <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#06142B]/80 via-[#06142B]/10 to-[#06142B]/35" />
+                  <div className="absolute left-5 top-5 sm:left-8 sm:top-7">
+                    {c.logo
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={`/landing/results/${c.logo}`} alt={c.clinic} className="h-8 w-auto brightness-0 invert sm:h-10" />
+                      : <span className="text-[18px] font-semibold uppercase tracking-[0.12em] text-white sm:text-[24px]">{c.clinic}</span>}
+                  </div>
+                  <figcaption className="absolute inset-x-5 bottom-5 max-w-[30ch] text-[18px] font-semibold leading-snug tracking-[-0.01em] text-white sm:inset-x-8 sm:bottom-7 sm:text-[26px]">
+                    {c.headline}
+                  </figcaption>
+                </>
+              )}
+            </div>
+          </figure>
+        </div>
+
+        {/* The clinics */}
+        {list.length > 1 && (
+          <div role="tablist" aria-label="Clinics" className="mx-auto mt-8 grid max-w-[1180px] grid-cols-2 sm:grid-cols-4">
+            {list.map((x, i) => {
+              const on = i === idx;
+              return (
+                <button key={x.id} type="button" role="tab" aria-selected={on} onClick={() => setIdx(i)}
+                  className="s-focus group relative flex h-20 items-center justify-center px-3 text-center">
+                  <span aria-hidden className="absolute inset-x-2 top-0 h-[3px] overflow-hidden rounded-full bg-[#E3E8EF]">
+                    {on && <span key={`${idx}-${paused}-${still}`} className={`block h-full rounded-full bg-[#0B5FD6] ${still || paused ? "w-full" : "s-results-bar"}`} />}
+                  </span>
+                  {x.logo
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={`/landing/results/${x.logo}`} alt={x.clinic} className={`h-8 w-auto max-w-full object-contain transition-opacity ${on ? "opacity-100" : "opacity-50 group-hover:opacity-80"}`} />
+                    : <span className={`text-[14px] font-semibold uppercase tracking-[0.12em] transition-colors ${x.placeholder ? (on ? "text-[#8A99AB]" : "text-[#C3CEDB]") : on ? "text-[#0B1B2B]" : "text-[#8A99AB] group-hover:text-[#3A4A5C]"}`}>{x.clinic}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
