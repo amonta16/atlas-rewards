@@ -15,8 +15,8 @@
  * request failure ends on a clear message with a way forward, never a blank page.
  */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, ShieldCheck, WifiOff } from "lucide-react";
-import { GUARANTEES } from "@/lib/landing/medspa-funnel"; // CP-264: the 100-patient guarantee on the showcase
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Loader2, MapPin, RotateCcw, Search, WifiOff } from "lucide-react";
+import { GuaranteeBand, GuaranteeTerms } from "@/components/landing/guarantee-seal"; // CP-264
 import { ReviewStrip } from "@/components/landing/review-strip"; // CP-239
 import { TeamProof } from "@/components/landing/team-proof"; // CP-251
 import { Gulls } from "@/components/landing/gulls"; // CP-252
@@ -495,13 +495,9 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         <section className="relative flow-root bg-white">
           <div className="s-wrap pb-6 text-center">
             <figure className="s-rise relative z-[1] mx-auto -mt-24 w-full max-w-[920px] rounded-[28px] bg-white px-3 pb-3 pt-4 shadow-[0_40px_90px_-40px_rgba(2,20,70,.55)] ring-1 ring-black/5 sm:-mt-32" style={{ ["--d" as string]: ".36s" }}>
-              {/* CP-264: the 100-patient guarantee, pinned to the top edge of the phones card (fine print in the footer). */}
-              {/* In the card's flow on a phone; sitting on its top edge from sm up. */}
-              <a href="#pv-guarantee" className="s-focus relative z-[2] mx-auto mb-2 inline-flex items-center gap-2 rounded-full bg-[#0B1B2B] py-1.5 pl-1.5 pr-3.5 text-left text-[12.5px] font-bold leading-tight text-white shadow-[0_14px_30px_-12px_rgba(2,20,70,.6)] sm:absolute sm:left-1/2 sm:top-0 sm:mb-0 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:whitespace-nowrap sm:py-2 sm:pl-2 sm:pr-4 sm:text-[14.5px] sm:ring-2 sm:ring-white">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#FFC94D] text-[#0B1B2B] sm:h-7 sm:w-7"><ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden /></span>
-                <span><span className="sm:hidden">100 patients in 90 days, or every dollar back</span><span className="hidden sm:inline">{GUARANTEES[0].short}</span><sup className="ml-0.5 text-[#FFC94D]">*</sup></span>
-              </a>
-              <div className="sm:pt-5"><TrioVideo /></div>
+              {/* CP-264: the 100-patient guarantee as the card's top row (seal + one sentence), terms at the bottom. */}
+              <GuaranteeBand />
+              <div className="pt-3"><TrioVideo /></div>
               <figcaption className="mt-1 text-[13px] text-[#6B7A8C]">Real med spa apps. Each one built from the spa&apos;s own website.</figcaption>
             </figure>
           </div>
@@ -515,9 +511,7 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         <OwnerVideos />
         {/* CP-259: the fine print, at the very bottom instead of under the phones (room for the sticky bar below it) */}
         <footer className="border-t border-[#0B1B2B]/8 bg-white pb-28 pt-8">
-          <p id="pv-guarantee" className="s-wrap mx-auto mb-4 max-w-[40rem] scroll-mt-24 text-center text-[12.5px] leading-relaxed text-[#6B7A8C]">
-            <b className="text-[#3A4A5C]">*The 100-Patient Guarantee.</b> {GUARANTEES[0].body} {GUARANTEES[0].fine}
-          </p>
+          <GuaranteeTerms />
           <p className="s-wrap mx-auto max-w-[40rem] text-center text-[12.5px] leading-relaxed text-[#6B7A8C]">
             No form first: your app opens as soon as it&apos;s built. Text messages only if you ask for one
             (&ldquo;Text me my app&rdquo; on your preview), and you can reply STOP any time.{" "}
