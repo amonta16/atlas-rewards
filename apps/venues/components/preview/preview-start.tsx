@@ -23,6 +23,7 @@ import { ResultsShowcase } from "@/components/landing/results-showcase"; // CP-2
 import { StickyBuildBar } from "./sticky-build-bar"; // CP-254
 import { Showcase } from "@/components/site/showcase"; // CP-258
 import { OwnerVideos } from "@/components/landing/owner-videos"; // CP-258
+import { AsSeenAtStamp, JudgeReactions } from "@/components/landing/as-seen-at"; // CP-277
 import { track } from "@/lib/landing/analytics";
 import { BOOKING_TOOLS, CHALLENGES, MIN_OFFERED, OFFER_GROUPS, PICK, PRIORITIES } from "@/lib/preview/quiz";
 import QRCode from "react-qr-code";
@@ -505,12 +506,16 @@ export function PreviewStart({ smsNumber: rawSms = null }: { smsNumber?: string 
         {/* CP-251: the team, then real client reviews, near the bottom (reviews render only once there are some). */}
         {/* CP-268: client results (placeholders until real case studies are in RESULTS) */}
         <ResultsShowcase />
+        {/* CP-277: a small "As seen at" stamp, then "Why we built Atlas" */}
+        <AsSeenAtStamp />
         <TeamProof />
         {/* CP-258: the /med-spas product showcase (tabs + changing phone), so owners see how it works in detail */}
         <Showcase embedded onStart={toSearch} />
         <ReviewStrip />
         {/* CP-258: owner videos (placeholders until the first real ones) */}
         <OwnerVideos />
+        {/* CP-277: "What the judges said" (marked placeholder until the judge's approved interview is in) */}
+        <JudgeReactions />
         {/* CP-259: the fine print, at the very bottom instead of under the phones (room for the sticky bar below it) */}
         <footer className="border-t border-[#0B1B2B]/8 bg-white pb-28 pt-8">
           <p className="s-wrap mx-auto max-w-[40rem] text-center text-[12.5px] leading-relaxed text-[#6B7A8C]">

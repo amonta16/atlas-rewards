@@ -6,9 +6,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import * as venuesConsent from "../lib/preview/consent";
 import * as medspaConsent from "../../medspa/lib/sms-consent";
-import { GUARANTEES, LAUNCH_BONUS as V_BONUS, LAUNCH_CALL as V_CALL, TEAM_PROOF as V_TEAM } from "../lib/landing/medspa-funnel";
+import { AS_SEEN_AT, JUDGE_REACTIONS, GUARANTEES, LAUNCH_BONUS as V_BONUS, LAUNCH_CALL as V_CALL, TEAM_PROOF as V_TEAM } from "../lib/landing/medspa-funnel";
 import { CALL_MINUTES } from "../lib/landing/availability";
 import { GUARANTEE_100, LAUNCH_BONUS as M_BONUS, LAUNCH_CALL as M_CALL, MECHANISM, OFFER, TEAM_PROOF as M_TEAM } from "../../medspa/lib/offer";
 
@@ -66,4 +67,21 @@ test("CP-265: the preview page's guarantee wording is the venue site's, word for
   assert.equal(GUARANTEE_100.body, GUARANTEES[0].body);
   assert.equal(GUARANTEE_100.fine, GUARANTEES[0].fine);
   assert.match(GUARANTEE_100.line, /^100 of your patients on your app within 90 days/);
+});
+
+test("CP-277: the hackathon copy claims no prize or ranking, and judge videos go up only once approved", () => {
+  const BANNED = /\b(won|winners?|winning|finalists?|placed|prizes?|awards?|award-winning|top [0-9]+)\b/i;
+  // The words on the page live in the component, so check its source too (comments stripped).
+  const src = readFileSync(new URL("../components/landing/as-seen-at.tsx", import.meta.url), "utf8");
+  const copy = src.replace(/\/\*[^]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  assert.ok(copy.includes("Demoed live"), "the comment stripping kept the copy");
+  assert.doesNotMatch(copy, BANNED);
+  assert.doesNotMatch(JSON.stringify(AS_SEEN_AT), BANNED);
+  assert.match("a finalist team", BANNED); // the pattern itself works
+  assert.equal(AS_SEEN_AT.recapUrl, "https://cpvc-hackathon-recap.vercel.app/");
+  for (const v of JUDGE_REACTIONS.videos) {
+    assert.ok(v.approved, `${v.youtube}: approved by the judge in writing before it goes in`);
+    assert.ok(v.quote.trim() && v.name.trim() && v.role.trim(), `${v.youtube}: quote, name and role`);
+    assert.doesNotMatch(`${v.quote} ${v.role}`, BANNED);
+  }
 });

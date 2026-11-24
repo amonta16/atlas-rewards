@@ -223,6 +223,46 @@ export const OWNER_VIDEOS = {
 };
 
 /**
+ * CP-277 · "As seen at" the Cal Poly AI hackathon: a big section on /med-spas, a small stamp on /medspa/app
+ * (above "Why we built Atlas") and the "What the judges said" block at the end of /medspa/app
+ * (components/landing/as-seen-at.tsx). Facts are from the organizers' recap (recapUrl).
+ * Our team did not place: not among the six winners or the eight finalists. Never claim a prize, a ranking,
+ * "finalist" or "award". Never frame Atlas as built there: the team built a new AI skin-analysis prototype
+ * that weekend (see TEAM_PROOF). Logo: the organizing club's (Cal Poly Vibe Coding), shown in one ink colour.
+ */
+export const AS_SEEN_AT = {
+  event: "CPVC × OCOB × CPE AI Hackathon",
+  short: "Cal Poly AI Hackathon",
+  where: "Cal Poly, San Luis Obispo",
+  dates: "Nov 13–15, 2026",
+  month: "November 2026",
+  recapUrl: "https://cpvc-hackathon-recap.vercel.app/",
+  photo: { file: "hackathon-room.webp", w: 1600, h: 805, alt: "Students building at their laptops behind the glass wall of a Cal Poly classroom during the AI Hackathon" },
+  logo: { file: "logos/cpvc.png", w: 600, h: 111, alt: "Cal Poly Vibe Coding, the hackathon's organizer" },
+  // From the recap's own numbers. Event facts only, nothing about how we did.
+  facts: [
+    { value: "300+", label: "students" },
+    { value: "80+", label: "teams" },
+    { value: "5", label: "head judges" },
+    { value: "3", label: "days" },
+  ],
+};
+
+/**
+ * CP-277 · the judge's reaction on video (see hackathon-handoff/07-MENTOR-INTERVIEW-KIT.md). Add a video only
+ * once the judge has signed the release AND approved this exact cut and quote in writing; then set
+ * approved: true. Show name / title / company only as the release allows (company: null hides it).
+ * Unapproved entries never render. While there are no approved videos and showSlots is true, the end of
+ * /medspa/app shows a marked placeholder; set showSlots to false to hide it until the interview is in.
+ *   { youtube: "abc123XYZ", name: "…", title: "…", company: "…" | null, role: "Head judge, Cal Poly AI Hackathon",
+ *     quote: "their exact words", approved: true }
+ */
+export const JUDGE_REACTIONS = {
+  showSlots: true,
+  videos: [] as Array<{ youtube: string; name: string; title: string; company: string | null; role: string; quote: string; approved: boolean }>,
+};
+
+/**
  * CP-268 · client results on /medspa/app, above "Why we built Atlas" (components/landing/results-showcase.tsx):
  * big numbers on the left, the owner's photo or video on the right, and a row of clinic tabs that rotate.
  * Real case studies only: every number comes from the clinic's own Atlas dashboard and goes up only with the
