@@ -11,6 +11,7 @@ import { CheckinCode } from "@/components/checkin-code";
 import { bookFor, planFirstTreatment } from "@/lib/booking";
 import { InstallRow } from "@/components/install-app";
 import { getStaff } from "@/lib/staff";
+import { AddEmail } from "@/components/add-email"; // CP-272
 
 const SITE = "https://www.atlas-engine.app";
 
@@ -57,6 +58,7 @@ export default async function Profile({ params, searchParams }: { params: { clin
             <div className="min-w-0">
               <p className="truncate text-[20px] font-semibold">{patient.fullName ?? "Your account"}</p>
               <p className="text-[14px] text-sub">{formatPhone(patient.phone)}</p>
+              {patient.email && <p className="truncate text-[14px] text-sub">{patient.email}</p>}
             </div>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3">
@@ -71,6 +73,9 @@ export default async function Profile({ params, searchParams }: { params: { clin
           <Link href={`${base}/login?next=${base}/profile`} className="btn-ink mt-4">Sign up or log in</Link>
         </section>
       )}
+
+      {/* CP-272: patients without an email (joined before sign-up asked for it) can add one here */}
+      {patient.signedIn && !patient.email && <AddEmail clinicName={clinic.name} demo={clinic.isExample && clinic.id === "example"} />}
 
       <ul className="mx-4 mt-4 divide-y divide-line overflow-hidden rounded-card bg-white shadow-card">
         {!patient.isMember && clinic.plans.length > 0 && <Row href={`${base}/shop?tab=memberships`} Icon={IcUser} label="Become a member" />}
