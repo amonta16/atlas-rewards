@@ -23,6 +23,7 @@ export const IcPin = (p: P) => base(<><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 
 export const IcSpark = (p: P) => base(<path d="M12 3.5 13.8 9l5.7 1.9-5.7 1.9L12 18.5l-1.8-5.7L4.5 10.9 10.2 9z" />, p);
 export const IcClock = (p: P) => base(<><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>, p);
 export const IcOut = (p: P) => base(<><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" /><path d="M10 16.5 5.5 12 10 7.5M5.5 12H15" /></>, p);
+export const IcTrash = (p: P) => base(<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l.8 12.5h9.4L17.5 7M10 11v5M14 11v5" />, p);
 export const IcSwap = (p: P) => base(<path d="M7 7h12l-3-3M17 17H5l3 3" />, p);
 /** Scan tab: viewfinder corners with a dashed centre line. */
 export const IcScan = (p: P) => base(<><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" /><path d="M8 12h1.5M11.25 12h1.5M14.5 12H16" /></>, p);

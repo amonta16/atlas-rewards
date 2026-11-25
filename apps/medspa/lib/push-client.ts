@@ -26,6 +26,9 @@ type NativeSaved = { token: string; businessId: string };
 const nativeSaved = (): NativeSaved | null => { try { return JSON.parse(localStorage.getItem(NATIVE_KEY) ?? "null"); } catch { return null; } };
 const setNativeSaved = (v: NativeSaved | null) => { try { if (v) localStorage.setItem(NATIVE_KEY, JSON.stringify(v)); else localStorage.removeItem(NATIVE_KEY); } catch { /* fine */ } };
 
+/** The account is gone, and its token rows with it: forget the copy on this phone. */
+export const forgetNativePush = () => setNativeSaved(null);
+
 async function saveNativeToken(token: string, businessId: string): Promise<boolean> {
   const res = await fetch("/api/notifications/subscribe", {
     method: "POST", headers: { "content-type": "application/json" },

@@ -11,6 +11,7 @@ import { CheckinCode } from "@/components/checkin-code";
 import { bookFor, planFirstTreatment } from "@/lib/booking";
 import { InstallRow } from "@/components/install-app";
 import { getStaff } from "@/lib/staff";
+import { DeleteAccountRow } from "@/components/delete-account";
 import { AddEmail } from "@/components/add-email"; // CP-272
 
 const SITE = "https://www.atlas-engine.app";
@@ -94,6 +95,7 @@ export default async function Profile({ params, searchParams }: { params: { clin
         {clinic.phone && <Row href={`tel:${clinic.phone}`} Icon={IcPhone} label={`Call ${clinic.name}`} />}
         <Row href="/find?change=1" Icon={IcSwap} label="Change location" />
         {patient.signedIn && <Row href="/auth/signout" Icon={IcOut} label="Sign out" prefetch={false} />}
+        {patient.signedIn && <DeleteAccountRow demo={clinic.isExample && clinic.id === "example"} />}
       </ul>
 
       <div className="mx-6 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-[13px] text-sub">
@@ -102,7 +104,6 @@ export default async function Profile({ params, searchParams }: { params: { clin
         {skinScanOn(clinic) && <a href={`${SITE}/legal/ai-skin-scan`} target="_blank" rel="noopener noreferrer">AI skin scan notice</a>}
         <a href={`${SITE}/legal/health-data`} target="_blank" rel="noopener noreferrer">Consumer health data</a>
         <a href={`${SITE}/legal/california`} target="_blank" rel="noopener noreferrer">California notice</a>
-        {patient.signedIn && <a href={`${SITE}/account/delete`} target="_blank" rel="noopener noreferrer">Delete account</a>}
       </div>
       <p className="mx-6 mt-6 text-[12px] text-faint">Powered by Atlas</p>
     </>
