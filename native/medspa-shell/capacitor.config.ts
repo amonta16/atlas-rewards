@@ -32,6 +32,10 @@ const config: CapacitorConfig = {
     // Marks the webview's user agent so the site can tell it's inside the app.
     appendUserAgent: "MedSpaApp/1",
   },
+  ios: {
+    // Champagne while the live site loads, so the splash does not cut to white.
+    backgroundColor: "#EFE5D6",
+  },
   plugins: {
     PushNotifications: { presentationOptions: ["badge", "sound", "alert"] },
   },
