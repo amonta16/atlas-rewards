@@ -35,7 +35,8 @@ Questions? Email hello@atlas-engine.app.
 
 ## Checked against the med spa rules
 - No toxin or filler brand names, no before/after photos and no medical claims in the text, screenshots or graphic.
-- The screenshots use the Glow Aesthetics example clinic and Spa by the Bay; none of the frames show treatment brand names or results photos.
+- CORRECTION (2026-11-24): `04-memberships.png` shows the treatment brand name HydraFacial. Remove or replace it.
+- The screenshots use the Glow Aesthetics example clinic and Spa by the Bay (marked as a demo in the database). Check that no real spa's name or logo is used without permission.
 
 ## Category and contact
 - Category: Beauty
