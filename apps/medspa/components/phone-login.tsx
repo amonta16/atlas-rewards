@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@atlas/core/supabase/client";
+import { markSignedIn } from "@/lib/push-client";
 import { Wordmark } from "./chrome";
 
 type Step = "phone" | "code" | "name" | "email";
@@ -100,6 +101,7 @@ export function PhoneLogin({ slug, clinicName, logoUrl, next, demo, textOn }: { 
   }
 
   function done() {
+    markSignedIn(slug);
     router.replace(next);
     router.refresh();
   }

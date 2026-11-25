@@ -2,6 +2,7 @@ import { getClinic } from "@/lib/clinic";
 import { getPatient } from "@/lib/patient";
 import { GateProvider } from "@/components/gate";
 import { TabBar } from "@/components/chrome";
+import { NotifyAfterSignIn } from "@/components/notifications";
 import { ReferralCapture } from "@/components/referral-capture";
 
 /** The five-tab app (Home · Shop · Scan · Rewards · Profile). Login lives outside it. */
@@ -19,6 +20,7 @@ export default async function TabsLayout({ children, params }: { children: React
       )}
       <main style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
       <ReferralCapture slug={clinic.slug} clinicId={clinic.id} signedIn={patient.signedIn} demo={clinic.isExample && clinic.id === "example"} />
+      {!clinic.preview && <NotifyAfterSignIn clinicId={clinic.id} clinicName={clinic.name} slug={clinic.slug} demo={clinic.isExample && clinic.id === "example"} signedIn={patient.signedIn} />}
       <TabBar slug={clinic.slug} dot={canRedeem ? "rewards" : null} />
     </GateProvider>
     </div>

@@ -36,6 +36,17 @@ async function saveNativeToken(token: string, businessId: string): Promise<boole
   return true;
 }
 
+// Set when sign-in finishes; the first signed-in clinic screen reads it once (NotifyAfterSignIn).
+const SIGNED_IN_KEY = "ms_just_signed_in";
+export const markSignedIn = (slug: string) => { try { sessionStorage.setItem(SIGNED_IN_KEY, slug); } catch { /* no prompt, nothing breaks */ } };
+export function takeSignedIn(slug: string): boolean {
+  try {
+    if (sessionStorage.getItem(SIGNED_IN_KEY) !== slug) return false;
+    sessionStorage.removeItem(SIGNED_IN_KEY);
+    return true;
+  } catch { return false; }
+}
+
 async function nativeState(businessId: string | undefined, demo: boolean): Promise<PushState> {
   const perm = await nativePushPermission();
   if (!perm) return "unsupported";
